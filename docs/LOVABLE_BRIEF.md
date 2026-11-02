@@ -87,7 +87,7 @@ Detail (reason, origin, notes) lives in free-text notes plus the document, not i
 9. **Production orders to the factory:** manual and static for now (e.g. "BR2 red 2XL × 50"). The user decides quantities and tracks them. Do not auto-generate yet. Keep the data model ready (an order document the receipt can link to).
 
 ### 3.4 Rules, standards, and alerts
-- Negative stock is blocked by default (setting to allow). Backdating up to 72 hours for employees; the super admin is unrestricted. **Permissions are intentionally postponed**: during the test phase the system is open to everyone (record who did what, no role restrictions). Later roles: Super Admin, Admin, Team Leader (same as employee for now), Employee, Factory (external; sees what to manufacture and what it holds pending; no money or channel names). Every action should pass through one permission check that currently returns true.
+- Negative stock is blocked by default for manual operations (but never for scans, see 3.6). Backdating up to 72 hours for employees; the super admin is unrestricted. **Permissions are intentionally postponed**: during the test phase the system is open to everyone (record who did what, no role restrictions). Later roles: Super Admin, Admin, Team Leader (same as employee for now), Employee, Factory (external; sees what to manufacture and what it holds pending; no money or channel names). Every action should pass through one permission check that currently returns true.
 - Cost method assumed: weighted average. Monthly period close assumed. Both are **unconfirmed**.
 - Alerts are **statistics-based**, not fixed minimums: days of cover = ready ÷ daily pull, with a threshold that comes from lead time plus safety. Do not trust it with fewer than about 3 days of delivery history (show "early estimate"); fall back to the legacy min levels (5/15/30, from the old file) until then. Exclude days with zero stock from the average. Fast history can be loaded by importing older pickup sheets.
 - Waste/loss rates to monitor: lost ÷ expected returns per channel, damaged ÷ received returns per channel, damaged ÷ average stock. Calibrate thresholds after ~30 days of silent logging, do not guess numbers.
@@ -128,11 +128,41 @@ Detail (reason, origin, notes) lives in free-text notes plus the document, not i
 
 ---
 
+### 3.6 Update 2026-11-02 evening: Stakeholders, Pickup vs Scanned Orders (supersedes parts of 3.3 and 3.4)
+
+**Stakeholders** (the user will show the data to all of them for now; role separation later, expected to be only two levels):
+- Mr Galal: factory and manufacturing. Mr Wagih: operations, finance, ads. Mr Suqraat: audit. A manufacturing manager. Inventory employees Abdullah and Hossam. Platforms: Vendoor, Amazon, Noon. Shipping companies. A PORTO partnership has its own GIFT stock (meaning still to be clarified).
+- Every action must be logged (who, what, when).
+
+**The core problem found:** the pickup sheet is what the channel *asks for*, not what really left the warehouse. Orders can be stuck (a piece missing, a customer change). So two different documents exist:
+1. **Pickup** (from the channel): the *demand*. It does **not** change stock.
+2. **Scanned Orders** (from each employee's scanner app, uploaded at the end of the day): the *actual outgoing*. Each scanned order moves its pieces from Stock to the channel/customer location and **deducts stock**.
+3. **Stuck orders** = pickup orders that are not scanned yet. The system lists them, says which missing variants block each one (an order is blocked if any piece is short, because the bundle is sent complete), and which variants block the most orders (this is what the factory needs).
+
+**Key facts about the scan file (real QRbot export, `QRbot_202611021914566.csv`):**
+- The QR code holds the **random order code** (`كود الاوردر العشوائي`), **not the waybill** (an earlier note in this brief said waybill; that was wrong). Match by order code; accept the waybill as a fallback.
+- The file has no employee name (the NAME column is empty), so the employee is entered at upload. One file per employee per day is assumed (to be confirmed).
+- The timestamp is the registration time (28 orders were registered in 3 minutes), not the packing time. Do not use it to measure packing speed.
+- Re-uploading the same file must create nothing new (already registered orders are detected).
+- A manual fallback: select pickup orders in the UI and register them as scanned.
+
+**Rule change:** scans are **never blocked by stock** ("work must not stop"). If the system stock is not enough, the scan is accepted, stock goes negative, and the system raises a "Negative stock" exception and a warning in the header so the count can be fixed. Negative stock stays blocked for manual operations like internal transfers and scrap.
+
+**Employee metrics:** orders and pieces per employee per day, first and last scan time.
+
+**Still not built (requirements from the stakeholders):**
+- **Consumables:** carrier flyers (one size, one per order, they carry the waybill), Fémini packaging in S/M/L (selection rule unknown), plastic cups for padded bras (2 cups per BR1 piece; the bag holds 24 singles; track consumption on *scanned* BR1 pieces and alert before they run out).
+- **Finance:** unit cost per receipt, selling price per channel, profit per order, bundle vs piece pricing.
+- **PORTO GIFT stock**, cancelled orders after pickup, Noon and Amazon pickup and return files, and whether return sheets contain order codes.
+- Live scanning in the app (today it is an upload of the scanner's file).
+
+---
+
 ## 4. What was prototyped, and what the user said
 
 Two single-file prototypes live in `apps/` (browser storage only, no backend, no real photo storage). Open the `index.html` files in a browser; no server is needed.
 
-- **Prototype 1 ("task-first", Arabic), `apps/task-first-edition/index.html`:**
+- **Prototype 1 ("task-first", Arabic), `apps/task-first-edition/index.html`, source in `src/task-first-edition/`, test in `tests/task_first_scan_test.js`.** This is the version the user will most likely keep working in, and it is the only one with the Scanned Orders flow (3.6): upload the scanner file, per-order status on the pickup screen (registered / waiting for scan / blocked), blocked-variants analytics, per-employee counts. Its storage key is `femini-wms-mvp-2`. Original description:
   Desk with model cards (color × size heat matrix), exceptions, pickups strip; an "Operations" page that asks "what did you do?" with 9 task cards, each a 3-step screen (details, items, review and confirm with an effect preview); ledger, analytics (demand, ABC, kits, returns), reports, data tab.
 - **Prototype 2 ("standard", Odoo/Oracle terminology, English with Arabic hints), `apps/standard-edition/index.html`, source in `src/standard-edition/`:**
   Navbar (Overview, Operations, Products, Reporting, Configuration), Overview kanban of Operation Types with To Process / Waiting / Late / Back Orders, transfer list and form with status bar Draft → Waiting → Ready → Done, Backorder dialog, Return button, RMA with inspection split, Internal Transfers, Cleaning (subcontract) send/receive, Scrap orders, Inventory Adjustments (Physical Inventory), Loss Resolution, Stock report (On Hand, Free to Use, Incoming, Outgoing, Forecasted), Locations, Moves History/Analysis, Replenishment (Min/Max/To Order), ABC, Demand and Kits.
@@ -158,6 +188,8 @@ Both pass automated browser tests (~25 and 43 checks). Both include an Excel imp
 ---
 
 ## 5. Open questions (ask the user, do not guess)
+
+0. **Added 2026-11-02:** one scan file per employee, always in the QRbot format? Does the QR hold only the order code? Do return sheets contain order codes? How do cancelled orders appear? What is the rule for choosing the Fémini packaging size (S/M/L)? What is PORTO GIFT? Does the price differ per channel and who enters the cost? Which two access levels will exist?
 
 1. **PAN6 / bundles:** what pieces compose each bundle the user sells; what the "50" on PAN6 meant. (Current plan: bundles are recipes, not stock.)
 2. **Cup:** which models consume it, quantity per piece, is the bag of 24 a count of singles or pairs, does it vary by size or color, does it return with returns, and where do cups go after arrival?

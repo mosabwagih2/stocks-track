@@ -11,9 +11,12 @@ This repository is the **design and brainstorming state** of the project, to be 
 | Path | What |
 |---|---|
 | `apps/standard-edition/index.html` | **Recommended base.** Odoo/Oracle-style terminology: Overview with operation types, Transfers (Draft, Waiting, Ready, Done), Backorders, Returns, Inventory Adjustments, locations, Stock / Moves / Replenishment / ABC / Kits reports. English labels with Arabic hints. |
-| `apps/task-first-edition/index.html` | First prototype, task-first and fully Arabic ("what did you do?"), with the stock desk, effect preview before confirming, analytics. Kept as a UX reference. |
+| `apps/task-first-edition/index.html` | First prototype, task-first and fully Arabic ("what did you do?"), with the stock desk, effect preview before confirming, analytics. **Now also has the Scanned Orders flow** (pickup = demand, scanned = actual out, stuck orders, per-employee counts); this is the version the user will most likely continue with. |
+| `src/task-first-edition/` | Source of the first prototype (`app.src.html` + `data.json`). Rebuild with `python3 src/task-first-edition/build.py`. |
+| `tests/task_first_scan_test.js` | Playwright test (28 checks) for the scan flow. It uses `data/QRbot_202611021914566_scanned_orders.csv` and expects `apps/task-first-edition/index.html` (check the paths at the top of the file). |
 | `src/standard-edition/` | Source parts of the standard edition. Rebuild with `python3 src/standard-edition/build.py`. |
 | `data/femini_master_skus.csv` | Cleaned master: 626 variants, English names, legacy min alert, opening stock (physical count of 2026-10-29). |
+| `data/QRbot_202611021914566_scanned_orders.csv` | Real scanner export of 2026-11-02 (28 scanned orders; the QR holds the order code). |
 | `data/vendoor_pickups_2026-11-02_lines.csv` | One real day of Vendoor pickup lines (92 orders, 1,070 pieces), without customer personal data. |
 
 ## Running the prototypes
