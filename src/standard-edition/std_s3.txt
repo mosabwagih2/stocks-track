@@ -1,0 +1,241 @@
+/* ================= Demand context (ABC, velocity, orders) ================= */
+function DM(){
+  if(DMC)return DMC;
+  var hist=[],hm={},hs={},hc={},hg={},days={},pcs=0,vel={},types={};
+  S.docs.forEach(function(t){
+    if(t.type!=='OUT'||t.state==='cancel'||!t.meta||!t.meta.orders)return;
+    t.meta.orders.forEach(function(o){
+      if(t.meta.cx&&t.meta.cx[o.ref])return;
+      hist.push({date:t.date,o:o,t:t});days[t.date]=1;
+      o.lines.forEach(function(s){var k=SKU.get(s);hm[k.m]=(hm[k.m]||0)+1;hs[k.s]=(hs[k.s]||0)+1;hc[k.c]=(hc[k.c]||0)+1;pcs++});
+      if(o.gov)hg[o.gov]=(hg[o.gov]||0)+1;types[o.type]=(types[o.type]||0)+1;
+    });
+  });
+  var dl=Object.keys(days).sort(),from=addDays(UI.today,-(S.settings.lookback-1)),span=dl.length?Math.max(1,Math.min(S.settings.lookback,dayDiff(dl[0],UI.today)+1)):1;
+  hist.forEach(function(x){if(x.date>=from&&x.date<=UI.today)x.o.lines.forEach(function(s){vel[s]=(vel[s]||0)+1/span})});
+  var abc={},tot=0,cum=0;Object.keys(hm).forEach(function(m){tot+=hm[m]});
+  Object.keys(hm).sort(function(a,b){return hm[b]-hm[a]}).forEach(function(m){abc[m]=cum/(tot||1)<.8?'A':cum/(tot||1)<.95?'B':'C';cum+=hm[m]});
+  return (DMC={hist:hist,hm:hm,hs:hs,hc:hc,hg:hg,pcs:pcs,abc:abc,dl:dl,span:span,vel:vel,types:types,tot:tot});
+}
+function prodAgg(m){var o={oh:0,free:0,inc:0,out:0,fc:0,clean:0},A=agg();D.skus.forEach(function(k){if(k.m!==m)return;var x=A[k.id];o.oh+=x.oh;o.free+=x.free;o.inc+=x.inc;o.out+=x.out;o.fc+=x.fc;o.clean+=x.clean});return o}
+function abcTag(m){var c=DM().abc[m];return c?'<span class="abc '+c+'" title="ABC class by demand">'+c+'</span>':'<span class="muted">—</span>'}
+
+/* ================= Products ================= */
+function vProducts(){
+  var q=(UI.pq||'').toLowerCase(),rows=MORDER.filter(function(m){return !q||(m+' '+MODEL.get(m).name+' '+categoryOf(m)).toLowerCase().indexOf(q)>=0}).map(function(m){
+    var a=prodAgg(m),M=MODEL.get(m),n=D.skus.filter(function(k){return k.m===m}).length;
+    return '<tr class="click" data-a="prod" data-m="'+m+'"><td class="mono"><b>'+m+'</b></td><td>'+esc(M.name)+'</td><td>'+categoryOf(m)+'</td><td class="n">'+n+'</td><td class="n">'+fmt(a.oh)+'</td><td class="n">'+fmt(a.free)+'</td><td class="n">'+fmt(a.fc)+'</td><td>'+abcTag(m)+'</td></tr>'});
+  return cpanel([['Overview','overview'],['Products','products']],'','<div class="search"><input data-i="pq" id="pq" value="'+esc(UI.pq||'')+'" placeholder="Search products…"></div>')+
+    '<div class="page">'+tbl([['Internal Reference','','الكود'],['Product','','المنتج'],['Product Category','','الفئة'],['Variants','n','المتغيرات'],['On Hand','n','الرصيد'],['Free to Use','n','المتاح'],['Forecasted','n','المتوقع'],['ABC','','تصنيف ABC']],rows)+'</div>';
+}
+var PM=[['oh','On Hand'],['free','Free to Use'],['inc','Incoming'],['out','Outgoing'],['fc','Forecasted'],['clean','In Cleaning']];
+function vProduct(m){
+  var M=MODEL.get(m),A=agg(),a=prodAgg(m),mx=1,meas=UI.pm;
+  var val=function(s){return A[s][meas]};
+  M.colors.forEach(function(c){M.sizes.forEach(function(z){var v=val(IDX[m+'|'+c+'|'+z]);if(v>mx)mx=v})});
+  var tipf=function(s){var x=A[s];return esc('<div class="tt"><div class="tn">'+esc(variantPlain(s))+'</div><div class="tm">On Hand <b>'+fmt(x.oh)+'</b></div><ul><li>WH/Stock <b>'+fmt(x.stock)+'</b></li><li>WH/Cleaning <b>'+fmt(x.clean)+'</b></li></ul><div class="td">Free to Use <b>'+fmt(x.free)+'</b> · Incoming '+fmt(x.inc)+' · Outgoing '+fmt(x.out)+'</div><div class="td">Forecasted <b>'+fmt(x.fc)+'</b></div></div>')};
+  var cs={};
+  var body=M.colors.map(function(c){var rt=0,cells=M.sizes.map(function(z){var s=IDX[m+'|'+c+'|'+z],v=val(s);rt+=v;cs[z]=(cs[z]||0)+v;return '<td class="mxc'+(v===0?' z':'')+'" style="--h:'+(v>0?(v/mx).toFixed(2):0)+'" data-tiph="'+tipf(s)+'">'+fmt(v)+'</td>'}).join('');return '<tr><th class="cl">'+swatch(c)+esc(cn(c))+'</th>'+cells+'<td class="mxt">'+fmt(rt)+'</td></tr>'}).join('');
+  var foot='<tr><th class="cl">Total</th>'+M.sizes.map(function(z){return '<td class="mxt">'+fmt(cs[z]||0)+'</td>'}).join('')+'<td class="mxt">'+fmt(M.sizes.reduce(function(s,z){return s+(cs[z]||0)},0))+'</td></tr>';
+  var recent=S.moves.filter(function(x){var k=SKU.get(x.s);return k&&k.m===m}).slice(-12).reverse().map(function(x){return '<tr><td class="mono">'+x.d+'</td><td class="mono">'+esc(x.ref)+'</td><td>'+variantLabel(x.s)+'</td><td>'+locHTML(x.src)+'</td><td>'+locHTML(x.dst)+'</td><td class="n">'+fmt(x.q)+'</td></tr>'}).join('');
+  return cpanel([['Overview','overview'],['Products','products'],[m+' '+M.name,'product']],'<button class="btn" data-a="go" data-r="stock" data-q="'+m+'">Stock</button><button class="btn" data-a="go" data-r="moves" data-q="'+m+'">Moves History</button>')+
+   '<div class="page"><div class="sheet"><div class="ttl"><h1>'+esc(M.name)+' <span class="mono muted">'+m+'</span></h1></div><div class="fgrid"><div class="fld"><label>Internal Reference</label><div class="fv mono">'+m+'</div></div><div class="fld"><label>Product Category</label><div class="fv">'+categoryOf(m)+'</div></div><div class="fld"><label>Unit of Measure</label><div class="fv">Units</div></div><div class="fld"><label>ABC class</label><div class="fv">'+abcTag(m)+'</div></div></div>'+
+   '<div class="infolets small">'+[['On Hand',a.oh],['Free to Use',a.free],['Incoming',a.inc],['Outgoing',a.out],['Forecasted',a.fc],['In Cleaning',a.clean]].map(function(c){return '<div class="infolet"><div class="il">'+c[0]+'</div><div class="iv">'+fmt(c[1])+'</div></div>'}).join('')+'</div></div>'+
+   '<div class="sheet"><div class="tabs2"><span class="tab2 on">Variants</span><span class="muted small">Color × Size</span><select class="sel" data-c="pm" style="margin-inline-start:auto">'+PM.map(function(x){return '<option value="'+x[0]+'"'+(meas===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select></div><div class="scroll"><table class="mxt2"><thead><tr><th class="cl">Color</th>'+M.sizes.map(function(z){return '<th>'+z+'</th>'}).join('')+'<th>Total</th></tr></thead><tbody>'+body+foot+'</tbody></table></div><p class="muted small">Hover a cell for the breakdown by location.</p></div>'+
+   '<div class="sheet"><div class="tabs2"><span class="tab2 on">Recent moves</span></div>'+(recent?tbl([['Date'],['Reference'],['Product'],['From'],['To'],['Quantity','n']],[recent]):'<p class="muted pad">No moves yet.</p>')+'</div></div>';
+}
+
+/* ================= Reports ================= */
+function vStock(){
+  var f=UI.sr,q=(f.q||'').toLowerCase(),A=agg(),list=D.skus.map(function(k){return k.id}).filter(function(s){
+    var k=SKU.get(s),x=A[s];if(f.hide0&&!(x.oh||x.inc||x.out))return false;
+    return !q||(s+' '+k.m+' '+MODEL.get(k.m).name+' '+k.c+' '+cn(k.c)+' '+k.s).toLowerCase().indexOf(q)>=0}).sort(skuSort);
+  var row=function(s){var x=A[s],k=SKU.get(s);return '<tr><td class="mono">'+s+'</td><td>'+esc(k.m+' '+MODEL.get(k.m).name)+'</td><td>'+swatch(k.c)+esc(cn(k.c))+'</td><td>'+k.s+'</td><td class="n"><b>'+fmt(x.oh)+'</b></td><td class="n">'+fmt(x.free)+'</td><td class="n">'+fmt(x.inc)+'</td><td class="n">'+fmt(x.out)+'</td><td class="n '+(x.fc<0?'neg':'')+'">'+fmt(x.fc)+'</td><td class="n"><a class="lnk" data-a="go" data-r="moves" data-q="'+s+'">History</a></td></tr>'};
+  var body='';
+  if(f.group==='pr'){var cur='';list.slice(0,f.n*3).forEach(function(s){var m=SKU.get(s).m;if(m!==cur){cur=m;var a=prodAgg(m);body+='<tr class="grow"><td colspan="4"><b>'+esc(m+' '+MODEL.get(m).name)+'</b></td><td class="n"><b>'+fmt(a.oh)+'</b></td><td class="n"><b>'+fmt(a.free)+'</b></td><td class="n"><b>'+fmt(a.inc)+'</b></td><td class="n"><b>'+fmt(a.out)+'</b></td><td class="n"><b>'+fmt(a.fc)+'</b></td><td></td></tr>'}body+=row(s)})}
+  else body=list.slice(0,f.n).map(row).join('');
+  var t={oh:0,free:0,inc:0,out:0,fc:0};list.forEach(function(s){var x=A[s];t.oh+=x.oh;t.free+=x.free;t.inc+=x.inc;t.out+=x.out;t.fc+=x.fc});
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Stock','stock']],'<button class="btn" data-a="csv" data-v="stock">Export</button>','<div class="search"><input data-i="srq" id="srq" value="'+esc(f.q||'')+'" placeholder="Search product, color, size…"><select class="sel" data-c="srgroup"><option value="">Group by…</option><option value="pr"'+(f.group==='pr'?' selected':'')+'>Product</option></select><label class="chk"><input type="checkbox" data-c="srhide"'+(f.hide0?' checked':'')+'> Hide empty</label></div>')+
+   '<div class="page"><div class="scroll"><table class="list"><thead><tr><th>Internal Reference</th><th>Product</th><th>Color</th><th>Size</th><th class="n" title="الرصيد الفعلي في المخزن (جاهز + تنظيف)">On Hand</th><th class="n" title="الجاهز غير المحجوز">Free to Use</th><th class="n" title="مستلم متوقع + عند المصنع">Incoming</th><th class="n" title="أوردرات تسليم مفتوحة">Outgoing</th><th class="n" title="On Hand + Incoming − Outgoing">Forecasted</th><th></th></tr></thead><tbody>'+body+'</tbody><tfoot><tr><td colspan="4"><b>Total ('+fmt(list.length)+' variants)</b></td><td class="n"><b>'+fmt(t.oh)+'</b></td><td class="n"><b>'+fmt(t.free)+'</b></td><td class="n"><b>'+fmt(t.inc)+'</b></td><td class="n"><b>'+fmt(t.out)+'</b></td><td class="n"><b>'+fmt(t.fc)+'</b></td><td></td></tr></tfoot></table></div>'+(list.length>f.n&&f.group!=='pr'?'<button class="btn" data-a="srmore">Load more</button>':'')+'<p class="muted small">Forecasted = On Hand + Incoming − Outgoing. On Hand counts WH/Stock and WH/Cleaning.</p></div>';
+}
+function vLocations(){
+  var sel=UI.lr||'WH/Stock',locs=Object.keys(LOC).concat(S.partners.customers.map(function(c){return 'Partners/Customers/'+c}));
+  var cards='<div class="infolets small">'+locs.map(function(l){return '<button class="infolet click'+(sel===l?' on':'')+'" data-a="lsel" data-l="'+esc(l)+'" title="'+esc(locAr(l))+'"><div class="il">'+esc(l)+'</div><div class="iv">'+fmt(locTotal(l))+'</div><div class="im">'+locType(l)+'</div></button>'}).join('')+'</div>';
+  var rows=D.skus.map(function(k){return k.id}).filter(function(s){return qty(s,sel)!==0}).sort(skuSort).slice(0,400).map(function(s){return '<tr><td class="mono">'+s+'</td><td>'+variantLabel(s)+'</td><td>'+locHTML(sel)+'</td><td class="n"><b>'+fmt(qty(s,sel))+'</b></td></tr>'});
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Locations','locations']],'')+'<div class="page"><p class="muted">On-hand quantity per location. Virtual locations hold stock that left the warehouse for a reason (scrap, loss, adjustment); they never count as On Hand.</p>'+cards+'<h3 class="mt">'+esc(sel)+' <span class="muted small">('+locType(sel)+')</span></h3>'+(rows.length?tbl([['Internal Reference'],['Product'],['Location'],['On Hand','n']],rows):'<div class="empty">Nothing in this location.</div>')+'</div>';
+}
+function moveKind(m){
+  var a=locType(m.src),b=locType(m.dst),ai=isInternal(m.src),bi_=isInternal(m.dst),ext=function(t){return t==='Vendor'||t==='Customer'||t==='Transit'};
+  if(ext(a)&&bi_)return 'Incoming';if(ai&&ext(b))return 'Outgoing';if(ai&&bi_)return 'Internal';return 'Inventory';
+}
+function vMoves(){
+  var f=UI.mv,q=(f.q||'').toLowerCase();
+  var rows=S.moves.slice().reverse().filter(function(m){if(f.f&&moveKind(m)!==f.f)return false;return !q||(m.ref+' '+m.s+' '+m.src+' '+m.dst+' '+(m.n||'')+' '+(SKU.get(m.s)?SKU.get(m.s).m:'')).toLowerCase().indexOf(q)>=0});
+  var chips='<div class="facets">'+['Incoming','Outgoing','Internal','Inventory'].map(function(k){return '<button class="chipf'+(f.f===k?' on':'')+'" data-a="mvf" data-v="'+k+'">'+k+'</button>'}).join('')+'</div>';
+  var gsel='<select class="sel" data-c="mvgroup"><option value="">Group by…</option>'+[['ty','Operation Type'],['pr','Product'],['ref','Reference'],['d','Date'],['by','Done By'],['src','From'],['dst','To']].map(function(x){return '<option value="'+x[0]+'"'+(f.group===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select>';
+  var body;
+  if(f.group){var kf={ty:function(m){return OT[m.ty]?OT[m.ty].name:m.ty},pr:function(m){return SKU.get(m.s)?SKU.get(m.s).m:m.s},ref:function(m){return m.ref},d:function(m){return m.d},by:function(m){return m.by||'—'},src:function(m){return m.src},dst:function(m){return m.dst}}[f.group],G={};rows.forEach(function(m){var k=kf(m),o=G[k]||(G[k]={n:0,q:0});o.n++;o.q+=m.q});
+    body=tbl([['Group'],['Moves','n'],['Quantity','n']],Object.keys(G).sort(function(a,b){return G[b].q-G[a].q}).map(function(k){return '<tr><td>'+esc(k)+'</td><td class="n">'+fmt(G[k].n)+'</td><td class="n">'+fmt(G[k].q)+'</td></tr>'}));
+  }else body=tbl([['Date'],['Reference'],['Operation Type'],['Product'],['From'],['To'],['Quantity','n'],['Note'],['Done By'],['Status']],rows.slice(0,f.n).map(function(m){return '<tr><td class="mono">'+m.d+'</td><td class="mono">'+esc(m.ref)+'</td><td>'+esc(OT[m.ty]?OT[m.ty].name:m.ty)+'</td><td>'+(SKU.get(m.s)?variantLabel(m.s):m.s)+'</td><td>'+locHTML(m.src)+'</td><td>'+locHTML(m.dst)+'</td><td class="n"><b>'+fmt(m.q)+'</b></td><td class="g1">'+esc(m.n||'')+'</td><td>'+esc(m.by||'')+'</td><td>'+badge('Done')+'</td></tr>'}));
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Moves History','moves']],'<button class="btn" data-a="csv" data-v="moves">Export</button>','<div class="search"><input data-i="mvq" id="mvq" value="'+esc(f.q||'')+'" placeholder="Search reference, product, location…">'+gsel+'</div>'+chips)+'<div class="page">'+body+(!f.group&&rows.length>f.n?'<button class="btn" data-a="mvmore">Load more</button>':'')+'<p class="muted small">'+fmt(rows.length)+' stock moves. Moves are never edited or deleted; mistakes are corrected with a Return or an Adjustment.</p></div>';
+}
+function vAnalysis(){
+  var by=UI.an.by,kf={ty:function(m){return OT[m.ty]?OT[m.ty].name:m.ty},pr:function(m){return SKU.get(m.s)?mname(SKU.get(m.s).m):m.s},d:function(m){return m.d},by:function(m){return m.by||'—'},src:function(m){return m.src},dst:function(m){return m.dst},kind:function(m){return moveKind(m)}}[by],G={};
+  S.moves.forEach(function(m){var k=kf(m),o=G[k]||(G[k]={n:0,q:0});o.n++;o.q+=m.q});
+  var ks=Object.keys(G).sort(function(a,b){return G[b].q-G[a].q}),mx=Math.max.apply(null,ks.map(function(k){return G[k].q}).concat([1]));
+  var opts=[['kind','Move type (Incoming / Outgoing / Internal / Inventory)'],['ty','Operation Type'],['pr','Product'],['d','Date'],['by','Done By'],['src','From location'],['dst','To location']];
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Moves Analysis','analysis']],'','<div class="search"><label class="field">Group by<select class="sel" data-c="anby">'+opts.map(function(x){return '<option value="'+x[0]+'"'+(by===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select></label></div>')+
+   '<div class="page"><div class="scroll"><table class="list"><thead><tr><th>'+esc(opts.filter(function(x){return x[0]===by})[0][1])+'</th><th class="n">Moves</th><th class="n">Quantity</th><th style="width:40%"></th></tr></thead><tbody>'+ks.map(function(k){return '<tr><td>'+esc(k)+'</td><td class="n">'+fmt(G[k].n)+'</td><td class="n"><b>'+fmt(G[k].q)+'</b></td><td><div class="hbar"><i style="width:'+(G[k].q/mx*100).toFixed(1)+'%"></i></div></td></tr>'}).join('')+'</tbody></table></div></div>';
+}
+function vReplenish(){
+  var A=agg(),mult=S.settings.mult,rows=D.skus.filter(function(k){return k.min>0&&k.open>=0&&A[k.id].fc<k.min}).map(function(k){var x=A[k.id],mx=k.min*mult;return {k:k,x:x,max:mx,order:Math.max(0,mx-x.fc)}}).sort(function(a,b){return b.order-a.order});
+  var body=rows.slice(0,250).map(function(r){return '<tr><td>'+variantLabel(r.k.id)+'</td><td class="n">'+r.k.min+'</td><td class="n">'+r.max+'</td><td class="n">'+fmt(r.x.oh)+'</td><td class="n">'+fmt(r.x.fc)+'</td><td class="n"><b>'+fmt(r.order)+'</b></td><td>Manual</td></tr>'});
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Replenishment','replenish']],'<button class="btn" data-a="csv" data-v="replenish">Export</button>')+'<div class="page"><p class="muted">Reordering rules: when the <b>Forecast</b> falls below <b>Min</b>, the product appears here and <b>To Order</b> brings it back up to <b>Max</b>. Min comes from your old alert levels, and Max = Min × '+mult+' (change it in Settings). Trigger is Manual: it lists the product, you decide the quantity with the factory.</p>'+
+   (rows.length?tbl([['Product','','المنتج'],['Min','n'],['Max','n'],['On Hand','n'],['Forecast','n'],['To Order','n','الكمية المقترحة'],['Trigger']],body)+'<p class="muted small">'+fmt(rows.length)+' variants below Min.</p>':'<div class="empty">Nothing to replenish.</div>')+'</div>';
+}
+function vABC(){
+  var dm=DM(),ms=Object.keys(dm.hm).sort(function(a,b){return dm.hm[b]-dm.hm[a]}),cum=0;
+  var rows=ms.map(function(m){cum+=dm.hm[m];return '<tr><td><b class="mono">'+m+'</b> '+esc(MODEL.get(m).name)+'</td><td>'+abcTag(m)+'</td><td class="n">'+fmt(dm.hm[m])+'</td><td class="n">'+(dm.hm[m]/dm.tot*100).toFixed(1)+'%</td><td class="n">'+(cum/dm.tot*100).toFixed(1)+'%</td><td class="n">'+fmt(prodAgg(m).oh)+'</td></tr>'});
+  return cpanel([['Overview','overview'],['Reporting','stock'],['ABC Analysis','abc']],'')+'<div class="page"><p class="muted">Products are ranked by units delivered. A = first 80% of demand, B = up to 95%, C = the rest. It sets the cycle-count frequency (A every 7 days, B every 30, C every 90).</p>'+(rows.length?tbl([['Product'],['Class'],['Units delivered','n'],['% of demand','n'],['Cumulative %','n'],['On Hand','n']],rows):'<div class="empty">No delivery history yet.</div>')+'</div>';
+}
+function detectKits(){
+  var dm=DM(),sig={};
+  dm.hist.forEach(function(x){var comp={};x.o.lines.forEach(function(s){var k=SKU.get(s),key=k.m+'|'+k.c;comp[key]=(comp[key]||0)+1});var ks=Object.keys(comp).sort();if(ks.length<3)return;
+    var sg=ks.map(function(k){return k+':'+comp[k]}).join(','),o=sig[sg]||(sig[sg]={s:sg,comp:comp,n:0,pcs:ks.reduce(function(a,k){return a+comp[k]},0),today:{},mixed:0});
+    o.n++;if(x.date===UI.today){var zs={};x.o.lines.forEach(function(s){zs[SKU.get(s).s]=1});var zk=Object.keys(zs);if(zk.length===1)o.today[zk[0]]=(o.today[zk[0]]||0)+1;else o.mixed++}});
+  var ks=Object.keys(sig).map(function(k){return sig[k]}).filter(function(b){return b.n>=3}).sort(function(a,b){return b.n-a.n});
+  ks.forEach(function(b){b.cap={};SZ.forEach(function(z){var min=Infinity,lim=[];Object.keys(b.comp).forEach(function(k){var p=k.split('|'),id=IDX[p[0]+'|'+p[1]+'|'+z],have=id?Math.floor(qty(id,'WH/Stock')/b.comp[k]):0;if(have<min){min=have;lim=[k]}else if(have===min)lim.push(k)});b.cap[z]={n:min===Infinity?0:min,lim:lim}})});
+  return ks;
+}
+function hb(label,v,max,right){return '<div class="hb"><span class="nn">'+label+'</span><div class="track"><div class="fill" style="width:'+(max?Math.max(1,v/max*100):0).toFixed(1)+'%"></div></div><span class="v">'+right+'</span></div>'}
+function vDemand(){
+  var dm=DM(),kits=detectKits();
+  function top(map,n){return Object.keys(map).sort(function(a,b){return map[b]-map[a]}).slice(0,n||99)}
+  var szs=SZ.filter(function(z){return dm.hs[z]}),mxS=Math.max.apply(null,szs.map(function(z){return dm.hs[z]}).concat([1])),ms=top(dm.hm,12),cs=top(dm.hc,10),gs=top(dm.hg,10);
+  var panel=function(t,h){return '<div class="sheet"><h3>'+t+'</h3>'+h+'</div>'};
+  var kitsHTML=kits.length?kits.map(function(b){var bn=S.bn[b.s]||'';
+    return '<div class="sheet kit"><div class="row"><input data-i="bname" data-sig="'+esc(b.s)+'" value="'+esc(bn)+'" placeholder="Name this kit"><span>'+pillx('ordered '+b.n+' times','st-Ready')+' '+pillx(b.pcs+' units','')+'</span></div><div class="chips">'+Object.keys(b.comp).sort().map(function(k){var p=k.split('|');return '<span class="chip">'+swatch(p[1])+'<span class="mono">'+esc(p[0])+'</span> '+esc(cn(p[1]))+(b.comp[k]>1?' ×'+b.comp[k]:'')+'</span>'}).join('')+'</div><div class="scroll"><table class="list kt"><thead><tr><th>Kit</th>'+SZ.map(function(z){return '<th class="n">'+z+'</th>'}).join('')+'</tr></thead><tbody><tr><td>Can be assembled</td>'+SZ.map(function(z){var c=b.cap[z];return '<td class="n '+(c.n===0?'neg':'')+'" title="'+esc('Limited by: '+c.lim.map(function(k){var q=k.split('|');return q[0]+' '+cn(q[1])}).join(', '))+'"><b>'+fmt(c.n)+'</b></td>'}).join('')+'</tr><tr><td>Ordered '+UI.today+'</td>'+SZ.map(function(z){return '<td class="n">'+(b.today[z]||'·')+'</td>'}).join('')+'</tr></tbody></table></div></div>'}).join(''):'<div class="empty">No combination has been ordered 3 or more times yet.</div>';
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Demand Analysis','demand']],'')+'<div class="page"><p class="muted">Built from the Delivery Orders imported from the sheets (last '+S.settings.lookback+' days up to '+UI.today+').</p>'+
+    '<div class="infolets small">'+[['Orders',dm.hist.length],['Units',dm.pcs],['Units / order',dm.hist.length?(dm.pcs/dm.hist.length).toFixed(1):'—'],['Days of data',dm.dl.length]].map(function(c){return '<div class="infolet"><div class="il">'+c[0]+'</div><div class="iv">'+c[1]+'</div></div>'}).join('')+'</div>'+
+    '<div class="two">'+panel('By size',szs.map(function(z){return hb('<span class="mono">'+z+'</span>',dm.hs[z],mxS,fmt(dm.hs[z])+' <small>'+(dm.hs[z]/dm.pcs*100).toFixed(0)+'%</small>')}).join('')||'<span class="muted">No data</span>')+panel('By product',ms.map(function(m){return hb('<span class="abc '+(dm.abc[m]||'')+'">'+(dm.abc[m]||'')+'</span> <span class="mono">'+m+'</span>',dm.hm[m],dm.hm[ms[0]],fmt(dm.hm[m]))}).join('')||'<span class="muted">No data</span>')+'</div>'+
+    '<div class="two">'+panel('By color',cs.map(function(c){return hb(swatch(c)+esc(cn(c)),dm.hc[c],dm.hc[cs[0]],fmt(dm.hc[c]))}).join('')||'<span class="muted">No data</span>')+panel('By governorate',gs.map(function(g){return hb(esc(g),dm.hg[g],dm.hg[gs[0]],fmt(dm.hg[g]))}).join('')||'<span class="muted">No data</span>')+'</div>'+
+    '<h3 class="mt">Kits (bundles detected from orders)</h3><p class="muted">A kit is a combination of products ordered 3 or more times. It can be assembled only when every component is in WH/Stock in the same size, so the lowest component is the bottleneck.</p>'+kitsHTML+'</div>';
+}
+
+/* ================= Configuration ================= */
+var CFG_TABS=[['locations','Locations'],['optypes','Operation Types'],['partners','Partners'],['mapping','Product Mapping'],['settings','Settings'],['data','Data']];
+function vConfig(){
+  var tab=UI.cfg,tabs='<div class="tabs2">'+CFG_TABS.map(function(t){return '<button class="tab2'+(tab===t[0]?' on':'')+'" data-a="cfgtab" data-v="'+t[0]+'">'+t[1]+'</button>'}).join('')+'</div>',body='';
+  if(tab==='locations'){
+    var locs=Object.keys(LOC).concat(S.partners.customers.map(function(c){return 'Partners/Customers/'+c}));
+    body=tbl([['Location Name'],['Location Type'],['Counts as On Hand','','يدخل في الرصيد'],['Units','n'],['Description']],locs.map(function(l){return '<tr><td class="mono">'+esc(l)+'</td><td>'+locType(l)+'</td><td>'+(ONHAND.indexOf(l)>=0?'Yes':'No')+'</td><td class="n">'+fmt(locTotal(l))+'</td><td class="g1" dir="auto">'+esc(locAr(l))+'</td></tr>'}))+'<p class="muted small">Virtual locations (Vendor, Customer, Inventory loss) are the source or destination of stock moves, exactly like Odoo. Items needing cleaning wait in WH/Cleaning and cannot be sold from there.</p>';
+  }else if(tab==='optypes'){
+    body=tbl([['Operation Type'],['Type of Operation'],['Sequence Prefix'],['Source Location'],['Destination Location'],['Create Backorder'],['Next number','n']],OT_ORDER.map(function(k){var o=OT[k];return '<tr><td><b>'+esc(o.name)+'</b><div class="g2" dir="rtl">'+esc(o.ar)+'</div></td><td>'+o.kind+'</td><td class="mono">'+esc(o.prefix)+'</td><td>'+(o.src?locHTML(o.src):'—')+'</td><td>'+(o.dst?locHTML(o.dst):'—')+'</td><td>'+(o.bo?'Ask':'Never')+'</td><td class="n mono">'+pad((S.seq[k]||0)+1)+'</td></tr>'}));
+  }else if(tab==='partners'){
+    body='<div class="two"><div class="sheet"><h3>Vendors</h3><ul class="plain">'+S.partners.vendors.map(function(v){return '<li>'+esc(v)+'</li>'}).join('')+'</ul></div><div class="sheet"><h3>Customers (sales channels)</h3><ul class="plain">'+S.partners.customers.map(function(v){return '<li>'+esc(v)+' <span class="muted small mono">Partners/Customers/'+esc(v)+'</span></li>'}).join('')+'</ul><div class="row"><input id="newcust" placeholder="New customer, e.g. Noon, Amazon"><button class="btn primary" data-a="addcust">Add</button></div><p class="muted small">A new customer gets its own virtual location and can be used on Delivery Orders and Customer Returns right away.</p></div></div>';
+  }else if(tab==='mapping'){
+    var al=Object.keys(D.alias).map(function(k){return [k,D.alias[k],'built-in']}).concat(Object.keys(S.alias).map(function(k){return [k,S.alias[k],'manual']}));
+    body=tbl([['Code received from the customer'],['Internal Reference (product)'],['Source']],al.map(function(a){return '<tr><td class="mono">'+esc(a[0])+'</td><td class="mono">'+esc(a[1])+'</td><td>'+a[2]+'</td></tr>'}))+'<p class="muted small">When a delivery sheet contains an unknown code, the import wizard asks you to map it once.</p>';
+  }else if(tab==='settings'){
+    var s=S.settings,f=function(id,l,v,h){return '<div class="fld"><label>'+l+'</label><div class="fv"><input id="'+id+'" type="number" min="1" value="'+v+'" style="width:100px">'+(h?' <span class="muted small">'+h+'</span>':'')+'</div></div>'};
+    body='<div class="sheet"><div class="fgrid">'+f('st-lookback','Demand lookback (days)',s.lookback,'used for velocity, ABC and kits')+f('st-mult','Replenishment Max = Min ×',s.mult,'reordering rules')+'<div class="fld"><label>Allow negative stock</label><div class="fv"><label class="chk"><input type="checkbox" id="st-neg"'+(s.allowNeg?' checked':'')+'> Allow validating transfers beyond available quantity</label></div></div><div class="fld"><label>Show Arabic hints</label><div class="fv"><label class="chk"><input type="checkbox" id="st-gloss"'+(s.gloss?' checked':'')+'> Arabic glosses next to English terms</label></div></div></div><div class="row"><button class="btn primary" data-a="savesettings">Save</button></div></div>';
+  }else{
+    body='<div class="sheet"><div class="row"><button class="btn" data-a="csv" data-v="products">Export products (CSV)</button><button class="btn" data-a="csv" data-v="stock">Export stock (CSV)</button><button class="btn" data-a="csv" data-v="moves">Export stock moves (CSV)</button><button class="btn danger" data-a="reset">Reset demo data</button></div><p class="muted small">Everything is stored in this browser only. Export before clearing site data. “Reset” restores the opening stock and the two sample delivery sheets.</p></div><div class="sheet"><h3>What was cleaned from your files</h3><ul class="plain">'+D.cleaning.map(function(c){return '<li>'+esc(c)+'</li>'}).join('')+'</ul></div>';
+  }
+  return cpanel([['Overview','overview'],['Configuration','config'],[(CFG_TABS.filter(function(t){return t[0]===tab})[0]||[])[1],'config']],'')+'<div class="page">'+tabs+body+'</div>';
+}
+
+/* ================= import wizard (Delivery Orders from a sheet) ================= */
+var LINE_RE=/^(.*?) \( (.*?) \)-(.*)-(.*)-(\d+)$/,COLS={ref:'كود الاوردر العشوائي',wb:'بوليصة الشحن',ty:'حالة الاوردر الجزئية',gov:'المحافظة',total:'المبلغ توتال بالشحن للاوردر',items:'المنتجات المطلوبة في الاوردر'};
+function aliasOf(code){return S.alias[code]||D.alias[code]||(/^FC-/.test(code)&&MODEL.has(code.slice(3))?code.slice(3):null)}
+function importRows(rows,fname,partner){
+  var H=rows[0].map(function(x){return String(x).trim()}),ix={};for(var k in COLS)ix[k]=H.indexOf(COLS[k]);
+  if(ix.ref<0||ix.items<0)throw new Error('Required columns not found. The sheet must have the same layout as the Vendoor export.');
+  var have={};S.docs.forEach(function(t){if(t.type==='OUT'&&t.meta&&t.meta.orders)t.meta.orders.forEach(function(o){have[t.partner+'|'+o.ref]=t.ref})});
+  var orders=[],dups=[],unk={};
+  rows.slice(1).forEach(function(r){
+    var ref=String(r[ix.ref]||'').trim();if(!ref)return;
+    if(have[partner+'|'+ref]){dups.push(ref);return}
+    var o={ref:ref,wb:r[ix.wb],type:String(r[ix.ty]).indexOf('استبدال')>=0?'Exchange':'New',gov:r[ix.gov],total:r[ix.total],lines:[],bad:[]};
+    String(r[ix.items]).split(', ').forEach(function(it){
+      var m=LINE_RE.exec(it.trim());if(!m){o.bad.push([it,'','',1]);return}
+      var code=m[1],size=m[3].trim(),color=m[4].trim(),q=+m[5],mc=aliasOf(code),id=mc&&IDX[mc+'|'+color+'|'+size];
+      if(id){for(var i=0;i<q;i++)o.lines.push(id)}else{o.bad.push([code,size,color,q]);if(!mc)unk[code]=1}
+    });
+    orders.push(o);
+  });
+  return {orders:orders,dups:dups,unk:Object.keys(unk)};
+}
+function resolveBad(res){res.orders.forEach(function(o){var keep=[];o.bad.forEach(function(b){var mc=aliasOf(b[0]),id=mc&&IDX[mc+'|'+b[2]+'|'+b[1]];if(id){for(var i=0;i<b[3];i++)o.lines.push(id)}else keep.push(b)});o.bad=keep});res.unk=res.unk.filter(function(c){return !aliasOf(c)})}
+function importDrawer(d){
+  var h='<div class="row sb"><h2>Import Delivery Orders</h2><button class="btn sm" data-a="closedrawer">Close</button></div><p class="muted">Upload the pickup sheet from a customer. One Delivery Order is created with a line per product variant. Customer personal data (name, phone, address) is not imported.</p>'+
+    '<div class="row"><label class="field">Customer<select data-c="impcust">'+S.partners.customers.map(function(c){return '<option'+(d.partner===c?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label><label class="field">Scheduled Date<input type="date" data-i="impdate" value="'+esc(d.date)+'"></label></div>'+
+    '<div class="drop" id="dropz" data-a="pickfile" role="button" tabindex="0"><b>Drop the file here</b> or click to choose<br><span class="muted small">xlsx · xls · csv</span></div>';
+  if(d.err)h+='<div class="msg bad"><div>'+esc(d.err)+'</div></div>';
+  var r=d.res;
+  if(r){
+    var pcs=r.orders.reduce(function(a,o){return a+o.lines.length+o.bad.reduce(function(x,b){return x+b[3]},0)},0),sk={},ex=0;
+    r.orders.forEach(function(o){o.lines.forEach(function(s){sk[s]=1});if(o.type==='Exchange')ex++});
+    h+='<div class="preview"><div class="kv"><span>File</span><b class="mono">'+esc(d.fname)+'</b></div><div class="kv"><span>New orders</span><b>'+r.orders.length+'</b></div><div class="kv"><span>Units</span><b>'+fmt(pcs)+'</b></div><div class="kv"><span>Distinct variants</span><b>'+Object.keys(sk).length+'</b></div><div class="kv"><span>Exchange orders</span><b>'+ex+'</b></div><div class="kv"><span>Duplicates skipped</span><b>'+r.dups.length+'</b></div></div>';
+    if(r.unk.length)h+='<div class="msg warn"><div><b>Unknown product codes</b><div class="grid" style="margin-top:8px">'+r.unk.map(function(c){return '<div class="row"><span class="mono">'+esc(c)+'</span><select data-c="impmap" data-code="'+esc(c)+'"><option value="">Map to product…</option>'+MORDER.map(function(m){return '<option value="'+m+'">'+esc(m+' '+MODEL.get(m).name)+'</option>'}).join('')+'</select></div>'}).join('')+'</div></div></div>';
+    h+='<div class="dfoot"><button class="btn primary" data-a="impsave"'+(r.orders.length&&!r.unk.length?'':' disabled')+'>Create Delivery Order</button><button class="btn" data-a="closedrawer">Cancel</button></div>';
+  }
+  return h;
+}
+function handleFile(file){
+  var d=UI.drawer;if(!d||d.kind!=='import'){UI.drawer=d={kind:'import',partner:S.partners.customers[0],date:UI.today}}
+  if(!window.XLSX){d.err='The Excel reader could not be loaded. Check the connection and try again.';render();return}
+  var fr=new FileReader();
+  fr.onload=function(){try{var wb=XLSX.read(fr.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];d.rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});d.fname=file.name;d.err='';d.res=importRows(d.rows,file.name,d.partner)}catch(e){d.res=null;d.err=String(e.message||e)}render()};
+  fr.onerror=function(){d.err='Could not read the file';render()};
+  fr.readAsArrayBuffer(file);
+}
+function handleFileInput(el){var f=el.files&&el.files[0];el.value='';if(f)handleFile(f)}
+
+/* ================= shell ================= */
+var MENUS=[
+  {id:'overview',t:'Overview',ar:'نظرة عامة',r:'overview'},
+  {id:'ops',t:'Operations',ar:'العمليات',items:[['All Transfers','transfers','']].concat(OT_ORDER.map(function(k){return [OT[k].name,'transfers',k]}))},
+  {id:'prod',t:'Products',ar:'المنتجات',items:[['Products','products'],['Product Variants','stock']]},
+  {id:'rep',t:'Reporting',ar:'التقارير',items:[['Stock','stock'],['Locations','locations'],['Moves History','moves'],['Moves Analysis','analysis'],['Replenishment','replenish'],['ABC Analysis','abc'],['Demand Analysis','demand']]},
+  {id:'cfg',t:'Configuration',ar:'الإعدادات',r:'config'}
+];
+function navbar(){
+  var cur=UI.r;
+  var m=MENUS.map(function(x){
+    var act=(x.id==='overview'&&cur==='overview')||(x.id==='ops'&&(cur==='transfers'||cur==='transfer'))||(x.id==='prod'&&(cur==='products'||cur==='product'))||(x.id==='rep'&&['stock','locations','moves','analysis','replenish','abc','demand'].indexOf(cur)>=0)||(x.id==='cfg'&&cur==='config');
+    if(!x.items)return '<button class="nm'+(act?' on':'')+'" data-a="go" data-r="'+x.r+'">'+bi(x.t,x.ar)+'</button>';
+    return '<div class="nmw"><button class="nm'+(act?' on':'')+'" data-a="menu" data-m="'+x.id+'" aria-expanded="'+(UI.menu===x.id)+'">'+bi(x.t,x.ar)+' <span class="car">▾</span></button>'+(UI.menu===x.id?'<div class="dd">'+x.items.map(function(i){return '<button data-a="go" data-r="'+i[1]+'"'+(i[2]!=null?' data-t="'+i[2]+'"':'')+'>'+esc(i[0])+'</button>'}).join('')+'</div>':'')+'</div>';
+  }).join('');
+  return '<header class="nav"><div class="navin"><div class="brand"><b>Femini</b> <span>WMS</span></div><nav class="menus">'+m+'</nav><div class="navr"><button class="nm sm" data-a="gloss" title="Show or hide Arabic hints">Aع</button><input id="actor" value="'+esc(S.actor)+'" title="Current user" aria-label="Current user"></div></div></header>';
+}
+function viewHTML(){
+  if(UI.r==='transfer'){var t=S.docs.find(function(x){return x.id===UI.sel});if(t)return vTransfer(t);UI.r='transfers'}
+  if(UI.r==='product'&&UI.prod)return vProduct(UI.prod);
+  return {overview:vOverview,transfers:vTransfers,products:vProducts,stock:vStock,locations:vLocations,moves:vMoves,analysis:vAnalysis,replenish:vReplenish,abc:vABC,demand:vDemand,config:vConfig}[UI.r==='product'?'products':UI.r]();
+}
+function dialogHTML(){
+  var d=UI.dialog;if(!d)return '';
+  if(d.kind==='backorder'){var t=S.docs.find(function(x){return x.id===d.id}),rem=t.lines.reduce(function(a,l){return a+Math.max(0,(+l.demand||0)-(+l.done||0))},0);
+    return '<div class="scrim"></div><div class="dlg" role="dialog" aria-modal="true"><h3>Create Backorder?</h3><p>You processed less than the demand on <b class="mono">'+esc(t.ref)+'</b>. <b>'+fmt(rem)+'</b> units are still pending.</p><div class="row"><button class="btn primary" data-a="bo" data-v="create">Create Backorder</button><button class="btn" data-a="bo" data-v="none">No Backorder</button><button class="btn ghost" data-a="bo" data-v="discard">Discard</button></div><p class="muted small">Create Backorder keeps the remaining quantities as a new transfer. No Backorder drops them.</p></div>'}
+  return '';
+}
+function render(){
+  var app=$('#app'),sy=window.scrollY;
+  document.documentElement.classList.toggle('noar',!S.settings.gloss);
+  var m=UI.msg?'<div class="msg '+UI.msg.kind+'" role="alert"><div><b>'+esc(UI.msg.title)+'</b>'+(UI.msg.lines.length?'<ul>'+UI.msg.lines.map(function(l){return '<li>'+esc(l)+'</li>'}).join('')+'</ul>':'')+'</div><button class="btn sm" data-a="closemsg">Dismiss</button></div>':'';
+  var modal=UI.modal?'<div class="scrim"></div><div class="dlg wide"><div class="row sb"><h3>'+esc(UI.modal.title)+'</h3><button class="btn sm" data-a="closemodal">Close</button></div><textarea id="mtxt" readonly>'+esc(UI.modal.text)+'</textarea><div class="row"><button class="btn primary" data-a="copy">Copy</button><span class="muted small" id="cpst"></span></div></div>':'';
+  var drawer=UI.drawer?'<div class="scrim" data-a="closedrawer"></div><aside class="drawer" role="dialog" aria-modal="true">'+importDrawer(UI.drawer)+'</aside>':'';
+  app.innerHTML=navbar()+'<main>'+m+viewHTML()+'</main>'+dialogHTML()+drawer+modal;
+  window.scrollTo(0,sy);live();pkHint();
+}
+function live(){
+  var t=S.docs.find(function(x){return x.id===UI.sel});
+  $$('[data-b]').forEach(function(e){
+    var k=e.getAttribute('data-b');if(!t){return}
+    if(k.indexOf('miss-')===0){var l=t.lines[+k.slice(5)];if(l){var rec=(+l.toStock||0)+(+l.toClean||0)+(+l.toScrap||0),miss=Math.max(0,(+l.demand||0)-rec);e.innerHTML=miss?'<span class="neg">'+fmt(miss)+'</span>':'<span class="muted">0</span>'}}
+    else if(k.indexOf('diff-')===0){var l2=t.lines[+k.slice(5)];if(l2){var has=l2.counted!==''&&l2.counted!=null,df=has?(+l2.counted)-qty(l2.sku,l2.loc):null;e.innerHTML=df==null?'<span class="muted">—</span>':df===0?'<span class="muted">0</span>':'<span class="'+(df<0?'neg':'posv')+'">'+(df>0?'+':'')+df+'</span>'}}
+    else if(k==='adjsum'){var sh=0,su=0,n=0;t.lines.forEach(function(l){if(l.counted===''||l.counted==null)return;n++;var df=(+l.counted)-qty(l.sku,l.loc);if(df<0)sh-=df;else su+=df});e.innerHTML='<span class="bd">'+n+' lines counted</span> <span class="bd '+(sh?'st-Late':'')+'">Shortage '+fmt(sh)+'</span> <span class="bd">Surplus '+fmt(su)+'</span>'}
+  });
+}
+function csv(rows){return rows.map(function(r){return r.map(function(c){c=String(c==null?'':c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')}).join('\n')}

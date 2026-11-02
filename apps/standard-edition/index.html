@@ -1,0 +1,936 @@
+<title>Femini WMS</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: Odoo-style top navbar with dropdown menus, control panel (breadcrumbs, actions, search, filters, status bar), then list / form / kanban views on a neutral canvas. */
+:root{
+  --bg:#f3f1f7;--card:#ffffff;--ink:#242038;--muted:#6a6580;--line:#dfdbea;--line2:#cbc5db;--hover:#f6f3fb;
+  --nav:#2b2250;--nav-ink:#ffffff;--nav-muted:#c9c0ea;--accent:#5e4394;--on-accent:#ffffff;--focus:#5e4394;--lav:#efeaf9;
+  --draft:#6a6580;--draft-bg:#ebe9f1;--wait:#8a4f00;--wait-bg:#fdeacb;--ready:#0e5a86;--ready-bg:#d9ecf8;--done:#0c6b43;--done-bg:#dff2e7;--cancel:#a8231a;--cancel-bg:#fbe3e0;
+  --neg:#b3261e;--pos:#0c6b43;--shadow:0 1px 2px rgba(36,32,56,.06);
+  --sans:"IBM Plex Sans","IBM Plex Sans Arabic",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#17141f;--card:#1f1b2c;--ink:#ece8fa;--muted:#a9a2c4;--line:#352f4e;--line2:#463f66;--hover:#262136;
+  --nav:#100d1b;--nav-muted:#a9a2c4;--accent:#b9a4f0;--on-accent:#17141f;--focus:#b9a4f0;--lav:#2a2442;
+  --draft:#b3acc9;--draft-bg:#2e2940;--wait:#f0b960;--wait-bg:#3a2c12;--ready:#8db8f5;--ready-bg:#14283f;--done:#5fd0a0;--done-bg:#12302a;--cancel:#ff8d94;--cancel-bg:#3a1a1e;
+  --neg:#ff8d94;--pos:#5fd0a0;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17141f;--card:#1f1b2c;--ink:#ece8fa;--muted:#a9a2c4;--line:#352f4e;--line2:#463f66;--hover:#262136;
+  --nav:#100d1b;--nav-muted:#a9a2c4;--accent:#b9a4f0;--on-accent:#17141f;--focus:#b9a4f0;--lav:#2a2442;
+  --draft:#b3acc9;--draft-bg:#2e2940;--wait:#f0b960;--wait-bg:#3a2c12;--ready:#8db8f5;--ready-bg:#14283f;--done:#5fd0a0;--done-bg:#12302a;--cancel:#ff8d94;--cancel-bg:#3a1a1e;
+  --neg:#ff8d94;--pos:#5fd0a0;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--nav)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+h1,h2,h3{margin:0;font-weight:600}h3{font-size:15px}
+.mono{font-family:var(--mono);font-size:.93em}
+.muted{color:var(--muted)}.small{font-size:12px}.neg{color:var(--neg);font-weight:600}.posv{color:var(--pos);font-weight:600}.n{text-align:end;font-variant-numeric:tabular-nums}
+.g{color:var(--nav-muted);font-size:.78em;margin-inline-start:.45em;font-weight:400;unicode-bidi:isolate}
+.g2{font-size:12px;color:var(--muted);font-weight:400;unicode-bidi:isolate}
+.noar .g,.noar .g2{display:none}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.row.sb{justify-content:space-between}
+.pad{padding:16px}.mt{margin-top:22px}
+/* navbar */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:var(--nav);color:var(--nav-ink)}
+.navin{display:flex;align-items:center;gap:6px;padding:0 max(12px,env(safe-area-inset-left,0px)) 0 max(12px,env(safe-area-inset-right,0px));min-height:46px;flex-wrap:wrap}
+.brand{font-size:16px;margin-inline-end:14px;white-space:nowrap}.brand span{color:var(--nav-muted)}
+.menus{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+.nmw{position:relative}
+.nm{appearance:none;background:none;border:0;color:var(--nav-ink);padding:13px 12px;cursor:pointer;font-weight:500;font-size:14px;border-bottom:3px solid transparent;white-space:nowrap}
+.nm:hover{background:rgba(255,255,255,.08)}.nm.on{border-bottom-color:#fff}.nm.sm{padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25)}
+.nm .g{color:var(--nav-muted)}.car{font-size:10px;opacity:.7}
+.dd{position:absolute;top:100%;inset-inline-start:0;min-width:230px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column;z-index:70}
+.dd button{appearance:none;background:none;border:0;text-align:start;padding:8px 12px;border-radius:4px;cursor:pointer;color:var(--ink)}
+.dd button:hover{background:var(--hover)}
+.navr{display:flex;gap:8px;align-items:center}
+.navr input{width:110px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:var(--nav-ink);border-radius:6px;padding:5px 8px}
+main{max-width:1400px;margin:0 auto;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-bottom:60px;display:flex;flex-direction:column;gap:12px}
+/* control panel */
+.cp{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;padding:14px 0 4px}
+.cp-l{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cp-b{display:flex;gap:8px;flex-wrap:wrap}
+.cp-r{display:flex;flex-direction:column;gap:8px;align-items:flex-end;min-width:0;max-width:100%}
+.crumbs{display:flex;gap:6px;align-items:center;font-size:18px;flex-wrap:wrap}
+.crumbs a{color:var(--accent);cursor:pointer}.crumbs a:hover{text-decoration:underline}.crumbs .sep{color:var(--muted)}
+.search{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.search input{min-width:280px;flex:1}
+.facets{display:flex;gap:6px;flex-wrap:wrap}
+.chipf{appearance:none;border:1px solid var(--line2);background:var(--card);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:13px}
+.chipf.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.page{display:flex;flex-direction:column;gap:14px}
+/* controls */
+.btn{appearance:none;border:1px solid var(--line2);background:var(--card);border-radius:4px;padding:6px 14px;cursor:pointer;font-weight:500;font-size:13.5px;white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}.btn.primary:hover{opacity:.92}
+.btn.ghost{border-color:transparent;background:none;color:var(--accent)}.btn.ghost:hover{background:var(--hover)}
+.btn.danger{color:var(--neg);border-color:var(--neg)}
+.btn.sm{padding:2px 9px;font-size:12.5px}.btn[disabled]{opacity:.45;cursor:not-allowed}
+input,select,textarea{border:1px solid var(--line2);background:var(--card);border-radius:4px;padding:6px 9px;min-width:0;font-size:13.5px}
+.sel{padding:6px 9px}
+input.num{width:84px;text-align:end;font-variant-numeric:tabular-nums}
+input[type=checkbox]{accent-color:var(--accent)}
+.chk{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.stepper{display:inline-flex;border:1px solid var(--line2);border-radius:4px;overflow:hidden;background:var(--card)}
+.stepper button{border:0;background:var(--lav);width:30px;cursor:pointer;font-size:17px;color:var(--ink)}.stepper button:hover{background:var(--line)}
+.stepper input{border:0;border-radius:0;width:56px;text-align:center}
+/* kanban overview */
+.infolets{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.infolet{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 14px;box-shadow:var(--shadow);text-align:start;color:var(--ink)}
+.infolet.click{cursor:pointer}.infolet.click:hover,.infolet.on{border-color:var(--accent)}
+.infolet .il{font-size:12px;color:var(--muted)}.infolet .iv{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2}.infolet .im{font-size:11px;color:var(--muted)}
+.infolets.small .infolet{padding:8px 12px}.infolets.small .iv{font-size:19px}
+.grp h3{margin:10px 0 8px;font-size:15px}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow)}
+.kh{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.klinks{display:flex;flex-wrap:wrap;gap:4px 14px;min-height:20px}.klinks a{color:var(--accent);cursor:pointer;font-size:13px}.klinks a:hover{text-decoration:underline}
+.kf{display:flex;gap:6px;margin-top:auto}
+/* lists */
+.scroll{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:6px}
+table.list{border-collapse:collapse;width:100%;font-size:13.5px}
+.list th{background:var(--lav);color:var(--muted);font-weight:600;font-size:12.5px;text-align:start;padding:8px 12px;white-space:nowrap;border-bottom:1px solid var(--line);position:sticky;top:0}
+.list th.n{text-align:end}
+.list td{padding:7px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+.list td.g1{white-space:normal;max-width:300px}
+.list tr.click{cursor:pointer}.list tr.click:hover td{background:var(--hover)}
+.list tr.grow td{background:var(--lav);padding:6px 12px}
+.list tfoot td{font-weight:600;background:var(--lav)}
+.list tr:last-child td{border-bottom:0}
+.loc{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.sw{display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid var(--line2);margin-inline-end:6px;vertical-align:-1px}
+.pv .attr{color:var(--muted)}
+.bd{display:inline-block;padding:1px 9px;border-radius:10px;font-size:12px;font-weight:500;background:var(--draft-bg);color:var(--draft);white-space:nowrap}
+.st-Draft{background:var(--draft-bg);color:var(--draft)}.st-Waiting{background:var(--wait-bg);color:var(--wait)}.st-Ready{background:var(--ready-bg);color:var(--ready)}.st-Done{background:var(--done-bg);color:var(--done)}.st-Cancelled,.st-Late{background:var(--cancel-bg);color:var(--cancel)}
+.abc{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:4px;font-size:11px;font-weight:600;border:1px solid var(--line2);background:var(--lav);color:var(--accent)}
+.abc.A{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.empty{border:1px dashed var(--line2);border-radius:6px;padding:26px;text-align:center;color:var(--muted);background:var(--card)}
+.lnk{color:var(--accent);cursor:pointer}.lnk:hover{text-decoration:underline}
+.tag{display:inline-block;border:1px solid var(--line2);border-radius:10px;padding:0 9px;font-size:12px;color:var(--accent);cursor:pointer;background:var(--card)}
+/* form view */
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:18px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px;min-width:0}
+.ttl{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.ttl h1{font-size:26px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:8px 36px}
+.fld{display:grid;grid-template-columns:150px minmax(0,1fr);gap:8px;align-items:center;min-height:32px}
+.fld label{font-weight:600;font-size:13px;color:var(--ink)}
+.fv{min-width:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tabs2{display:flex;gap:4px;align-items:center;border-bottom:1px solid var(--line);margin:-4px -4px 0;padding:0 4px 8px;flex-wrap:wrap}
+.tab2{appearance:none;background:none;border:0;padding:6px 12px;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-weight:500}
+.tab2.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}.tab2.off{cursor:default;font-size:12.5px}
+.sbar{display:flex;margin:0;padding:0;list-style:none;border:1px solid var(--line2);border-radius:4px;overflow:hidden;background:var(--card)}
+.sbar li{padding:5px 18px 5px 22px;font-size:13px;color:var(--muted);position:relative;border-inline-end:1px solid var(--line2);white-space:nowrap}
+.sbar li:last-child{border-inline-end:0}
+.sbar li.past{color:var(--ink)}.sbar li.on{background:var(--accent);color:var(--on-accent);font-weight:600}.sbar li.on.cx{background:var(--cancel)}
+.pickrow{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.pickrow .field select{min-width:170px}
+.pickrow .hint{flex:1 1 100%;margin:0;font-size:12.5px;color:var(--muted)}
+.addbox{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--lav);border-radius:6px;padding:12px 14px}
+.addbox .chips{flex:1 1 100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line2);border-radius:12px;padding:1px 10px;background:var(--card);font-size:12.5px}
+.warnbox{background:var(--wait-bg);color:var(--wait);padding:8px 12px;border-radius:6px}
+.sumrow{display:flex;gap:8px;flex-wrap:wrap}
+.log{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.plain{margin:6px 0;padding-inline-start:18px;display:grid;gap:4px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.two{grid-template-columns:1fr}.fld{grid-template-columns:1fr}.cp-r{align-items:flex-start}.search input{min-width:0}}
+/* matrices and bars */
+table.mxt2{border-collapse:separate;border-spacing:3px;width:100%;min-width:460px}
+.mxt2 th{font-weight:600;font-size:12px;color:var(--muted);padding:4px 2px;text-align:center}.mxt2 th.cl{text-align:start;white-space:nowrap}
+.mxc{text-align:center;height:34px;border-radius:4px;font-variant-numeric:tabular-nums;font-weight:600;background:color-mix(in srgb,var(--accent) calc(var(--h,0) * 55%),var(--lav));cursor:help}
+.mxc.z{color:var(--line2);font-weight:400;background:var(--lav)}
+.mxt{text-align:center;background:var(--lav);border-radius:4px;font-weight:600}
+.hbar{height:10px;background:var(--lav);border-radius:3px}.hbar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.hb{display:grid;grid-template-columns:minmax(80px,130px) minmax(0,1fr) 90px;gap:10px;align-items:center;font-size:12.5px;margin:6px 0}
+.hb .nn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hb .track{height:10px;background:var(--lav);border-radius:3px}.hb .fill{height:100%;background:var(--accent);border-radius:3px;min-width:2px}.hb .v{text-align:end;font-weight:600}.hb .v small{font-weight:400;color:var(--muted)}
+.kit .row{justify-content:space-between}.kit input{min-width:220px}
+/* messages, dialogs, drawer, tooltip */
+.msg{border-radius:6px;padding:10px 14px;border:1px solid;display:flex;gap:12px;justify-content:space-between;align-items:flex-start;margin-top:10px}
+.msg.ok{background:var(--done-bg);color:var(--done);border-color:var(--done)}.msg.bad{background:var(--cancel-bg);color:var(--cancel);border-color:var(--cancel)}.msg.warn{background:var(--wait-bg);color:var(--wait);border-color:var(--wait)}
+.msg ul{margin:6px 0 0;padding-inline-start:18px}
+.scrim{position:fixed;inset:0;background:rgba(15,10,35,.45);z-index:80}
+.dlg{position:fixed;z-index:81;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border-radius:8px;padding:20px;width:min(520px,calc(100% - 24px));display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.dlg.wide{width:min(760px,calc(100% - 24px))}.dlg textarea{height:44vh;font-family:var(--mono);font-size:12px}
+.drawer{position:fixed;z-index:81;inset-block:0;inset-inline-end:0;width:min(500px,100%);background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 18px) 18px 18px;display:flex;flex-direction:column;gap:14px;overflow:auto;border-inline-start:1px solid var(--line)}
+.drop{border:1.5px dashed var(--line2);border-radius:6px;padding:22px;text-align:center;background:var(--card);cursor:pointer;color:var(--muted)}.drop.on{border-color:var(--accent);background:var(--lav)}.drop b{color:var(--ink)}
+.preview{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}.preview .kv{display:flex;justify-content:space-between;gap:10px}
+.dfoot{display:flex;gap:8px;flex-wrap:wrap}.grid{display:grid;gap:10px}
+#tip{position:fixed;z-index:90;pointer-events:none;background:var(--ink);color:var(--card);padding:8px 10px;border-radius:6px;font-size:12.5px;line-height:1.55;max-width:300px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+#tip .tt{display:flex;flex-direction:column;gap:3px;min-width:200px}#tip .tn{font-weight:600}#tip .tm b{font-size:17px;margin-inline-start:4px}#tip ul{list-style:none;margin:3px 0;padding:0}#tip .td{opacity:.85}
+footer{}
+</style>
+<div id="app"></div>
+<script>
+(function(){
+'use strict';
+var D={"asOf":"2026-10-29","today":"2026-11-02","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":[{"code":"BLK","ar":"اسود"},{"code":"WHT","ar":"ابيض"},{"code":"RED","ar":"احمر"},{"code":"BEG","ar":"بيج"},{"code":"GRY","ar":"رمادي"},{"code":"ORG","ar":"برتقالي"},{"code":"OLV","ar":"زيتى"},{"code":"FUC","ar":"فوشيا"},{"code":"YEL","ar":"اصفر"},{"code":"MNT","ar":"مينت جرين"},{"code":"BBL","ar":"بيبي بلو"},{"code":"NVY","ar":"كحلي"},{"code":"PNK","ar":"بينك"},{"code":"SAL","ar":"سيمون"},{"code":"ROS","ar":"روز"},{"code":"RBK","ar":"احمر تطعيم اسود"}],"models":[{"code":"D2","name":"دانتيل","sizes":["S","M","L","XL","2XL"],"colors":["اسود","زيتى","برتقالي","ابيض","احمر","فوشيا"]},{"code":"D1","name":"دانتيل","sizes":["S","M","L","XL","2XL"],"colors":["ابيض","زيتى","فوشيا","برتقالي","احمر","اسود"]},{"code":"A1","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["ابيض","اسود","احمر","اصفر"]},{"code":"A2","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["مينت جرين"]},{"code":"A3","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود"]},{"code":"A4","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["بيبي بلو"]},{"code":"A5","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود"]},{"code":"A6","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود"]},{"code":"S2","name":"القميص","sizes":["S","M","L","XL","2XL"],"colors":["ابيض","اسود","كحلي","احمر"]},{"code":"BR4","name":"برا حماله رفيعه","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"SH2","name":"شورت","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي","برتقالي"]},{"code":"PAN5","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"PAN4","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"PAN3","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"PAN2","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"PAN1","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"BR3","name":"سبورت برا","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"BR2","name":"برا","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"SH1","name":"هوت شورت","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"BR1","name":"سبورت برا مبطن","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","رمادي","بيج"]},{"code":"A12","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["زيتى"]},{"code":"A11","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["بينك"]},{"code":"A9","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["سيمون"]},{"code":"A8","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["روز"]},{"code":"A7","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["احمر تطعيم اسود"]},{"code":"D3","name":"دانتيل","sizes":["S","M","L","XL","2XL","3XL"],"colors":["اسود","زيتى","برتقالي","ابيض","احمر","فوشيا"]},{"code":"S1","name":"الروب","sizes":["S","M","L","XL","2XL"],"colors":["ابيض","اسود","كحلي","احمر"]}],"skus":[{"id":"D2-BLK-S","m":"D2","c":"اسود","s":"S","min":5,"open":17},{"id":"D2-BLK-M","m":"D2","c":"اسود","s":"M","min":5,"open":9},{"id":"D2-BLK-L","m":"D2","c":"اسود","s":"L","min":5,"open":5},{"id":"D2-BLK-XL","m":"D2","c":"اسود","s":"XL","min":5,"open":8},{"id":"D2-BLK-2XL","m":"D2","c":"اسود","s":"2XL","min":5,"open":0},{"id":"D2-OLV-S","m":"D2","c":"زيتى","s":"S","min":5,"open":0},{"id":"D2-OLV-M","m":"D2","c":"زيتى","s":"M","min":5,"open":0},{"id":"D2-OLV-L","m":"D2","c":"زيتى","s":"L","min":5,"open":1},{"id":"D2-OLV-XL","m":"D2","c":"زيتى","s":"XL","min":5,"open":0},{"id":"D2-OLV-2XL","m":"D2","c":"زيتى","s":"2XL","min":5,"open":0},{"id":"D2-ORG-S","m":"D2","c":"برتقالي","s":"S","min":5,"open":4},{"id":"D2-ORG-M","m":"D2","c":"برتقالي","s":"M","min":5,"open":5},{"id":"D2-ORG-L","m":"D2","c":"برتقالي","s":"L","min":5,"open":1},{"id":"D2-ORG-XL","m":"D2","c":"برتقالي","s":"XL","min":5,"open":9},{"id":"D2-ORG-2XL","m":"D2","c":"برتقالي","s":"2XL","min":5,"open":2},{"id":"D2-WHT-S","m":"D2","c":"ابيض","s":"S","min":5,"open":3},{"id":"D2-WHT-M","m":"D2","c":"ابيض","s":"M","min":5,"open":1},{"id":"D2-WHT-L","m":"D2","c":"ابيض","s":"L","min":5,"open":0},{"id":"D2-WHT-XL","m":"D2","c":"ابيض","s":"XL","min":5,"open":0},{"id":"D2-WHT-2XL","m":"D2","c":"ابيض","s":"2XL","min":5,"open":0},{"id":"D2-RED-S","m":"D2","c":"احمر","s":"S","min":5,"open":1},{"id":"D2-RED-M","m":"D2","c":"احمر","s":"M","min":5,"open":0},{"id":"D2-RED-L","m":"D2","c":"احمر","s":"L","min":5,"open":0},{"id":"D2-RED-XL","m":"D2","c":"احمر","s":"XL","min":5,"open":0},{"id":"D2-RED-2XL","m":"D2","c":"احمر","s":"2XL","min":5,"open":0},{"id":"D2-FUC-S","m":"D2","c":"فوشيا","s":"S","min":5,"open":38},{"id":"D2-FUC-M","m":"D2","c":"فوشيا","s":"M","min":5,"open":0},{"id":"D2-FUC-L","m":"D2","c":"فوشيا","s":"L","min":5,"open":5},{"id":"D2-FUC-XL","m":"D2","c":"فوشيا","s":"XL","min":5,"open":7},{"id":"D2-FUC-2XL","m":"D2","c":"فوشيا","s":"2XL","min":5,"open":6},{"id":"D1-WHT-S","m":"D1","c":"ابيض","s":"S","min":5,"open":0},{"id":"D1-WHT-M","m":"D1","c":"ابيض","s":"M","min":5,"open":0},{"id":"D1-WHT-L","m":"D1","c":"ابيض","s":"L","min":5,"open":0},{"id":"D1-WHT-XL","m":"D1","c":"ابيض","s":"XL","min":5,"open":0},{"id":"D1-WHT-2XL","m":"D1","c":"ابيض","s":"2XL","min":5,"open":1},{"id":"D1-OLV-S","m":"D1","c":"زيتى","s":"S","min":5,"open":0},{"id":"D1-OLV-M","m":"D1","c":"زيتى","s":"M","min":5,"open":0},{"id":"D1-OLV-L","m":"D1","c":"زيتى","s":"L","min":5,"open":0},{"id":"D1-OLV-XL","m":"D1","c":"زيتى","s":"XL","min":5,"open":0},{"id":"D1-OLV-2XL","m":"D1","c":"زيتى","s":"2XL","min":5,"open":0},{"id":"D1-FUC-S","m":"D1","c":"فوشيا","s":"S","min":5,"open":5},{"id":"D1-FUC-M","m":"D1","c":"فوشيا","s":"M","min":5,"open":0},{"id":"D1-FUC-L","m":"D1","c":"فوشيا","s":"L","min":5,"open":0},{"id":"D1-FUC-XL","m":"D1","c":"فوشيا","s":"XL","min":5,"open":0},{"id":"D1-FUC-2XL","m":"D1","c":"فوشيا","s":"2XL","min":5,"open":0},{"id":"D1-ORG-S","m":"D1","c":"برتقالي","s":"S","min":5,"open":17},{"id":"D1-ORG-M","m":"D1","c":"برتقالي","s":"M","min":5,"open":6},{"id":"D1-ORG-L","m":"D1","c":"برتقالي","s":"L","min":5,"open":3},{"id":"D1-ORG-XL","m":"D1","c":"برتقالي","s":"XL","min":5,"open":0},{"id":"D1-ORG-2XL","m":"D1","c":"برتقالي","s":"2XL","min":5,"open":0},{"id":"D1-RED-S","m":"D1","c":"احمر","s":"S","min":5,"open":17},{"id":"D1-RED-M","m":"D1","c":"احمر","s":"M","min":5,"open":0},{"id":"D1-RED-L","m":"D1","c":"احمر","s":"L","min":5,"open":0},{"id":"D1-RED-XL","m":"D1","c":"احمر","s":"XL","min":5,"open":0},{"id":"D1-RED-2XL","m":"D1","c":"احمر","s":"2XL","min":5,"open":1},{"id":"D1-BLK-S","m":"D1","c":"اسود","s":"S","min":5,"open":1},{"id":"D1-BLK-M","m":"D1","c":"اسود","s":"M","min":5,"open":1},{"id":"D1-BLK-L","m":"D1","c":"اسود","s":"L","min":5,"open":0},{"id":"D1-BLK-XL","m":"D1","c":"اسود","s":"XL","min":5,"open":0},{"id":"D1-BLK-2XL","m":"D1","c":"اسود","s":"2XL","min":5,"open":0},{"id":"A1-WHT-S","m":"A1","c":"ابيض","s":"S","min":5,"open":0},{"id":"A1-WHT-M","m":"A1","c":"ابيض","s":"M","min":5,"open":0},{"id":"A1-WHT-L","m":"A1","c":"ابيض","s":"L","min":5,"open":0},{"id":"A1-WHT-XL","m":"A1","c":"ابيض","s":"XL","min":5,"open":0},{"id":"A1-WHT-2XL","m":"A1","c":"ابيض","s":"2XL","min":5,"open":0},{"id":"A1-WHT-3XL","m":"A1","c":"ابيض","s":"3XL","min":5,"open":0},{"id":"A1-WHT-4XL","m":"A1","c":"ابيض","s":"4XL","min":5,"open":0},{"id":"A1-BLK-S","m":"A1","c":"اسود","s":"S","min":5,"open":0},{"id":"A1-BLK-M","m":"A1","c":"اسود","s":"M","min":5,"open":0},{"id":"A1-BLK-L","m":"A1","c":"اسود","s":"L","min":5,"open":0},{"id":"A1-BLK-XL","m":"A1","c":"اسود","s":"XL","min":5,"open":0},{"id":"A1-BLK-2XL","m":"A1","c":"اسود","s":"2XL","min":5,"open":0},{"id":"A1-BLK-3XL","m":"A1","c":"اسود","s":"3XL","min":5,"open":0},{"id":"A1-BLK-4XL","m":"A1","c":"اسود","s":"4XL","min":5,"open":0},{"id":"A1-RED-S","m":"A1","c":"احمر","s":"S","min":5,"open":0},{"id":"A1-RED-M","m":"A1","c":"احمر","s":"M","min":5,"open":0},{"id":"A1-RED-L","m":"A1","c":"احمر","s":"L","min":5,"open":0},{"id":"A1-RED-XL","m":"A1","c":"احمر","s":"XL","min":5,"open":0},{"id":"A1-RED-2XL","m":"A1","c":"احمر","s":"2XL","min":5,"open":0},{"id":"A1-RED-3XL","m":"A1","c":"احمر","s":"3XL","min":5,"open":0},{"id":"A1-RED-4XL","m":"A1","c":"احمر","s":"4XL","min":5,"open":0},{"id":"A1-YEL-S","m":"A1","c":"اصفر","s":"S","min":5,"open":0},{"id":"A1-YEL-M","m":"A1","c":"اصفر","s":"M","min":5,"open":1},{"id":"A1-YEL-L","m":"A1","c":"اصفر","s":"L","min":5,"open":0},{"id":"A1-YEL-XL","m":"A1","c":"اصفر","s":"XL","min":5,"open":0},{"id":"A1-YEL-2XL","m":"A1","c":"اصفر","s":"2XL","min":5,"open":0},{"id":"A1-YEL-3XL","m":"A1","c":"اصفر","s":"3XL","min":5,"open":0},{"id":"A1-YEL-4XL","m":"A1","c":"اصفر","s":"4XL","min":5,"open":0},{"id":"A2-MNT-S","m":"A2","c":"مينت جرين","s":"S","min":5,"open":0},{"id":"A2-MNT-M","m":"A2","c":"مينت جرين","s":"M","min":5,"open":0},{"id":"A2-MNT-L","m":"A2","c":"مينت جرين","s":"L","min":5,"open":0},{"id":"A2-MNT-XL","m":"A2","c":"مينت جرين","s":"XL","min":5,"open":0},{"id":"A2-MNT-2XL","m":"A2","c":"مينت جرين","s":"2XL","min":5,"open":0},{"id":"A2-MNT-3XL","m":"A2","c":"مينت جرين","s":"3XL","min":5,"open":0},{"id":"A2-MNT-4XL","m":"A2","c":"مينت جرين","s":"4XL","min":5,"open":0},{"id":"A3-BLK-S","m":"A3","c":"اسود","s":"S","min":5,"open":0},{"id":"A3-BLK-M","m":"A3","c":"اسود","s":"M","min":5,"open":0},{"id":"A3-BLK-L","m":"A3","c":"اسود","s":"L","min":5,"open":0},{"id":"A3-BLK-XL","m":"A3","c":"اسود","s":"XL","min":5,"open":0},{"id":"A3-BLK-2XL","m":"A3","c":"اسود","s":"2XL","min":5,"open":0},{"id":"A3-BLK-3XL","m":"A3","c":"اسود","s":"3XL","min":5,"open":0},{"id":"A3-BLK-4XL","m":"A3","c":"اسود","s":"4XL","min":5,"open":0},{"id":"A4-BBL-S","m":"A4","c":"بيبي بلو","s":"S","min":5,"open":0},{"id":"A4-BBL-M","m":"A4","c":"بيبي بلو","s":"M","min":5,"open":0},{"id":"A4-BBL-L","m":"A4","c":"بيبي بلو","s":"L","min":5,"open":0},{"id":"A4-BBL-XL","m":"A4","c":"بيبي بلو","s":"XL","min":5,"open":0},{"id":"A4-BBL-2XL","m":"A4","c":"بيبي بلو","s":"2XL","min":5,"open":0},{"id":"A4-BBL-3XL","m":"A4","c":"بيبي بلو","s":"3XL","min":5,"open":0},{"id":"A4-BBL-4XL","m":"A4","c":"بيبي بلو","s":"4XL","min":5,"open":0},{"id":"A5-BLK-S","m":"A5","c":"اسود","s":"S","min":5,"open":1},{"id":"A5-BLK-M","m":"A5","c":"اسود","s":"M","min":5,"open":1},{"id":"A5-BLK-L","m":"A5","c":"اسود","s":"L","min":5,"open":11},{"id":"A5-BLK-XL","m":"A5","c":"اسود","s":"XL","min":5,"open":12},{"id":"A5-BLK-2XL","m":"A5","c":"اسود","s":"2XL","min":5,"open":3},{"id":"A5-BLK-3XL","m":"A5","c":"اسود","s":"3XL","min":5,"open":8},{"id":"A5-BLK-4XL","m":"A5","c":"اسود","s":"4XL","min":5,"open":8},{"id":"A6-BLK-S","m":"A6","c":"اسود","s":"S","min":5,"open":1},{"id":"A6-BLK-M","m":"A6","c":"اسود","s":"M","min":5,"open":10},{"id":"A6-BLK-L","m":"A6","c":"اسود","s":"L","min":5,"open":13},{"id":"A6-BLK-XL","m":"A6","c":"اسود","s":"XL","min":5,"open":13},{"id":"A6-BLK-2XL","m":"A6","c":"اسود","s":"2XL","min":5,"open":23},{"id":"A6-BLK-3XL","m":"A6","c":"اسود","s":"3XL","min":5,"open":15},{"id":"A6-BLK-4XL","m":"A6","c":"اسود","s":"4XL","min":5,"open":15},{"id":"S2-WHT-S","m":"S2","c":"ابيض","s":"S","min":5,"open":7},{"id":"S2-WHT-M","m":"S2","c":"ابيض","s":"M","min":5,"open":7},{"id":"S2-WHT-L","m":"S2","c":"ابيض","s":"L","min":5,"open":8},{"id":"S2-WHT-XL","m":"S2","c":"ابيض","s":"XL","min":5,"open":0},{"id":"S2-WHT-2XL","m":"S2","c":"ابيض","s":"2XL","min":5,"open":0},{"id":"S2-BLK-S","m":"S2","c":"اسود","s":"S","min":5,"open":60},{"id":"S2-BLK-M","m":"S2","c":"اسود","s":"M","min":5,"open":53},{"id":"S2-BLK-L","m":"S2","c":"اسود","s":"L","min":5,"open":38},{"id":"S2-BLK-XL","m":"S2","c":"اسود","s":"XL","min":5,"open":44},{"id":"S2-BLK-2XL","m":"S2","c":"اسود","s":"2XL","min":5,"open":15},{"id":"S2-NVY-S","m":"S2","c":"كحلي","s":"S","min":5,"open":34},{"id":"S2-NVY-M","m":"S2","c":"كحلي","s":"M","min":5,"open":35},{"id":"S2-NVY-L","m":"S2","c":"كحلي","s":"L","min":5,"open":24},{"id":"S2-NVY-XL","m":"S2","c":"كحلي","s":"XL","min":5,"open":21},{"id":"S2-NVY-2XL","m":"S2","c":"كحلي","s":"2XL","min":5,"open":6},{"id":"S2-RED-S","m":"S2","c":"احمر","s":"S","min":5,"open":21},{"id":"S2-RED-M","m":"S2","c":"احمر","s":"M","min":5,"open":26},{"id":"S2-RED-L","m":"S2","c":"احمر","s":"L","min":5,"open":6},{"id":"S2-RED-XL","m":"S2","c":"احمر","s":"XL","min":5,"open":2},{"id":"S2-RED-2XL","m":"S2","c":"احمر","s":"2XL","min":5,"open":3},{"id":"BR4-BLK-S","m":"BR4","c":"اسود","s":"S","min":20,"open":32},{"id":"BR4-BLK-M","m":"BR4","c":"اسود","s":"M","min":20,"open":70},{"id":"BR4-BLK-L","m":"BR4","c":"اسود","s":"L","min":20,"open":80},{"id":"BR4-BLK-XL","m":"BR4","c":"اسود","s":"XL","min":20,"open":89},{"id":"BR4-BLK-2XL","m":"BR4","c":"اسود","s":"2XL","min":20,"open":59},{"id":"BR4-BLK-3XL","m":"BR4","c":"اسود","s":"3XL","min":20,"open":26},{"id":"BR4-BLK-4XL","m":"BR4","c":"اسود","s":"4XL","min":20,"open":40},{"id":"BR4-WHT-S","m":"BR4","c":"ابيض","s":"S","min":20,"open":18},{"id":"BR4-WHT-M","m":"BR4","c":"ابيض","s":"M","min":20,"open":48},{"id":"BR4-WHT-L","m":"BR4","c":"ابيض","s":"L","min":20,"open":67},{"id":"BR4-WHT-XL","m":"BR4","c":"ابيض","s":"XL","min":20,"open":64},{"id":"BR4-WHT-2XL","m":"BR4","c":"ابيض","s":"2XL","min":20,"open":47},{"id":"BR4-WHT-3XL","m":"BR4","c":"ابيض","s":"3XL","min":20,"open":32},{"id":"BR4-WHT-4XL","m":"BR4","c":"ابيض","s":"4XL","min":20,"open":42},{"id":"BR4-RED-S","m":"BR4","c":"احمر","s":"S","min":20,"open":80},{"id":"BR4-RED-M","m":"BR4","c":"احمر","s":"M","min":20,"open":96},{"id":"BR4-RED-L","m":"BR4","c":"احمر","s":"L","min":20,"open":105},{"id":"BR4-RED-XL","m":"BR4","c":"احمر","s":"XL","min":20,"open":174},{"id":"BR4-RED-2XL","m":"BR4","c":"احمر","s":"2XL","min":20,"open":179},{"id":"BR4-RED-3XL","m":"BR4","c":"احمر","s":"3XL","min":20,"open":121},{"id":"BR4-RED-4XL","m":"BR4","c":"احمر","s":"4XL","min":20,"open":125},{"id":"BR4-BEG-S","m":"BR4","c":"بيج","s":"S","min":20,"open":52},{"id":"BR4-BEG-M","m":"BR4","c":"بيج","s":"M","min":20,"open":77},{"id":"BR4-BEG-L","m":"BR4","c":"بيج","s":"L","min":20,"open":89},{"id":"BR4-BEG-XL","m":"BR4","c":"بيج","s":"XL","min":20,"open":147},{"id":"BR4-BEG-2XL","m":"BR4","c":"بيج","s":"2XL","min":20,"open":190},{"id":"BR4-BEG-3XL","m":"BR4","c":"بيج","s":"3XL","min":20,"open":97},{"id":"BR4-BEG-4XL","m":"BR4","c":"بيج","s":"4XL","min":20,"open":126},{"id":"BR4-GRY-S","m":"BR4","c":"رمادي","s":"S","min":20,"open":27},{"id":"BR4-GRY-M","m":"BR4","c":"رمادي","s":"M","min":20,"open":43},{"id":"BR4-GRY-L","m":"BR4","c":"رمادي","s":"L","min":20,"open":53},{"id":"BR4-GRY-XL","m":"BR4","c":"رمادي","s":"XL","min":20,"open":57},{"id":"BR4-GRY-2XL","m":"BR4","c":"رمادي","s":"2XL","min":20,"open":26},{"id":"BR4-GRY-3XL","m":"BR4","c":"رمادي","s":"3XL","min":20,"open":27},{"id":"BR4-GRY-4XL","m":"BR4","c":"رمادي","s":"4XL","min":20,"open":20},{"id":"SH2-BLK-S","m":"SH2","c":"اسود","s":"S","min":30,"open":147},{"id":"SH2-BLK-M","m":"SH2","c":"اسود","s":"M","min":30,"open":141},{"id":"SH2-BLK-L","m":"SH2","c":"اسود","s":"L","min":30,"open":142},{"id":"SH2-BLK-XL","m":"SH2","c":"اسود","s":"XL","min":30,"open":75},{"id":"SH2-BLK-2XL","m":"SH2","c":"اسود","s":"2XL","min":30,"open":22},{"id":"SH2-BLK-3XL","m":"SH2","c":"اسود","s":"3XL","min":30,"open":143},{"id":"SH2-BLK-4XL","m":"SH2","c":"اسود","s":"4XL","min":30,"open":203},{"id":"SH2-WHT-S","m":"SH2","c":"ابيض","s":"S","min":30,"open":169},{"id":"SH2-WHT-M","m":"SH2","c":"ابيض","s":"M","min":30,"open":148},{"id":"SH2-WHT-L","m":"SH2","c":"ابيض","s":"L","min":30,"open":151},{"id":"SH2-WHT-XL","m":"SH2","c":"ابيض","s":"XL","min":30,"open":173},{"id":"SH2-WHT-2XL","m":"SH2","c":"ابيض","s":"2XL","min":30,"open":94},{"id":"SH2-WHT-3XL","m":"SH2","c":"ابيض","s":"3XL","min":30,"open":76},{"id":"SH2-WHT-4XL","m":"SH2","c":"ابيض","s":"4XL","min":30,"open":78},{"id":"SH2-RED-S","m":"SH2","c":"احمر","s":"S","min":30,"open":329},{"id":"SH2-RED-M","m":"SH2","c":"احمر","s":"M","min":30,"open":232},{"id":"SH2-RED-L","m":"SH2","c":"احمر","s":"L","min":30,"open":221},{"id":"SH2-RED-XL","m":"SH2","c":"احمر","s":"XL","min":30,"open":173},{"id":"SH2-RED-2XL","m":"SH2","c":"احمر","s":"2XL","min":30,"open":252},{"id":"SH2-RED-3XL","m":"SH2","c":"احمر","s":"3XL","min":30,"open":227},{"id":"SH2-RED-4XL","m":"SH2","c":"احمر","s":"4XL","min":30,"open":138},{"id":"SH2-BEG-S","m":"SH2","c":"بيج","s":"S","min":30,"open":63},{"id":"SH2-BEG-M","m":"SH2","c":"بيج","s":"M","min":30,"open":111},{"id":"SH2-BEG-L","m":"SH2","c":"بيج","s":"L","min":30,"open":85},{"id":"SH2-BEG-XL","m":"SH2","c":"بيج","s":"XL","min":30,"open":103},{"id":"SH2-BEG-2XL","m":"SH2","c":"بيج","s":"2XL","min":30,"open":189},{"id":"SH2-BEG-3XL","m":"SH2","c":"بيج","s":"3XL","min":30,"open":138},{"id":"SH2-BEG-4XL","m":"SH2","c":"بيج","s":"4XL","min":30,"open":93},{"id":"SH2-GRY-S","m":"SH2","c":"رمادي","s":"S","min":30,"open":271},{"id":"SH2-GRY-M","m":"SH2","c":"رمادي","s":"M","min":30,"open":84},{"id":"SH2-GRY-L","m":"SH2","c":"رمادي","s":"L","min":30,"open":19},{"id":"SH2-GRY-XL","m":"SH2","c":"رمادي","s":"XL","min":30,"open":115},{"id":"SH2-GRY-2XL","m":"SH2","c":"رمادي","s":"2XL","min":30,"open":201},{"id":"SH2-GRY-3XL","m":"SH2","c":"رمادي","s":"3XL","min":30,"open":158},{"id":"SH2-GRY-4XL","m":"SH2","c":"رمادي","s":"4XL","min":30,"open":86},{"id":"SH2-ORG-S","m":"SH2","c":"برتقالي","s":"S","min":30,"open":93},{"id":"SH2-ORG-M","m":"SH2","c":"برتقالي","s":"M","min":30,"open":125},{"id":"SH2-ORG-L","m":"SH2","c":"برتقالي","s":"L","min":30,"open":198},{"id":"SH2-ORG-XL","m":"SH2","c":"برتقالي","s":"XL","min":30,"open":78},{"id":"SH2-ORG-2XL","m":"SH2","c":"برتقالي","s":"2XL","min":30,"open":136},{"id":"SH2-ORG-3XL","m":"SH2","c":"برتقالي","s":"3XL","min":30,"open":122},{"id":"SH2-ORG-4XL","m":"SH2","c":"برتقالي","s":"4XL","min":30,"open":83},{"id":"PAN5-BLK-S","m":"PAN5","c":"اسود","s":"S","min":15,"open":68},{"id":"PAN5-BLK-M","m":"PAN5","c":"اسود","s":"M","min":15,"open":66},{"id":"PAN5-BLK-L","m":"PAN5","c":"اسود","s":"L","min":15,"open":67},{"id":"PAN5-BLK-XL","m":"PAN5","c":"اسود","s":"XL","min":15,"open":25},{"id":"PAN5-BLK-2XL","m":"PAN5","c":"اسود","s":"2XL","min":15,"open":33},{"id":"PAN5-BLK-3XL","m":"PAN5","c":"اسود","s":"3XL","min":15,"open":44},{"id":"PAN5-BLK-4XL","m":"PAN5","c":"اسود","s":"4XL","min":15,"open":122},{"id":"PAN5-WHT-S","m":"PAN5","c":"ابيض","s":"S","min":15,"open":52},{"id":"PAN5-WHT-M","m":"PAN5","c":"ابيض","s":"M","min":15,"open":49},{"id":"PAN5-WHT-L","m":"PAN5","c":"ابيض","s":"L","min":15,"open":38},{"id":"PAN5-WHT-XL","m":"PAN5","c":"ابيض","s":"XL","min":15,"open":39},{"id":"PAN5-WHT-2XL","m":"PAN5","c":"ابيض","s":"2XL","min":15,"open":10},{"id":"PAN5-WHT-3XL","m":"PAN5","c":"ابيض","s":"3XL","min":15,"open":101},{"id":"PAN5-WHT-4XL","m":"PAN5","c":"ابيض","s":"4XL","min":15,"open":51},{"id":"PAN5-RED-S","m":"PAN5","c":"احمر","s":"S","min":15,"open":70},{"id":"PAN5-RED-M","m":"PAN5","c":"احمر","s":"M","min":15,"open":82},{"id":"PAN5-RED-L","m":"PAN5","c":"احمر","s":"L","min":15,"open":40},{"id":"PAN5-RED-XL","m":"PAN5","c":"احمر","s":"XL","min":15,"open":125},{"id":"PAN5-RED-2XL","m":"PAN5","c":"احمر","s":"2XL","min":15,"open":161},{"id":"PAN5-RED-3XL","m":"PAN5","c":"احمر","s":"3XL","min":15,"open":158},{"id":"PAN5-RED-4XL","m":"PAN5","c":"احمر","s":"4XL","min":15,"open":120},{"id":"PAN5-BEG-S","m":"PAN5","c":"بيج","s":"S","min":15,"open":56},{"id":"PAN5-BEG-M","m":"PAN5","c":"بيج","s":"M","min":15,"open":40},{"id":"PAN5-BEG-L","m":"PAN5","c":"بيج","s":"L","min":15,"open":47},{"id":"PAN5-BEG-XL","m":"PAN5","c":"بيج","s":"XL","min":15,"open":93},{"id":"PAN5-BEG-2XL","m":"PAN5","c":"بيج","s":"2XL","min":15,"open":245},{"id":"PAN5-BEG-3XL","m":"PAN5","c":"بيج","s":"3XL","min":15,"open":12},{"id":"PAN5-BEG-4XL","m":"PAN5","c":"بيج","s":"4XL","min":15,"open":200},{"id":"PAN5-GRY-S","m":"PAN5","c":"رمادي","s":"S","min":15,"open":18},{"id":"PAN5-GRY-M","m":"PAN5","c":"رمادي","s":"M","min":15,"open":65},{"id":"PAN5-GRY-L","m":"PAN5","c":"رمادي","s":"L","min":15,"open":57},{"id":"PAN5-GRY-XL","m":"PAN5","c":"رمادي","s":"XL","min":15,"open":30},{"id":"PAN5-GRY-2XL","m":"PAN5","c":"رمادي","s":"2XL","min":15,"open":26},{"id":"PAN5-GRY-3XL","m":"PAN5","c":"رمادي","s":"3XL","min":15,"open":63},{"id":"PAN5-GRY-4XL","m":"PAN5","c":"رمادي","s":"4XL","min":15,"open":13},{"id":"PAN4-BLK-S","m":"PAN4","c":"اسود","s":"S","min":15,"open":81},{"id":"PAN4-BLK-M","m":"PAN4","c":"اسود","s":"M","min":15,"open":70},{"id":"PAN4-BLK-L","m":"PAN4","c":"اسود","s":"L","min":15,"open":66},{"id":"PAN4-BLK-XL","m":"PAN4","c":"اسود","s":"XL","min":15,"open":68},{"id":"PAN4-BLK-2XL","m":"PAN4","c":"اسود","s":"2XL","min":15,"open":51},{"id":"PAN4-BLK-3XL","m":"PAN4","c":"اسود","s":"3XL","min":15,"open":81},{"id":"PAN4-BLK-4XL","m":"PAN4","c":"اسود","s":"4XL","min":15,"open":42},{"id":"PAN4-WHT-S","m":"PAN4","c":"ابيض","s":"S","min":15,"open":54},{"id":"PAN4-WHT-M","m":"PAN4","c":"ابيض","s":"M","min":15,"open":63},{"id":"PAN4-WHT-L","m":"PAN4","c":"ابيض","s":"L","min":15,"open":48},{"id":"PAN4-WHT-XL","m":"PAN4","c":"ابيض","s":"XL","min":15,"open":45},{"id":"PAN4-WHT-2XL","m":"PAN4","c":"ابيض","s":"2XL","min":15,"open":59},{"id":"PAN4-WHT-3XL","m":"PAN4","c":"ابيض","s":"3XL","min":15,"open":101},{"id":"PAN4-WHT-4XL","m":"PAN4","c":"ابيض","s":"4XL","min":15,"open":26},{"id":"PAN4-RED-S","m":"PAN4","c":"احمر","s":"S","min":15,"open":0},{"id":"PAN4-RED-M","m":"PAN4","c":"احمر","s":"M","min":15,"open":131},{"id":"PAN4-RED-L","m":"PAN4","c":"احمر","s":"L","min":15,"open":61},{"id":"PAN4-RED-XL","m":"PAN4","c":"احمر","s":"XL","min":15,"open":111},{"id":"PAN4-RED-2XL","m":"PAN4","c":"احمر","s":"2XL","min":15,"open":193},{"id":"PAN4-RED-3XL","m":"PAN4","c":"احمر","s":"3XL","min":15,"open":113},{"id":"PAN4-RED-4XL","m":"PAN4","c":"احمر","s":"4XL","min":15,"open":97},{"id":"PAN4-BEG-S","m":"PAN4","c":"بيج","s":"S","min":15,"open":120},{"id":"PAN4-BEG-M","m":"PAN4","c":"بيج","s":"M","min":15,"open":39},{"id":"PAN4-BEG-L","m":"PAN4","c":"بيج","s":"L","min":15,"open":111},{"id":"PAN4-BEG-XL","m":"PAN4","c":"بيج","s":"XL","min":15,"open":129},{"id":"PAN4-BEG-2XL","m":"PAN4","c":"بيج","s":"2XL","min":15,"open":122},{"id":"PAN4-BEG-3XL","m":"PAN4","c":"بيج","s":"3XL","min":15,"open":8},{"id":"PAN4-BEG-4XL","m":"PAN4","c":"بيج","s":"4XL","min":15,"open":189},{"id":"PAN4-GRY-S","m":"PAN4","c":"رمادي","s":"S","min":15,"open":58},{"id":"PAN4-GRY-M","m":"PAN4","c":"رمادي","s":"M","min":15,"open":42},{"id":"PAN4-GRY-L","m":"PAN4","c":"رمادي","s":"L","min":15,"open":33},{"id":"PAN4-GRY-XL","m":"PAN4","c":"رمادي","s":"XL","min":15,"open":93},{"id":"PAN4-GRY-2XL","m":"PAN4","c":"رمادي","s":"2XL","min":15,"open":38},{"id":"PAN4-GRY-3XL","m":"PAN4","c":"رمادي","s":"3XL","min":15,"open":43},{"id":"PAN4-GRY-4XL","m":"PAN4","c":"رمادي","s":"4XL","min":15,"open":33},{"id":"PAN3-BLK-S","m":"PAN3","c":"اسود","s":"S","min":30,"open":242},{"id":"PAN3-BLK-M","m":"PAN3","c":"اسود","s":"M","min":30,"open":35},{"id":"PAN3-BLK-L","m":"PAN3","c":"اسود","s":"L","min":30,"open":90},{"id":"PAN3-BLK-XL","m":"PAN3","c":"اسود","s":"XL","min":30,"open":75},{"id":"PAN3-BLK-2XL","m":"PAN3","c":"اسود","s":"2XL","min":30,"open":123},{"id":"PAN3-BLK-3XL","m":"PAN3","c":"اسود","s":"3XL","min":30,"open":288},{"id":"PAN3-BLK-4XL","m":"PAN3","c":"اسود","s":"4XL","min":30,"open":185},{"id":"PAN3-WHT-S","m":"PAN3","c":"ابيض","s":"S","min":30,"open":188},{"id":"PAN3-WHT-M","m":"PAN3","c":"ابيض","s":"M","min":30,"open":153},{"id":"PAN3-WHT-L","m":"PAN3","c":"ابيض","s":"L","min":30,"open":100},{"id":"PAN3-WHT-XL","m":"PAN3","c":"ابيض","s":"XL","min":30,"open":361},{"id":"PAN3-WHT-2XL","m":"PAN3","c":"ابيض","s":"2XL","min":30,"open":108},{"id":"PAN3-WHT-3XL","m":"PAN3","c":"ابيض","s":"3XL","min":30,"open":179},{"id":"PAN3-WHT-4XL","m":"PAN3","c":"ابيض","s":"4XL","min":30,"open":129},{"id":"PAN3-RED-S","m":"PAN3","c":"احمر","s":"S","min":30,"open":96},{"id":"PAN3-RED-M","m":"PAN3","c":"احمر","s":"M","min":30,"open":162},{"id":"PAN3-RED-L","m":"PAN3","c":"احمر","s":"L","min":30,"open":269},{"id":"PAN3-RED-XL","m":"PAN3","c":"احمر","s":"XL","min":30,"open":314},{"id":"PAN3-RED-2XL","m":"PAN3","c":"احمر","s":"2XL","min":30,"open":326},{"id":"PAN3-RED-3XL","m":"PAN3","c":"احمر","s":"3XL","min":30,"open":130},{"id":"PAN3-RED-4XL","m":"PAN3","c":"احمر","s":"4XL","min":30,"open":64},{"id":"PAN3-BEG-S","m":"PAN3","c":"بيج","s":"S","min":30,"open":185},{"id":"PAN3-BEG-M","m":"PAN3","c":"بيج","s":"M","min":30,"open":176},{"id":"PAN3-BEG-L","m":"PAN3","c":"بيج","s":"L","min":30,"open":238},{"id":"PAN3-BEG-XL","m":"PAN3","c":"بيج","s":"XL","min":30,"open":190},{"id":"PAN3-BEG-2XL","m":"PAN3","c":"بيج","s":"2XL","min":30,"open":306},{"id":"PAN3-BEG-3XL","m":"PAN3","c":"بيج","s":"3XL","min":30,"open":168},{"id":"PAN3-BEG-4XL","m":"PAN3","c":"بيج","s":"4XL","min":30,"open":156},{"id":"PAN3-GRY-S","m":"PAN3","c":"رمادي","s":"S","min":30,"open":195},{"id":"PAN3-GRY-M","m":"PAN3","c":"رمادي","s":"M","min":30,"open":120},{"id":"PAN3-GRY-L","m":"PAN3","c":"رمادي","s":"L","min":30,"open":111},{"id":"PAN3-GRY-XL","m":"PAN3","c":"رمادي","s":"XL","min":30,"open":214},{"id":"PAN3-GRY-2XL","m":"PAN3","c":"رمادي","s":"2XL","min":30,"open":256},{"id":"PAN3-GRY-3XL","m":"PAN3","c":"رمادي","s":"3XL","min":30,"open":163},{"id":"PAN3-GRY-4XL","m":"PAN3","c":"رمادي","s":"4XL","min":30,"open":153},{"id":"PAN2-BLK-S","m":"PAN2","c":"اسود","s":"S","min":15,"open":96},{"id":"PAN2-BLK-M","m":"PAN2","c":"اسود","s":"M","min":15,"open":99},{"id":"PAN2-BLK-L","m":"PAN2","c":"اسود","s":"L","min":15,"open":80},{"id":"PAN2-BLK-XL","m":"PAN2","c":"اسود","s":"XL","min":15,"open":74},{"id":"PAN2-BLK-2XL","m":"PAN2","c":"اسود","s":"2XL","min":15,"open":139},{"id":"PAN2-BLK-3XL","m":"PAN2","c":"اسود","s":"3XL","min":15,"open":115},{"id":"PAN2-BLK-4XL","m":"PAN2","c":"اسود","s":"4XL","min":15,"open":87},{"id":"PAN2-WHT-S","m":"PAN2","c":"ابيض","s":"S","min":15,"open":70},{"id":"PAN2-WHT-M","m":"PAN2","c":"ابيض","s":"M","min":15,"open":113},{"id":"PAN2-WHT-L","m":"PAN2","c":"ابيض","s":"L","min":15,"open":42},{"id":"PAN2-WHT-XL","m":"PAN2","c":"ابيض","s":"XL","min":15,"open":90},{"id":"PAN2-WHT-2XL","m":"PAN2","c":"ابيض","s":"2XL","min":15,"open":98},{"id":"PAN2-WHT-3XL","m":"PAN2","c":"ابيض","s":"3XL","min":15,"open":91},{"id":"PAN2-WHT-4XL","m":"PAN2","c":"ابيض","s":"4XL","min":15,"open":96},{"id":"PAN2-RED-S","m":"PAN2","c":"احمر","s":"S","min":15,"open":88},{"id":"PAN2-RED-M","m":"PAN2","c":"احمر","s":"M","min":15,"open":88},{"id":"PAN2-RED-L","m":"PAN2","c":"احمر","s":"L","min":15,"open":43},{"id":"PAN2-RED-XL","m":"PAN2","c":"احمر","s":"XL","min":15,"open":56},{"id":"PAN2-RED-2XL","m":"PAN2","c":"احمر","s":"2XL","min":15,"open":92},{"id":"PAN2-RED-3XL","m":"PAN2","c":"احمر","s":"3XL","min":15,"open":17},{"id":"PAN2-RED-4XL","m":"PAN2","c":"احمر","s":"4XL","min":15,"open":80},{"id":"PAN2-BEG-S","m":"PAN2","c":"بيج","s":"S","min":15,"open":21},{"id":"PAN2-BEG-M","m":"PAN2","c":"بيج","s":"M","min":15,"open":33},{"id":"PAN2-BEG-L","m":"PAN2","c":"بيج","s":"L","min":15,"open":23},{"id":"PAN2-BEG-XL","m":"PAN2","c":"بيج","s":"XL","min":15,"open":9},{"id":"PAN2-BEG-2XL","m":"PAN2","c":"بيج","s":"2XL","min":15,"open":15},{"id":"PAN2-BEG-3XL","m":"PAN2","c":"بيج","s":"3XL","min":15,"open":22},{"id":"PAN2-BEG-4XL","m":"PAN2","c":"بيج","s":"4XL","min":15,"open":21},{"id":"PAN2-GRY-S","m":"PAN2","c":"رمادي","s":"S","min":15,"open":102},{"id":"PAN2-GRY-M","m":"PAN2","c":"رمادي","s":"M","min":15,"open":62},{"id":"PAN2-GRY-L","m":"PAN2","c":"رمادي","s":"L","min":15,"open":89},{"id":"PAN2-GRY-XL","m":"PAN2","c":"رمادي","s":"XL","min":15,"open":73},{"id":"PAN2-GRY-2XL","m":"PAN2","c":"رمادي","s":"2XL","min":15,"open":118},{"id":"PAN2-GRY-3XL","m":"PAN2","c":"رمادي","s":"3XL","min":15,"open":101},{"id":"PAN2-GRY-4XL","m":"PAN2","c":"رمادي","s":"4XL","min":15,"open":105},{"id":"PAN1-BLK-S","m":"PAN1","c":"اسود","s":"S","min":15,"open":48},{"id":"PAN1-WHT-S","m":"PAN1","c":"ابيض","s":"S","min":15,"open":29},{"id":"PAN1-RED-S","m":"PAN1","c":"احمر","s":"S","min":15,"open":76},{"id":"PAN1-BEG-S","m":"PAN1","c":"بيج","s":"S","min":15,"open":57},{"id":"PAN1-GRY-S","m":"PAN1","c":"رمادي","s":"S","min":15,"open":41},{"id":"PAN1-BLK-M","m":"PAN1","c":"اسود","s":"M","min":15,"open":51},{"id":"PAN1-WHT-M","m":"PAN1","c":"ابيض","s":"M","min":15,"open":44},{"id":"PAN1-RED-M","m":"PAN1","c":"احمر","s":"M","min":15,"open":31},{"id":"PAN1-BEG-M","m":"PAN1","c":"بيج","s":"M","min":15,"open":51},{"id":"PAN1-GRY-M","m":"PAN1","c":"رمادي","s":"M","min":15,"open":42},{"id":"PAN1-BLK-L","m":"PAN1","c":"اسود","s":"L","min":15,"open":60},{"id":"PAN1-WHT-L","m":"PAN1","c":"ابيض","s":"L","min":15,"open":34},{"id":"PAN1-RED-L","m":"PAN1","c":"احمر","s":"L","min":15,"open":87},{"id":"PAN1-BEG-L","m":"PAN1","c":"بيج","s":"L","min":15,"open":83},{"id":"PAN1-GRY-L","m":"PAN1","c":"رمادي","s":"L","min":15,"open":23},{"id":"PAN1-BLK-XL","m":"PAN1","c":"اسود","s":"XL","min":15,"open":73},{"id":"PAN1-WHT-XL","m":"PAN1","c":"ابيض","s":"XL","min":15,"open":48},{"id":"PAN1-RED-XL","m":"PAN1","c":"احمر","s":"XL","min":15,"open":151},{"id":"PAN1-BEG-XL","m":"PAN1","c":"بيج","s":"XL","min":15,"open":115},{"id":"PAN1-GRY-XL","m":"PAN1","c":"رمادي","s":"XL","min":15,"open":81},{"id":"PAN1-BLK-2XL","m":"PAN1","c":"اسود","s":"2XL","min":15,"open":34},{"id":"PAN1-WHT-2XL","m":"PAN1","c":"ابيض","s":"2XL","min":15,"open":33},{"id":"PAN1-RED-2XL","m":"PAN1","c":"احمر","s":"2XL","min":15,"open":161},{"id":"PAN1-BEG-2XL","m":"PAN1","c":"بيج","s":"2XL","min":15,"open":38},{"id":"PAN1-GRY-2XL","m":"PAN1","c":"رمادي","s":"2XL","min":15,"open":48},{"id":"PAN1-BLK-3XL","m":"PAN1","c":"اسود","s":"3XL","min":15,"open":58},{"id":"PAN1-WHT-3XL","m":"PAN1","c":"ابيض","s":"3XL","min":15,"open":45},{"id":"PAN1-RED-3XL","m":"PAN1","c":"احمر","s":"3XL","min":15,"open":74},{"id":"PAN1-BEG-3XL","m":"PAN1","c":"بيج","s":"3XL","min":15,"open":123},{"id":"PAN1-GRY-3XL","m":"PAN1","c":"رمادي","s":"3XL","min":15,"open":33},{"id":"PAN1-BLK-4XL","m":"PAN1","c":"اسود","s":"4XL","min":15,"open":49},{"id":"PAN1-WHT-4XL","m":"PAN1","c":"ابيض","s":"4XL","min":15,"open":46},{"id":"PAN1-RED-4XL","m":"PAN1","c":"احمر","s":"4XL","min":15,"open":99},{"id":"PAN1-BEG-4XL","m":"PAN1","c":"بيج","s":"4XL","min":15,"open":116},{"id":"PAN1-GRY-4XL","m":"PAN1","c":"رمادي","s":"4XL","min":15,"open":28},{"id":"BR3-BLK-S","m":"BR3","c":"اسود","s":"S","min":15,"open":40},{"id":"BR3-BLK-M","m":"BR3","c":"اسود","s":"M","min":15,"open":43},{"id":"BR3-BLK-L","m":"BR3","c":"اسود","s":"L","min":15,"open":95},{"id":"BR3-BLK-XL","m":"BR3","c":"اسود","s":"XL","min":15,"open":98},{"id":"BR3-BLK-2XL","m":"BR3","c":"اسود","s":"2XL","min":15,"open":60},{"id":"BR3-BLK-3XL","m":"BR3","c":"اسود","s":"3XL","min":15,"open":51},{"id":"BR3-BLK-4XL","m":"BR3","c":"اسود","s":"4XL","min":15,"open":29},{"id":"BR3-WHT-S","m":"BR3","c":"ابيض","s":"S","min":15,"open":64},{"id":"BR3-WHT-M","m":"BR3","c":"ابيض","s":"M","min":15,"open":74},{"id":"BR3-WHT-L","m":"BR3","c":"ابيض","s":"L","min":15,"open":112},{"id":"BR3-WHT-XL","m":"BR3","c":"ابيض","s":"XL","min":15,"open":105},{"id":"BR3-WHT-2XL","m":"BR3","c":"ابيض","s":"2XL","min":15,"open":87},{"id":"BR3-WHT-3XL","m":"BR3","c":"ابيض","s":"3XL","min":15,"open":78},{"id":"BR3-WHT-4XL","m":"BR3","c":"ابيض","s":"4XL","min":15,"open":61},{"id":"BR3-RED-S","m":"BR3","c":"احمر","s":"S","min":15,"open":77},{"id":"BR3-RED-M","m":"BR3","c":"احمر","s":"M","min":15,"open":67},{"id":"BR3-RED-L","m":"BR3","c":"احمر","s":"L","min":15,"open":59},{"id":"BR3-RED-XL","m":"BR3","c":"احمر","s":"XL","min":15,"open":19},{"id":"BR3-RED-2XL","m":"BR3","c":"احمر","s":"2XL","min":15,"open":278},{"id":"BR3-RED-3XL","m":"BR3","c":"احمر","s":"3XL","min":15,"open":112},{"id":"BR3-RED-4XL","m":"BR3","c":"احمر","s":"4XL","min":15,"open":110},{"id":"BR3-BEG-S","m":"BR3","c":"بيج","s":"S","min":15,"open":66},{"id":"BR3-BEG-M","m":"BR3","c":"بيج","s":"M","min":15,"open":71},{"id":"BR3-BEG-L","m":"BR3","c":"بيج","s":"L","min":15,"open":107},{"id":"BR3-BEG-XL","m":"BR3","c":"بيج","s":"XL","min":15,"open":146},{"id":"BR3-BEG-2XL","m":"BR3","c":"بيج","s":"2XL","min":15,"open":212},{"id":"BR3-BEG-3XL","m":"BR3","c":"بيج","s":"3XL","min":15,"open":152},{"id":"BR3-BEG-4XL","m":"BR3","c":"بيج","s":"4XL","min":15,"open":121},{"id":"BR3-GRY-S","m":"BR3","c":"رمادي","s":"S","min":15,"open":54},{"id":"BR3-GRY-M","m":"BR3","c":"رمادي","s":"M","min":15,"open":88},{"id":"BR3-GRY-L","m":"BR3","c":"رمادي","s":"L","min":15,"open":70},{"id":"BR3-GRY-XL","m":"BR3","c":"رمادي","s":"XL","min":15,"open":119},{"id":"BR3-GRY-2XL","m":"BR3","c":"رمادي","s":"2XL","min":15,"open":80},{"id":"BR3-GRY-3XL","m":"BR3","c":"رمادي","s":"3XL","min":15,"open":56},{"id":"BR3-GRY-4XL","m":"BR3","c":"رمادي","s":"4XL","min":15,"open":47},{"id":"BR2-BLK-S","m":"BR2","c":"اسود","s":"S","min":15,"open":168},{"id":"BR2-BLK-M","m":"BR2","c":"اسود","s":"M","min":15,"open":153},{"id":"BR2-BLK-L","m":"BR2","c":"اسود","s":"L","min":15,"open":115},{"id":"BR2-BLK-XL","m":"BR2","c":"اسود","s":"XL","min":15,"open":118},{"id":"BR2-BLK-2XL","m":"BR2","c":"اسود","s":"2XL","min":15,"open":194},{"id":"BR2-BLK-3XL","m":"BR2","c":"اسود","s":"3XL","min":15,"open":91},{"id":"BR2-BLK-4XL","m":"BR2","c":"اسود","s":"4XL","min":15,"open":138},{"id":"BR2-WHT-S","m":"BR2","c":"ابيض","s":"S","min":15,"open":104},{"id":"BR2-WHT-M","m":"BR2","c":"ابيض","s":"M","min":15,"open":36},{"id":"BR2-WHT-L","m":"BR2","c":"ابيض","s":"L","min":15,"open":154},{"id":"BR2-WHT-XL","m":"BR2","c":"ابيض","s":"XL","min":15,"open":40},{"id":"BR2-WHT-2XL","m":"BR2","c":"ابيض","s":"2XL","min":15,"open":95},{"id":"BR2-WHT-3XL","m":"BR2","c":"ابيض","s":"3XL","min":15,"open":218},{"id":"BR2-WHT-4XL","m":"BR2","c":"ابيض","s":"4XL","min":15,"open":33},{"id":"BR2-RED-S","m":"BR2","c":"احمر","s":"S","min":15,"open":156},{"id":"BR2-RED-M","m":"BR2","c":"احمر","s":"M","min":15,"open":184},{"id":"BR2-RED-L","m":"BR2","c":"احمر","s":"L","min":15,"open":70},{"id":"BR2-RED-XL","m":"BR2","c":"احمر","s":"XL","min":15,"open":163},{"id":"BR2-RED-2XL","m":"BR2","c":"احمر","s":"2XL","min":15,"open":109},{"id":"BR2-RED-3XL","m":"BR2","c":"احمر","s":"3XL","min":15,"open":81},{"id":"BR2-RED-4XL","m":"BR2","c":"احمر","s":"4XL","min":15,"open":100},{"id":"BR2-BEG-S","m":"BR2","c":"بيج","s":"S","min":15,"open":39},{"id":"BR2-BEG-M","m":"BR2","c":"بيج","s":"M","min":15,"open":95},{"id":"BR2-BEG-L","m":"BR2","c":"بيج","s":"L","min":15,"open":122},{"id":"BR2-BEG-XL","m":"BR2","c":"بيج","s":"XL","min":15,"open":148},{"id":"BR2-BEG-2XL","m":"BR2","c":"بيج","s":"2XL","min":15,"open":153},{"id":"BR2-BEG-3XL","m":"BR2","c":"بيج","s":"3XL","min":15,"open":83},{"id":"BR2-BEG-4XL","m":"BR2","c":"بيج","s":"4XL","min":15,"open":117},{"id":"BR2-GRY-S","m":"BR2","c":"رمادي","s":"S","min":15,"open":163},{"id":"BR2-GRY-M","m":"BR2","c":"رمادي","s":"M","min":15,"open":57},{"id":"BR2-GRY-L","m":"BR2","c":"رمادي","s":"L","min":15,"open":89},{"id":"BR2-GRY-XL","m":"BR2","c":"رمادي","s":"XL","min":15,"open":20},{"id":"BR2-GRY-2XL","m":"BR2","c":"رمادي","s":"2XL","min":15,"open":165},{"id":"BR2-GRY-3XL","m":"BR2","c":"رمادي","s":"3XL","min":15,"open":134},{"id":"BR2-GRY-4XL","m":"BR2","c":"رمادي","s":"4XL","min":15,"open":72},{"id":"SH1-BLK-S","m":"SH1","c":"اسود","s":"S","min":15,"open":228},{"id":"SH1-WHT-S","m":"SH1","c":"ابيض","s":"S","min":15,"open":180},{"id":"SH1-RED-S","m":"SH1","c":"احمر","s":"S","min":15,"open":21},{"id":"SH1-BEG-S","m":"SH1","c":"بيج","s":"S","min":15,"open":65},{"id":"SH1-GRY-S","m":"SH1","c":"رمادي","s":"S","min":15,"open":168},{"id":"SH1-BLK-M","m":"SH1","c":"اسود","s":"M","min":15,"open":232},{"id":"SH1-WHT-M","m":"SH1","c":"ابيض","s":"M","min":15,"open":200},{"id":"SH1-RED-M","m":"SH1","c":"احمر","s":"M","min":15,"open":69},{"id":"SH1-BEG-M","m":"SH1","c":"بيج","s":"M","min":15,"open":63},{"id":"SH1-GRY-M","m":"SH1","c":"رمادي","s":"M","min":15,"open":241},{"id":"SH1-BLK-L","m":"SH1","c":"اسود","s":"L","min":15,"open":187},{"id":"SH1-WHT-L","m":"SH1","c":"ابيض","s":"L","min":15,"open":164},{"id":"SH1-RED-L","m":"SH1","c":"احمر","s":"L","min":15,"open":81},{"id":"SH1-BEG-L","m":"SH1","c":"بيج","s":"L","min":15,"open":79},{"id":"SH1-GRY-L","m":"SH1","c":"رمادي","s":"L","min":15,"open":103},{"id":"SH1-BLK-XL","m":"SH1","c":"اسود","s":"XL","min":15,"open":240},{"id":"SH1-WHT-XL","m":"SH1","c":"ابيض","s":"XL","min":15,"open":122},{"id":"SH1-RED-XL","m":"SH1","c":"احمر","s":"XL","min":15,"open":93},{"id":"SH1-BEG-XL","m":"SH1","c":"بيج","s":"XL","min":15,"open":201},{"id":"SH1-GRY-XL","m":"SH1","c":"رمادي","s":"XL","min":15,"open":178},{"id":"SH1-BLK-2XL","m":"SH1","c":"اسود","s":"2XL","min":15,"open":308},{"id":"SH1-WHT-2XL","m":"SH1","c":"ابيض","s":"2XL","min":15,"open":180},{"id":"SH1-RED-2XL","m":"SH1","c":"احمر","s":"2XL","min":15,"open":115},{"id":"SH1-BEG-2XL","m":"SH1","c":"بيج","s":"2XL","min":15,"open":225},{"id":"SH1-GRY-2XL","m":"SH1","c":"رمادي","s":"2XL","min":15,"open":195},{"id":"SH1-BLK-3XL","m":"SH1","c":"اسود","s":"3XL","min":15,"open":282},{"id":"SH1-WHT-3XL","m":"SH1","c":"ابيض","s":"3XL","min":15,"open":271},{"id":"SH1-RED-3XL","m":"SH1","c":"احمر","s":"3XL","min":15,"open":16},{"id":"SH1-BEG-3XL","m":"SH1","c":"بيج","s":"3XL","min":15,"open":185},{"id":"SH1-GRY-3XL","m":"SH1","c":"رمادي","s":"3XL","min":15,"open":206},{"id":"SH1-BLK-4XL","m":"SH1","c":"اسود","s":"4XL","min":15,"open":240},{"id":"SH1-WHT-4XL","m":"SH1","c":"ابيض","s":"4XL","min":15,"open":205},{"id":"SH1-RED-4XL","m":"SH1","c":"احمر","s":"4XL","min":15,"open":48},{"id":"SH1-BEG-4XL","m":"SH1","c":"بيج","s":"4XL","min":15,"open":168},{"id":"SH1-GRY-4XL","m":"SH1","c":"رمادي","s":"4XL","min":15,"open":173},{"id":"BR1-BLK-S","m":"BR1","c":"اسود","s":"S","min":30,"open":240},{"id":"BR1-WHT-S","m":"BR1","c":"ابيض","s":"S","min":30,"open":115},{"id":"BR1-RED-S","m":"BR1","c":"احمر","s":"S","min":30,"open":97},{"id":"BR1-GRY-S","m":"BR1","c":"رمادي","s":"S","min":30,"open":117},{"id":"BR1-BEG-S","m":"BR1","c":"بيج","s":"S","min":30,"open":83},{"id":"BR1-BLK-M","m":"BR1","c":"اسود","s":"M","min":30,"open":214},{"id":"BR1-RED-M","m":"BR1","c":"احمر","s":"M","min":30,"open":93},{"id":"BR1-WHT-M","m":"BR1","c":"ابيض","s":"M","min":30,"open":153},{"id":"BR1-GRY-M","m":"BR1","c":"رمادي","s":"M","min":30,"open":133},{"id":"BR1-BEG-M","m":"BR1","c":"بيج","s":"M","min":30,"open":90},{"id":"BR1-BLK-L","m":"BR1","c":"اسود","s":"L","min":30,"open":320},{"id":"BR1-RED-L","m":"BR1","c":"احمر","s":"L","min":30,"open":165},{"id":"BR1-WHT-L","m":"BR1","c":"ابيض","s":"L","min":30,"open":171},{"id":"BR1-GRY-L","m":"BR1","c":"رمادي","s":"L","min":30,"open":179},{"id":"BR1-BEG-L","m":"BR1","c":"بيج","s":"L","min":30,"open":50},{"id":"BR1-BLK-XL","m":"BR1","c":"اسود","s":"XL","min":30,"open":359},{"id":"BR1-WHT-XL","m":"BR1","c":"ابيض","s":"XL","min":30,"open":203},{"id":"BR1-RED-XL","m":"BR1","c":"احمر","s":"XL","min":30,"open":53},{"id":"BR1-GRY-XL","m":"BR1","c":"رمادي","s":"XL","min":30,"open":175},{"id":"BR1-BEG-XL","m":"BR1","c":"بيج","s":"XL","min":30,"open":124},{"id":"BR1-BLK-2XL","m":"BR1","c":"اسود","s":"2XL","min":30,"open":309},{"id":"BR1-RED-2XL","m":"BR1","c":"احمر","s":"2XL","min":30,"open":232},{"id":"BR1-WHT-2XL","m":"BR1","c":"ابيض","s":"2XL","min":30,"open":160},{"id":"BR1-GRY-2XL","m":"BR1","c":"رمادي","s":"2XL","min":30,"open":190},{"id":"BR1-BEG-2XL","m":"BR1","c":"بيج","s":"2XL","min":30,"open":150},{"id":"BR1-BLK-3XL","m":"BR1","c":"اسود","s":"3XL","min":30,"open":195},{"id":"BR1-RED-3XL","m":"BR1","c":"احمر","s":"3XL","min":30,"open":86},{"id":"BR1-WHT-3XL","m":"BR1","c":"ابيض","s":"3XL","min":30,"open":171},{"id":"BR1-GRY-3XL","m":"BR1","c":"رمادي","s":"3XL","min":30,"open":201},{"id":"BR1-BEG-3XL","m":"BR1","c":"بيج","s":"3XL","min":30,"open":142},{"id":"BR1-BLK-4XL","m":"BR1","c":"اسود","s":"4XL","min":30,"open":197},{"id":"BR1-RED-4XL","m":"BR1","c":"احمر","s":"4XL","min":30,"open":78},{"id":"BR1-WHT-4XL","m":"BR1","c":"ابيض","s":"4XL","min":30,"open":186},{"id":"BR1-GRY-4XL","m":"BR1","c":"رمادي","s":"4XL","min":30,"open":151},{"id":"BR1-BEG-4XL","m":"BR1","c":"بيج","s":"4XL","min":30,"open":121},{"id":"A12-OLV-S","m":"A12","c":"زيتى","s":"S","min":0,"open":0},{"id":"A12-OLV-M","m":"A12","c":"زيتى","s":"M","min":0,"open":0},{"id":"A12-OLV-L","m":"A12","c":"زيتى","s":"L","min":0,"open":0},{"id":"A12-OLV-XL","m":"A12","c":"زيتى","s":"XL","min":0,"open":0},{"id":"A12-OLV-2XL","m":"A12","c":"زيتى","s":"2XL","min":0,"open":0},{"id":"A12-OLV-3XL","m":"A12","c":"زيتى","s":"3XL","min":0,"open":0},{"id":"A12-OLV-4XL","m":"A12","c":"زيتى","s":"4XL","min":0,"open":0},{"id":"A11-PNK-S","m":"A11","c":"بينك","s":"S","min":0,"open":0},{"id":"A11-PNK-M","m":"A11","c":"بينك","s":"M","min":0,"open":0},{"id":"A11-PNK-L","m":"A11","c":"بينك","s":"L","min":0,"open":0},{"id":"A11-PNK-XL","m":"A11","c":"بينك","s":"XL","min":0,"open":0},{"id":"A11-PNK-2XL","m":"A11","c":"بينك","s":"2XL","min":0,"open":0},{"id":"A11-PNK-3XL","m":"A11","c":"بينك","s":"3XL","min":0,"open":0},{"id":"A11-PNK-4XL","m":"A11","c":"بينك","s":"4XL","min":0,"open":0},{"id":"A9-SAL-S","m":"A9","c":"سيمون","s":"S","min":0,"open":1},{"id":"A9-SAL-M","m":"A9","c":"سيمون","s":"M","min":0,"open":1},{"id":"A9-SAL-L","m":"A9","c":"سيمون","s":"L","min":0,"open":0},{"id":"A9-SAL-XL","m":"A9","c":"سيمون","s":"XL","min":0,"open":1},{"id":"A9-SAL-2XL","m":"A9","c":"سيمون","s":"2XL","min":0,"open":0},{"id":"A9-SAL-3XL","m":"A9","c":"سيمون","s":"3XL","min":0,"open":0},{"id":"A9-SAL-4XL","m":"A9","c":"سيمون","s":"4XL","min":0,"open":0},{"id":"A8-ROS-S","m":"A8","c":"روز","s":"S","min":0,"open":0},{"id":"A8-ROS-M","m":"A8","c":"روز","s":"M","min":0,"open":0},{"id":"A8-ROS-L","m":"A8","c":"روز","s":"L","min":0,"open":0},{"id":"A8-ROS-XL","m":"A8","c":"روز","s":"XL","min":0,"open":0},{"id":"A8-ROS-2XL","m":"A8","c":"روز","s":"2XL","min":0,"open":0},{"id":"A8-ROS-3XL","m":"A8","c":"روز","s":"3XL","min":0,"open":0},{"id":"A8-ROS-4XL","m":"A8","c":"روز","s":"4XL","min":0,"open":0},{"id":"A7-RBK-S","m":"A7","c":"احمر تطعيم اسود","s":"S","min":0,"open":0},{"id":"A7-RBK-M","m":"A7","c":"احمر تطعيم اسود","s":"M","min":0,"open":0},{"id":"A7-RBK-L","m":"A7","c":"احمر تطعيم اسود","s":"L","min":0,"open":0},{"id":"A7-RBK-XL","m":"A7","c":"احمر تطعيم اسود","s":"XL","min":0,"open":0},{"id":"A7-RBK-2XL","m":"A7","c":"احمر تطعيم اسود","s":"2XL","min":0,"open":0},{"id":"A7-RBK-3XL","m":"A7","c":"احمر تطعيم اسود","s":"3XL","min":0,"open":0},{"id":"A7-RBK-4XL","m":"A7","c":"احمر تطعيم اسود","s":"4XL","min":0,"open":0},{"id":"D3-BLK-S","m":"D3","c":"اسود","s":"S","min":0,"open":0},{"id":"D3-BLK-M","m":"D3","c":"اسود","s":"M","min":0,"open":0},{"id":"D3-BLK-L","m":"D3","c":"اسود","s":"L","min":0,"open":0},{"id":"D3-BLK-XL","m":"D3","c":"اسود","s":"XL","min":0,"open":0},{"id":"D3-BLK-2XL","m":"D3","c":"اسود","s":"2XL","min":0,"open":0},{"id":"D3-BLK-3XL","m":"D3","c":"اسود","s":"3XL","min":0,"open":0},{"id":"D3-OLV-S","m":"D3","c":"زيتى","s":"S","min":0,"open":0},{"id":"D3-OLV-M","m":"D3","c":"زيتى","s":"M","min":0,"open":0},{"id":"D3-OLV-L","m":"D3","c":"زيتى","s":"L","min":0,"open":0},{"id":"D3-OLV-XL","m":"D3","c":"زيتى","s":"XL","min":0,"open":0},{"id":"D3-OLV-2XL","m":"D3","c":"زيتى","s":"2XL","min":0,"open":0},{"id":"D3-OLV-3XL","m":"D3","c":"زيتى","s":"3XL","min":0,"open":0},{"id":"D3-ORG-S","m":"D3","c":"برتقالي","s":"S","min":0,"open":0},{"id":"D3-ORG-M","m":"D3","c":"برتقالي","s":"M","min":0,"open":0},{"id":"D3-ORG-L","m":"D3","c":"برتقالي","s":"L","min":0,"open":0},{"id":"D3-ORG-XL","m":"D3","c":"برتقالي","s":"XL","min":0,"open":0},{"id":"D3-ORG-2XL","m":"D3","c":"برتقالي","s":"2XL","min":0,"open":0},{"id":"D3-ORG-3XL","m":"D3","c":"برتقالي","s":"3XL","min":0,"open":0},{"id":"D3-WHT-S","m":"D3","c":"ابيض","s":"S","min":0,"open":0},{"id":"D3-WHT-M","m":"D3","c":"ابيض","s":"M","min":0,"open":0},{"id":"D3-WHT-L","m":"D3","c":"ابيض","s":"L","min":0,"open":0},{"id":"D3-WHT-XL","m":"D3","c":"ابيض","s":"XL","min":0,"open":0},{"id":"D3-WHT-2XL","m":"D3","c":"ابيض","s":"2XL","min":0,"open":0},{"id":"D3-WHT-3XL","m":"D3","c":"ابيض","s":"3XL","min":0,"open":0},{"id":"D3-RED-S","m":"D3","c":"احمر","s":"S","min":0,"open":0},{"id":"D3-RED-M","m":"D3","c":"احمر","s":"M","min":0,"open":0},{"id":"D3-RED-L","m":"D3","c":"احمر","s":"L","min":0,"open":0},{"id":"D3-RED-XL","m":"D3","c":"احمر","s":"XL","min":0,"open":0},{"id":"D3-RED-2XL","m":"D3","c":"احمر","s":"2XL","min":0,"open":0},{"id":"D3-RED-3XL","m":"D3","c":"احمر","s":"3XL","min":0,"open":0},{"id":"D3-FUC-S","m":"D3","c":"فوشيا","s":"S","min":0,"open":0},{"id":"D3-FUC-M","m":"D3","c":"فوشيا","s":"M","min":0,"open":0},{"id":"D3-FUC-L","m":"D3","c":"فوشيا","s":"L","min":0,"open":0},{"id":"D3-FUC-XL","m":"D3","c":"فوشيا","s":"XL","min":0,"open":0},{"id":"D3-FUC-2XL","m":"D3","c":"فوشيا","s":"2XL","min":0,"open":0},{"id":"D3-FUC-3XL","m":"D3","c":"فوشيا","s":"3XL","min":0,"open":0},{"id":"S1-WHT-S","m":"S1","c":"ابيض","s":"S","min":0,"open":0},{"id":"S1-WHT-M","m":"S1","c":"ابيض","s":"M","min":0,"open":0},{"id":"S1-WHT-L","m":"S1","c":"ابيض","s":"L","min":0,"open":0},{"id":"S1-WHT-XL","m":"S1","c":"ابيض","s":"XL","min":0,"open":0},{"id":"S1-WHT-2XL","m":"S1","c":"ابيض","s":"2XL","min":0,"open":0},{"id":"S1-BLK-S","m":"S1","c":"اسود","s":"S","min":0,"open":0},{"id":"S1-BLK-M","m":"S1","c":"اسود","s":"M","min":0,"open":0},{"id":"S1-BLK-L","m":"S1","c":"اسود","s":"L","min":0,"open":0},{"id":"S1-BLK-XL","m":"S1","c":"اسود","s":"XL","min":0,"open":0},{"id":"S1-BLK-2XL","m":"S1","c":"اسود","s":"2XL","min":0,"open":0},{"id":"S1-NVY-S","m":"S1","c":"كحلي","s":"S","min":0,"open":0},{"id":"S1-NVY-M","m":"S1","c":"كحلي","s":"M","min":0,"open":0},{"id":"S1-NVY-L","m":"S1","c":"كحلي","s":"L","min":0,"open":0},{"id":"S1-NVY-XL","m":"S1","c":"كحلي","s":"XL","min":0,"open":0},{"id":"S1-NVY-2XL","m":"S1","c":"كحلي","s":"2XL","min":0,"open":0},{"id":"S1-RED-S","m":"S1","c":"احمر","s":"S","min":0,"open":0},{"id":"S1-RED-M","m":"S1","c":"احمر","s":"M","min":0,"open":0},{"id":"S1-RED-L","m":"S1","c":"احمر","s":"L","min":0,"open":0},{"id":"S1-RED-XL","m":"S1","c":"احمر","s":"XL","min":0,"open":0},{"id":"S1-RED-2XL","m":"S1","c":"احمر","s":"2XL","min":0,"open":0}],"alias":{"FC-BR2":"BR2","FC-PAN5":"PAN5","Women A5":"A5","FC-PAN4":"PAN4","FC-SH1":"SH1","FC-SH2":"SH2","FC-BR1":"BR1","FC-BR4":"BR4","FC-PAN3":"PAN3","FC-PAN1":"PAN1","FC-PAN2":"PAN2","FC-BR3":"BR3"},"pickups":[{"no":1,"label":"بيك أب 1","orders":[{"ref":"ed4298","wb":23793622,"type":"جديد","gov":"الغربية","total":1040,"lines":["BR2-BLK-L","BR2-RED-L","PAN5-BLK-L","PAN5-RED-L"]},{"ref":"fd8523","wb":23793621,"type":"جديد","gov":"أسوان","total":1798,"lines":["A5-BLK-4XL","BR2-RED-4XL","BR2-BLK-4XL","BR2-GRY-4XL","PAN4-RED-4XL","PAN4-BLK-4XL","PAN4-GRY-4XL"]},{"ref":"ht8415","wb":23793620,"type":"جديد","gov":"القاهرة","total":1750,"lines":["SH1-WHT-2XL","SH1-RED-2XL","SH1-BLK-2XL","SH1-BEG-2XL","SH1-GRY-2XL","SH2-WHT-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-WHT-2XL","BR1-RED-2XL","BR1-BLK-2XL","BR1-BEG-2XL","BR1-GRY-2XL","BR4-GRY-2XL","PAN4-GRY-2XL"]},{"ref":"kf2181","wb":23793618,"type":"جديد","gov":"الأقصر","total":1750,"lines":["BR2-WHT-4XL","BR2-RED-4XL","BR2-BLK-4XL","BR2-BEG-4XL","BR2-GRY-4XL","PAN3-WHT-4XL","PAN3-RED-4XL","PAN3-BLK-4XL","PAN3-BEG-4XL","PAN3-GRY-4XL","SH2-RED-4XL","SH2-BLK-4XL","SH2-ORG-4XL","SH2-BEG-4XL","SH2-GRY-4XL","BR1-RED-4XL","SH1-RED-4XL"]},{"ref":"ob8975","wb":23793617,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"wm4159","wb":23793616,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-M","BR2-RED-M","BR2-BLK-M","BR2-BEG-M","BR2-GRY-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-BEG-M","PAN3-GRY-M","SH2-RED-M","SH2-BLK-M","SH2-ORG-M","SH2-BEG-M","SH2-GRY-M","BR1-RED-M","SH1-RED-M"]},{"ref":"nq9480","wb":23793615,"type":"جديد","gov":"الأسكندرية","total":780,"lines":["PAN4-GRY-L","PAN4-RED-L","PAN3-BLK-L","BR2-RED-L","BR2-BLK-L","BR2-GRY-L"]},{"ref":"kd4037","wb":23793614,"type":"جديد","gov":"الشرقية","total":1750,"lines":["BR2-WHT-4XL","BR2-RED-4XL","BR2-BLK-4XL","BR2-BEG-4XL","BR2-GRY-4XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-4XL","SH1-RED-2XL"]},{"ref":"qh9700","wb":23793613,"type":"جديد","gov":"الجيزة","total":2597,"lines":["SH1-BLK-4XL","SH1-RED-4XL","SH1-GRY-4XL","SH1-WHT-4XL","SH1-BEG-4XL","BR2-GRY-4XL","BR2-BLK-4XL","BR2-RED-4XL","BR2-WHT-4XL","BR2-BEG-4XL","PAN4-RED-4XL","PAN4-WHT-4XL","PAN4-BLK-4XL","PAN4-GRY-4XL","PAN4-BEG-4XL"]},{"ref":"no6583","wb":23793612,"type":"جديد","gov":"الأسكندرية","total":1750,"lines":["BR2-WHT-S","BR2-RED-S","BR2-BLK-S","BR2-BEG-S","BR2-GRY-S","PAN3-WHT-S","PAN3-RED-S","PAN3-BLK-S","PAN3-BEG-S","PAN3-GRY-S","SH2-RED-S","SH2-BLK-S","SH2-ORG-S","SH2-BEG-S","SH2-GRY-S","BR1-RED-S","SH1-RED-S"]},{"ref":"xv8172","wb":23793611,"type":"جديد","gov":"الدقهلية","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"zj5170","wb":23793610,"type":"جديد","gov":"القليوبية","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"nm4536","wb":23793609,"type":"جديد","gov":"القاهرة","total":1249,"lines":["BR2-BLK-XL","BR2-WHT-XL","BR2-RED-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-BLK-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL","PAN1-WHT-XL"]},{"ref":"ew6717","wb":23793608,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"lf7632","wb":23793607,"type":"جديد","gov":"الجيزة","total":1079,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"xu8642","wb":23793606,"type":"جديد","gov":"جنوب سيناء","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"mt4198","wb":23793605,"type":"جديد","gov":"القاهرة","total":1500,"lines":["SH2-BEG-M","SH2-BEG-M","SH2-WHT-M","SH2-WHT-M","SH2-GRY-M","SH2-GRY-M"]},{"ref":"vk7682","wb":23793604,"type":"جديد","gov":"القاهرة","total":480,"lines":["BR2-RED-M"]},{"ref":"hp1506","wb":23793603,"type":"جديد","gov":"الجيزة","total":1079,"lines":["BR2-BLK-XL","BR2-WHT-XL","BR2-RED-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-BLK-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL"]},{"ref":"ki3978","wb":23793602,"type":"جديد","gov":"القاهرة","total":1899,"lines":["PAN5-BEG-L","PAN5-WHT-L","PAN5-BLK-L","PAN5-RED-L","PAN5-GRY-L","BR1-RED-L","BR1-GRY-L","BR1-BLK-L","BR1-WHT-L","BR1-BEG-L"]},{"ref":"wy5149","wb":23793601,"type":"جديد","gov":"الجيزة","total":779,"lines":["BR2-RED-XL","BR2-BLK-XL","BR2-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-WHT-XL"]},{"ref":"mm2393","wb":23793600,"type":"جديد","gov":"دمياط","total":779,"lines":["BR2-RED-2XL","BR2-GRY-2XL","BR2-BEG-2XL","PAN3-RED-2XL","PAN3-GRY-2XL","PAN3-BEG-2XL"]},{"ref":"jb1950","wb":23793599,"type":"جديد","gov":"الجيزة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"ob3138","wb":23793598,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-M","BR2-WHT-M","BR2-RED-M","BR2-BEG-M","BR2-GRY-M","PAN3-BLK-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BEG-M","PAN3-GRY-M"]},{"ref":"at2017","wb":23793597,"type":"جديد","gov":"مطروح","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"eu2037","wb":23793596,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"uq7408","wb":23793595,"type":"جديد","gov":"دمياط","total":1080,"lines":["PAN3-BLK-XL","PAN3-BLK-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL","BR2-GRY-L","BR2-BLK-L","BR2-BLK-L","BR2-RED-L","BR2-BEG-L"]},{"ref":"yj1139","wb":23793594,"type":"جديد","gov":"كفر الشيخ","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"hh1675","wb":23793593,"type":"جديد","gov":"الجيزة","total":979,"lines":["SH1-BLK-2XL","SH1-RED-2XL","SH1-GRY-2XL","SH1-WHT-2XL","SH1-BEG-2XL"]},{"ref":"ka3278","wb":23793592,"type":"جديد","gov":"القاهرة","total":779,"lines":["BR2-RED-L","BR2-BLK-L","BR2-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-WHT-L"]},{"ref":"hi2132","wb":23793591,"type":"جديد","gov":"البحر الأحمر","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"ne8983","wb":23793590,"type":"جديد","gov":"الأسكندرية","total":1280,"lines":["PAN3-WHT-3XL","SH2-WHT-4XL","SH2-WHT-4XL","SH2-WHT-4XL"]},{"ref":"gv6956","wb":23793589,"type":"جديد","gov":"القاهرة","total":1079,"lines":["SH2-BLK-L","SH2-WHT-L","SH2-RED-L","SH2-BEG-L","SH2-GRY-L","SH2-ORG-L"]},{"ref":"ub6319","wb":23793588,"type":"جديد","gov":"الشرقية","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"my6542","wb":23793587,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"kr4451","wb":23793586,"type":"جديد","gov":"الأسكندرية","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"sy5200","wb":23793585,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"jo2737","wb":23793583,"type":"استبدال","gov":"الغربية","total":1125,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-BLK-2XL","SH2-RED-2XL","SH2-BEG-2XL","SH2-GRY-2XL","SH2-ORG-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"ed2009","wb":23793582,"type":"جديد","gov":"المنيا","total":889,"lines":["SH1-BLK-L","SH1-RED-L","SH1-GRY-L","SH1-WHT-L","SH1-BEG-L"]},{"ref":"rx7575","wb":23793581,"type":"جديد","gov":"الغربية","total":674,"lines":["BR2-RED-M","BR2-BLK-M","BR2-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-WHT-M"]},{"ref":"bh5020","wb":23793579,"type":"جديد","gov":"سوهاج","total":1488,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L","SH2-BLK-L","SH2-RED-L","SH2-BEG-L","SH2-GRY-L","SH2-ORG-L","BR1-RED-L","SH1-RED-L"]},{"ref":"do7576","wb":23793577,"type":"جديد","gov":"البحيرة","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"dq3171","wb":23793576,"type":"جديد","gov":"الجيزة","total":1749,"lines":["SH2-RED-XL","SH2-BLK-XL","SH2-GRY-XL","BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"ng8185","wb":23793575,"type":"جديد","gov":"أسيوط","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"so5178","wb":23793574,"type":"جديد","gov":"الجيزة","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"oq7066","wb":23793573,"type":"جديد","gov":"القاهرة","total":1920,"lines":["SH1-GRY-M","PAN5-WHT-M","PAN3-GRY-M","PAN2-BLK-M","PAN1-BLK-M","BR4-BLK-M","PAN4-BLK-M","BR3-BLK-M","SH1-BLK-M","SH2-ORG-M"]},{"ref":"so5879","wb":23793572,"type":"جديد","gov":"كفر الشيخ","total":1898,"lines":["BR2-BLK-4XL","BR2-WHT-4XL","BR2-RED-4XL","BR2-BEG-4XL","BR2-GRY-4XL","PAN3-BLK-4XL","PAN3-WHT-4XL","PAN3-RED-4XL","PAN3-BEG-4XL","PAN3-GRY-4XL","SH1-BLK-4XL","SH1-RED-4XL","SH1-GRY-4XL","SH1-WHT-4XL","SH1-BEG-4XL"]},{"ref":"qw8606","wb":23793571,"type":"جديد","gov":"السويس","total":1079,"lines":["BR2-BLK-S","BR2-WHT-S","BR2-RED-S","BR2-BEG-S","BR2-GRY-S","PAN3-BLK-S","PAN3-WHT-S","PAN3-RED-S","PAN3-BEG-S","PAN3-GRY-S"]}]},{"no":2,"label":"بيك أب 2","orders":[{"ref":"dd6421","wb":23807141,"type":"جديد","gov":"الجيزة","total":1750,"lines":["SH1-WHT-3XL","SH1-RED-3XL","SH1-BLK-3XL","SH1-BEG-3XL","SH1-GRY-3XL","SH2-WHT-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-WHT-3XL","BR1-RED-3XL","BR1-BLK-3XL","BR1-BEG-3XL","BR1-GRY-3XL","BR4-GRY-3XL","PAN4-GRY-3XL"]},{"ref":"xa8857","wb":23807140,"type":"جديد","gov":"المنوفية","total":675,"lines":["PAN3-BEG-3XL","PAN3-WHT-3XL","PAN4-RED-2XL","PAN4-BLK-2XL","PAN4-GRY-2XL"]},{"ref":"lf9728","wb":23807139,"type":"جديد","gov":"بور سعيد","total":674,"lines":["PAN2-BLK-L","PAN2-WHT-L","PAN2-RED-L","PAN2-BEG-L","PAN2-GRY-L"]},{"ref":"tq5572","wb":23807138,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"ok3718","wb":23807137,"type":"استبدال","gov":"الجيزة","total":190,"lines":["BR4-RED-XL","BR4-GRY-XL"]},{"ref":"uq2381","wb":23807136,"type":"جديد","gov":"المنوفية","total":1750,"lines":["PAN5-BEG-3XL","PAN5-GRY-3XL","PAN3-BLK-3XL","PAN3-RED-3XL","PAN3-WHT-3XL","BR2-BLK-2XL","BR2-RED-2XL","BR2-WHT-2XL","BR3-GRY-XL","BR3-BEG-XL","BR1-RED-XL","SH2-BLK-2XL","SH2-GRY-2XL","SH2-RED-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH1-RED-3XL"]},{"ref":"ji1773","wb":23807135,"type":"جديد","gov":"الدقهلية","total":1750,"lines":["SH1-WHT-3XL","SH1-RED-3XL","SH1-BLK-3XL","SH1-BEG-3XL","SH1-GRY-3XL","SH2-WHT-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-WHT-3XL","BR1-RED-3XL","BR1-BLK-3XL","BR1-BEG-3XL","BR1-GRY-3XL","BR4-GRY-3XL","PAN4-GRY-3XL"]},{"ref":"ge7027","wb":23807134,"type":"جديد","gov":"الأسكندرية","total":1155,"lines":["PAN1-BLK-M","PAN4-BLK-M","BR1-BLK-M","BR2-BLK-M","PAN3-BLK-M"]},{"ref":"ui3175","wb":23807133,"type":"جديد","gov":"كفر الشيخ","total":600,"lines":["SH1-RED-L","SH1-GRY-L","SH1-WHT-L","SH1-BEG-L"]},{"ref":"vd8513","wb":23807132,"type":"جديد","gov":"الأسكندرية","total":1750,"lines":["PAN3-RED-L","PAN3-WHT-L","PAN3-BLK-L","PAN3-GRY-L","PAN3-BEG-L","BR2-GRY-S","BR2-BLK-S","BR2-RED-S","BR2-WHT-S","BR2-BEG-S","BR1-RED-S","SH2-BLK-L","SH2-GRY-L","SH2-RED-L","SH2-ORG-L","SH2-BEG-L","SH1-RED-L"]},{"ref":"fk9211","wb":23807131,"type":"جديد","gov":"السويس","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"vp8698","wb":23807130,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-XL","BR2-WHT-XL","BR2-RED-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-BLK-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL"]},{"ref":"fv4091","wb":23807129,"type":"جديد","gov":"القاهرة","total":560,"lines":["BR2-BLK-S","SH2-BLK-S"]},{"ref":"nw6099","wb":23807128,"type":"جديد","gov":"القليوبية","total":1750,"lines":["BR2-WHT-M","BR2-RED-M","BR2-BLK-M","BR2-BEG-M","BR2-GRY-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-BEG-M","PAN3-GRY-M","SH2-RED-M","SH2-BLK-M","SH2-ORG-M","SH2-BEG-M","SH2-GRY-M","BR1-RED-M","SH1-RED-M"]},{"ref":"hp7687","wb":23807127,"type":"جديد","gov":"الجيزة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"db7683","wb":23807126,"type":"جديد","gov":"القليوبية","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"tj6152","wb":23807125,"type":"جديد","gov":"الدقهلية","total":1079,"lines":["BR2-BLK-S","BR2-WHT-S","BR2-RED-S","BR2-BEG-S","BR2-GRY-S","PAN3-BLK-S","PAN3-WHT-S","PAN3-RED-S","PAN3-BEG-S","PAN3-GRY-S"]},{"ref":"fr6754","wb":23807124,"type":"جديد","gov":"كفر الشيخ","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"dg8582","wb":23807123,"type":"جديد","gov":"القاهرة","total":779,"lines":["PAN5-BLK-L","PAN5-WHT-L","PAN5-RED-L","PAN5-BEG-L","PAN5-GRY-L"]},{"ref":"wn4551","wb":23807122,"type":"جديد","gov":"الشرقية","total":1750,"lines":["PAN3-BLK-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-BLK-XL","SH2-GRY-XL","SH2-RED-XL","SH2-BEG-XL","SH2-ORG-XL","BR2-BLK-XL","BR2-WHT-XL","BR2-RED-XL","BR2-BEG-XL","BR2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"xb4443","wb":23807121,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"pk5593","wb":23807120,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"ur5780","wb":23807119,"type":"جديد","gov":"الدقهلية","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"xy8110","wb":23807118,"type":"جديد","gov":"الغربية","total":1079,"lines":["SH2-BLK-3XL","SH2-WHT-3XL","SH2-RED-3XL","SH2-BEG-3XL","SH2-GRY-3XL","SH2-ORG-3XL"]},{"ref":"fn8061","wb":23807117,"type":"جديد","gov":"الوادي الجديد","total":1550,"lines":["SH2-RED-XL","SH2-BLK-XL","SH2-GRY-XL","PAN5-RED-XL","PAN5-BLK-XL","BR4-RED-M","BR4-BLK-M"]},{"ref":"sc7206","wb":23807116,"type":"جديد","gov":"الجيزة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"dy2199","wb":23807115,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"be4907","wb":23807114,"type":"جديد","gov":"الجيزة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"ce3134","wb":23807113,"type":"جديد","gov":"البحيرة","total":1079,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"vn5882","wb":23807112,"type":"جديد","gov":"الأسكندرية","total":829,"lines":["BR3-BLK-XL","BR1-GRY-XL","PAN2-WHT-XL","PAN2-RED-XL","PAN2-BLK-XL","PAN2-BEG-XL","PAN2-GRY-XL"]},{"ref":"nf2160","wb":23807111,"type":"جديد","gov":"السويس","total":1079,"lines":["BR2-BLK-M","BR2-WHT-M","BR2-RED-M","BR2-BEG-M","BR2-GRY-M","PAN3-BLK-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BEG-M","PAN3-GRY-M"]},{"ref":"ii6514","wb":23807110,"type":"جديد","gov":"القليوبية","total":1750,"lines":["BR2-WHT-M","BR2-RED-M","BR2-BLK-M","BR2-BEG-M","BR2-GRY-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-BEG-M","PAN3-GRY-M","SH2-RED-M","SH2-BLK-M","SH2-ORG-M","SH2-BEG-M","SH2-GRY-M","BR1-RED-M","SH1-RED-M"]},{"ref":"wl6201","wb":23807109,"type":"جديد","gov":"الإسماعيلية","total":955,"lines":["PAN5-RED-S","PAN5-RED-S","PAN5-RED-S","PAN5-RED-S","PAN5-RED-S"]},{"ref":"aw3490","wb":23807108,"type":"جديد","gov":"الأسكندرية","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"jq2169","wb":23807107,"type":"جديد","gov":"القاهرة","total":845,"lines":["PAN1-RED-3XL","PAN2-GRY-3XL","BR2-BLK-2XL"]},{"ref":"ja4125","wb":23807106,"type":"جديد","gov":"الأسكندرية","total":830,"lines":["SH2-BEG-3XL","SH2-BLK-3XL","SH2-GRY-3XL"]},{"ref":"xn8154","wb":23807105,"type":"جديد","gov":"القاهرة","total":1499,"lines":["PAN1-BLK-2XL","PAN1-WHT-2XL","PAN1-RED-2XL","PAN1-BEG-2XL","PAN1-GRY-2XL","PAN2-BLK-2XL","PAN2-WHT-2XL","PAN2-RED-2XL","PAN2-BEG-2XL","PAN2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"we6641","wb":23807104,"type":"جديد","gov":"المنيا","total":1079,"lines":["SH2-RED-S","SH2-WHT-S","SH2-BLK-S","SH2-GRY-S","SH2-BEG-S"]},{"ref":"em4271","wb":23807103,"type":"جديد","gov":"القليوبية","total":1488,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"vg8538","wb":23807102,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"sb4580","wb":23807101,"type":"جديد","gov":"الجيزة","total":779,"lines":["BR2-RED-L","BR2-GRY-L","BR2-BLK-L","PAN3-RED-L","PAN3-GRY-L","PAN3-BLK-L"]},{"ref":"zf7528","wb":23807100,"type":"جديد","gov":"الأسكندرية","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"ei1079","wb":23807099,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-M","BR2-RED-M","BR2-BLK-M","BR2-BEG-M","BR2-GRY-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-BEG-M","PAN3-GRY-M","SH2-RED-M","SH2-BLK-M","SH2-ORG-M","SH2-BEG-M","SH2-GRY-M","BR1-RED-M","SH1-RED-M"]},{"ref":"ds5098","wb":23807098,"type":"جديد","gov":"الجيزة","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]}]}],"cleaning":["حذف PAN6 (باندل 5 ألوان) من الأصناف والرصيد الافتتاحي: 50 قطعة مستبعدة لحد ما يتحدد محتواه","توحيد كود PAN4 (كان فيه مسافة زيادة)","تصحيح \"مطزرات\" إلى \"مطرزات\" في A1 إلى A6","ربط Women A5 ← A5 وFC-xxx ← xxx كـ Alias لفيندور","تحويل التاريخ من نص (29\\10\\2026) إلى تاريخ حقيقي 2026-10-29","كل الرصيد الافتتاحي اتحسب Ready","بيانات العملاء (الاسم/الموبايل/العنوان) لم تُستورد"]};
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var fmt=function(n){return (+n||0).toLocaleString('en-US')};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var bi=function(en,ar){return esc(en)+(ar?'<span class="g" dir="rtl">'+esc(ar)+'</span>':'')};
+
+/* ---------- Products (templates) and variants ---------- */
+var SKU=new Map(D.skus.map(function(s){return [s.id,s]}));
+var MODEL=new Map(D.models.map(function(m){return [m.code,m]}));
+var SZ=D.sizes,szi=function(s){return SZ.indexOf(s)};
+var IDX={};D.skus.forEach(function(k){IDX[k.m+'|'+k.c+'|'+k.s]=k.id});
+function natCode(a,b){var x=/^([A-Za-z]+)(\d*)/.exec(a),y=/^([A-Za-z]+)(\d*)/.exec(b),p=x[1].toUpperCase(),q=y[1].toUpperCase();return p<q?-1:p>q?1:(+x[2]||0)-(+y[2]||0)}
+var MODEL_EN={PAN1:'Classic Thong',PAN2:'Sideless Thong',PAN3:'High-Cut Thong',PAN4:'Bikini',PAN5:'Brief',BR1:'Padded Sports Bra',BR2:'Triangle Bra',BR3:'Racerback Sports Bra',BR4:'Thin-Strap Bralette',SH1:'Hot Short',SH2:'Contrast-Trim Short'};
+var AR_EN={'دانتيل':'Lace','مطرزات':'Embroidered','القميص':'Shirt','الروب':'Robe'};
+D.models.forEach(function(m){m.ar=m.name;m.name=MODEL_EN[m.code]||AR_EN[m.name]||m.name});
+var COLOR_EN={'احمر':'Red','برتقالي':'Orange','اسود':'Black','رمادي':'Grey','بيج':'Beige','ابيض':'White','فوشيا':'Fuchsia','سيمون':'Salmon','زيتى':'Olive','اصفر':'Yellow','كحلي':'Navy','بينك':'Pink','مينت جرين':'Mint Green','بيبي بلو':'Baby Blue','روز':'Rose','احمر تطعيم اسود':'Red / Black trim'};
+function cn(c){return COLOR_EN[c]||c}
+var MORDER=D.models.map(function(m){return m.code}).sort(natCode);
+var mIdx={};MORDER.forEach(function(c,i){mIdx[c]=i});
+function skuSort(a,b){var x=SKU.get(a),y=SKU.get(b);return (mIdx[x.m]-mIdx[y.m])||(MODEL.get(x.m).colors.indexOf(x.c)-MODEL.get(y.m).colors.indexOf(y.c))||(szi(x.s)-szi(y.s))}
+var CATEGORY={PAN:'Panties',BR:'Bras',SH:'Shorts'};
+function categoryOf(m){var k=/^[A-Za-z]+/.exec(m)[0].toUpperCase();return CATEGORY[k]||'Other'}
+var HEX={'اسود':'#1e1b24','ابيض':'#ffffff','احمر':'#d9262e','بيج':'#ead9be','رمادي':'#bdbcc4','برتقالي':'#f07a2b','زيتى':'#6f7a3c','فوشيا':'#c2317a','اصفر':'#f2c230','مينت جرين':'#8fd3b6','بيبي بلو':'#a9cbe8','كحلي':'#1f2a5a','بينك':'#f4b6c8','سيمون':'#f3a28c','روز':'#e58fa8','احمر تطعيم اسود':'#a3262c'};
+var swatch=function(c){return '<i class="sw" style="background:'+(HEX[c]||'#cfc2ec')+'"></i>'};
+function variantLabel(id){var k=SKU.get(id);return '<span class="pv" title="'+esc(MODEL.get(k.m).ar+' · '+k.c)+'"><b class="mono">'+esc(k.m)+'</b> '+esc(MODEL.get(k.m).name)+' <span class="attr">'+swatch(k.c)+esc(cn(k.c))+', '+k.s+'</span></span>'}
+function variantPlain(id){var k=SKU.get(id);return k.m+' ('+cn(k.c)+', '+k.s+')'}
+
+/* ---------- Locations (Odoo style tree) ---------- */
+var LOC={
+  'WH/Stock':{t:'Internal',ar:'المخزون الجاهز',free:true},
+  'WH/Cleaning':{t:'Internal',ar:'قسم التنظيف (مش متاح للبيع)'},
+  'SHOP/Stock':{t:'Internal',ar:'المحل'},
+  'Transit/Factory':{t:'Transit',ar:'عند المصنع (في الطريق)'},
+  'Virtual/Scrap':{t:'Inventory loss',ar:'الهالك النهائي'},
+  'Virtual/Inventory loss':{t:'Inventory loss',ar:'مفقود لسه ما اتحسمش'},
+  'Virtual/Inventory adjustment':{t:'Inventory loss',ar:'تسوية الجرد (زيادة)'},
+  'Virtual/Write-off':{t:'Inventory loss',ar:'شطب'},
+  'Partners/Vendors':{t:'Vendor',ar:'المصنع (المورد)'}
+};
+function locType(l){return LOC[l]?LOC[l].t:(l.indexOf('Partners/Customers/')===0?'Customer':'Other')}
+var INTERNAL=['WH/Stock','WH/Cleaning','SHOP/Stock'];
+var ONHAND=['WH/Stock','WH/Cleaning'];
+function isInternal(l){return INTERNAL.indexOf(l)>=0}
+function locAr(l){return LOC[l]?LOC[l].ar:(l.indexOf('Partners/Customers/')===0?'عميل: '+l.split('/')[2]:'')}
+
+/* ---------- Operation types ---------- */
+var OT={
+  IN:{name:'Receipts',ar:'استلام بضاعة',prefix:'WH/IN/',kind:'Receipt',src:'Partners/Vendors',dst:'WH/Stock',area:'Receiving',attach:true,bo:true},
+  RMA:{name:'Customer Returns',ar:'مرتجعات الشركات',prefix:'WH/RET/',kind:'Receipt (RMA)',src:'Customers',dst:'Inspection',area:'Receiving'},
+  CLN_IN:{name:'Receive from Cleaning',ar:'استلام بعد التنظيف',prefix:'WH/CLN/IN/',kind:'Receipt',src:'Transit/Factory',dst:'WH/Stock',area:'Receiving',bo:true},
+  OUT:{name:'Delivery Orders',ar:'تسليم للشركات (البيك أب)',prefix:'WH/OUT/',kind:'Delivery',src:'WH/Stock',dst:'Customers',area:'Shipping',bo:true},
+  INT:{name:'Internal Transfers',ar:'تحويلات داخلية (المحل / التنظيف)',prefix:'WH/INT/',kind:'Internal Transfer',src:'WH/Stock',dst:'SHOP/Stock',area:'Shipping',bo:true},
+  CLN_OUT:{name:'Send for Cleaning',ar:'إرسال للتنظيف عند المصنع',prefix:'WH/CLN/OUT/',kind:'Delivery (Subcontracting)',src:'WH/Cleaning',dst:'Transit/Factory',area:'Shipping',bo:true},
+  RTV:{name:'Vendor Returns',ar:'مرتجعات للمصنع (والهالك)',prefix:'WH/RTV/',kind:'Delivery',src:'WH/Stock',dst:'Partners/Vendors',area:'Shipping'},
+  SCRAP:{name:'Scrap Orders',ar:'أوامر الهالك',prefix:'WH/SCRAP/',kind:'Scrap',src:'WH/Stock',dst:'Virtual/Scrap',area:'Inventory Control'},
+  ADJ:{name:'Inventory Adjustments',ar:'الجرد والتسويات',prefix:'WH/ADJ/',kind:'Physical Inventory',src:'',dst:'',area:'Inventory Control'},
+  LOSS:{name:'Loss Resolution',ar:'حسم المفقود',prefix:'WH/LOSS/',kind:'Inventory Adjustment',src:'Virtual/Inventory loss',dst:'WH/Stock',area:'Inventory Control'}
+};
+var OT_ORDER=['IN','RMA','CLN_IN','OUT','INT','CLN_OUT','RTV','SCRAP','ADJ','LOSS'];
+var AREAS=[['Receiving','الاستلام'],['Shipping','الشحن والتحويل'],['Inventory Control','التحكم في المخزون']];
+var ST_AR={Draft:'مسودة',Waiting:'في الانتظار',Ready:'جاهزة',Done:'تمت',Cancelled:'ملغاة'};
+var ROUTES={'WH/Stock>WH/Cleaning':1,'WH/Stock>SHOP/Stock':1,'SHOP/Stock>WH/Stock':1};
+var BO_TYPES=['OUT','IN','INT','CLN_OUT','CLN_IN'];
+var OUTGOING_FROM_STOCK=['OUT','INT','CLN_OUT','SCRAP','RTV'];
+var RETURN_OF={OUT:'RMA',IN:'RTV',INT:'INT',CLN_OUT:'CLN_IN',CLN_IN:'CLN_OUT'};
+var LOSS_RES={stock:['Found: return to WH/Stock','وُجدت وترجع جاهزة'],clean:['Found: send to WH/Cleaning','وُجدت وتحتاج تنظيف'],writeoff:['Write-off / compensated','شطب أو اتعوّضت']};
+var SCRAP_REASONS=['Damaged','Cut / torn','Stained beyond cleaning','Defective (factory)','Other'];
+
+/* ---------- State ---------- */
+var KEY='femini-wms-std-1',S,QC=null,AG=null;
+var UI={r:'overview',menu:null,sel:null,prod:null,msg:null,dialog:null,drawer:null,today:D.today,
+  tl:{type:'',f:{},q:'',group:''},sr:{q:'',group:'',hide0:true,n:120},mv:{q:'',f:'',group:'',n:150},an:{by:'ty'},rp:{},cfg:'locations',pm:'oh',pk:{},adj:{blind:false}};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+var DMC=null;
+function dirty(){QC=null;AG=null;DMC=null;save()}
+function seed(){
+  S={v:2,moves:[],docs:[],mid:1,did:1,seq:{},partners:{vendors:['Factory'],customers:['Vendoor']},alias:{},actor:'Mosab',bn:{},settings:{lookback:14,mult:2,allowNeg:false,gloss:true}};
+  // opening stock: an Inventory Adjustment (Physical Inventory) dated at the count date
+  var t=newT('ADJ',{state:'done',date:D.asOf,origin:'Opening stock (physical count)',logm:'Opening stock imported'});
+  D.skus.forEach(function(k){if(k.open>0){t.lines.push({sku:k.id,loc:'WH/Stock',onhand:0,counted:k.open});S.moves.push({i:S.mid++,ref:t.ref,ty:'ADJ',s:k.id,q:k.open,src:'Virtual/Inventory adjustment',dst:'WH/Stock',d:D.asOf,by:'system',n:'Opening stock'})}});
+  D.pickups.forEach(function(p){
+    var dem={};p.orders.forEach(function(o){o.lines.forEach(function(s){dem[s]=(dem[s]||0)+1})});
+    var tt=newT('OUT',{partner:'Vendoor',state:'open',origin:'Vendoor pickup sheet 2-11-2026 ('+p.label+')',meta:{orders:JSON.parse(JSON.stringify(p.orders)),cx:{}},logm:'Imported from sheet'});
+    tt.lines=Object.keys(dem).sort(skuSort).map(function(s){return {sku:s,demand:dem[s],done:Math.min(dem[s],qtyAt(s,tt.src,t))}});
+  });
+  QC=null;AG=null;
+}
+function load(){try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);if(o&&o.v===2){S=o;S.settings=Object.assign({lookback:14,mult:2,allowNeg:false,gloss:true},S.settings||{});return}}}catch(e){}seed();save()}
+
+/* ---------- Quants (stock per variant per location) ---------- */
+function quants(){
+  if(QC)return QC;var Q={};
+  S.moves.forEach(function(m){var o=Q[m.s]||(Q[m.s]={});o[m.dst]=(o[m.dst]||0)+m.q;o[m.src]=(o[m.src]||0)-m.q});
+  return (QC=Q);
+}
+function qty(s,l){var o=quants()[s];return (o&&o[l])||0}
+function qtyAt(s,l){return qty(s,l)}
+/* On Hand / Free to Use / Incoming / Outgoing / Forecasted (Odoo Stock report definitions) */
+function agg(){
+  if(AG)return AG;var A={},a=function(s){return A[s]||(A[s]={res:0,out:0,inc:0})};
+  S.docs.forEach(function(t){
+    if(t.state!=='open')return;
+    t.lines.forEach(function(l){
+      var x=a(l.sku);
+      if(OUTGOING_FROM_STOCK.indexOf(t.type)>=0&&srcOf(t,l)==='WH/Stock')x.res+=(+l.done||0);
+      if(t.type==='OUT'||t.type==='RTV')x.out+=(+l.demand||0);
+      if(t.type==='IN'||t.type==='RMA')x.inc+=(+l.demand||0);
+    });
+  });
+  D.skus.forEach(function(k){var x=a(k.id);x.stock=qty(k.id,'WH/Stock');x.clean=qty(k.id,'WH/Cleaning');x.oh=x.stock+x.clean;x.free=x.stock-x.res;x.inc+=qty(k.id,'Transit/Factory');x.fc=x.oh+x.inc-x.out});
+  return (AG=A);
+}
+function totalsOf(){var A=agg(),t={oh:0,stock:0,clean:0,free:0,inc:0,out:0,fc:0};D.skus.forEach(function(k){var x=A[k.id];t.oh+=x.oh;t.stock+=x.stock;t.clean+=x.clean;t.free+=x.free;t.inc+=x.inc;t.out+=x.out;t.fc+=x.fc});return t}
+function locTotal(l){var n=0;D.skus.forEach(function(k){n+=qty(k.id,l)});return n}
+
+/* ---------- Transfers ---------- */
+function pad(n){return String(n).padStart(5,'0')}
+function newT(type,o){
+  o=o||{};var ot=OT[type],n=(S.seq[type]=(S.seq[type]||0)+1);
+  var t={id:'t'+(S.did++),type:type,ref:ot.prefix+pad(n),partner:o.partner||'',src:o.src||ot.src,dst:o.dst||ot.dst,date:o.date||D.today,origin:o.origin||'',state:o.state||'draft',lines:o.lines||[],backorderOf:o.backorderOf||null,returnOf:o.returnOf||null,attach:'',meta:o.meta||null,reason:o.reason||'',log:[{t:Date.now(),by:S.actor,m:o.logm||'Transfer created'}]};
+  if(type==='OUT')t.dst='Partners/Customers/'+t.partner;
+  S.docs.push(t);return t;
+}
+function srcOf(t,l){if(t.type==='SCRAP')return (l&&l.loc)||'WH/Stock';if(t.type==='RTV')return (l&&l.loc)||'Virtual/Scrap';if(t.type==='ADJ')return (l&&l.loc)||'WH/Stock';return t.src}
+function addLog(t,m){(t.log=t.log||[]).push({t:Date.now(),by:S.actor,m:m})}
+function stateOf(t){
+  if(t.state==='draft')return 'Draft';if(t.state==='done')return 'Done';if(t.state==='cancel')return 'Cancelled';
+  if(['IN','RMA','CLN_IN','ADJ','LOSS'].indexOf(t.type)>=0)return 'Ready';
+  if(!t.lines.length)return 'Waiting';
+  var ok=t.lines.every(function(l){return qty(l.sku,srcOf(t,l))>=(+l.demand||0)});
+  return ok?'Ready':'Waiting';
+}
+function isLate(t){return t.state==='open'&&t.date<UI.today}
+function totalQty(t,k){return t.lines.reduce(function(a,l){return a+(+l[k||'demand']||0)},0)}
+function autoDone(t,s,demand){return (t.type==='IN'||t.type==='CLN_IN'||t.type==='RMA')?demand:Math.max(0,Math.min(demand,qty(s,srcOf(t,{loc:UI.pk.loc}))))}
+
+/* Validate: turn a transfer into stock moves between locations */
+function buildT(t){
+  var mv=[],err=[],add=function(s,q,src,dst,n){if(q>0)mv.push({s:s,q:q,src:src,dst:dst,n:n||''})};
+  t.lines.forEach(function(l){
+    var d=+l.done||0;
+    if(t.type==='IN')add(l.sku,d,'Partners/Vendors',t.dst||'WH/Stock');
+    else if(t.type==='OUT')add(l.sku,d,'WH/Stock',t.dst);
+    else if(t.type==='CLN_OUT')add(l.sku,d,'WH/Cleaning','Transit/Factory','Cleaning');
+    else if(t.type==='CLN_IN')add(l.sku,d,'Transit/Factory','WH/Stock','Cleaned');
+    else if(t.type==='INT')add(l.sku,d,t.src,t.dst);
+    else if(t.type==='SCRAP'){add(l.sku,d,l.loc||'WH/Stock','Virtual/Scrap',l.reason||'');if(d>0&&!l.reason)err.push(variantPlain(l.sku)+': Scrap Reason is required.')}
+    else if(t.type==='RTV')add(l.sku,d,l.loc||'Virtual/Scrap','Partners/Vendors');
+    else if(t.type==='RMA'){
+      var a=+l.toStock||0,b=+l.toClean||0,c=+l.toScrap||0,rec=a+b+c,miss=Math.max(0,(+l.demand||0)-rec);
+      add(l.sku,a,t.src,'WH/Stock','Return to stock');add(l.sku,b,t.src,'WH/Cleaning','Rework (cleaning)');add(l.sku,c,t.src,'Virtual/Scrap','Scrap at inspection');
+      add(l.sku,miss,t.src,'Virtual/Inventory loss','Missing in return '+t.ref);
+    }
+    else if(t.type==='ADJ'){
+      if(l.counted===''||l.counted==null)return;
+      var cur=qty(l.sku,l.loc),diff=(+l.counted)-cur;
+      if(diff<0)add(l.sku,-diff,l.loc,'Virtual/Inventory loss',(t.reason||'Count')+' (shortage)');
+      else if(diff>0)add(l.sku,diff,'Virtual/Inventory adjustment',l.loc,(t.reason||'Count')+' (surplus)');
+    }
+    else if(t.type==='LOSS'){
+      var q=+l.done||0;
+      if(l.res==='stock')add(l.sku,q,'Virtual/Inventory loss','WH/Stock','Found');
+      else if(l.res==='clean')add(l.sku,q,'Virtual/Inventory loss','WH/Cleaning','Found (needs cleaning)');
+      else add(l.sku,q,'Virtual/Inventory loss','Virtual/Write-off',l.amt?'Compensated '+fmt(l.amt)+' EGP':'Written off');
+    }
+  });
+  if(!mv.length)err.push(t.type==='ADJ'?'Enter at least one Counted quantity.':'There is nothing to process: set a quantity on at least one line.');
+  if((t.type==='IN'||(t.type==='INT'&&(t.dst==='SHOP/Stock'||t.src==='SHOP/Stock')))&&!t.attach)err.push('Attach the signed delivery note (required for this operation type).');
+  if(t.type==='INT'&&!ROUTES[t.src+'>'+t.dst])err.push('Route '+t.src+' to '+t.dst+' is not allowed. Items needing cleaning must go through Send for Cleaning.');
+  if(t.type==='ADJ'){var cf=conflicts(t);if(cf.length&&!t.ack)err.push('Stock changed after you opened this count ('+cf.length+' lines). Tick the confirmation box to apply anyway.')}
+  return {mv:mv,err:err};
+}
+function conflicts(t){return t.lines.filter(function(l){return l.counted!==''&&l.counted!=null&&l.onhand!==qty(l.sku,l.loc)})}
+function shortages(mv){
+  var d={},out=[];mv.forEach(function(m){var o=d[m.s]||(d[m.s]={});o[m.dst]=(o[m.dst]||0)+m.q;o[m.src]=(o[m.src]||0)-m.q});
+  Object.keys(d).forEach(function(s){Object.keys(d[s]).forEach(function(l){if(l.indexOf('Partners/')===0||l==='Virtual/Inventory adjustment')return;var v=d[s][l];if(v<0&&qty(s,l)+v<0)out.push(variantPlain(s)+' at '+l+': on hand '+fmt(qty(s,l))+', requested '+fmt(-v))})});
+  return out;
+}
+function msg(kind,title,lines){UI.msg={kind:kind,title:title,lines:lines||[]}}
+function validateT(t,bo){
+  var r=buildT(t);
+  if(r.err.length){msg('bad','Cannot validate '+t.ref,r.err);return false}
+  var off=shortages(r.mv);
+  if(off.length&&!S.settings.allowNeg){msg('bad','Not enough stock',off.slice(0,8).concat(off.length>8?['and '+(off.length-8)+' more']:[]).concat(['Negative stock is disabled (Configuration, Settings).']));return false}
+  var partial=BO_TYPES.indexOf(t.type)>=0&&t.lines.some(function(l){return (+l.done||0)<(+l.demand||0)});
+  if(partial&&!bo){UI.dialog={kind:'backorder',id:t.id};return false}
+  r.mv.forEach(function(m){S.moves.push({i:S.mid++,ref:t.ref,ty:t.type,s:m.s,q:m.q,src:m.src,dst:m.dst,d:t.date,by:S.actor,n:m.n})});
+  if(partial&&bo==='create'){
+    var rem=t.lines.filter(function(l){return (+l.done||0)<(+l.demand||0)}).map(function(l){return {sku:l.sku,demand:l.demand-(+l.done||0),done:0}});
+    var b=newT(t.type,{partner:t.partner,src:t.src,dst:t.dst,date:t.date,origin:'Backorder of '+t.ref,state:'open',backorderOf:t.ref,lines:rem,meta:t.meta,logm:'Backorder of '+t.ref});
+    b.lines.forEach(function(l){l.done=Math.min(l.demand,Math.max(0,qty(l.sku,b.src)))});
+    addLog(t,'Backorder '+b.ref+' created');
+  }
+  if(partial){t.lines=t.lines.filter(function(l){return (+l.done||0)>0});t.lines.forEach(function(l){l.demand=l.done})}
+  t.state='done';addLog(t,'Validated');dirty();
+  msg('ok',t.ref+' is Done',[fmt(r.mv.reduce(function(a,m){return a+m.q},0))+' units moved in '+r.mv.length+' stock moves']);
+  return true;
+}
+function createReturn(t){
+  var rt=RETURN_OF[t.type];if(!rt)return null;
+  var lines=t.lines.filter(function(l){return (+l.done||0)>0}).map(function(l){
+    if(rt==='RMA')return {sku:l.sku,demand:+l.done,toStock:+l.done,toClean:0,toScrap:0,done:0};
+    return {sku:l.sku,demand:+l.done,done:+l.done};
+  });
+  var o={partner:t.partner,state:'draft',origin:'Return of '+t.ref,returnOf:t.ref,lines:lines,logm:'Return of '+t.ref};
+  if(rt==='INT'){o.src=t.dst;o.dst=t.src}
+  if(rt==='RMA'){o.src=t.dst}
+  var r=newT(rt,o);if(rt==='RMA')r.src=t.dst;
+  addLog(t,'Return '+r.ref+' created');dirty();return r;
+}
+function cancelT(t){t.state='cancel';addLog(t,'Cancelled');dirty()}
+/* ================= shared view helpers ================= */
+function badge(state){return '<span class="bd st-'+state+'" title="'+esc(ST_AR[state]||'')+'">'+state+'</span>'}
+function pillx(t,c,title){return '<span class="bd '+(c||'')+'"'+(title?' title="'+esc(title)+'"':'')+'>'+t+'</span>'}
+function locHTML(l){return '<span class="loc" title="'+esc(locAr(l))+'">'+esc(l)+'</span>'}
+function tbl(head,rows,cls){return '<div class="scroll"><table class="list '+(cls||'')+'"><thead><tr>'+head.map(function(h){return '<th class="'+(h[1]||'')+'"'+(h[2]?' title="'+esc(h[2])+'"':'')+'>'+h[0]+'</th>'}).join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'}
+function crumbs(list){return '<nav class="crumbs">'+list.map(function(c,i){return i<list.length-1?'<a data-a="go" data-r="'+c[1]+'"'+(c[2]?' data-t="'+c[2]+'"':'')+'>'+esc(c[0])+'</a><span class="sep">/</span>':'<b>'+esc(c[0])+'</b>'}).join('')+'</nav>'}
+function cpanel(cr,actions,extra){return '<div class="cp"><div class="cp-l">'+crumbs(cr)+'<div class="cp-b">'+(actions||'')+'</div></div>'+(extra?'<div class="cp-r">'+extra+'</div>':'')+'</div>'}
+function pkOpts(m){var M=MODEL.get(m);return M?{c:M.colors,z:M.sizes}:{c:[],z:[]}}
+function pickedSku(){var m=$('#pk-m'),c=$('#pk-c'),z=$('#pk-z');return m&&c&&z&&m.value?(IDX[m.value+'|'+c.value+'|'+z.value]||''):''}
+function pickRow(extra){
+  var p=UI.pk,M=MODEL.get(p.m),o=pkOpts(p.m);
+  return '<div class="pickrow"><label class="field">Product<select id="pk-m" data-c="pkm"><option value="">Select a product…</option>'+MORDER.map(function(m){return '<option value="'+m+'"'+(p.m===m?' selected':'')+'>'+esc(m+' '+MODEL.get(m).name)+'</option>'}).join('')+'</select></label>'+
+    '<label class="field">Color<select id="pk-c" data-c="pkc"'+(M?'':' disabled')+'>'+(M?o.c.map(function(x){return '<option value="'+esc(x)+'"'+(p.c===x?' selected':'')+'>'+esc(cn(x))+'</option>'}).join(''):'<option value="">—</option>')+'</select></label>'+
+    '<label class="field">Size<select id="pk-z" data-c="pkz"'+(M?'':' disabled')+'>'+(M?o.z.map(function(x){return '<option'+(p.z===x?' selected':'')+'>'+x+'</option>'}).join(''):'<option value="">—</option>')+'</select></label>'+(extra||'')+'<p class="hint" id="pk-hint"></p></div>';
+}
+function fillPicker(){
+  var m=$('#pk-m');if(!m)return;var M=MODEL.get(m.value),c=$('#pk-c'),z=$('#pk-z');
+  c.innerHTML=M?M.colors.map(function(x){return '<option value="'+esc(x)+'">'+esc(cn(x))+'</option>'}).join(''):'<option value="">—</option>';
+  z.innerHTML=M?M.sizes.map(function(x){return '<option>'+x+'</option>'}).join(''):'<option value="">—</option>';
+  c.disabled=z.disabled=!M;pkHint();
+}
+function pkHint(){
+  var h=$('#pk-hint');if(!h)return;var s=pickedSku();
+  if(!s){h.textContent='Select a product, color and size.';return}
+  var x=agg()[s];h.innerHTML='<span class="mono">'+s+'</span> · On Hand <b>'+fmt(x.oh)+'</b> · Free to Use <b>'+fmt(x.free)+'</b> · Incoming '+fmt(x.inc)+' · Outgoing '+fmt(x.out)+' · Forecasted <b>'+fmt(x.fc)+'</b>';
+}
+function stepper(id,val,min,attrs){return '<span class="stepper"><button type="button" data-a="qstep" data-for="'+id+'" data-d="-1" aria-label="Decrease">−</button><input id="'+id+'" type="number" min="'+(min==null?1:min)+'" value="'+val+'" '+(attrs||'')+'><button type="button" data-a="qstep" data-for="'+id+'" data-d="1" aria-label="Increase">+</button></span>'}
+function statusbar(t){
+  var cur=stateOf(t),steps=['Draft','Waiting','Ready','Done'];
+  if(cur==='Cancelled')steps=['Draft','Cancelled'];
+  else if(t.state!=='draft'&&['IN','RMA','CLN_IN','ADJ','LOSS'].indexOf(t.type)>=0)steps=['Draft','Ready','Done'];
+  var ix=steps.indexOf(cur);
+  return '<ol class="sbar">'+steps.map(function(s,i){return '<li class="'+(i===ix?'on':i<ix?'past':'')+(s==='Cancelled'?' cx':'')+'" title="'+esc(ST_AR[s])+'">'+s+'</li>'}).join('')+'</ol>';
+}
+
+/* ================= Overview (operation type cards) ================= */
+function otCounts(type){
+  var o={ready:0,waiting:0,late:0,bo:0,draft:0};
+  S.docs.forEach(function(t){if(t.type!==type)return;var st=stateOf(t);if(t.state==='draft')o.draft++;if(t.state==='open'){if(st==='Ready')o.ready++;if(st==='Waiting')o.waiting++;if(isLate(t))o.late++;if(t.backorderOf)o.bo++}});
+  return o;
+}
+function kcard(type){
+  var ot=OT[type],c=otCounts(type),main=c.ready?c.ready+' To Process':c.draft?c.draft+' Draft':'No open transfers';
+  var links=[];
+  if(c.waiting)links.push('<a data-a="go" data-r="transfers" data-t="'+type+'" data-f="Waiting">'+c.waiting+' Waiting</a>');
+  if(c.late)links.push('<a data-a="go" data-r="transfers" data-t="'+type+'" data-f="Late">'+c.late+' Late</a>');
+  if(c.bo)links.push('<a data-a="go" data-r="transfers" data-t="'+type+'" data-f="Back Orders">'+c.bo+' Back Orders</a>');
+  if(c.draft&&c.ready)links.push('<a data-a="go" data-r="transfers" data-t="'+type+'" data-f="Draft">'+c.draft+' Draft</a>');
+  return '<div class="kcard"><div class="kh"><div><b>'+esc(ot.name)+'</b><div class="g2" dir="rtl">'+esc(ot.ar)+'</div></div><span class="mono small">'+esc(ot.prefix.replace(/\/$/,''))+'</span></div>'+
+    '<button class="btn '+(c.ready?'primary':'')+'" data-a="go" data-r="transfers" data-t="'+type+'" data-f="'+(c.ready?'Ready':c.draft?'Draft':'')+'">'+main+'</button>'+
+    '<div class="klinks">'+links.join('')+'</div><div class="kf"><button class="btn sm ghost" data-a="newt" data-t="'+type+'">+ New</button>'+(type==='OUT'?'<button class="btn sm ghost" data-a="drawer" data-k="import">Import</button>':'')+'</div></div>';
+}
+function vOverview(){
+  var t=totalsOf(),cells=[['On Hand','العدد الفعلي',t.oh],['Free to Use','المتاح',t.free],['Incoming','داخل',t.inc],['Outgoing','خارج',t.out],['Forecasted','المتوقع',t.fc],['In Cleaning','في التنظيف',t.clean],['Inventory loss','مفقود',locTotal('Virtual/Inventory loss')],['Scrap','هالك نهائي',locTotal('Virtual/Scrap')]];
+  var strip='<div class="infolets">'+cells.map(function(c){return '<div class="infolet" title="'+esc(c[1])+'"><div class="il">'+c[0]+'</div><div class="iv">'+fmt(c[2])+'</div></div>'}).join('')+'</div>';
+  var groups=AREAS.map(function(a){return '<section class="grp"><h3>'+bi(a[0],a[1])+'</h3><div class="kgrid">'+OT_ORDER.filter(function(k){return OT[k].area===a[0]}).map(kcard).join('')+'</div></section>'}).join('');
+  return cpanel([['Overview','overview']],'')+'<div class="page">'+strip+groups+'</div>';
+}
+
+/* ================= Transfers list ================= */
+var TL_FILTERS=['Draft','Waiting','Ready','Done','Late','Back Orders','Cancelled'];
+function vTransfers(){
+  var f=UI.tl,q=f.q.trim().toLowerCase(),act=Object.keys(f.f).filter(function(k){return f.f[k]});
+  var rows=S.docs.filter(function(t){
+    if(f.type&&t.type!==f.type)return false;
+    if(q&&(t.ref+' '+t.partner+' '+t.origin+' '+t.lines.map(function(l){return l.sku}).join(' ')).toLowerCase().indexOf(q)<0)return false;
+    if(act.length){var st=stateOf(t),ok=act.some(function(k){return k==='Late'?isLate(t):k==='Back Orders'?!!t.backorderOf:st===k});if(!ok)return false}
+    return true}).sort(function(a,b){return (b.date.localeCompare(a.date))||(b.id.localeCompare(a.id))});
+  var title=f.type?OT[f.type].name:'All Transfers';
+  var chips='<div class="facets">'+TL_FILTERS.map(function(k){return '<button class="chipf'+(f.f[k]?' on':'')+'" data-a="tfilter" data-v="'+k+'">'+k+'</button>'}).join('')+'</div>';
+  var tsel='<select class="sel" data-c="tltype"><option value="">All operation types</option>'+OT_ORDER.map(function(k){return '<option value="'+k+'"'+(f.type===k?' selected':'')+'>'+esc(OT[k].name)+'</option>'}).join('')+'</select>';
+  var gsel='<select class="sel" data-c="tlgroup"><option value="">Group by…</option><option value="st"'+(f.group==='st'?' selected':'')+'>Status</option><option value="ty"'+(f.group==='ty'?' selected':'')+'>Operation Type</option><option value="ct"'+(f.group==='ct'?' selected':'')+'>Contact</option></select>';
+  var row=function(t){var st=stateOf(t);return '<tr class="click" data-a="open" data-id="'+t.id+'"><td><b class="mono">'+esc(t.ref)+'</b>'+(isLate(t)?' '+pillx('Late','st-Late'):'')+'</td>'+(f.type?'':'<td>'+esc(OT[t.type].name)+'</td>')+'<td>'+esc(t.partner||'—')+'</td><td>'+locHTML(t.src||'—')+'</td><td>'+locHTML(t.dst||'—')+'</td><td class="mono">'+t.date+'</td><td class="g1">'+esc(t.origin||'')+'</td><td class="n">'+fmt(totalQty(t))+'</td><td>'+badge(st)+'</td></tr>'};
+  var head=[['Reference','','المرجع']].concat(f.type?[]:[['Operation Type','','نوع العملية']]).concat([['Contact','','الشريك'],['From','','من'],['To','','إلى'],['Scheduled Date','','التاريخ'],['Source Document','','المستند المصدر'],['Units','n','الوحدات'],['Status','','الحالة']]);
+  var body;
+  if(f.group){
+    var key={st:function(t){return stateOf(t)},ty:function(t){return OT[t.type].name},ct:function(t){return t.partner||'—'}}[f.group],G={},ord=[];
+    rows.forEach(function(t){var k=key(t);if(!G[k]){G[k]=[];ord.push(k)}G[k].push(t)});
+    body=ord.map(function(k){return '<tr class="grow"><td colspan="'+head.length+'"><b>'+esc(k)+'</b> <span class="muted">('+G[k].length+')</span></td></tr>'+G[k].map(row).join('')}).join('');
+  }else body=rows.slice(0,300).map(row).join('');
+  var empty=rows.length?'':'<div class="empty">No transfers match. Use <b>New</b> to create one.</div>';
+  return cpanel([['Overview','overview'],['Operations','transfers'],[title,'transfers']],f.type?'<button class="btn primary" data-a="newt" data-t="'+f.type+'">New</button>':'<div class="dd"><span class="muted">Create from an operation type</span></div>',
+    '<div class="search"><input data-i="tlq" id="tlq" value="'+esc(f.q)+'" placeholder="Search reference, contact, source document, product…">'+tsel+gsel+'</div>'+chips)+
+    '<div class="page"><div class="scroll"><table class="list"><thead><tr>'+head.map(function(h){return '<th class="'+h[1]+'" title="'+esc(h[2])+'">'+h[0]+'</th>'}).join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>'+empty+'<p class="muted small">'+fmt(rows.length)+' transfers</p></div>';
+}
+
+/* ================= Transfer form ================= */
+function lineEditable(t){return t.state==='draft'||t.state==='open'}
+function numIn(l,i,k,w){return '<input type="number" min="0" class="num" value="'+(l[k]==null?'':l[k])+'" data-i="lf" data-idx="'+i+'" data-k="'+k+'" id="lf-'+i+'-'+k+'"'+(w?' style="width:'+w+'px"':'')+'>'}
+function linesHTML(t){
+  var ed=lineEditable(t),A=agg(),rows=[],head;
+  if(t.type==='RMA'){
+    head=[['Product','','المنتج'],['Expected','n','المتوقع'],['Return to Stock','n','يرجع جاهز'],['Rework (Cleaning)','n','يحتاج تنظيف'],['Scrap','n','هالك نهائي'],['Missing','n','ناقص (يتسجل مفقود)']];
+    t.lines.forEach(function(l,i){var rec=(+l.toStock||0)+(+l.toClean||0)+(+l.toScrap||0),miss=Math.max(0,(+l.demand||0)-rec);
+      rows.push('<tr><td>'+variantLabel(l.sku)+'</td><td class="n">'+(ed?numIn(l,i,'demand'):fmt(l.demand))+'</td><td class="n">'+(ed?numIn(l,i,'toStock'):fmt(l.toStock))+'</td><td class="n">'+(ed?numIn(l,i,'toClean'):fmt(l.toClean))+'</td><td class="n">'+(ed?numIn(l,i,'toScrap'):fmt(l.toScrap))+'</td><td class="n" data-b="miss-'+i+'">'+(miss?'<span class="neg">'+fmt(miss)+'</span>':'<span class="muted">0</span>')+'</td>'+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>')});
+  }else if(t.type==='SCRAP'||t.type==='RTV'){
+    var locs=t.type==='SCRAP'?['WH/Stock','WH/Cleaning']:['WH/Stock','Virtual/Scrap','WH/Cleaning'];
+    head=[['Product','','المنتج'],['From','','من'],['On Hand there','n','المتاح'],['Quantity','n','الكمية']].concat(t.type==='SCRAP'?[['Scrap Reason','','سبب الهالك']]:[]);
+    t.lines.forEach(function(l,i){var loc=l.loc||locs[0];
+      rows.push('<tr><td>'+variantLabel(l.sku)+'</td><td>'+(ed?'<select data-c="lloc" data-idx="'+i+'">'+locs.map(function(x){return '<option'+(loc===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>':locHTML(loc))+'</td><td class="n">'+fmt(qty(l.sku,loc))+'</td><td class="n">'+(ed?numIn(l,i,'done'):fmt(l.done))+'</td>'+(t.type==='SCRAP'?'<td>'+(ed?'<select data-c="lreason" data-idx="'+i+'"><option value="">Select…</option>'+SCRAP_REASONS.map(function(r){return '<option'+(l.reason===r?' selected':'')+'>'+r+'</option>'}).join('')+'</select>':esc(l.reason||''))+'</td>':'')+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>')});
+  }else if(t.type==='LOSS'){
+    head=[['Product','','المنتج'],['Lost (open)','n','المفقود'],['Quantity','n','الكمية'],['Resolution','','القرار'],['Compensation (EGP)','n','التعويض']];
+    t.lines.forEach(function(l,i){
+      rows.push('<tr><td>'+variantLabel(l.sku)+'</td><td class="n">'+fmt(qty(l.sku,'Virtual/Inventory loss'))+'</td><td class="n">'+(ed?numIn(l,i,'done'):fmt(l.done))+'</td><td>'+(ed?'<select data-c="lres" data-idx="'+i+'">'+Object.keys(LOSS_RES).map(function(k){return '<option value="'+k+'"'+((l.res||'writeoff')===k?' selected':'')+' title="'+esc(LOSS_RES[k][1])+'">'+LOSS_RES[k][0]+'</option>'}).join('')+'</select>':esc(LOSS_RES[l.res||'writeoff'][0]))+'</td><td class="n">'+(ed?numIn(l,i,'amt',90):(l.amt?fmt(l.amt):'—'))+'</td>'+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>')});
+  }else{
+    var outg=OUTGOING_FROM_STOCK.indexOf(t.type)>=0||t.type==='CLN_OUT';
+    head=[['Product','','المنتج'],['Demand','n','المطلوب']].concat(outg?[['Available','n','المتاح في المصدر']]:[]).concat([['Quantity','n','الكمية المنفذة'],['UoM','','الوحدة']]);
+    t.lines.forEach(function(l,i){var av=qty(l.sku,srcOf(t,l)),short=outg&&(+l.demand||0)>av;
+      rows.push('<tr><td>'+variantLabel(l.sku)+'</td><td class="n">'+(ed?numIn(l,i,'demand'):fmt(l.demand))+'</td>'+(outg?'<td class="n '+(short?'neg':'')+'">'+fmt(av)+'</td>':'')+'<td class="n">'+(ed?numIn(l,i,'done'):fmt(l.done))+'</td><td class="muted">Units</td>'+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>')});
+  }
+  if(ed)head.push(['','n']);
+  if(!rows.length)return '<p class="muted pad">No lines yet. Add a product below.</p>';
+  return tbl(head,rows);
+}
+function addLineBox(t){
+  if(!lineEditable(t))return '';
+  if(t.type==='LOSS'){
+    var lost=D.skus.filter(function(k){return qty(k.id,'Virtual/Inventory loss')>0}).map(function(k){return k.id}).sort(skuSort);
+    return '<div class="addbox"><button class="btn" data-a="lossload"'+(lost.length?'':' disabled')+'>Load all lost items ('+lost.length+')</button><span class="muted small">Lost items come from return shortages and count shortages.</span></div>';
+  }
+  var qtyLabel=t.type==='RMA'?'Expected':'Demand',extra='<label class="field">'+qtyLabel+stepper('qa-qty',1,1)+'</label>';
+  if(t.type==='SCRAP')extra+='<label class="field">From<select id="qa-loc"><option>WH/Stock</option><option>WH/Cleaning</option></select></label>';
+  if(t.type==='RTV')extra+='<label class="field">From<select id="qa-loc"><option>Virtual/Scrap</option><option>WH/Stock</option><option>WH/Cleaning</option></select></label>';
+  var rm=t.type==='RMA'?'<div class="addbox"><span class="muted small">Or load the expected items from a Delivery Order:</span><select id="rt-pk">'+S.docs.filter(function(x){return x.type==='OUT'}).map(function(x){return '<option value="'+x.id+'">'+esc(x.ref+' · '+x.origin)+'</option>'}).join('')+'</select><input id="rt-refs" class="mono" placeholder="Order codes, comma separated (empty = first 3 orders)" style="min-width:300px"><button class="btn" data-a="rtfrom">Load</button></div>':'';
+  return '<div class="addbox">'+pickRow(extra+'<button class="btn primary" data-a="addline">Add a line</button>')+'</div>'+rm;
+}
+function headerFields(t){
+  var ed=lineEditable(t),ot=OT[t.type],f=function(l,ar,v){return '<div class="fld"><label title="'+esc(ar||'')+'">'+l+'</label><div class="fv">'+v+'</div></div>'};
+  var contact='';
+  if(t.type==='OUT'||t.type==='RMA')contact=f('Contact','الشريك',ed?'<select data-c="hpartner">'+S.partners.customers.map(function(c){return '<option'+(t.partner===c?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select>':esc(t.partner));
+  else if(t.type==='IN'||t.type==='CLN_IN'||t.type==='CLN_OUT'||t.type==='RTV')contact=f('Contact','الشريك','Factory');
+  var srcF,dstF;
+  if(t.type==='INT'&&ed){srcF=f('Source Location','من','<select data-c="hsrc">'+['WH/Stock','SHOP/Stock'].map(function(x){return '<option'+(t.src===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>');dstF=f('Destination Location','إلى','<select data-c="hdst">'+['WH/Cleaning','SHOP/Stock','WH/Stock'].map(function(x){return '<option'+(t.dst===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>')}
+  else{srcF=f('Source Location','من',t.type==='SCRAP'||t.type==='RTV'||t.type==='ADJ'?'<span class="muted">per line</span>':locHTML(t.src||'—'));dstF=f('Destination Location','إلى',t.type==='RMA'?'<span class="muted">by inspection (Stock / Cleaning / Scrap)</span>':t.type==='ADJ'?'<span class="muted">Virtual/Inventory adjustment or loss</span>':t.type==='LOSS'?'<span class="muted">by resolution</span>':locHTML(t.dst||'—'))}
+  var att=(t.type==='IN'||(t.type==='INT'&&(t.dst==='SHOP/Stock'||t.src==='SHOP/Stock')))?f('Signed delivery note','المحضر الممضي',(t.attach?pillx(esc(t.attach),'st-Done'):pillx('missing','st-Waiting'))+(ed?' <input type="file" accept="image/*,.pdf" data-c="attach">':'')):'';
+  return '<div class="fgrid">'+contact+f('Operation Type','نوع العملية',esc(ot.name)+' <span class="muted small">('+ot.kind+')</span>')+srcF+dstF+f('Scheduled Date','التاريخ',ed?'<input type="date" data-i="hf" data-k="date" value="'+t.date+'">':'<span class="mono">'+t.date+'</span>')+f('Source Document','المستند المصدر',ed?'<input data-i="hf" data-k="origin" value="'+esc(t.origin)+'" placeholder="e.g. production order, sheet name">':esc(t.origin||'—'))+att+'</div>';
+}
+function adjForm(t){
+  var ed=lineEditable(t),A=t.loc||'WH/Stock';
+  var dueBox='',dm=DM(),last={};
+  S.docs.forEach(function(x){if(x.type==='ADJ'&&x.state==='done'&&x.origin!=='Opening stock (physical count)')x.lines.forEach(function(l){var m=SKU.get(l.sku).m;if(!last[m]||x.date>last[m])last[m]=x.date})});
+  var due=MORDER.filter(function(m){return D.skus.some(function(k){return k.m===m&&k.open>0})}).map(function(m){var cl=dm.abc[m]||'C',iv=cl==='A'?7:cl==='B'?30:90;return {m:m,cl:cl,last:last[m],due:!last[m]||dayDiff(last[m],UI.today)>=iv}}).filter(function(x){return x.due});
+  if(ed)dueBox='<div class="addbox"><b>Cycle counts due</b><span class="muted small">(ABC: A every 7 days, B 30, C 90)</span><div class="chips">'+due.slice(0,16).map(function(x){return '<span class="chip"><span class="abc '+x.cl+'">'+x.cl+'</span> <span class="mono">'+esc(x.m)+'</span> <span class="muted small">'+(x.last?dayDiff(x.last,UI.today)+'d ago':'never counted')+'</span></span>'}).join('')+(due.length>16?'<span class="muted small">+'+(due.length-16)+' more</span>':'')+'</div><button class="btn" data-a="adjdue"'+(due.length?'':' disabled')+'>Count all due ('+due.length+' products)</button></div>';
+  var load=ed?'<div class="addbox"><label class="field">Location<select data-c="adjloc">'+['WH/Stock','WH/Cleaning','SHOP/Stock'].map(function(x){return '<option'+(A===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select></label><label class="field">Product<select id="adj-m"><option value="">Select…</option>'+MORDER.map(function(m){return '<option value="'+m+'">'+esc(m+' '+MODEL.get(m).name)+'</option>'}).join('')+'</select></label><button class="btn" data-a="adjload">Load variants</button><label class="chk"><input type="checkbox" data-c="blind"'+(UI.adj.blind?' checked':'')+'> Blind count (hide On Hand)</label></div>':'';
+  var rows=t.lines.map(function(l,i){var now=qty(l.sku,l.loc),has=l.counted!==''&&l.counted!=null,diff=has?(+l.counted)-now:null;
+    return '<tr><td>'+variantLabel(l.sku)+'</td><td>'+locHTML(l.loc)+'</td><td class="n">'+(UI.adj.blind&&ed?'<span class="muted">hidden</span>':fmt(ed?now:l.onhand))+'</td><td class="n">'+(ed?'<input type="number" min="0" class="num" value="'+(l.counted==null?'':l.counted)+'" data-i="adjc" data-idx="'+i+'" id="adj-'+i+'">':fmt(l.counted))+'</td><td class="n" data-b="diff-'+i+'">'+(diff==null?'<span class="muted">—</span>':diff===0?'<span class="muted">0</span>':'<span class="'+(diff<0?'neg':'posv')+'">'+(diff>0?'+':'')+diff+'</span>')+'</td>'+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>'}).join('');
+  var head=[['Product','','المنتج'],['Location','','الموقع'],['On Hand','n','الرصيد في السيستم'],['Counted','n','المعدود'],['Difference','n','الفرق']];if(ed)head.push(['','n']);
+  var cf=ed?conflicts(t):[];
+  return load+dueBox+(t.lines.length?tbl(head,[rows]):'<p class="muted pad">Load a product to start counting. Counted starts empty; only lines you fill are applied.</p>')+
+    (ed&&t.lines.length?'<div class="sumrow" data-b="adjsum"></div>':'')+(cf.length?'<label class="chk warnbox"><input type="checkbox" data-c="ack"'+(t.ack?' checked':'')+'> Stock moved on '+cf.length+' counted lines after this sheet was opened. Apply the counts on top of the current stock.</label>':'');
+}
+function vTransfer(t){
+  var st=stateOf(t),ed=lineEditable(t),ot=OT[t.type],btns='';
+  if(t.state==='draft')btns+='<button class="btn primary" data-a="validate">'+(t.type==='ADJ'?'Apply All':'Validate')+'</button><button class="btn" data-a="todo">Mark as To Do</button>';
+  if(t.state==='open'){btns+='<button class="btn primary" data-a="validate">'+(t.type==='ADJ'?'Apply All':'Validate')+'</button>';if(OUTGOING_FROM_STOCK.indexOf(t.type)>=0||t.type==='CLN_OUT')btns+='<button class="btn" data-a="checkav" title="Set quantities to what is available">Check Availability</button>'}
+  if(t.state==='done'&&RETURN_OF[t.type])btns+='<button class="btn" data-a="return">Return</button>';
+  if(t.state==='draft'||t.state==='open')btns+='<button class="btn ghost" data-a="cancelt">Cancel</button>';
+  var tags=(isLate(t)?pillx('Late','st-Late'):'')+(t.backorderOf?' <a class="tag" data-a="openref" data-ref="'+esc(t.backorderOf)+'">Backorder of '+esc(t.backorderOf)+'</a>':'')+(t.returnOf?' <a class="tag" data-a="openref" data-ref="'+esc(t.returnOf)+'">Return of '+esc(t.returnOf)+'</a>':'');
+  var rel=S.docs.filter(function(x){return x.backorderOf===t.ref||x.returnOf===t.ref}).map(function(x){return '<a class="tag" data-a="open" data-id="'+x.id+'">'+(x.returnOf===t.ref?'Return ':'Backorder ')+esc(x.ref)+'</a>'}).join(' ');
+  var sheet='<div class="sheet"><div class="ttl"><h1 class="mono">'+esc(t.ref)+'</h1>'+tags+' '+rel+'</div>'+headerFields(t)+'</div>';
+  var ops='<div class="sheet"><div class="tabs2"><span class="tab2 on">Operations</span><span class="tab2 off" title="'+esc(ot.ar)+'">'+esc(ot.kind)+'</span></div>'+(t.type==='ADJ'?adjForm(t):linesHTML(t)+addLineBox(t))+
+    (t.type==='ADJ'&&ed?'<div class="fld"><label>Inventory Reason</label><div class="fv"><input data-i="hf" data-k="reason" value="'+esc(t.reason||'')+'" placeholder="e.g. Weekly cycle count"></div></div>':'')+'</div>';
+  var chatter='<div class="sheet chatter"><div class="row"><input id="lognote" placeholder="Log a note…" style="flex:1"><button class="btn" data-a="lognote">Log note</button></div><ul class="log">'+(t.log||[]).slice().reverse().map(function(l){return '<li><span class="mono muted">'+fmtT(l.t)+'</span> <b>'+esc(l.by)+'</b> '+esc(l.m)+'</li>'}).join('')+'</ul></div>';
+  return cpanel([['Overview','overview'],['Operations','transfers'],[ot.name,'transfers',t.type],[t.ref,'transfer']],btns,statusbar(t))+'<div class="page">'+sheet+ops+chatter+'</div>';
+}
+function fmtT(t){var x=new Date(t),p=function(n){return String(n).padStart(2,'0')};return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate())+' '+p(x.getHours())+':'+p(x.getMinutes())}
+function dayDiff(a,b){var f=function(d){var p=String(d).split('-');return Date.UTC(+p[0],+p[1]-1,+p[2])};return Math.round((f(b)-f(a))/864e5)}
+function addDays(d,n){var p=String(d).split('-');return new Date(Date.UTC(+p[0],+p[1]-1,+p[2])+n*864e5).toISOString().slice(0,10)}
+/* ================= Demand context (ABC, velocity, orders) ================= */
+function DM(){
+  if(DMC)return DMC;
+  var hist=[],hm={},hs={},hc={},hg={},days={},pcs=0,vel={},types={};
+  S.docs.forEach(function(t){
+    if(t.type!=='OUT'||t.state==='cancel'||!t.meta||!t.meta.orders)return;
+    t.meta.orders.forEach(function(o){
+      if(t.meta.cx&&t.meta.cx[o.ref])return;
+      hist.push({date:t.date,o:o,t:t});days[t.date]=1;
+      o.lines.forEach(function(s){var k=SKU.get(s);hm[k.m]=(hm[k.m]||0)+1;hs[k.s]=(hs[k.s]||0)+1;hc[k.c]=(hc[k.c]||0)+1;pcs++});
+      if(o.gov)hg[o.gov]=(hg[o.gov]||0)+1;types[o.type]=(types[o.type]||0)+1;
+    });
+  });
+  var dl=Object.keys(days).sort(),from=addDays(UI.today,-(S.settings.lookback-1)),span=dl.length?Math.max(1,Math.min(S.settings.lookback,dayDiff(dl[0],UI.today)+1)):1;
+  hist.forEach(function(x){if(x.date>=from&&x.date<=UI.today)x.o.lines.forEach(function(s){vel[s]=(vel[s]||0)+1/span})});
+  var abc={},tot=0,cum=0;Object.keys(hm).forEach(function(m){tot+=hm[m]});
+  Object.keys(hm).sort(function(a,b){return hm[b]-hm[a]}).forEach(function(m){abc[m]=cum/(tot||1)<.8?'A':cum/(tot||1)<.95?'B':'C';cum+=hm[m]});
+  return (DMC={hist:hist,hm:hm,hs:hs,hc:hc,hg:hg,pcs:pcs,abc:abc,dl:dl,span:span,vel:vel,types:types,tot:tot});
+}
+function prodAgg(m){var o={oh:0,free:0,inc:0,out:0,fc:0,clean:0},A=agg();D.skus.forEach(function(k){if(k.m!==m)return;var x=A[k.id];o.oh+=x.oh;o.free+=x.free;o.inc+=x.inc;o.out+=x.out;o.fc+=x.fc;o.clean+=x.clean});return o}
+function abcTag(m){var c=DM().abc[m];return c?'<span class="abc '+c+'" title="ABC class by demand">'+c+'</span>':'<span class="muted">—</span>'}
+
+/* ================= Products ================= */
+function vProducts(){
+  var q=(UI.pq||'').toLowerCase(),rows=MORDER.filter(function(m){return !q||(m+' '+MODEL.get(m).name+' '+categoryOf(m)).toLowerCase().indexOf(q)>=0}).map(function(m){
+    var a=prodAgg(m),M=MODEL.get(m),n=D.skus.filter(function(k){return k.m===m}).length;
+    return '<tr class="click" data-a="prod" data-m="'+m+'"><td class="mono"><b>'+m+'</b></td><td>'+esc(M.name)+'</td><td>'+categoryOf(m)+'</td><td class="n">'+n+'</td><td class="n">'+fmt(a.oh)+'</td><td class="n">'+fmt(a.free)+'</td><td class="n">'+fmt(a.fc)+'</td><td>'+abcTag(m)+'</td></tr>'});
+  return cpanel([['Overview','overview'],['Products','products']],'','<div class="search"><input data-i="pq" id="pq" value="'+esc(UI.pq||'')+'" placeholder="Search products…"></div>')+
+    '<div class="page">'+tbl([['Internal Reference','','الكود'],['Product','','المنتج'],['Product Category','','الفئة'],['Variants','n','المتغيرات'],['On Hand','n','الرصيد'],['Free to Use','n','المتاح'],['Forecasted','n','المتوقع'],['ABC','','تصنيف ABC']],rows)+'</div>';
+}
+var PM=[['oh','On Hand'],['free','Free to Use'],['inc','Incoming'],['out','Outgoing'],['fc','Forecasted'],['clean','In Cleaning']];
+function vProduct(m){
+  var M=MODEL.get(m),A=agg(),a=prodAgg(m),mx=1,meas=UI.pm;
+  var val=function(s){return A[s][meas]};
+  M.colors.forEach(function(c){M.sizes.forEach(function(z){var v=val(IDX[m+'|'+c+'|'+z]);if(v>mx)mx=v})});
+  var tipf=function(s){var x=A[s];return esc('<div class="tt"><div class="tn">'+esc(variantPlain(s))+'</div><div class="tm">On Hand <b>'+fmt(x.oh)+'</b></div><ul><li>WH/Stock <b>'+fmt(x.stock)+'</b></li><li>WH/Cleaning <b>'+fmt(x.clean)+'</b></li></ul><div class="td">Free to Use <b>'+fmt(x.free)+'</b> · Incoming '+fmt(x.inc)+' · Outgoing '+fmt(x.out)+'</div><div class="td">Forecasted <b>'+fmt(x.fc)+'</b></div></div>')};
+  var cs={};
+  var body=M.colors.map(function(c){var rt=0,cells=M.sizes.map(function(z){var s=IDX[m+'|'+c+'|'+z],v=val(s);rt+=v;cs[z]=(cs[z]||0)+v;return '<td class="mxc'+(v===0?' z':'')+'" style="--h:'+(v>0?(v/mx).toFixed(2):0)+'" data-tiph="'+tipf(s)+'">'+fmt(v)+'</td>'}).join('');return '<tr><th class="cl">'+swatch(c)+esc(cn(c))+'</th>'+cells+'<td class="mxt">'+fmt(rt)+'</td></tr>'}).join('');
+  var foot='<tr><th class="cl">Total</th>'+M.sizes.map(function(z){return '<td class="mxt">'+fmt(cs[z]||0)+'</td>'}).join('')+'<td class="mxt">'+fmt(M.sizes.reduce(function(s,z){return s+(cs[z]||0)},0))+'</td></tr>';
+  var recent=S.moves.filter(function(x){var k=SKU.get(x.s);return k&&k.m===m}).slice(-12).reverse().map(function(x){return '<tr><td class="mono">'+x.d+'</td><td class="mono">'+esc(x.ref)+'</td><td>'+variantLabel(x.s)+'</td><td>'+locHTML(x.src)+'</td><td>'+locHTML(x.dst)+'</td><td class="n">'+fmt(x.q)+'</td></tr>'}).join('');
+  return cpanel([['Overview','overview'],['Products','products'],[m+' '+M.name,'product']],'<button class="btn" data-a="go" data-r="stock" data-q="'+m+'">Stock</button><button class="btn" data-a="go" data-r="moves" data-q="'+m+'">Moves History</button>')+
+   '<div class="page"><div class="sheet"><div class="ttl"><h1>'+esc(M.name)+' <span class="mono muted">'+m+'</span></h1></div><div class="fgrid"><div class="fld"><label>Internal Reference</label><div class="fv mono">'+m+'</div></div><div class="fld"><label>Product Category</label><div class="fv">'+categoryOf(m)+'</div></div><div class="fld"><label>Unit of Measure</label><div class="fv">Units</div></div><div class="fld"><label>ABC class</label><div class="fv">'+abcTag(m)+'</div></div></div>'+
+   '<div class="infolets small">'+[['On Hand',a.oh],['Free to Use',a.free],['Incoming',a.inc],['Outgoing',a.out],['Forecasted',a.fc],['In Cleaning',a.clean]].map(function(c){return '<div class="infolet"><div class="il">'+c[0]+'</div><div class="iv">'+fmt(c[1])+'</div></div>'}).join('')+'</div></div>'+
+   '<div class="sheet"><div class="tabs2"><span class="tab2 on">Variants</span><span class="muted small">Color × Size</span><select class="sel" data-c="pm" style="margin-inline-start:auto">'+PM.map(function(x){return '<option value="'+x[0]+'"'+(meas===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select></div><div class="scroll"><table class="mxt2"><thead><tr><th class="cl">Color</th>'+M.sizes.map(function(z){return '<th>'+z+'</th>'}).join('')+'<th>Total</th></tr></thead><tbody>'+body+foot+'</tbody></table></div><p class="muted small">Hover a cell for the breakdown by location.</p></div>'+
+   '<div class="sheet"><div class="tabs2"><span class="tab2 on">Recent moves</span></div>'+(recent?tbl([['Date'],['Reference'],['Product'],['From'],['To'],['Quantity','n']],[recent]):'<p class="muted pad">No moves yet.</p>')+'</div></div>';
+}
+
+/* ================= Reports ================= */
+function vStock(){
+  var f=UI.sr,q=(f.q||'').toLowerCase(),A=agg(),list=D.skus.map(function(k){return k.id}).filter(function(s){
+    var k=SKU.get(s),x=A[s];if(f.hide0&&!(x.oh||x.inc||x.out))return false;
+    return !q||(s+' '+k.m+' '+MODEL.get(k.m).name+' '+k.c+' '+cn(k.c)+' '+k.s).toLowerCase().indexOf(q)>=0}).sort(skuSort);
+  var row=function(s){var x=A[s],k=SKU.get(s);return '<tr><td class="mono">'+s+'</td><td>'+esc(k.m+' '+MODEL.get(k.m).name)+'</td><td>'+swatch(k.c)+esc(cn(k.c))+'</td><td>'+k.s+'</td><td class="n"><b>'+fmt(x.oh)+'</b></td><td class="n">'+fmt(x.free)+'</td><td class="n">'+fmt(x.inc)+'</td><td class="n">'+fmt(x.out)+'</td><td class="n '+(x.fc<0?'neg':'')+'">'+fmt(x.fc)+'</td><td class="n"><a class="lnk" data-a="go" data-r="moves" data-q="'+s+'">History</a></td></tr>'};
+  var body='';
+  if(f.group==='pr'){var cur='';list.slice(0,f.n*3).forEach(function(s){var m=SKU.get(s).m;if(m!==cur){cur=m;var a=prodAgg(m);body+='<tr class="grow"><td colspan="4"><b>'+esc(m+' '+MODEL.get(m).name)+'</b></td><td class="n"><b>'+fmt(a.oh)+'</b></td><td class="n"><b>'+fmt(a.free)+'</b></td><td class="n"><b>'+fmt(a.inc)+'</b></td><td class="n"><b>'+fmt(a.out)+'</b></td><td class="n"><b>'+fmt(a.fc)+'</b></td><td></td></tr>'}body+=row(s)})}
+  else body=list.slice(0,f.n).map(row).join('');
+  var t={oh:0,free:0,inc:0,out:0,fc:0};list.forEach(function(s){var x=A[s];t.oh+=x.oh;t.free+=x.free;t.inc+=x.inc;t.out+=x.out;t.fc+=x.fc});
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Stock','stock']],'<button class="btn" data-a="csv" data-v="stock">Export</button>','<div class="search"><input data-i="srq" id="srq" value="'+esc(f.q||'')+'" placeholder="Search product, color, size…"><select class="sel" data-c="srgroup"><option value="">Group by…</option><option value="pr"'+(f.group==='pr'?' selected':'')+'>Product</option></select><label class="chk"><input type="checkbox" data-c="srhide"'+(f.hide0?' checked':'')+'> Hide empty</label></div>')+
+   '<div class="page"><div class="scroll"><table class="list"><thead><tr><th>Internal Reference</th><th>Product</th><th>Color</th><th>Size</th><th class="n" title="الرصيد الفعلي في المخزن (جاهز + تنظيف)">On Hand</th><th class="n" title="الجاهز غير المحجوز">Free to Use</th><th class="n" title="مستلم متوقع + عند المصنع">Incoming</th><th class="n" title="أوردرات تسليم مفتوحة">Outgoing</th><th class="n" title="On Hand + Incoming − Outgoing">Forecasted</th><th></th></tr></thead><tbody>'+body+'</tbody><tfoot><tr><td colspan="4"><b>Total ('+fmt(list.length)+' variants)</b></td><td class="n"><b>'+fmt(t.oh)+'</b></td><td class="n"><b>'+fmt(t.free)+'</b></td><td class="n"><b>'+fmt(t.inc)+'</b></td><td class="n"><b>'+fmt(t.out)+'</b></td><td class="n"><b>'+fmt(t.fc)+'</b></td><td></td></tr></tfoot></table></div>'+(list.length>f.n&&f.group!=='pr'?'<button class="btn" data-a="srmore">Load more</button>':'')+'<p class="muted small">Forecasted = On Hand + Incoming − Outgoing. On Hand counts WH/Stock and WH/Cleaning.</p></div>';
+}
+function vLocations(){
+  var sel=UI.lr||'WH/Stock',locs=Object.keys(LOC).concat(S.partners.customers.map(function(c){return 'Partners/Customers/'+c}));
+  var cards='<div class="infolets small">'+locs.map(function(l){return '<button class="infolet click'+(sel===l?' on':'')+'" data-a="lsel" data-l="'+esc(l)+'" title="'+esc(locAr(l))+'"><div class="il">'+esc(l)+'</div><div class="iv">'+fmt(locTotal(l))+'</div><div class="im">'+locType(l)+'</div></button>'}).join('')+'</div>';
+  var rows=D.skus.map(function(k){return k.id}).filter(function(s){return qty(s,sel)!==0}).sort(skuSort).slice(0,400).map(function(s){return '<tr><td class="mono">'+s+'</td><td>'+variantLabel(s)+'</td><td>'+locHTML(sel)+'</td><td class="n"><b>'+fmt(qty(s,sel))+'</b></td></tr>'});
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Locations','locations']],'')+'<div class="page"><p class="muted">On-hand quantity per location. Virtual locations hold stock that left the warehouse for a reason (scrap, loss, adjustment); they never count as On Hand.</p>'+cards+'<h3 class="mt">'+esc(sel)+' <span class="muted small">('+locType(sel)+')</span></h3>'+(rows.length?tbl([['Internal Reference'],['Product'],['Location'],['On Hand','n']],rows):'<div class="empty">Nothing in this location.</div>')+'</div>';
+}
+function moveKind(m){
+  var a=locType(m.src),b=locType(m.dst),ai=isInternal(m.src),bi_=isInternal(m.dst),ext=function(t){return t==='Vendor'||t==='Customer'||t==='Transit'};
+  if(ext(a)&&bi_)return 'Incoming';if(ai&&ext(b))return 'Outgoing';if(ai&&bi_)return 'Internal';return 'Inventory';
+}
+function vMoves(){
+  var f=UI.mv,q=(f.q||'').toLowerCase();
+  var rows=S.moves.slice().reverse().filter(function(m){if(f.f&&moveKind(m)!==f.f)return false;return !q||(m.ref+' '+m.s+' '+m.src+' '+m.dst+' '+(m.n||'')+' '+(SKU.get(m.s)?SKU.get(m.s).m:'')).toLowerCase().indexOf(q)>=0});
+  var chips='<div class="facets">'+['Incoming','Outgoing','Internal','Inventory'].map(function(k){return '<button class="chipf'+(f.f===k?' on':'')+'" data-a="mvf" data-v="'+k+'">'+k+'</button>'}).join('')+'</div>';
+  var gsel='<select class="sel" data-c="mvgroup"><option value="">Group by…</option>'+[['ty','Operation Type'],['pr','Product'],['ref','Reference'],['d','Date'],['by','Done By'],['src','From'],['dst','To']].map(function(x){return '<option value="'+x[0]+'"'+(f.group===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select>';
+  var body;
+  if(f.group){var kf={ty:function(m){return OT[m.ty]?OT[m.ty].name:m.ty},pr:function(m){return SKU.get(m.s)?SKU.get(m.s).m:m.s},ref:function(m){return m.ref},d:function(m){return m.d},by:function(m){return m.by||'—'},src:function(m){return m.src},dst:function(m){return m.dst}}[f.group],G={};rows.forEach(function(m){var k=kf(m),o=G[k]||(G[k]={n:0,q:0});o.n++;o.q+=m.q});
+    body=tbl([['Group'],['Moves','n'],['Quantity','n']],Object.keys(G).sort(function(a,b){return G[b].q-G[a].q}).map(function(k){return '<tr><td>'+esc(k)+'</td><td class="n">'+fmt(G[k].n)+'</td><td class="n">'+fmt(G[k].q)+'</td></tr>'}));
+  }else body=tbl([['Date'],['Reference'],['Operation Type'],['Product'],['From'],['To'],['Quantity','n'],['Note'],['Done By'],['Status']],rows.slice(0,f.n).map(function(m){return '<tr><td class="mono">'+m.d+'</td><td class="mono">'+esc(m.ref)+'</td><td>'+esc(OT[m.ty]?OT[m.ty].name:m.ty)+'</td><td>'+(SKU.get(m.s)?variantLabel(m.s):m.s)+'</td><td>'+locHTML(m.src)+'</td><td>'+locHTML(m.dst)+'</td><td class="n"><b>'+fmt(m.q)+'</b></td><td class="g1">'+esc(m.n||'')+'</td><td>'+esc(m.by||'')+'</td><td>'+badge('Done')+'</td></tr>'}));
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Moves History','moves']],'<button class="btn" data-a="csv" data-v="moves">Export</button>','<div class="search"><input data-i="mvq" id="mvq" value="'+esc(f.q||'')+'" placeholder="Search reference, product, location…">'+gsel+'</div>'+chips)+'<div class="page">'+body+(!f.group&&rows.length>f.n?'<button class="btn" data-a="mvmore">Load more</button>':'')+'<p class="muted small">'+fmt(rows.length)+' stock moves. Moves are never edited or deleted; mistakes are corrected with a Return or an Adjustment.</p></div>';
+}
+function vAnalysis(){
+  var by=UI.an.by,kf={ty:function(m){return OT[m.ty]?OT[m.ty].name:m.ty},pr:function(m){return SKU.get(m.s)?mname(SKU.get(m.s).m):m.s},d:function(m){return m.d},by:function(m){return m.by||'—'},src:function(m){return m.src},dst:function(m){return m.dst},kind:function(m){return moveKind(m)}}[by],G={};
+  S.moves.forEach(function(m){var k=kf(m),o=G[k]||(G[k]={n:0,q:0});o.n++;o.q+=m.q});
+  var ks=Object.keys(G).sort(function(a,b){return G[b].q-G[a].q}),mx=Math.max.apply(null,ks.map(function(k){return G[k].q}).concat([1]));
+  var opts=[['kind','Move type (Incoming / Outgoing / Internal / Inventory)'],['ty','Operation Type'],['pr','Product'],['d','Date'],['by','Done By'],['src','From location'],['dst','To location']];
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Moves Analysis','analysis']],'','<div class="search"><label class="field">Group by<select class="sel" data-c="anby">'+opts.map(function(x){return '<option value="'+x[0]+'"'+(by===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select></label></div>')+
+   '<div class="page"><div class="scroll"><table class="list"><thead><tr><th>'+esc(opts.filter(function(x){return x[0]===by})[0][1])+'</th><th class="n">Moves</th><th class="n">Quantity</th><th style="width:40%"></th></tr></thead><tbody>'+ks.map(function(k){return '<tr><td>'+esc(k)+'</td><td class="n">'+fmt(G[k].n)+'</td><td class="n"><b>'+fmt(G[k].q)+'</b></td><td><div class="hbar"><i style="width:'+(G[k].q/mx*100).toFixed(1)+'%"></i></div></td></tr>'}).join('')+'</tbody></table></div></div>';
+}
+function vReplenish(){
+  var A=agg(),mult=S.settings.mult,rows=D.skus.filter(function(k){return k.min>0&&k.open>=0&&A[k.id].fc<k.min}).map(function(k){var x=A[k.id],mx=k.min*mult;return {k:k,x:x,max:mx,order:Math.max(0,mx-x.fc)}}).sort(function(a,b){return b.order-a.order});
+  var body=rows.slice(0,250).map(function(r){return '<tr><td>'+variantLabel(r.k.id)+'</td><td class="n">'+r.k.min+'</td><td class="n">'+r.max+'</td><td class="n">'+fmt(r.x.oh)+'</td><td class="n">'+fmt(r.x.fc)+'</td><td class="n"><b>'+fmt(r.order)+'</b></td><td>Manual</td></tr>'});
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Replenishment','replenish']],'<button class="btn" data-a="csv" data-v="replenish">Export</button>')+'<div class="page"><p class="muted">Reordering rules: when the <b>Forecast</b> falls below <b>Min</b>, the product appears here and <b>To Order</b> brings it back up to <b>Max</b>. Min comes from your old alert levels, and Max = Min × '+mult+' (change it in Settings). Trigger is Manual: it lists the product, you decide the quantity with the factory.</p>'+
+   (rows.length?tbl([['Product','','المنتج'],['Min','n'],['Max','n'],['On Hand','n'],['Forecast','n'],['To Order','n','الكمية المقترحة'],['Trigger']],body)+'<p class="muted small">'+fmt(rows.length)+' variants below Min.</p>':'<div class="empty">Nothing to replenish.</div>')+'</div>';
+}
+function vABC(){
+  var dm=DM(),ms=Object.keys(dm.hm).sort(function(a,b){return dm.hm[b]-dm.hm[a]}),cum=0;
+  var rows=ms.map(function(m){cum+=dm.hm[m];return '<tr><td><b class="mono">'+m+'</b> '+esc(MODEL.get(m).name)+'</td><td>'+abcTag(m)+'</td><td class="n">'+fmt(dm.hm[m])+'</td><td class="n">'+(dm.hm[m]/dm.tot*100).toFixed(1)+'%</td><td class="n">'+(cum/dm.tot*100).toFixed(1)+'%</td><td class="n">'+fmt(prodAgg(m).oh)+'</td></tr>'});
+  return cpanel([['Overview','overview'],['Reporting','stock'],['ABC Analysis','abc']],'')+'<div class="page"><p class="muted">Products are ranked by units delivered. A = first 80% of demand, B = up to 95%, C = the rest. It sets the cycle-count frequency (A every 7 days, B every 30, C every 90).</p>'+(rows.length?tbl([['Product'],['Class'],['Units delivered','n'],['% of demand','n'],['Cumulative %','n'],['On Hand','n']],rows):'<div class="empty">No delivery history yet.</div>')+'</div>';
+}
+function detectKits(){
+  var dm=DM(),sig={};
+  dm.hist.forEach(function(x){var comp={};x.o.lines.forEach(function(s){var k=SKU.get(s),key=k.m+'|'+k.c;comp[key]=(comp[key]||0)+1});var ks=Object.keys(comp).sort();if(ks.length<3)return;
+    var sg=ks.map(function(k){return k+':'+comp[k]}).join(','),o=sig[sg]||(sig[sg]={s:sg,comp:comp,n:0,pcs:ks.reduce(function(a,k){return a+comp[k]},0),today:{},mixed:0});
+    o.n++;if(x.date===UI.today){var zs={};x.o.lines.forEach(function(s){zs[SKU.get(s).s]=1});var zk=Object.keys(zs);if(zk.length===1)o.today[zk[0]]=(o.today[zk[0]]||0)+1;else o.mixed++}});
+  var ks=Object.keys(sig).map(function(k){return sig[k]}).filter(function(b){return b.n>=3}).sort(function(a,b){return b.n-a.n});
+  ks.forEach(function(b){b.cap={};SZ.forEach(function(z){var min=Infinity,lim=[];Object.keys(b.comp).forEach(function(k){var p=k.split('|'),id=IDX[p[0]+'|'+p[1]+'|'+z],have=id?Math.floor(qty(id,'WH/Stock')/b.comp[k]):0;if(have<min){min=have;lim=[k]}else if(have===min)lim.push(k)});b.cap[z]={n:min===Infinity?0:min,lim:lim}})});
+  return ks;
+}
+function hb(label,v,max,right){return '<div class="hb"><span class="nn">'+label+'</span><div class="track"><div class="fill" style="width:'+(max?Math.max(1,v/max*100):0).toFixed(1)+'%"></div></div><span class="v">'+right+'</span></div>'}
+function vDemand(){
+  var dm=DM(),kits=detectKits();
+  function top(map,n){return Object.keys(map).sort(function(a,b){return map[b]-map[a]}).slice(0,n||99)}
+  var szs=SZ.filter(function(z){return dm.hs[z]}),mxS=Math.max.apply(null,szs.map(function(z){return dm.hs[z]}).concat([1])),ms=top(dm.hm,12),cs=top(dm.hc,10),gs=top(dm.hg,10);
+  var panel=function(t,h){return '<div class="sheet"><h3>'+t+'</h3>'+h+'</div>'};
+  var kitsHTML=kits.length?kits.map(function(b){var bn=S.bn[b.s]||'';
+    return '<div class="sheet kit"><div class="row"><input data-i="bname" data-sig="'+esc(b.s)+'" value="'+esc(bn)+'" placeholder="Name this kit"><span>'+pillx('ordered '+b.n+' times','st-Ready')+' '+pillx(b.pcs+' units','')+'</span></div><div class="chips">'+Object.keys(b.comp).sort().map(function(k){var p=k.split('|');return '<span class="chip">'+swatch(p[1])+'<span class="mono">'+esc(p[0])+'</span> '+esc(cn(p[1]))+(b.comp[k]>1?' ×'+b.comp[k]:'')+'</span>'}).join('')+'</div><div class="scroll"><table class="list kt"><thead><tr><th>Kit</th>'+SZ.map(function(z){return '<th class="n">'+z+'</th>'}).join('')+'</tr></thead><tbody><tr><td>Can be assembled</td>'+SZ.map(function(z){var c=b.cap[z];return '<td class="n '+(c.n===0?'neg':'')+'" title="'+esc('Limited by: '+c.lim.map(function(k){var q=k.split('|');return q[0]+' '+cn(q[1])}).join(', '))+'"><b>'+fmt(c.n)+'</b></td>'}).join('')+'</tr><tr><td>Ordered '+UI.today+'</td>'+SZ.map(function(z){return '<td class="n">'+(b.today[z]||'·')+'</td>'}).join('')+'</tr></tbody></table></div></div>'}).join(''):'<div class="empty">No combination has been ordered 3 or more times yet.</div>';
+  return cpanel([['Overview','overview'],['Reporting','stock'],['Demand Analysis','demand']],'')+'<div class="page"><p class="muted">Built from the Delivery Orders imported from the sheets (last '+S.settings.lookback+' days up to '+UI.today+').</p>'+
+    '<div class="infolets small">'+[['Orders',dm.hist.length],['Units',dm.pcs],['Units / order',dm.hist.length?(dm.pcs/dm.hist.length).toFixed(1):'—'],['Days of data',dm.dl.length]].map(function(c){return '<div class="infolet"><div class="il">'+c[0]+'</div><div class="iv">'+c[1]+'</div></div>'}).join('')+'</div>'+
+    '<div class="two">'+panel('By size',szs.map(function(z){return hb('<span class="mono">'+z+'</span>',dm.hs[z],mxS,fmt(dm.hs[z])+' <small>'+(dm.hs[z]/dm.pcs*100).toFixed(0)+'%</small>')}).join('')||'<span class="muted">No data</span>')+panel('By product',ms.map(function(m){return hb('<span class="abc '+(dm.abc[m]||'')+'">'+(dm.abc[m]||'')+'</span> <span class="mono">'+m+'</span>',dm.hm[m],dm.hm[ms[0]],fmt(dm.hm[m]))}).join('')||'<span class="muted">No data</span>')+'</div>'+
+    '<div class="two">'+panel('By color',cs.map(function(c){return hb(swatch(c)+esc(cn(c)),dm.hc[c],dm.hc[cs[0]],fmt(dm.hc[c]))}).join('')||'<span class="muted">No data</span>')+panel('By governorate',gs.map(function(g){return hb(esc(g),dm.hg[g],dm.hg[gs[0]],fmt(dm.hg[g]))}).join('')||'<span class="muted">No data</span>')+'</div>'+
+    '<h3 class="mt">Kits (bundles detected from orders)</h3><p class="muted">A kit is a combination of products ordered 3 or more times. It can be assembled only when every component is in WH/Stock in the same size, so the lowest component is the bottleneck.</p>'+kitsHTML+'</div>';
+}
+
+/* ================= Configuration ================= */
+var CFG_TABS=[['locations','Locations'],['optypes','Operation Types'],['partners','Partners'],['mapping','Product Mapping'],['settings','Settings'],['data','Data']];
+function vConfig(){
+  var tab=UI.cfg,tabs='<div class="tabs2">'+CFG_TABS.map(function(t){return '<button class="tab2'+(tab===t[0]?' on':'')+'" data-a="cfgtab" data-v="'+t[0]+'">'+t[1]+'</button>'}).join('')+'</div>',body='';
+  if(tab==='locations'){
+    var locs=Object.keys(LOC).concat(S.partners.customers.map(function(c){return 'Partners/Customers/'+c}));
+    body=tbl([['Location Name'],['Location Type'],['Counts as On Hand','','يدخل في الرصيد'],['Units','n'],['Description']],locs.map(function(l){return '<tr><td class="mono">'+esc(l)+'</td><td>'+locType(l)+'</td><td>'+(ONHAND.indexOf(l)>=0?'Yes':'No')+'</td><td class="n">'+fmt(locTotal(l))+'</td><td class="g1" dir="auto">'+esc(locAr(l))+'</td></tr>'}))+'<p class="muted small">Virtual locations (Vendor, Customer, Inventory loss) are the source or destination of stock moves, exactly like Odoo. Items needing cleaning wait in WH/Cleaning and cannot be sold from there.</p>';
+  }else if(tab==='optypes'){
+    body=tbl([['Operation Type'],['Type of Operation'],['Sequence Prefix'],['Source Location'],['Destination Location'],['Create Backorder'],['Next number','n']],OT_ORDER.map(function(k){var o=OT[k];return '<tr><td><b>'+esc(o.name)+'</b><div class="g2" dir="rtl">'+esc(o.ar)+'</div></td><td>'+o.kind+'</td><td class="mono">'+esc(o.prefix)+'</td><td>'+(o.src?locHTML(o.src):'—')+'</td><td>'+(o.dst?locHTML(o.dst):'—')+'</td><td>'+(o.bo?'Ask':'Never')+'</td><td class="n mono">'+pad((S.seq[k]||0)+1)+'</td></tr>'}));
+  }else if(tab==='partners'){
+    body='<div class="two"><div class="sheet"><h3>Vendors</h3><ul class="plain">'+S.partners.vendors.map(function(v){return '<li>'+esc(v)+'</li>'}).join('')+'</ul></div><div class="sheet"><h3>Customers (sales channels)</h3><ul class="plain">'+S.partners.customers.map(function(v){return '<li>'+esc(v)+' <span class="muted small mono">Partners/Customers/'+esc(v)+'</span></li>'}).join('')+'</ul><div class="row"><input id="newcust" placeholder="New customer, e.g. Noon, Amazon"><button class="btn primary" data-a="addcust">Add</button></div><p class="muted small">A new customer gets its own virtual location and can be used on Delivery Orders and Customer Returns right away.</p></div></div>';
+  }else if(tab==='mapping'){
+    var al=Object.keys(D.alias).map(function(k){return [k,D.alias[k],'built-in']}).concat(Object.keys(S.alias).map(function(k){return [k,S.alias[k],'manual']}));
+    body=tbl([['Code received from the customer'],['Internal Reference (product)'],['Source']],al.map(function(a){return '<tr><td class="mono">'+esc(a[0])+'</td><td class="mono">'+esc(a[1])+'</td><td>'+a[2]+'</td></tr>'}))+'<p class="muted small">When a delivery sheet contains an unknown code, the import wizard asks you to map it once.</p>';
+  }else if(tab==='settings'){
+    var s=S.settings,f=function(id,l,v,h){return '<div class="fld"><label>'+l+'</label><div class="fv"><input id="'+id+'" type="number" min="1" value="'+v+'" style="width:100px">'+(h?' <span class="muted small">'+h+'</span>':'')+'</div></div>'};
+    body='<div class="sheet"><div class="fgrid">'+f('st-lookback','Demand lookback (days)',s.lookback,'used for velocity, ABC and kits')+f('st-mult','Replenishment Max = Min ×',s.mult,'reordering rules')+'<div class="fld"><label>Allow negative stock</label><div class="fv"><label class="chk"><input type="checkbox" id="st-neg"'+(s.allowNeg?' checked':'')+'> Allow validating transfers beyond available quantity</label></div></div><div class="fld"><label>Show Arabic hints</label><div class="fv"><label class="chk"><input type="checkbox" id="st-gloss"'+(s.gloss?' checked':'')+'> Arabic glosses next to English terms</label></div></div></div><div class="row"><button class="btn primary" data-a="savesettings">Save</button></div></div>';
+  }else{
+    body='<div class="sheet"><div class="row"><button class="btn" data-a="csv" data-v="products">Export products (CSV)</button><button class="btn" data-a="csv" data-v="stock">Export stock (CSV)</button><button class="btn" data-a="csv" data-v="moves">Export stock moves (CSV)</button><button class="btn danger" data-a="reset">Reset demo data</button></div><p class="muted small">Everything is stored in this browser only. Export before clearing site data. “Reset” restores the opening stock and the two sample delivery sheets.</p></div><div class="sheet"><h3>What was cleaned from your files</h3><ul class="plain">'+D.cleaning.map(function(c){return '<li>'+esc(c)+'</li>'}).join('')+'</ul></div>';
+  }
+  return cpanel([['Overview','overview'],['Configuration','config'],[(CFG_TABS.filter(function(t){return t[0]===tab})[0]||[])[1],'config']],'')+'<div class="page">'+tabs+body+'</div>';
+}
+
+/* ================= import wizard (Delivery Orders from a sheet) ================= */
+var LINE_RE=/^(.*?) \( (.*?) \)-(.*)-(.*)-(\d+)$/,COLS={ref:'كود الاوردر العشوائي',wb:'بوليصة الشحن',ty:'حالة الاوردر الجزئية',gov:'المحافظة',total:'المبلغ توتال بالشحن للاوردر',items:'المنتجات المطلوبة في الاوردر'};
+function aliasOf(code){return S.alias[code]||D.alias[code]||(/^FC-/.test(code)&&MODEL.has(code.slice(3))?code.slice(3):null)}
+function importRows(rows,fname,partner){
+  var H=rows[0].map(function(x){return String(x).trim()}),ix={};for(var k in COLS)ix[k]=H.indexOf(COLS[k]);
+  if(ix.ref<0||ix.items<0)throw new Error('Required columns not found. The sheet must have the same layout as the Vendoor export.');
+  var have={};S.docs.forEach(function(t){if(t.type==='OUT'&&t.meta&&t.meta.orders)t.meta.orders.forEach(function(o){have[t.partner+'|'+o.ref]=t.ref})});
+  var orders=[],dups=[],unk={};
+  rows.slice(1).forEach(function(r){
+    var ref=String(r[ix.ref]||'').trim();if(!ref)return;
+    if(have[partner+'|'+ref]){dups.push(ref);return}
+    var o={ref:ref,wb:r[ix.wb],type:String(r[ix.ty]).indexOf('استبدال')>=0?'Exchange':'New',gov:r[ix.gov],total:r[ix.total],lines:[],bad:[]};
+    String(r[ix.items]).split(', ').forEach(function(it){
+      var m=LINE_RE.exec(it.trim());if(!m){o.bad.push([it,'','',1]);return}
+      var code=m[1],size=m[3].trim(),color=m[4].trim(),q=+m[5],mc=aliasOf(code),id=mc&&IDX[mc+'|'+color+'|'+size];
+      if(id){for(var i=0;i<q;i++)o.lines.push(id)}else{o.bad.push([code,size,color,q]);if(!mc)unk[code]=1}
+    });
+    orders.push(o);
+  });
+  return {orders:orders,dups:dups,unk:Object.keys(unk)};
+}
+function resolveBad(res){res.orders.forEach(function(o){var keep=[];o.bad.forEach(function(b){var mc=aliasOf(b[0]),id=mc&&IDX[mc+'|'+b[2]+'|'+b[1]];if(id){for(var i=0;i<b[3];i++)o.lines.push(id)}else keep.push(b)});o.bad=keep});res.unk=res.unk.filter(function(c){return !aliasOf(c)})}
+function importDrawer(d){
+  var h='<div class="row sb"><h2>Import Delivery Orders</h2><button class="btn sm" data-a="closedrawer">Close</button></div><p class="muted">Upload the pickup sheet from a customer. One Delivery Order is created with a line per product variant. Customer personal data (name, phone, address) is not imported.</p>'+
+    '<div class="row"><label class="field">Customer<select data-c="impcust">'+S.partners.customers.map(function(c){return '<option'+(d.partner===c?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label><label class="field">Scheduled Date<input type="date" data-i="impdate" value="'+esc(d.date)+'"></label></div>'+
+    '<div class="drop" id="dropz" data-a="pickfile" role="button" tabindex="0"><b>Drop the file here</b> or click to choose<br><span class="muted small">xlsx · xls · csv</span></div>';
+  if(d.err)h+='<div class="msg bad"><div>'+esc(d.err)+'</div></div>';
+  var r=d.res;
+  if(r){
+    var pcs=r.orders.reduce(function(a,o){return a+o.lines.length+o.bad.reduce(function(x,b){return x+b[3]},0)},0),sk={},ex=0;
+    r.orders.forEach(function(o){o.lines.forEach(function(s){sk[s]=1});if(o.type==='Exchange')ex++});
+    h+='<div class="preview"><div class="kv"><span>File</span><b class="mono">'+esc(d.fname)+'</b></div><div class="kv"><span>New orders</span><b>'+r.orders.length+'</b></div><div class="kv"><span>Units</span><b>'+fmt(pcs)+'</b></div><div class="kv"><span>Distinct variants</span><b>'+Object.keys(sk).length+'</b></div><div class="kv"><span>Exchange orders</span><b>'+ex+'</b></div><div class="kv"><span>Duplicates skipped</span><b>'+r.dups.length+'</b></div></div>';
+    if(r.unk.length)h+='<div class="msg warn"><div><b>Unknown product codes</b><div class="grid" style="margin-top:8px">'+r.unk.map(function(c){return '<div class="row"><span class="mono">'+esc(c)+'</span><select data-c="impmap" data-code="'+esc(c)+'"><option value="">Map to product…</option>'+MORDER.map(function(m){return '<option value="'+m+'">'+esc(m+' '+MODEL.get(m).name)+'</option>'}).join('')+'</select></div>'}).join('')+'</div></div></div>';
+    h+='<div class="dfoot"><button class="btn primary" data-a="impsave"'+(r.orders.length&&!r.unk.length?'':' disabled')+'>Create Delivery Order</button><button class="btn" data-a="closedrawer">Cancel</button></div>';
+  }
+  return h;
+}
+function handleFile(file){
+  var d=UI.drawer;if(!d||d.kind!=='import'){UI.drawer=d={kind:'import',partner:S.partners.customers[0],date:UI.today}}
+  if(!window.XLSX){d.err='The Excel reader could not be loaded. Check the connection and try again.';render();return}
+  var fr=new FileReader();
+  fr.onload=function(){try{var wb=XLSX.read(fr.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];d.rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});d.fname=file.name;d.err='';d.res=importRows(d.rows,file.name,d.partner)}catch(e){d.res=null;d.err=String(e.message||e)}render()};
+  fr.onerror=function(){d.err='Could not read the file';render()};
+  fr.readAsArrayBuffer(file);
+}
+function handleFileInput(el){var f=el.files&&el.files[0];el.value='';if(f)handleFile(f)}
+
+/* ================= shell ================= */
+var MENUS=[
+  {id:'overview',t:'Overview',ar:'نظرة عامة',r:'overview'},
+  {id:'ops',t:'Operations',ar:'العمليات',items:[['All Transfers','transfers','']].concat(OT_ORDER.map(function(k){return [OT[k].name,'transfers',k]}))},
+  {id:'prod',t:'Products',ar:'المنتجات',items:[['Products','products'],['Product Variants','stock']]},
+  {id:'rep',t:'Reporting',ar:'التقارير',items:[['Stock','stock'],['Locations','locations'],['Moves History','moves'],['Moves Analysis','analysis'],['Replenishment','replenish'],['ABC Analysis','abc'],['Demand Analysis','demand']]},
+  {id:'cfg',t:'Configuration',ar:'الإعدادات',r:'config'}
+];
+function navbar(){
+  var cur=UI.r;
+  var m=MENUS.map(function(x){
+    var act=(x.id==='overview'&&cur==='overview')||(x.id==='ops'&&(cur==='transfers'||cur==='transfer'))||(x.id==='prod'&&(cur==='products'||cur==='product'))||(x.id==='rep'&&['stock','locations','moves','analysis','replenish','abc','demand'].indexOf(cur)>=0)||(x.id==='cfg'&&cur==='config');
+    if(!x.items)return '<button class="nm'+(act?' on':'')+'" data-a="go" data-r="'+x.r+'">'+bi(x.t,x.ar)+'</button>';
+    return '<div class="nmw"><button class="nm'+(act?' on':'')+'" data-a="menu" data-m="'+x.id+'" aria-expanded="'+(UI.menu===x.id)+'">'+bi(x.t,x.ar)+' <span class="car">▾</span></button>'+(UI.menu===x.id?'<div class="dd">'+x.items.map(function(i){return '<button data-a="go" data-r="'+i[1]+'"'+(i[2]!=null?' data-t="'+i[2]+'"':'')+'>'+esc(i[0])+'</button>'}).join('')+'</div>':'')+'</div>';
+  }).join('');
+  return '<header class="nav"><div class="navin"><div class="brand"><b>Femini</b> <span>WMS</span></div><nav class="menus">'+m+'</nav><div class="navr"><button class="nm sm" data-a="gloss" title="Show or hide Arabic hints">Aع</button><input id="actor" value="'+esc(S.actor)+'" title="Current user" aria-label="Current user"></div></div></header>';
+}
+function viewHTML(){
+  if(UI.r==='transfer'){var t=S.docs.find(function(x){return x.id===UI.sel});if(t)return vTransfer(t);UI.r='transfers'}
+  if(UI.r==='product'&&UI.prod)return vProduct(UI.prod);
+  return {overview:vOverview,transfers:vTransfers,products:vProducts,stock:vStock,locations:vLocations,moves:vMoves,analysis:vAnalysis,replenish:vReplenish,abc:vABC,demand:vDemand,config:vConfig}[UI.r==='product'?'products':UI.r]();
+}
+function dialogHTML(){
+  var d=UI.dialog;if(!d)return '';
+  if(d.kind==='backorder'){var t=S.docs.find(function(x){return x.id===d.id}),rem=t.lines.reduce(function(a,l){return a+Math.max(0,(+l.demand||0)-(+l.done||0))},0);
+    return '<div class="scrim"></div><div class="dlg" role="dialog" aria-modal="true"><h3>Create Backorder?</h3><p>You processed less than the demand on <b class="mono">'+esc(t.ref)+'</b>. <b>'+fmt(rem)+'</b> units are still pending.</p><div class="row"><button class="btn primary" data-a="bo" data-v="create">Create Backorder</button><button class="btn" data-a="bo" data-v="none">No Backorder</button><button class="btn ghost" data-a="bo" data-v="discard">Discard</button></div><p class="muted small">Create Backorder keeps the remaining quantities as a new transfer. No Backorder drops them.</p></div>'}
+  return '';
+}
+function render(){
+  var app=$('#app'),sy=window.scrollY;
+  document.documentElement.classList.toggle('noar',!S.settings.gloss);
+  var m=UI.msg?'<div class="msg '+UI.msg.kind+'" role="alert"><div><b>'+esc(UI.msg.title)+'</b>'+(UI.msg.lines.length?'<ul>'+UI.msg.lines.map(function(l){return '<li>'+esc(l)+'</li>'}).join('')+'</ul>':'')+'</div><button class="btn sm" data-a="closemsg">Dismiss</button></div>':'';
+  var modal=UI.modal?'<div class="scrim"></div><div class="dlg wide"><div class="row sb"><h3>'+esc(UI.modal.title)+'</h3><button class="btn sm" data-a="closemodal">Close</button></div><textarea id="mtxt" readonly>'+esc(UI.modal.text)+'</textarea><div class="row"><button class="btn primary" data-a="copy">Copy</button><span class="muted small" id="cpst"></span></div></div>':'';
+  var drawer=UI.drawer?'<div class="scrim" data-a="closedrawer"></div><aside class="drawer" role="dialog" aria-modal="true">'+importDrawer(UI.drawer)+'</aside>':'';
+  app.innerHTML=navbar()+'<main>'+m+viewHTML()+'</main>'+dialogHTML()+drawer+modal;
+  window.scrollTo(0,sy);live();pkHint();
+}
+function live(){
+  var t=S.docs.find(function(x){return x.id===UI.sel});
+  $$('[data-b]').forEach(function(e){
+    var k=e.getAttribute('data-b');if(!t){return}
+    if(k.indexOf('miss-')===0){var l=t.lines[+k.slice(5)];if(l){var rec=(+l.toStock||0)+(+l.toClean||0)+(+l.toScrap||0),miss=Math.max(0,(+l.demand||0)-rec);e.innerHTML=miss?'<span class="neg">'+fmt(miss)+'</span>':'<span class="muted">0</span>'}}
+    else if(k.indexOf('diff-')===0){var l2=t.lines[+k.slice(5)];if(l2){var has=l2.counted!==''&&l2.counted!=null,df=has?(+l2.counted)-qty(l2.sku,l2.loc):null;e.innerHTML=df==null?'<span class="muted">—</span>':df===0?'<span class="muted">0</span>':'<span class="'+(df<0?'neg':'posv')+'">'+(df>0?'+':'')+df+'</span>'}}
+    else if(k==='adjsum'){var sh=0,su=0,n=0;t.lines.forEach(function(l){if(l.counted===''||l.counted==null)return;n++;var df=(+l.counted)-qty(l.sku,l.loc);if(df<0)sh-=df;else su+=df});e.innerHTML='<span class="bd">'+n+' lines counted</span> <span class="bd '+(sh?'st-Late':'')+'">Shortage '+fmt(sh)+'</span> <span class="bd">Surplus '+fmt(su)+'</span>'}
+  });
+}
+function csv(rows){return rows.map(function(r){return r.map(function(c){c=String(c==null?'':c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')}).join('\n')}
+/* ================= events ================= */
+function curT(){return S.docs.find(function(x){return x.id===UI.sel})}
+function newLine(t,s,q,loc){
+  if(t.type==='RMA')return {sku:s,demand:q,toStock:0,toClean:0,toScrap:0};
+  if(t.type==='SCRAP')return {sku:s,loc:loc||'WH/Stock',demand:q,done:q,reason:''};
+  if(t.type==='RTV')return {sku:s,loc:loc||'Virtual/Scrap',demand:q,done:q};
+  if(t.type==='IN'||t.type==='CLN_IN')return {sku:s,demand:q,done:q};
+  return {sku:s,demand:q,done:Math.min(q,Math.max(0,qty(s,t.src)))};
+}
+function openT(t){UI.r='transfer';UI.sel=t.id;UI.msg=null;UI.menu=null}
+function adjAdd(t,m,loc,onlyStock){
+  D.skus.forEach(function(k){if(k.m!==m)return;if(onlyStock&&qty(k.id,loc)<=0)return;if(t.lines.some(function(l){return l.sku===k.id&&l.loc===loc}))return;t.lines.push({sku:k.id,loc:loc,onhand:qty(k.id,loc),counted:''})});
+  t.lines.sort(function(a,b){return skuSort(a.sku,b.sku)});
+}
+var ACT={
+  go:function(el){
+    var r=el.dataset.r;UI.r=r;UI.menu=null;UI.msg=null;
+    if(r==='transfers'){UI.tl.type=el.dataset.t||'';if(el.dataset.f!==undefined){UI.tl.f={};if(el.dataset.f)UI.tl.f[el.dataset.f]=true}else if(el.dataset.t!==undefined&&el.dataset.t==='')UI.tl.f={}}
+    if(el.dataset.q!==undefined){if(r==='stock')UI.sr.q=el.dataset.q;if(r==='moves')UI.mv.q=el.dataset.q}
+    window.scrollTo(0,0);render();
+  },
+  menu:function(el){UI.menu=UI.menu===el.dataset.m?null:el.dataset.m;render()},
+  gloss:function(){S.settings.gloss=!S.settings.gloss;save();render()},
+  newt:function(el){
+    var type=el.dataset.t,o={};
+    if(type==='OUT'||type==='RMA')o.partner=S.partners.customers[0];
+    var t=newT(type,o);if(type==='RMA')t.src='Partners/Customers/'+t.partner;if(type==='ADJ'){t.loc='WH/Stock';t.reason='Cycle count'}
+    dirty();openT(t);render();
+  },
+  open:function(el){var t=S.docs.find(function(x){return x.id===el.dataset.id});if(t){openT(t);window.scrollTo(0,0);render()}},
+  openref:function(el){var t=S.docs.find(function(x){return x.ref===el.dataset.ref});if(t){openT(t);window.scrollTo(0,0);render()}},
+  prod:function(el){UI.r='product';UI.prod=el.dataset.m;window.scrollTo(0,0);render()},
+  tfilter:function(el){var k=el.dataset.v;UI.tl.f[k]=!UI.tl.f[k];render()},
+  mvf:function(el){UI.mv.f=UI.mv.f===el.dataset.v?'':el.dataset.v;render()},
+  srmore:function(){UI.sr.n+=150;render()},mvmore:function(){UI.mv.n+=200;render()},
+  lsel:function(el){UI.lr=el.dataset.l;render()},
+  cfgtab:function(el){UI.cfg=el.dataset.v;render()},
+  validate:function(){var t=curT();if(t){UI.msg=null;validateT(t);render()}},
+  bo:function(el){var t=curT(),v=el.dataset.v;UI.dialog=null;if(v==='discard'){render();return}validateT(t,v==='create'?'create':'none');render()},
+  todo:function(){var t=curT();t.state='open';addLog(t,'Marked as To Do');dirty();msg('ok',t.ref+' is now '+stateOf(t),[]);render()},
+  cancelt:function(){var t=curT();cancelT(t);msg('warn',t.ref+' was cancelled',[]);render()},
+  checkav:function(){var t=curT();t.lines.forEach(function(l){l.done=Math.max(0,Math.min(+l.demand||0,qty(l.sku,srcOf(t,l))))});AG=null;save();msg('ok','Quantities set to what is available',[]);render()},
+  'return':function(){var t=curT(),r=createReturn(t);if(r){openT(r);msg('ok','Return '+r.ref+' created from '+t.ref,['Review the quantities, then Validate.']);render()}},
+  lognote:function(){var t=curT(),v=($('#lognote')||{}).value||'';if(v.trim()){addLog(t,v.trim());save();render()}},
+  addline:function(){
+    var t=curT(),s=pickedSku(),q=+($('#qa-qty')||{}).value;
+    if(!s){msg('bad','Select a product, color and size first.',[]);render();return}
+    if(!(q>0)){msg('bad','Quantity must be greater than zero.',[]);render();return}
+    UI.pk={m:$('#pk-m').value,c:$('#pk-c').value,z:$('#pk-z').value};UI.msg=null;
+    var loc=$('#qa-loc')?$('#qa-loc').value:null,ex=t.lines.find(function(l){return l.sku===s&&(loc==null||l.loc===loc)});
+    if(ex){ex.demand=(+ex.demand||0)+q;if(t.type!=='RMA'){ex.done=(+ex.done||0)+q}}
+    else t.lines.push(newLine(t,s,q,loc));
+    AG=null;save();render();
+  },
+  delline:function(el){var t=curT();t.lines.splice(+el.dataset.i,1);AG=null;save();render()},
+  qstep:function(el){var i=$('#'+el.dataset.for);if(i)i.value=Math.max(+i.min||0,(+i.value||0)+(+el.dataset.d))},
+  rtfrom:function(){
+    var t=curT(),src=S.docs.find(function(x){return x.id===$('#rt-pk').value});if(!src||!src.meta)return;
+    var refs=($('#rt-refs').value||'').split(',').map(function(x){return x.trim()}).filter(Boolean),os=refs.length?src.meta.orders.filter(function(o){return refs.indexOf(o.ref)>=0}):src.meta.orders.slice(0,3);
+    if(!os.length){msg('bad','No order matches those codes in '+src.ref,[]);render();return}
+    os.forEach(function(o){o.lines.forEach(function(s){var ex=t.lines.find(function(l){return l.sku===s});if(ex)ex.demand++;else t.lines.push({sku:s,demand:1,toStock:0,toClean:0,toScrap:0})})});
+    t.partner=src.partner;t.src='Partners/Customers/'+src.partner;t.origin='Return of '+src.ref;UI.msg=null;save();render();
+  },
+  lossload:function(){var t=curT();D.skus.forEach(function(k){var q=qty(k.id,'Virtual/Inventory loss');if(q>0&&!t.lines.some(function(l){return l.sku===k.id}))t.lines.push({sku:k.id,demand:q,done:q,res:'writeoff',amt:0})});t.lines.sort(function(a,b){return skuSort(a.sku,b.sku)});save();render()},
+  adjload:function(){var t=curT(),m=$('#adj-m').value;if(!m){msg('bad','Select a product to load.',[]);render();return}UI.msg=null;adjAdd(t,m,t.loc||'WH/Stock',false);save();render()},
+  adjdue:function(){var t=curT();document.querySelectorAll('.addbox .chip .mono').forEach(function(e){adjAdd(t,e.textContent,t.loc||'WH/Stock',true)});UI.msg=null;save();render()},
+  drawer:function(el){UI.drawer={kind:el.dataset.k,partner:S.partners.customers[0],date:UI.today,res:null,err:''};render()},
+  closedrawer:function(){UI.drawer=null;render()},
+  pickfile:function(){$('#upfile').click()},
+  impsave:function(){
+    var d=UI.drawer,r=d.res,dem={};if(!r)return;
+    r.orders.forEach(function(o){o.lines.forEach(function(s){dem[s]=(dem[s]||0)+1})});
+    var t=newT('OUT',{partner:d.partner,date:d.date,state:'open',origin:d.fname,meta:{orders:r.orders,cx:{}},logm:'Imported from '+d.fname});
+    t.lines=Object.keys(dem).sort(skuSort).map(function(s){return {sku:s,demand:dem[s],done:Math.min(dem[s],Math.max(0,qty(s,t.src)))}});
+    dirty();UI.drawer=null;openT(t);
+    msg(r.dups.length?'warn':'ok','Imported '+r.orders.length+' orders into '+t.ref,[].concat(r.dups.length?[r.dups.length+' duplicate orders were skipped']:[],['Customer personal data was not imported.']));render();
+  },
+  csv:function(el){
+    var v=el.dataset.v,rows=[],title='';
+    if(v==='products'){title='Products (variants)';rows=[['internal_reference','product','product_name','color','size','legacy_min','opening_qty']].concat(D.skus.map(function(k){return [k.id,k.m,MODEL.get(k.m).name,k.c,k.s,k.min,k.open]}))}
+    if(v==='stock'){var A=agg();title='Stock';rows=[['internal_reference','on_hand','free_to_use','incoming','outgoing','forecasted']].concat(D.skus.map(function(k){var x=A[k.id];return [k.id,x.oh,x.free,x.inc,x.out,x.fc]}))}
+    if(v==='moves'){title='Stock moves';rows=[['date','reference','operation_type','product','quantity','from','to','note','done_by']].concat(S.moves.map(function(m){return [m.d,m.ref,m.ty,m.s,m.q,m.src,m.dst,m.n||'',m.by||'']}))}
+    if(v==='replenish'){var A2=agg();title='Replenishment';rows=[['product','min','max','on_hand','forecast','to_order']].concat(D.skus.filter(function(k){return k.min>0&&A2[k.id].fc<k.min}).map(function(k){var mx=k.min*S.settings.mult;return [k.id,k.min,mx,A2[k.id].oh,A2[k.id].fc,Math.max(0,mx-A2[k.id].fc)]}))}
+    UI.modal={title:title,text:csv(rows)};render();
+  },
+  copy:function(){var t=$('#mtxt'),st=$('#cpst');t.select();var ok=function(){st.textContent='Copied'},fail=function(){st.textContent='Press Ctrl+C to copy'};try{navigator.clipboard.writeText(t.value).then(ok,fail)}catch(e){fail()}},
+  closemsg:function(){UI.msg=null;render()},closemodal:function(){UI.modal=null;render()},
+  addcust:function(){var n=($('#newcust').value||'').trim();if(!n)return;if(S.partners.customers.indexOf(n)>=0){msg('bad',n+' already exists.',[]);render();return}S.partners.customers.push(n);save();render()},
+  savesettings:function(){var v=function(id,d){var x=Math.round(+($('#'+id).value));return x>=1?x:d},s=S.settings;s.lookback=v('st-lookback',s.lookback);s.mult=v('st-mult',s.mult);s.allowNeg=$('#st-neg').checked;s.gloss=$('#st-gloss').checked;DMC=null;save();msg('ok','Settings saved',[]);render()},
+  reset:function(){if(UI.confirmReset){try{localStorage.removeItem(KEY)}catch(e){}seed();save();UI.confirmReset=false;UI.r='overview';UI.sel=null;DMC=null;msg('ok','Demo data restored',[]);render()}else{UI.confirmReset=true;msg('warn','Reset everything?',['All transfers and moves you created will be lost. Click “Reset demo data” again to confirm.']);render()}}
+};
+function rerenderKeep(el){var id=el.id,pos=el.selectionStart;render();var n=id?document.getElementById(id):null;if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}
+var INP={
+  tlq:function(el){UI.tl.q=el.value;rerenderKeep(el)},pq:function(el){UI.pq=el.value;rerenderKeep(el)},
+  srq:function(el){UI.sr.q=el.value;UI.sr.n=120;rerenderKeep(el)},mvq:function(el){UI.mv.q=el.value;UI.mv.n=150;rerenderKeep(el)},
+  hf:function(el){var t=curT();t[el.dataset.k]=el.value;save()},
+  lf:function(el){var t=curT(),l=t.lines[+el.dataset.idx],k=el.dataset.k,v=el.value===''?'':Math.max(0,Math.floor(+el.value));l[k]=v;if(k==='demand'&&(t.type==='IN'||t.type==='CLN_IN')&&(+l.done||0)>v)l.done=v;AG=null;save();live()},
+  adjc:function(el){var t=curT(),l=t.lines[+el.dataset.idx];l.counted=el.value===''?'':Math.max(0,Math.floor(+el.value));save();live()},
+  bname:function(el){S.bn[el.dataset.sig]=el.value;save()},
+  impdate:function(el){if(UI.drawer&&el.value)UI.drawer.date=el.value}
+};
+var CHG={
+  pkm:function(){fillPicker()},pkc:function(){pkHint()},pkz:function(){pkHint()},
+  tltype:function(el){UI.tl.type=el.value;render()},tlgroup:function(el){UI.tl.group=el.value;render()},
+  hpartner:function(el){var t=curT();t.partner=el.value;if(t.type==='OUT')t.dst='Partners/Customers/'+el.value;if(t.type==='RMA')t.src='Partners/Customers/'+el.value;save();render()},
+  hsrc:function(el){curT().src=el.value;save();render()},hdst:function(el){curT().dst=el.value;save();render()},
+  lloc:function(el){curT().lines[+el.dataset.idx].loc=el.value;save();render()},lreason:function(el){curT().lines[+el.dataset.idx].reason=el.value;save()},lres:function(el){curT().lines[+el.dataset.idx].res=el.value;save()},
+  attach:function(el){var f=el.files&&el.files[0];curT().attach=f?f.name:'';save();render()},
+  adjloc:function(el){var t=curT();t.loc=el.value;t.lines=[];save();render()},blind:function(el){UI.adj.blind=el.checked;render()},ack:function(el){curT().ack=el.checked;save();render()},
+  pm:function(el){UI.pm=el.value;render()},srgroup:function(el){UI.sr.group=el.value;render()},srhide:function(el){UI.sr.hide0=el.checked;render()},
+  mvgroup:function(el){UI.mv.group=el.value;render()},anby:function(el){UI.an.by=el.value;render()},
+  impcust:function(el){var d=UI.drawer;d.partner=el.value;if(d.rows){try{d.res=importRows(d.rows,d.fname,d.partner);d.err=''}catch(e){d.err=String(e.message||e)}}render()},
+  impmap:function(el){var c=el.dataset.code,m=el.value;if(!m)return;S.alias[c]=m;if(UI.drawer&&UI.drawer.res)resolveBad(UI.drawer.res);save();render()}
+};
+document.addEventListener('click',function(e){
+  var el=e.target.closest('[data-a]');
+  if(el&&ACT[el.dataset.a]){if(el.dataset.a==='pickfile'&&e.target.closest('input'))return;ACT[el.dataset.a](el,e);return}
+  if(UI.menu&&!e.target.closest('.nmw')){UI.menu=null;render()}
+});
+document.addEventListener('input',function(e){var el=e.target;if(el.dataset&&el.dataset.i&&INP[el.dataset.i])INP[el.dataset.i](el);if(el.id==='actor'){S.actor=el.value;save()}});
+document.addEventListener('change',function(e){var el=e.target;if(el.id==='upfile'){handleFileInput(el);return}if(el.dataset&&el.dataset.c&&CHG[el.dataset.c])CHG[el.dataset.c](el)});
+var tip=document.createElement('div');tip.id='tip';tip.hidden=true;document.body.appendChild(tip);
+document.addEventListener('mouseover',function(e){
+  var t=e.target.closest&&e.target.closest('[data-tiph]');
+  if(!t){tip.hidden=true;return}
+  tip.innerHTML=t.getAttribute('data-tiph');tip.hidden=false;
+  var r=t.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight,x=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8),y=r.top-h-8;if(y<8)y=r.bottom+8;tip.style.left=x+'px';tip.style.top=y+'px';
+});
+window.addEventListener('scroll',function(){tip.hidden=true},{passive:true});
+document.addEventListener('dragover',function(e){var z=e.target.closest&&e.target.closest('#dropz');if(z){e.preventDefault();z.classList.add('on')}});
+document.addEventListener('dragleave',function(e){var z=e.target.closest&&e.target.closest('#dropz');if(z)z.classList.remove('on')});
+document.addEventListener('drop',function(e){var z=e.target.closest&&e.target.closest('#dropz');if(!z)return;e.preventDefault();var f=e.dataTransfer&&e.dataTransfer.files[0];if(f)handleFile(f)});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){if(UI.drawer){UI.drawer=null;render()}else if(UI.dialog){UI.dialog=null;render()}else if(UI.menu){UI.menu=null;render()}return}
+  if(e.target.id==='dropz'&&(e.key==='Enter'||e.key===' ')){e.preventDefault();$('#upfile').click()}
+});
+
+/* ================= boot ================= */
+load();
+var ip=document.createElement('input');ip.type='file';ip.id='upfile';ip.accept='.xlsx,.xls,.csv';ip.hidden=true;document.body.appendChild(ip);
+render();
+
+})();
+</script>

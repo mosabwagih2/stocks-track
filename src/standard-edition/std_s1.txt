@@ -1,0 +1,211 @@
+var D=__DATA__;
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var fmt=function(n){return (+n||0).toLocaleString('en-US')};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var bi=function(en,ar){return esc(en)+(ar?'<span class="g" dir="rtl">'+esc(ar)+'</span>':'')};
+
+/* ---------- Products (templates) and variants ---------- */
+var SKU=new Map(D.skus.map(function(s){return [s.id,s]}));
+var MODEL=new Map(D.models.map(function(m){return [m.code,m]}));
+var SZ=D.sizes,szi=function(s){return SZ.indexOf(s)};
+var IDX={};D.skus.forEach(function(k){IDX[k.m+'|'+k.c+'|'+k.s]=k.id});
+function natCode(a,b){var x=/^([A-Za-z]+)(\d*)/.exec(a),y=/^([A-Za-z]+)(\d*)/.exec(b),p=x[1].toUpperCase(),q=y[1].toUpperCase();return p<q?-1:p>q?1:(+x[2]||0)-(+y[2]||0)}
+var MODEL_EN={PAN1:'Classic Thong',PAN2:'Sideless Thong',PAN3:'High-Cut Thong',PAN4:'Bikini',PAN5:'Brief',BR1:'Padded Sports Bra',BR2:'Triangle Bra',BR3:'Racerback Sports Bra',BR4:'Thin-Strap Bralette',SH1:'Hot Short',SH2:'Contrast-Trim Short'};
+var AR_EN={'دانتيل':'Lace','مطرزات':'Embroidered','القميص':'Shirt','الروب':'Robe'};
+D.models.forEach(function(m){m.ar=m.name;m.name=MODEL_EN[m.code]||AR_EN[m.name]||m.name});
+var COLOR_EN={'احمر':'Red','برتقالي':'Orange','اسود':'Black','رمادي':'Grey','بيج':'Beige','ابيض':'White','فوشيا':'Fuchsia','سيمون':'Salmon','زيتى':'Olive','اصفر':'Yellow','كحلي':'Navy','بينك':'Pink','مينت جرين':'Mint Green','بيبي بلو':'Baby Blue','روز':'Rose','احمر تطعيم اسود':'Red / Black trim'};
+function cn(c){return COLOR_EN[c]||c}
+var MORDER=D.models.map(function(m){return m.code}).sort(natCode);
+var mIdx={};MORDER.forEach(function(c,i){mIdx[c]=i});
+function skuSort(a,b){var x=SKU.get(a),y=SKU.get(b);return (mIdx[x.m]-mIdx[y.m])||(MODEL.get(x.m).colors.indexOf(x.c)-MODEL.get(y.m).colors.indexOf(y.c))||(szi(x.s)-szi(y.s))}
+var CATEGORY={PAN:'Panties',BR:'Bras',SH:'Shorts'};
+function categoryOf(m){var k=/^[A-Za-z]+/.exec(m)[0].toUpperCase();return CATEGORY[k]||'Other'}
+var HEX={'اسود':'#1e1b24','ابيض':'#ffffff','احمر':'#d9262e','بيج':'#ead9be','رمادي':'#bdbcc4','برتقالي':'#f07a2b','زيتى':'#6f7a3c','فوشيا':'#c2317a','اصفر':'#f2c230','مينت جرين':'#8fd3b6','بيبي بلو':'#a9cbe8','كحلي':'#1f2a5a','بينك':'#f4b6c8','سيمون':'#f3a28c','روز':'#e58fa8','احمر تطعيم اسود':'#a3262c'};
+var swatch=function(c){return '<i class="sw" style="background:'+(HEX[c]||'#cfc2ec')+'"></i>'};
+function variantLabel(id){var k=SKU.get(id);return '<span class="pv" title="'+esc(MODEL.get(k.m).ar+' · '+k.c)+'"><b class="mono">'+esc(k.m)+'</b> '+esc(MODEL.get(k.m).name)+' <span class="attr">'+swatch(k.c)+esc(cn(k.c))+', '+k.s+'</span></span>'}
+function variantPlain(id){var k=SKU.get(id);return k.m+' ('+cn(k.c)+', '+k.s+')'}
+
+/* ---------- Locations (Odoo style tree) ---------- */
+var LOC={
+  'WH/Stock':{t:'Internal',ar:'المخزون الجاهز',free:true},
+  'WH/Cleaning':{t:'Internal',ar:'قسم التنظيف (مش متاح للبيع)'},
+  'SHOP/Stock':{t:'Internal',ar:'المحل'},
+  'Transit/Factory':{t:'Transit',ar:'عند المصنع (في الطريق)'},
+  'Virtual/Scrap':{t:'Inventory loss',ar:'الهالك النهائي'},
+  'Virtual/Inventory loss':{t:'Inventory loss',ar:'مفقود لسه ما اتحسمش'},
+  'Virtual/Inventory adjustment':{t:'Inventory loss',ar:'تسوية الجرد (زيادة)'},
+  'Virtual/Write-off':{t:'Inventory loss',ar:'شطب'},
+  'Partners/Vendors':{t:'Vendor',ar:'المصنع (المورد)'}
+};
+function locType(l){return LOC[l]?LOC[l].t:(l.indexOf('Partners/Customers/')===0?'Customer':'Other')}
+var INTERNAL=['WH/Stock','WH/Cleaning','SHOP/Stock'];
+var ONHAND=['WH/Stock','WH/Cleaning'];
+function isInternal(l){return INTERNAL.indexOf(l)>=0}
+function locAr(l){return LOC[l]?LOC[l].ar:(l.indexOf('Partners/Customers/')===0?'عميل: '+l.split('/')[2]:'')}
+
+/* ---------- Operation types ---------- */
+var OT={
+  IN:{name:'Receipts',ar:'استلام بضاعة',prefix:'WH/IN/',kind:'Receipt',src:'Partners/Vendors',dst:'WH/Stock',area:'Receiving',attach:true,bo:true},
+  RMA:{name:'Customer Returns',ar:'مرتجعات الشركات',prefix:'WH/RET/',kind:'Receipt (RMA)',src:'Customers',dst:'Inspection',area:'Receiving'},
+  CLN_IN:{name:'Receive from Cleaning',ar:'استلام بعد التنظيف',prefix:'WH/CLN/IN/',kind:'Receipt',src:'Transit/Factory',dst:'WH/Stock',area:'Receiving',bo:true},
+  OUT:{name:'Delivery Orders',ar:'تسليم للشركات (البيك أب)',prefix:'WH/OUT/',kind:'Delivery',src:'WH/Stock',dst:'Customers',area:'Shipping',bo:true},
+  INT:{name:'Internal Transfers',ar:'تحويلات داخلية (المحل / التنظيف)',prefix:'WH/INT/',kind:'Internal Transfer',src:'WH/Stock',dst:'SHOP/Stock',area:'Shipping',bo:true},
+  CLN_OUT:{name:'Send for Cleaning',ar:'إرسال للتنظيف عند المصنع',prefix:'WH/CLN/OUT/',kind:'Delivery (Subcontracting)',src:'WH/Cleaning',dst:'Transit/Factory',area:'Shipping',bo:true},
+  RTV:{name:'Vendor Returns',ar:'مرتجعات للمصنع (والهالك)',prefix:'WH/RTV/',kind:'Delivery',src:'WH/Stock',dst:'Partners/Vendors',area:'Shipping'},
+  SCRAP:{name:'Scrap Orders',ar:'أوامر الهالك',prefix:'WH/SCRAP/',kind:'Scrap',src:'WH/Stock',dst:'Virtual/Scrap',area:'Inventory Control'},
+  ADJ:{name:'Inventory Adjustments',ar:'الجرد والتسويات',prefix:'WH/ADJ/',kind:'Physical Inventory',src:'',dst:'',area:'Inventory Control'},
+  LOSS:{name:'Loss Resolution',ar:'حسم المفقود',prefix:'WH/LOSS/',kind:'Inventory Adjustment',src:'Virtual/Inventory loss',dst:'WH/Stock',area:'Inventory Control'}
+};
+var OT_ORDER=['IN','RMA','CLN_IN','OUT','INT','CLN_OUT','RTV','SCRAP','ADJ','LOSS'];
+var AREAS=[['Receiving','الاستلام'],['Shipping','الشحن والتحويل'],['Inventory Control','التحكم في المخزون']];
+var ST_AR={Draft:'مسودة',Waiting:'في الانتظار',Ready:'جاهزة',Done:'تمت',Cancelled:'ملغاة'};
+var ROUTES={'WH/Stock>WH/Cleaning':1,'WH/Stock>SHOP/Stock':1,'SHOP/Stock>WH/Stock':1};
+var BO_TYPES=['OUT','IN','INT','CLN_OUT','CLN_IN'];
+var OUTGOING_FROM_STOCK=['OUT','INT','CLN_OUT','SCRAP','RTV'];
+var RETURN_OF={OUT:'RMA',IN:'RTV',INT:'INT',CLN_OUT:'CLN_IN',CLN_IN:'CLN_OUT'};
+var LOSS_RES={stock:['Found: return to WH/Stock','وُجدت وترجع جاهزة'],clean:['Found: send to WH/Cleaning','وُجدت وتحتاج تنظيف'],writeoff:['Write-off / compensated','شطب أو اتعوّضت']};
+var SCRAP_REASONS=['Damaged','Cut / torn','Stained beyond cleaning','Defective (factory)','Other'];
+
+/* ---------- State ---------- */
+var KEY='femini-wms-std-1',S,QC=null,AG=null;
+var UI={r:'overview',menu:null,sel:null,prod:null,msg:null,dialog:null,drawer:null,today:D.today,
+  tl:{type:'',f:{},q:'',group:''},sr:{q:'',group:'',hide0:true,n:120},mv:{q:'',f:'',group:'',n:150},an:{by:'ty'},rp:{},cfg:'locations',pm:'oh',pk:{},adj:{blind:false}};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function dirty(){QC=null;AG=null;save()}
+function seed(){
+  S={v:2,moves:[],docs:[],mid:1,did:1,seq:{},partners:{vendors:['Factory'],customers:['Vendoor']},alias:{},actor:'Mosab',bn:{},settings:{lookback:14,mult:2,allowNeg:false,gloss:true}};
+  // opening stock: an Inventory Adjustment (Physical Inventory) dated at the count date
+  var t=newT('ADJ',{state:'done',date:D.asOf,origin:'Opening stock (physical count)',logm:'Opening stock imported'});
+  D.skus.forEach(function(k){if(k.open>0){t.lines.push({sku:k.id,loc:'WH/Stock',onhand:0,counted:k.open});S.moves.push({i:S.mid++,ref:t.ref,ty:'ADJ',s:k.id,q:k.open,src:'Virtual/Inventory adjustment',dst:'WH/Stock',d:D.asOf,by:'system',n:'Opening stock'})}});
+  D.pickups.forEach(function(p){
+    var dem={};p.orders.forEach(function(o){o.lines.forEach(function(s){dem[s]=(dem[s]||0)+1})});
+    var tt=newT('OUT',{partner:'Vendoor',state:'open',origin:'Vendoor pickup sheet 2-11-2026 ('+p.label+')',meta:{orders:JSON.parse(JSON.stringify(p.orders)),cx:{}},logm:'Imported from sheet'});
+    tt.lines=Object.keys(dem).sort(skuSort).map(function(s){return {sku:s,demand:dem[s],done:Math.min(dem[s],qtyAt(s,tt.src,t))}});
+  });
+  QC=null;AG=null;
+}
+function load(){try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);if(o&&o.v===2){S=o;S.settings=Object.assign({lookback:14,mult:2,allowNeg:false,gloss:true},S.settings||{});return}}}catch(e){}seed();save()}
+
+/* ---------- Quants (stock per variant per location) ---------- */
+function quants(){
+  if(QC)return QC;var Q={};
+  S.moves.forEach(function(m){var o=Q[m.s]||(Q[m.s]={});o[m.dst]=(o[m.dst]||0)+m.q;o[m.src]=(o[m.src]||0)-m.q});
+  return (QC=Q);
+}
+function qty(s,l){var o=quants()[s];return (o&&o[l])||0}
+function qtyAt(s,l){return qty(s,l)}
+/* On Hand / Free to Use / Incoming / Outgoing / Forecasted (Odoo Stock report definitions) */
+function agg(){
+  if(AG)return AG;var A={},a=function(s){return A[s]||(A[s]={res:0,out:0,inc:0})};
+  S.docs.forEach(function(t){
+    if(t.state!=='open')return;
+    t.lines.forEach(function(l){
+      var x=a(l.sku);
+      if(OUTGOING_FROM_STOCK.indexOf(t.type)>=0&&srcOf(t,l)==='WH/Stock')x.res+=(+l.done||0);
+      if(t.type==='OUT'||t.type==='RTV')x.out+=(+l.demand||0);
+      if(t.type==='IN'||t.type==='RMA')x.inc+=(+l.demand||0);
+    });
+  });
+  D.skus.forEach(function(k){var x=a(k.id);x.stock=qty(k.id,'WH/Stock');x.clean=qty(k.id,'WH/Cleaning');x.oh=x.stock+x.clean;x.free=x.stock-x.res;x.inc+=qty(k.id,'Transit/Factory');x.fc=x.oh+x.inc-x.out});
+  return (AG=A);
+}
+function totalsOf(){var A=agg(),t={oh:0,stock:0,clean:0,free:0,inc:0,out:0,fc:0};D.skus.forEach(function(k){var x=A[k.id];t.oh+=x.oh;t.stock+=x.stock;t.clean+=x.clean;t.free+=x.free;t.inc+=x.inc;t.out+=x.out;t.fc+=x.fc});return t}
+function locTotal(l){var n=0;D.skus.forEach(function(k){n+=qty(k.id,l)});return n}
+
+/* ---------- Transfers ---------- */
+function pad(n){return String(n).padStart(5,'0')}
+function newT(type,o){
+  o=o||{};var ot=OT[type],n=(S.seq[type]=(S.seq[type]||0)+1);
+  var t={id:'t'+(S.did++),type:type,ref:ot.prefix+pad(n),partner:o.partner||'',src:o.src||ot.src,dst:o.dst||ot.dst,date:o.date||D.today,origin:o.origin||'',state:o.state||'draft',lines:o.lines||[],backorderOf:o.backorderOf||null,returnOf:o.returnOf||null,attach:'',meta:o.meta||null,reason:o.reason||'',log:[{t:Date.now(),by:S.actor,m:o.logm||'Transfer created'}]};
+  if(type==='OUT')t.dst='Partners/Customers/'+t.partner;
+  S.docs.push(t);return t;
+}
+function srcOf(t,l){if(t.type==='SCRAP')return (l&&l.loc)||'WH/Stock';if(t.type==='RTV')return (l&&l.loc)||'Virtual/Scrap';if(t.type==='ADJ')return (l&&l.loc)||'WH/Stock';return t.src}
+function addLog(t,m){(t.log=t.log||[]).push({t:Date.now(),by:S.actor,m:m})}
+function stateOf(t){
+  if(t.state==='draft')return 'Draft';if(t.state==='done')return 'Done';if(t.state==='cancel')return 'Cancelled';
+  if(['IN','RMA','CLN_IN','ADJ','LOSS'].indexOf(t.type)>=0)return 'Ready';
+  if(!t.lines.length)return 'Waiting';
+  var ok=t.lines.every(function(l){return qty(l.sku,srcOf(t,l))>=(+l.demand||0)});
+  return ok?'Ready':'Waiting';
+}
+function isLate(t){return t.state==='open'&&t.date<UI.today}
+function totalQty(t,k){return t.lines.reduce(function(a,l){return a+(+l[k||'demand']||0)},0)}
+function autoDone(t,s,demand){return (t.type==='IN'||t.type==='CLN_IN'||t.type==='RMA')?demand:Math.max(0,Math.min(demand,qty(s,srcOf(t,{loc:UI.pk.loc}))))}
+
+/* Validate: turn a transfer into stock moves between locations */
+function buildT(t){
+  var mv=[],err=[],add=function(s,q,src,dst,n){if(q>0)mv.push({s:s,q:q,src:src,dst:dst,n:n||''})};
+  t.lines.forEach(function(l){
+    var d=+l.done||0;
+    if(t.type==='IN')add(l.sku,d,'Partners/Vendors',t.dst||'WH/Stock');
+    else if(t.type==='OUT')add(l.sku,d,'WH/Stock',t.dst);
+    else if(t.type==='CLN_OUT')add(l.sku,d,'WH/Cleaning','Transit/Factory','Cleaning');
+    else if(t.type==='CLN_IN')add(l.sku,d,'Transit/Factory','WH/Stock','Cleaned');
+    else if(t.type==='INT')add(l.sku,d,t.src,t.dst);
+    else if(t.type==='SCRAP'){add(l.sku,d,l.loc||'WH/Stock','Virtual/Scrap',l.reason||'');if(d>0&&!l.reason)err.push(variantPlain(l.sku)+': Scrap Reason is required.')}
+    else if(t.type==='RTV')add(l.sku,d,l.loc||'Virtual/Scrap','Partners/Vendors');
+    else if(t.type==='RMA'){
+      var a=+l.toStock||0,b=+l.toClean||0,c=+l.toScrap||0,rec=a+b+c,miss=Math.max(0,(+l.demand||0)-rec);
+      add(l.sku,a,t.src,'WH/Stock','Return to stock');add(l.sku,b,t.src,'WH/Cleaning','Rework (cleaning)');add(l.sku,c,t.src,'Virtual/Scrap','Scrap at inspection');
+      add(l.sku,miss,t.src,'Virtual/Inventory loss','Missing in return '+t.ref);
+    }
+    else if(t.type==='ADJ'){
+      if(l.counted===''||l.counted==null)return;
+      var cur=qty(l.sku,l.loc),diff=(+l.counted)-cur;
+      if(diff<0)add(l.sku,-diff,l.loc,'Virtual/Inventory loss',(t.reason||'Count')+' (shortage)');
+      else if(diff>0)add(l.sku,diff,'Virtual/Inventory adjustment',l.loc,(t.reason||'Count')+' (surplus)');
+    }
+    else if(t.type==='LOSS'){
+      var q=+l.done||0;
+      if(l.res==='stock')add(l.sku,q,'Virtual/Inventory loss','WH/Stock','Found');
+      else if(l.res==='clean')add(l.sku,q,'Virtual/Inventory loss','WH/Cleaning','Found (needs cleaning)');
+      else add(l.sku,q,'Virtual/Inventory loss','Virtual/Write-off',l.amt?'Compensated '+fmt(l.amt)+' EGP':'Written off');
+    }
+  });
+  if(!mv.length)err.push(t.type==='ADJ'?'Enter at least one Counted quantity.':'There is nothing to process: set a quantity on at least one line.');
+  if((t.type==='IN'||(t.type==='INT'&&(t.dst==='SHOP/Stock'||t.src==='SHOP/Stock')))&&!t.attach)err.push('Attach the signed delivery note (required for this operation type).');
+  if(t.type==='INT'&&!ROUTES[t.src+'>'+t.dst])err.push('Route '+t.src+' to '+t.dst+' is not allowed. Items needing cleaning must go through Send for Cleaning.');
+  if(t.type==='ADJ'){var cf=conflicts(t);if(cf.length&&!t.ack)err.push('Stock changed after you opened this count ('+cf.length+' lines). Tick the confirmation box to apply anyway.')}
+  return {mv:mv,err:err};
+}
+function conflicts(t){return t.lines.filter(function(l){return l.counted!==''&&l.counted!=null&&l.onhand!==qty(l.sku,l.loc)})}
+function shortages(mv){
+  var d={},out=[];mv.forEach(function(m){var o=d[m.s]||(d[m.s]={});o[m.dst]=(o[m.dst]||0)+m.q;o[m.src]=(o[m.src]||0)-m.q});
+  Object.keys(d).forEach(function(s){Object.keys(d[s]).forEach(function(l){if(l.indexOf('Partners/')===0||l==='Virtual/Inventory adjustment')return;var v=d[s][l];if(v<0&&qty(s,l)+v<0)out.push(variantPlain(s)+' at '+l+': on hand '+fmt(qty(s,l))+', requested '+fmt(-v))})});
+  return out;
+}
+function msg(kind,title,lines){UI.msg={kind:kind,title:title,lines:lines||[]}}
+function validateT(t,bo){
+  var r=buildT(t);
+  if(r.err.length){msg('bad','Cannot validate '+t.ref,r.err);return false}
+  var off=shortages(r.mv);
+  if(off.length&&!S.settings.allowNeg){msg('bad','Not enough stock',off.slice(0,8).concat(off.length>8?['and '+(off.length-8)+' more']:[]).concat(['Negative stock is disabled (Configuration, Settings).']));return false}
+  var partial=BO_TYPES.indexOf(t.type)>=0&&t.lines.some(function(l){return (+l.done||0)<(+l.demand||0)});
+  if(partial&&!bo){UI.dialog={kind:'backorder',id:t.id};return false}
+  r.mv.forEach(function(m){S.moves.push({i:S.mid++,ref:t.ref,ty:t.type,s:m.s,q:m.q,src:m.src,dst:m.dst,d:t.date,by:S.actor,n:m.n})});
+  if(partial&&bo==='create'){
+    var rem=t.lines.filter(function(l){return (+l.done||0)<(+l.demand||0)}).map(function(l){return {sku:l.sku,demand:l.demand-(+l.done||0),done:0}});
+    var b=newT(t.type,{partner:t.partner,src:t.src,dst:t.dst,date:t.date,origin:'Backorder of '+t.ref,state:'open',backorderOf:t.ref,lines:rem,meta:t.meta,logm:'Backorder of '+t.ref});
+    b.lines.forEach(function(l){l.done=Math.min(l.demand,Math.max(0,qty(l.sku,b.src)))});
+    addLog(t,'Backorder '+b.ref+' created');
+  }
+  if(partial){t.lines=t.lines.filter(function(l){return (+l.done||0)>0});t.lines.forEach(function(l){l.demand=l.done})}
+  t.state='done';addLog(t,'Validated');dirty();
+  msg('ok',t.ref+' is Done',[fmt(r.mv.reduce(function(a,m){return a+m.q},0))+' units moved in '+r.mv.length+' stock moves']);
+  return true;
+}
+function createReturn(t){
+  var rt=RETURN_OF[t.type];if(!rt)return null;
+  var lines=t.lines.filter(function(l){return (+l.done||0)>0}).map(function(l){
+    if(rt==='RMA')return {sku:l.sku,demand:+l.done,toStock:+l.done,toClean:0,toScrap:0,done:0};
+    return {sku:l.sku,demand:+l.done,done:+l.done};
+  });
+  var o={partner:t.partner,state:'draft',origin:'Return of '+t.ref,returnOf:t.ref,lines:lines,logm:'Return of '+t.ref};
+  if(rt==='INT'){o.src=t.dst;o.dst=t.src}
+  if(rt==='RMA'){o.src=t.dst}
+  var r=newT(rt,o);if(rt==='RMA')r.src=t.dst;
+  addLog(t,'Return '+r.ref+' created');dirty();return r;
+}
+function cancelT(t){t.state='cancel';addLog(t,'Cancelled');dirty()}

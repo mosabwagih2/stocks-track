@@ -1,0 +1,168 @@
+/* ================= shared view helpers ================= */
+function badge(state){return '<span class="bd st-'+state+'" title="'+esc(ST_AR[state]||'')+'">'+state+'</span>'}
+function pillx(t,c,title){return '<span class="bd '+(c||'')+'"'+(title?' title="'+esc(title)+'"':'')+'>'+t+'</span>'}
+function locHTML(l){return '<span class="loc" title="'+esc(locAr(l))+'">'+esc(l)+'</span>'}
+function tbl(head,rows,cls){return '<div class="scroll"><table class="list '+(cls||'')+'"><thead><tr>'+head.map(function(h){return '<th class="'+(h[1]||'')+'"'+(h[2]?' title="'+esc(h[2])+'"':'')+'>'+h[0]+'</th>'}).join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'}
+function crumbs(list){return '<nav class="crumbs">'+list.map(function(c,i){return i<list.length-1?'<a data-a="go" data-r="'+c[1]+'"'+(c[2]?' data-t="'+c[2]+'"':'')+'>'+esc(c[0])+'</a><span class="sep">/</span>':'<b>'+esc(c[0])+'</b>'}).join('')+'</nav>'}
+function cpanel(cr,actions,extra){return '<div class="cp"><div class="cp-l">'+crumbs(cr)+'<div class="cp-b">'+(actions||'')+'</div></div>'+(extra?'<div class="cp-r">'+extra+'</div>':'')+'</div>'}
+function pkOpts(m){var M=MODEL.get(m);return M?{c:M.colors,z:M.sizes}:{c:[],z:[]}}
+function pickedSku(){var m=$('#pk-m'),c=$('#pk-c'),z=$('#pk-z');return m&&c&&z&&m.value?(IDX[m.value+'|'+c.value+'|'+z.value]||''):''}
+function pickRow(extra){
+  var p=UI.pk,M=MODEL.get(p.m),o=pkOpts(p.m);
+  return '<div class="pickrow"><label class="field">Product<select id="pk-m" data-c="pkm"><option value="">Select a product…</option>'+MORDER.map(function(m){return '<option value="'+m+'"'+(p.m===m?' selected':'')+'>'+esc(m+' '+MODEL.get(m).name)+'</option>'}).join('')+'</select></label>'+
+    '<label class="field">Color<select id="pk-c" data-c="pkc"'+(M?'':' disabled')+'>'+(M?o.c.map(function(x){return '<option value="'+esc(x)+'"'+(p.c===x?' selected':'')+'>'+esc(cn(x))+'</option>'}).join(''):'<option value="">—</option>')+'</select></label>'+
+    '<label class="field">Size<select id="pk-z" data-c="pkz"'+(M?'':' disabled')+'>'+(M?o.z.map(function(x){return '<option'+(p.z===x?' selected':'')+'>'+x+'</option>'}).join(''):'<option value="">—</option>')+'</select></label>'+(extra||'')+'<p class="hint" id="pk-hint"></p></div>';
+}
+function fillPicker(){
+  var m=$('#pk-m');if(!m)return;var M=MODEL.get(m.value),c=$('#pk-c'),z=$('#pk-z');
+  c.innerHTML=M?M.colors.map(function(x){return '<option value="'+esc(x)+'">'+esc(cn(x))+'</option>'}).join(''):'<option value="">—</option>';
+  z.innerHTML=M?M.sizes.map(function(x){return '<option>'+x+'</option>'}).join(''):'<option value="">—</option>';
+  c.disabled=z.disabled=!M;pkHint();
+}
+function pkHint(){
+  var h=$('#pk-hint');if(!h)return;var s=pickedSku();
+  if(!s){h.textContent='Select a product, color and size.';return}
+  var x=agg()[s];h.innerHTML='<span class="mono">'+s+'</span> · On Hand <b>'+fmt(x.oh)+'</b> · Free to Use <b>'+fmt(x.free)+'</b> · Incoming '+fmt(x.inc)+' · Outgoing '+fmt(x.out)+' · Forecasted <b>'+fmt(x.fc)+'</b>';
+}
+function stepper(id,val,min,attrs){return '<span class="stepper"><button type="button" data-a="qstep" data-for="'+id+'" data-d="-1" aria-label="Decrease">−</button><input id="'+id+'" type="number" min="'+(min==null?1:min)+'" value="'+val+'" '+(attrs||'')+'><button type="button" data-a="qstep" data-for="'+id+'" data-d="1" aria-label="Increase">+</button></span>'}
+function statusbar(t){
+  var cur=stateOf(t),steps=['Draft','Waiting','Ready','Done'];
+  if(cur==='Cancelled')steps=['Draft','Cancelled'];
+  else if(t.state!=='draft'&&['IN','RMA','CLN_IN','ADJ','LOSS'].indexOf(t.type)>=0)steps=['Draft','Ready','Done'];
+  var ix=steps.indexOf(cur);
+  return '<ol class="sbar">'+steps.map(function(s,i){return '<li class="'+(i===ix?'on':i<ix?'past':'')+(s==='Cancelled'?' cx':'')+'" title="'+esc(ST_AR[s])+'">'+s+'</li>'}).join('')+'</ol>';
+}
+
+/* ================= Overview (operation type cards) ================= */
+function otCounts(type){
+  var o={ready:0,waiting:0,late:0,bo:0,draft:0};
+  S.docs.forEach(function(t){if(t.type!==type)return;var st=stateOf(t);if(t.state==='draft')o.draft++;if(t.state==='open'){if(st==='Ready')o.ready++;if(st==='Waiting')o.waiting++;if(isLate(t))o.late++;if(t.backorderOf)o.bo++}});
+  return o;
+}
+function kcard(type){
+  var ot=OT[type],c=otCounts(type),main=c.ready?c.ready+' To Process':c.draft?c.draft+' Draft':'No open transfers';
+  var links=[];
+  if(c.waiting)links.push('<a data-a="go" data-r="transfers" data-t="'+type+'" data-f="Waiting">'+c.waiting+' Waiting</a>');
+  if(c.late)links.push('<a data-a="go" data-r="transfers" data-t="'+type+'" data-f="Late">'+c.late+' Late</a>');
+  if(c.bo)links.push('<a data-a="go" data-r="transfers" data-t="'+type+'" data-f="Back Orders">'+c.bo+' Back Orders</a>');
+  if(c.draft&&c.ready)links.push('<a data-a="go" data-r="transfers" data-t="'+type+'" data-f="Draft">'+c.draft+' Draft</a>');
+  return '<div class="kcard"><div class="kh"><div><b>'+esc(ot.name)+'</b><div class="g2" dir="rtl">'+esc(ot.ar)+'</div></div><span class="mono small">'+esc(ot.prefix.replace(/\/$/,''))+'</span></div>'+
+    '<button class="btn '+(c.ready?'primary':'')+'" data-a="go" data-r="transfers" data-t="'+type+'" data-f="'+(c.ready?'Ready':c.draft?'Draft':'')+'">'+main+'</button>'+
+    '<div class="klinks">'+links.join('')+'</div><div class="kf"><button class="btn sm ghost" data-a="newt" data-t="'+type+'">+ New</button>'+(type==='OUT'?'<button class="btn sm ghost" data-a="drawer" data-k="import">Import</button>':'')+'</div></div>';
+}
+function vOverview(){
+  var t=totalsOf(),cells=[['On Hand','العدد الفعلي',t.oh],['Free to Use','المتاح',t.free],['Incoming','داخل',t.inc],['Outgoing','خارج',t.out],['Forecasted','المتوقع',t.fc],['In Cleaning','في التنظيف',t.clean],['Inventory loss','مفقود',locTotal('Virtual/Inventory loss')],['Scrap','هالك نهائي',locTotal('Virtual/Scrap')]];
+  var strip='<div class="infolets">'+cells.map(function(c){return '<div class="infolet" title="'+esc(c[1])+'"><div class="il">'+c[0]+'</div><div class="iv">'+fmt(c[2])+'</div></div>'}).join('')+'</div>';
+  var groups=AREAS.map(function(a){return '<section class="grp"><h3>'+bi(a[0],a[1])+'</h3><div class="kgrid">'+OT_ORDER.filter(function(k){return OT[k].area===a[0]}).map(kcard).join('')+'</div></section>'}).join('');
+  return cpanel([['Overview','overview']],'')+'<div class="page">'+strip+groups+'</div>';
+}
+
+/* ================= Transfers list ================= */
+var TL_FILTERS=['Draft','Waiting','Ready','Done','Late','Back Orders','Cancelled'];
+function vTransfers(){
+  var f=UI.tl,q=f.q.trim().toLowerCase(),act=Object.keys(f.f).filter(function(k){return f.f[k]});
+  var rows=S.docs.filter(function(t){
+    if(f.type&&t.type!==f.type)return false;
+    if(q&&(t.ref+' '+t.partner+' '+t.origin+' '+t.lines.map(function(l){return l.sku}).join(' ')).toLowerCase().indexOf(q)<0)return false;
+    if(act.length){var st=stateOf(t),ok=act.some(function(k){return k==='Late'?isLate(t):k==='Back Orders'?!!t.backorderOf:st===k});if(!ok)return false}
+    return true}).sort(function(a,b){return (b.date.localeCompare(a.date))||(b.id.localeCompare(a.id))});
+  var title=f.type?OT[f.type].name:'All Transfers';
+  var chips='<div class="facets">'+TL_FILTERS.map(function(k){return '<button class="chipf'+(f.f[k]?' on':'')+'" data-a="tfilter" data-v="'+k+'">'+k+'</button>'}).join('')+'</div>';
+  var tsel='<select class="sel" data-c="tltype"><option value="">All operation types</option>'+OT_ORDER.map(function(k){return '<option value="'+k+'"'+(f.type===k?' selected':'')+'>'+esc(OT[k].name)+'</option>'}).join('')+'</select>';
+  var gsel='<select class="sel" data-c="tlgroup"><option value="">Group by…</option><option value="st"'+(f.group==='st'?' selected':'')+'>Status</option><option value="ty"'+(f.group==='ty'?' selected':'')+'>Operation Type</option><option value="ct"'+(f.group==='ct'?' selected':'')+'>Contact</option></select>';
+  var row=function(t){var st=stateOf(t);return '<tr class="click" data-a="open" data-id="'+t.id+'"><td><b class="mono">'+esc(t.ref)+'</b>'+(isLate(t)?' '+pillx('Late','st-Late'):'')+'</td>'+(f.type?'':'<td>'+esc(OT[t.type].name)+'</td>')+'<td>'+esc(t.partner||'—')+'</td><td>'+locHTML(t.src||'—')+'</td><td>'+locHTML(t.dst||'—')+'</td><td class="mono">'+t.date+'</td><td class="g1">'+esc(t.origin||'')+'</td><td class="n">'+fmt(totalQty(t))+'</td><td>'+badge(st)+'</td></tr>'};
+  var head=[['Reference','','المرجع']].concat(f.type?[]:[['Operation Type','','نوع العملية']]).concat([['Contact','','الشريك'],['From','','من'],['To','','إلى'],['Scheduled Date','','التاريخ'],['Source Document','','المستند المصدر'],['Units','n','الوحدات'],['Status','','الحالة']]);
+  var body;
+  if(f.group){
+    var key={st:function(t){return stateOf(t)},ty:function(t){return OT[t.type].name},ct:function(t){return t.partner||'—'}}[f.group],G={},ord=[];
+    rows.forEach(function(t){var k=key(t);if(!G[k]){G[k]=[];ord.push(k)}G[k].push(t)});
+    body=ord.map(function(k){return '<tr class="grow"><td colspan="'+head.length+'"><b>'+esc(k)+'</b> <span class="muted">('+G[k].length+')</span></td></tr>'+G[k].map(row).join('')}).join('');
+  }else body=rows.slice(0,300).map(row).join('');
+  var empty=rows.length?'':'<div class="empty">No transfers match. Use <b>New</b> to create one.</div>';
+  return cpanel([['Overview','overview'],['Operations','transfers'],[title,'transfers']],f.type?'<button class="btn primary" data-a="newt" data-t="'+f.type+'">New</button>':'<div class="dd"><span class="muted">Create from an operation type</span></div>',
+    '<div class="search"><input data-i="tlq" id="tlq" value="'+esc(f.q)+'" placeholder="Search reference, contact, source document, product…">'+tsel+gsel+'</div>'+chips)+
+    '<div class="page"><div class="scroll"><table class="list"><thead><tr>'+head.map(function(h){return '<th class="'+h[1]+'" title="'+esc(h[2])+'">'+h[0]+'</th>'}).join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>'+empty+'<p class="muted small">'+fmt(rows.length)+' transfers</p></div>';
+}
+
+/* ================= Transfer form ================= */
+function lineEditable(t){return t.state==='draft'||t.state==='open'}
+function numIn(l,i,k,w){return '<input type="number" min="0" class="num" value="'+(l[k]==null?'':l[k])+'" data-i="lf" data-idx="'+i+'" data-k="'+k+'" id="lf-'+i+'-'+k+'"'+(w?' style="width:'+w+'px"':'')+'>'}
+function linesHTML(t){
+  var ed=lineEditable(t),A=agg(),rows=[],head;
+  if(t.type==='RMA'){
+    head=[['Product','','المنتج'],['Expected','n','المتوقع'],['Return to Stock','n','يرجع جاهز'],['Rework (Cleaning)','n','يحتاج تنظيف'],['Scrap','n','هالك نهائي'],['Missing','n','ناقص (يتسجل مفقود)']];
+    t.lines.forEach(function(l,i){var rec=(+l.toStock||0)+(+l.toClean||0)+(+l.toScrap||0),miss=Math.max(0,(+l.demand||0)-rec);
+      rows.push('<tr><td>'+variantLabel(l.sku)+'</td><td class="n">'+(ed?numIn(l,i,'demand'):fmt(l.demand))+'</td><td class="n">'+(ed?numIn(l,i,'toStock'):fmt(l.toStock))+'</td><td class="n">'+(ed?numIn(l,i,'toClean'):fmt(l.toClean))+'</td><td class="n">'+(ed?numIn(l,i,'toScrap'):fmt(l.toScrap))+'</td><td class="n" data-b="miss-'+i+'">'+(miss?'<span class="neg">'+fmt(miss)+'</span>':'<span class="muted">0</span>')+'</td>'+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>')});
+  }else if(t.type==='SCRAP'||t.type==='RTV'){
+    var locs=t.type==='SCRAP'?['WH/Stock','WH/Cleaning']:['WH/Stock','Virtual/Scrap','WH/Cleaning'];
+    head=[['Product','','المنتج'],['From','','من'],['On Hand there','n','المتاح'],['Quantity','n','الكمية']].concat(t.type==='SCRAP'?[['Scrap Reason','','سبب الهالك']]:[]);
+    t.lines.forEach(function(l,i){var loc=l.loc||locs[0];
+      rows.push('<tr><td>'+variantLabel(l.sku)+'</td><td>'+(ed?'<select data-c="lloc" data-idx="'+i+'">'+locs.map(function(x){return '<option'+(loc===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>':locHTML(loc))+'</td><td class="n">'+fmt(qty(l.sku,loc))+'</td><td class="n">'+(ed?numIn(l,i,'done'):fmt(l.done))+'</td>'+(t.type==='SCRAP'?'<td>'+(ed?'<select data-c="lreason" data-idx="'+i+'"><option value="">Select…</option>'+SCRAP_REASONS.map(function(r){return '<option'+(l.reason===r?' selected':'')+'>'+r+'</option>'}).join('')+'</select>':esc(l.reason||''))+'</td>':'')+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>')});
+  }else if(t.type==='LOSS'){
+    head=[['Product','','المنتج'],['Lost (open)','n','المفقود'],['Quantity','n','الكمية'],['Resolution','','القرار'],['Compensation (EGP)','n','التعويض']];
+    t.lines.forEach(function(l,i){
+      rows.push('<tr><td>'+variantLabel(l.sku)+'</td><td class="n">'+fmt(qty(l.sku,'Virtual/Inventory loss'))+'</td><td class="n">'+(ed?numIn(l,i,'done'):fmt(l.done))+'</td><td>'+(ed?'<select data-c="lres" data-idx="'+i+'">'+Object.keys(LOSS_RES).map(function(k){return '<option value="'+k+'"'+((l.res||'writeoff')===k?' selected':'')+' title="'+esc(LOSS_RES[k][1])+'">'+LOSS_RES[k][0]+'</option>'}).join('')+'</select>':esc(LOSS_RES[l.res||'writeoff'][0]))+'</td><td class="n">'+(ed?numIn(l,i,'amt',90):(l.amt?fmt(l.amt):'—'))+'</td>'+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>')});
+  }else{
+    var outg=OUTGOING_FROM_STOCK.indexOf(t.type)>=0||t.type==='CLN_OUT';
+    head=[['Product','','المنتج'],['Demand','n','المطلوب']].concat(outg?[['Available','n','المتاح في المصدر']]:[]).concat([['Quantity','n','الكمية المنفذة'],['UoM','','الوحدة']]);
+    t.lines.forEach(function(l,i){var av=qty(l.sku,srcOf(t,l)),short=outg&&(+l.demand||0)>av;
+      rows.push('<tr><td>'+variantLabel(l.sku)+'</td><td class="n">'+(ed?numIn(l,i,'demand'):fmt(l.demand))+'</td>'+(outg?'<td class="n '+(short?'neg':'')+'">'+fmt(av)+'</td>':'')+'<td class="n">'+(ed?numIn(l,i,'done'):fmt(l.done))+'</td><td class="muted">Units</td>'+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>')});
+  }
+  if(ed)head.push(['','n']);
+  if(!rows.length)return '<p class="muted pad">No lines yet. Add a product below.</p>';
+  return tbl(head,rows);
+}
+function addLineBox(t){
+  if(!lineEditable(t))return '';
+  if(t.type==='LOSS'){
+    var lost=D.skus.filter(function(k){return qty(k.id,'Virtual/Inventory loss')>0}).map(function(k){return k.id}).sort(skuSort);
+    return '<div class="addbox"><button class="btn" data-a="lossload"'+(lost.length?'':' disabled')+'>Load all lost items ('+lost.length+')</button><span class="muted small">Lost items come from return shortages and count shortages.</span></div>';
+  }
+  var qtyLabel=t.type==='RMA'?'Expected':'Demand',extra='<label class="field">'+qtyLabel+stepper('qa-qty',1,1)+'</label>';
+  if(t.type==='SCRAP')extra+='<label class="field">From<select id="qa-loc"><option>WH/Stock</option><option>WH/Cleaning</option></select></label>';
+  if(t.type==='RTV')extra+='<label class="field">From<select id="qa-loc"><option>Virtual/Scrap</option><option>WH/Stock</option><option>WH/Cleaning</option></select></label>';
+  var rm=t.type==='RMA'?'<div class="addbox"><span class="muted small">Or load the expected items from a Delivery Order:</span><select id="rt-pk">'+S.docs.filter(function(x){return x.type==='OUT'}).map(function(x){return '<option value="'+x.id+'">'+esc(x.ref+' · '+x.origin)+'</option>'}).join('')+'</select><input id="rt-refs" class="mono" placeholder="Order codes, comma separated (empty = first 3 orders)" style="min-width:300px"><button class="btn" data-a="rtfrom">Load</button></div>':'';
+  return '<div class="addbox">'+pickRow(extra+'<button class="btn primary" data-a="addline">Add a line</button>')+'</div>'+rm;
+}
+function headerFields(t){
+  var ed=lineEditable(t),ot=OT[t.type],f=function(l,ar,v){return '<div class="fld"><label title="'+esc(ar||'')+'">'+l+'</label><div class="fv">'+v+'</div></div>'};
+  var contact='';
+  if(t.type==='OUT'||t.type==='RMA')contact=f('Contact','الشريك',ed?'<select data-c="hpartner">'+S.partners.customers.map(function(c){return '<option'+(t.partner===c?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select>':esc(t.partner));
+  else if(t.type==='IN'||t.type==='CLN_IN'||t.type==='CLN_OUT'||t.type==='RTV')contact=f('Contact','الشريك','Factory');
+  var srcF,dstF;
+  if(t.type==='INT'&&ed){srcF=f('Source Location','من','<select data-c="hsrc">'+['WH/Stock','SHOP/Stock'].map(function(x){return '<option'+(t.src===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>');dstF=f('Destination Location','إلى','<select data-c="hdst">'+['WH/Cleaning','SHOP/Stock','WH/Stock'].map(function(x){return '<option'+(t.dst===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>')}
+  else{srcF=f('Source Location','من',t.type==='SCRAP'||t.type==='RTV'||t.type==='ADJ'?'<span class="muted">per line</span>':locHTML(t.src||'—'));dstF=f('Destination Location','إلى',t.type==='RMA'?'<span class="muted">by inspection (Stock / Cleaning / Scrap)</span>':t.type==='ADJ'?'<span class="muted">Virtual/Inventory adjustment or loss</span>':t.type==='LOSS'?'<span class="muted">by resolution</span>':locHTML(t.dst||'—'))}
+  var att=(t.type==='IN'||(t.type==='INT'&&(t.dst==='SHOP/Stock'||t.src==='SHOP/Stock')))?f('Signed delivery note','المحضر الممضي',(t.attach?pillx(esc(t.attach),'st-Done'):pillx('missing','st-Waiting'))+(ed?' <input type="file" accept="image/*,.pdf" data-c="attach">':'')):'';
+  return '<div class="fgrid">'+contact+f('Operation Type','نوع العملية',esc(ot.name)+' <span class="muted small">('+ot.kind+')</span>')+srcF+dstF+f('Scheduled Date','التاريخ',ed?'<input type="date" data-i="hf" data-k="date" value="'+t.date+'">':'<span class="mono">'+t.date+'</span>')+f('Source Document','المستند المصدر',ed?'<input data-i="hf" data-k="origin" value="'+esc(t.origin)+'" placeholder="e.g. production order, sheet name">':esc(t.origin||'—'))+att+'</div>';
+}
+function adjForm(t){
+  var ed=lineEditable(t),A=t.loc||'WH/Stock';
+  var dueBox='',dm=DM(),last={};
+  S.docs.forEach(function(x){if(x.type==='ADJ'&&x.state==='done'&&x.origin!=='Opening stock (physical count)')x.lines.forEach(function(l){var m=SKU.get(l.sku).m;if(!last[m]||x.date>last[m])last[m]=x.date})});
+  var due=MORDER.filter(function(m){return D.skus.some(function(k){return k.m===m&&k.open>0})}).map(function(m){var cl=dm.abc[m]||'C',iv=cl==='A'?7:cl==='B'?30:90;return {m:m,cl:cl,last:last[m],due:!last[m]||dayDiff(last[m],UI.today)>=iv}}).filter(function(x){return x.due});
+  if(ed)dueBox='<div class="addbox"><b>Cycle counts due</b><span class="muted small">(ABC: A every 7 days, B 30, C 90)</span><div class="chips">'+due.slice(0,16).map(function(x){return '<span class="chip"><span class="abc '+x.cl+'">'+x.cl+'</span> <span class="mono">'+esc(x.m)+'</span> <span class="muted small">'+(x.last?dayDiff(x.last,UI.today)+'d ago':'never counted')+'</span></span>'}).join('')+(due.length>16?'<span class="muted small">+'+(due.length-16)+' more</span>':'')+'</div><button class="btn" data-a="adjdue"'+(due.length?'':' disabled')+'>Count all due ('+due.length+' products)</button></div>';
+  var load=ed?'<div class="addbox"><label class="field">Location<select data-c="adjloc">'+['WH/Stock','WH/Cleaning','SHOP/Stock'].map(function(x){return '<option'+(A===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select></label><label class="field">Product<select id="adj-m"><option value="">Select…</option>'+MORDER.map(function(m){return '<option value="'+m+'">'+esc(m+' '+MODEL.get(m).name)+'</option>'}).join('')+'</select></label><button class="btn" data-a="adjload">Load variants</button><label class="chk"><input type="checkbox" data-c="blind"'+(UI.adj.blind?' checked':'')+'> Blind count (hide On Hand)</label></div>':'';
+  var rows=t.lines.map(function(l,i){var now=qty(l.sku,l.loc),has=l.counted!==''&&l.counted!=null,diff=has?(+l.counted)-now:null;
+    return '<tr><td>'+variantLabel(l.sku)+'</td><td>'+locHTML(l.loc)+'</td><td class="n">'+(UI.adj.blind&&ed?'<span class="muted">hidden</span>':fmt(ed?now:l.onhand))+'</td><td class="n">'+(ed?'<input type="number" min="0" class="num" value="'+(l.counted==null?'':l.counted)+'" data-i="adjc" data-idx="'+i+'" id="adj-'+i+'">':fmt(l.counted))+'</td><td class="n" data-b="diff-'+i+'">'+(diff==null?'<span class="muted">—</span>':diff===0?'<span class="muted">0</span>':'<span class="'+(diff<0?'neg':'posv')+'">'+(diff>0?'+':'')+diff+'</span>')+'</td>'+(ed?'<td class="n"><button class="btn sm ghost" data-a="delline" data-i="'+i+'">Remove</button></td>':'')+'</tr>'}).join('');
+  var head=[['Product','','المنتج'],['Location','','الموقع'],['On Hand','n','الرصيد في السيستم'],['Counted','n','المعدود'],['Difference','n','الفرق']];if(ed)head.push(['','n']);
+  var cf=ed?conflicts(t):[];
+  return load+dueBox+(t.lines.length?tbl(head,[rows]):'<p class="muted pad">Load a product to start counting. Counted starts empty; only lines you fill are applied.</p>')+
+    (ed&&t.lines.length?'<div class="sumrow" data-b="adjsum"></div>':'')+(cf.length?'<label class="chk warnbox"><input type="checkbox" data-c="ack"'+(t.ack?' checked':'')+'> Stock moved on '+cf.length+' counted lines after this sheet was opened. Apply the counts on top of the current stock.</label>':'');
+}
+function vTransfer(t){
+  var st=stateOf(t),ed=lineEditable(t),ot=OT[t.type],btns='';
+  if(t.state==='draft')btns+='<button class="btn primary" data-a="validate">'+(t.type==='ADJ'?'Apply All':'Validate')+'</button><button class="btn" data-a="todo">Mark as To Do</button>';
+  if(t.state==='open'){btns+='<button class="btn primary" data-a="validate">'+(t.type==='ADJ'?'Apply All':'Validate')+'</button>';if(OUTGOING_FROM_STOCK.indexOf(t.type)>=0||t.type==='CLN_OUT')btns+='<button class="btn" data-a="checkav" title="Set quantities to what is available">Check Availability</button>'}
+  if(t.state==='done'&&RETURN_OF[t.type])btns+='<button class="btn" data-a="return">Return</button>';
+  if(t.state==='draft'||t.state==='open')btns+='<button class="btn ghost" data-a="cancelt">Cancel</button>';
+  var tags=(isLate(t)?pillx('Late','st-Late'):'')+(t.backorderOf?' <a class="tag" data-a="openref" data-ref="'+esc(t.backorderOf)+'">Backorder of '+esc(t.backorderOf)+'</a>':'')+(t.returnOf?' <a class="tag" data-a="openref" data-ref="'+esc(t.returnOf)+'">Return of '+esc(t.returnOf)+'</a>':'');
+  var rel=S.docs.filter(function(x){return x.backorderOf===t.ref||x.returnOf===t.ref}).map(function(x){return '<a class="tag" data-a="open" data-id="'+x.id+'">'+(x.returnOf===t.ref?'Return ':'Backorder ')+esc(x.ref)+'</a>'}).join(' ');
+  var sheet='<div class="sheet"><div class="ttl"><h1 class="mono">'+esc(t.ref)+'</h1>'+tags+' '+rel+'</div>'+headerFields(t)+'</div>';
+  var ops='<div class="sheet"><div class="tabs2"><span class="tab2 on">Operations</span><span class="tab2 off" title="'+esc(ot.ar)+'">'+esc(ot.kind)+'</span></div>'+(t.type==='ADJ'?adjForm(t):linesHTML(t)+addLineBox(t))+
+    (t.type==='ADJ'&&ed?'<div class="fld"><label>Inventory Reason</label><div class="fv"><input data-i="hf" data-k="reason" value="'+esc(t.reason||'')+'" placeholder="e.g. Weekly cycle count"></div></div>':'')+'</div>';
+  var chatter='<div class="sheet chatter"><div class="row"><input id="lognote" placeholder="Log a note…" style="flex:1"><button class="btn" data-a="lognote">Log note</button></div><ul class="log">'+(t.log||[]).slice().reverse().map(function(l){return '<li><span class="mono muted">'+fmtT(l.t)+'</span> <b>'+esc(l.by)+'</b> '+esc(l.m)+'</li>'}).join('')+'</ul></div>';
+  return cpanel([['Overview','overview'],['Operations','transfers'],[ot.name,'transfers',t.type],[t.ref,'transfer']],btns,statusbar(t))+'<div class="page">'+sheet+ops+chatter+'</div>';
+}
+function fmtT(t){var x=new Date(t),p=function(n){return String(n).padStart(2,'0')};return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate())+' '+p(x.getHours())+':'+p(x.getMinutes())}
+function dayDiff(a,b){var f=function(d){var p=String(d).split('-');return Date.UTC(+p[0],+p[1]-1,+p[2])};return Math.round((f(b)-f(a))/864e5)}
+function addDays(d,n){var p=String(d).split('-');return new Date(Date.UTC(+p[0],+p[1]-1,+p[2])+n*864e5).toISOString().slice(0,10)}

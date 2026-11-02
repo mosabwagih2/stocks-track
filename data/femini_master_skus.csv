@@ -1,0 +1,627 @@
+﻿internal_reference,model_code,model_name_ar,model_name_en,category,color_ar,color_en,size,legacy_min_alert,opening_qty_2026_10_29
+D2-BLK-S,D2,دانتيل,دانتيل,Other,اسود,Black,S,5,17
+D2-BLK-M,D2,دانتيل,دانتيل,Other,اسود,Black,M,5,9
+D2-BLK-L,D2,دانتيل,دانتيل,Other,اسود,Black,L,5,5
+D2-BLK-XL,D2,دانتيل,دانتيل,Other,اسود,Black,XL,5,8
+D2-BLK-2XL,D2,دانتيل,دانتيل,Other,اسود,Black,2XL,5,0
+D2-OLV-S,D2,دانتيل,دانتيل,Other,زيتى,Olive,S,5,0
+D2-OLV-M,D2,دانتيل,دانتيل,Other,زيتى,Olive,M,5,0
+D2-OLV-L,D2,دانتيل,دانتيل,Other,زيتى,Olive,L,5,1
+D2-OLV-XL,D2,دانتيل,دانتيل,Other,زيتى,Olive,XL,5,0
+D2-OLV-2XL,D2,دانتيل,دانتيل,Other,زيتى,Olive,2XL,5,0
+D2-ORG-S,D2,دانتيل,دانتيل,Other,برتقالي,Orange,S,5,4
+D2-ORG-M,D2,دانتيل,دانتيل,Other,برتقالي,Orange,M,5,5
+D2-ORG-L,D2,دانتيل,دانتيل,Other,برتقالي,Orange,L,5,1
+D2-ORG-XL,D2,دانتيل,دانتيل,Other,برتقالي,Orange,XL,5,9
+D2-ORG-2XL,D2,دانتيل,دانتيل,Other,برتقالي,Orange,2XL,5,2
+D2-WHT-S,D2,دانتيل,دانتيل,Other,ابيض,White,S,5,3
+D2-WHT-M,D2,دانتيل,دانتيل,Other,ابيض,White,M,5,1
+D2-WHT-L,D2,دانتيل,دانتيل,Other,ابيض,White,L,5,0
+D2-WHT-XL,D2,دانتيل,دانتيل,Other,ابيض,White,XL,5,0
+D2-WHT-2XL,D2,دانتيل,دانتيل,Other,ابيض,White,2XL,5,0
+D2-RED-S,D2,دانتيل,دانتيل,Other,احمر,Red,S,5,1
+D2-RED-M,D2,دانتيل,دانتيل,Other,احمر,Red,M,5,0
+D2-RED-L,D2,دانتيل,دانتيل,Other,احمر,Red,L,5,0
+D2-RED-XL,D2,دانتيل,دانتيل,Other,احمر,Red,XL,5,0
+D2-RED-2XL,D2,دانتيل,دانتيل,Other,احمر,Red,2XL,5,0
+D2-FUC-S,D2,دانتيل,دانتيل,Other,فوشيا,Fuchsia,S,5,38
+D2-FUC-M,D2,دانتيل,دانتيل,Other,فوشيا,Fuchsia,M,5,0
+D2-FUC-L,D2,دانتيل,دانتيل,Other,فوشيا,Fuchsia,L,5,5
+D2-FUC-XL,D2,دانتيل,دانتيل,Other,فوشيا,Fuchsia,XL,5,7
+D2-FUC-2XL,D2,دانتيل,دانتيل,Other,فوشيا,Fuchsia,2XL,5,6
+D1-WHT-S,D1,دانتيل,دانتيل,Other,ابيض,White,S,5,0
+D1-WHT-M,D1,دانتيل,دانتيل,Other,ابيض,White,M,5,0
+D1-WHT-L,D1,دانتيل,دانتيل,Other,ابيض,White,L,5,0
+D1-WHT-XL,D1,دانتيل,دانتيل,Other,ابيض,White,XL,5,0
+D1-WHT-2XL,D1,دانتيل,دانتيل,Other,ابيض,White,2XL,5,1
+D1-OLV-S,D1,دانتيل,دانتيل,Other,زيتى,Olive,S,5,0
+D1-OLV-M,D1,دانتيل,دانتيل,Other,زيتى,Olive,M,5,0
+D1-OLV-L,D1,دانتيل,دانتيل,Other,زيتى,Olive,L,5,0
+D1-OLV-XL,D1,دانتيل,دانتيل,Other,زيتى,Olive,XL,5,0
+D1-OLV-2XL,D1,دانتيل,دانتيل,Other,زيتى,Olive,2XL,5,0
+D1-FUC-S,D1,دانتيل,دانتيل,Other,فوشيا,Fuchsia,S,5,5
+D1-FUC-M,D1,دانتيل,دانتيل,Other,فوشيا,Fuchsia,M,5,0
+D1-FUC-L,D1,دانتيل,دانتيل,Other,فوشيا,Fuchsia,L,5,0
+D1-FUC-XL,D1,دانتيل,دانتيل,Other,فوشيا,Fuchsia,XL,5,0
+D1-FUC-2XL,D1,دانتيل,دانتيل,Other,فوشيا,Fuchsia,2XL,5,0
+D1-ORG-S,D1,دانتيل,دانتيل,Other,برتقالي,Orange,S,5,17
+D1-ORG-M,D1,دانتيل,دانتيل,Other,برتقالي,Orange,M,5,6
+D1-ORG-L,D1,دانتيل,دانتيل,Other,برتقالي,Orange,L,5,3
+D1-ORG-XL,D1,دانتيل,دانتيل,Other,برتقالي,Orange,XL,5,0
+D1-ORG-2XL,D1,دانتيل,دانتيل,Other,برتقالي,Orange,2XL,5,0
+D1-RED-S,D1,دانتيل,دانتيل,Other,احمر,Red,S,5,17
+D1-RED-M,D1,دانتيل,دانتيل,Other,احمر,Red,M,5,0
+D1-RED-L,D1,دانتيل,دانتيل,Other,احمر,Red,L,5,0
+D1-RED-XL,D1,دانتيل,دانتيل,Other,احمر,Red,XL,5,0
+D1-RED-2XL,D1,دانتيل,دانتيل,Other,احمر,Red,2XL,5,1
+D1-BLK-S,D1,دانتيل,دانتيل,Other,اسود,Black,S,5,1
+D1-BLK-M,D1,دانتيل,دانتيل,Other,اسود,Black,M,5,1
+D1-BLK-L,D1,دانتيل,دانتيل,Other,اسود,Black,L,5,0
+D1-BLK-XL,D1,دانتيل,دانتيل,Other,اسود,Black,XL,5,0
+D1-BLK-2XL,D1,دانتيل,دانتيل,Other,اسود,Black,2XL,5,0
+A1-WHT-S,A1,مطرزات,مطرزات,Other,ابيض,White,S,5,0
+A1-WHT-M,A1,مطرزات,مطرزات,Other,ابيض,White,M,5,0
+A1-WHT-L,A1,مطرزات,مطرزات,Other,ابيض,White,L,5,0
+A1-WHT-XL,A1,مطرزات,مطرزات,Other,ابيض,White,XL,5,0
+A1-WHT-2XL,A1,مطرزات,مطرزات,Other,ابيض,White,2XL,5,0
+A1-WHT-3XL,A1,مطرزات,مطرزات,Other,ابيض,White,3XL,5,0
+A1-WHT-4XL,A1,مطرزات,مطرزات,Other,ابيض,White,4XL,5,0
+A1-BLK-S,A1,مطرزات,مطرزات,Other,اسود,Black,S,5,0
+A1-BLK-M,A1,مطرزات,مطرزات,Other,اسود,Black,M,5,0
+A1-BLK-L,A1,مطرزات,مطرزات,Other,اسود,Black,L,5,0
+A1-BLK-XL,A1,مطرزات,مطرزات,Other,اسود,Black,XL,5,0
+A1-BLK-2XL,A1,مطرزات,مطرزات,Other,اسود,Black,2XL,5,0
+A1-BLK-3XL,A1,مطرزات,مطرزات,Other,اسود,Black,3XL,5,0
+A1-BLK-4XL,A1,مطرزات,مطرزات,Other,اسود,Black,4XL,5,0
+A1-RED-S,A1,مطرزات,مطرزات,Other,احمر,Red,S,5,0
+A1-RED-M,A1,مطرزات,مطرزات,Other,احمر,Red,M,5,0
+A1-RED-L,A1,مطرزات,مطرزات,Other,احمر,Red,L,5,0
+A1-RED-XL,A1,مطرزات,مطرزات,Other,احمر,Red,XL,5,0
+A1-RED-2XL,A1,مطرزات,مطرزات,Other,احمر,Red,2XL,5,0
+A1-RED-3XL,A1,مطرزات,مطرزات,Other,احمر,Red,3XL,5,0
+A1-RED-4XL,A1,مطرزات,مطرزات,Other,احمر,Red,4XL,5,0
+A1-YEL-S,A1,مطرزات,مطرزات,Other,اصفر,Yellow,S,5,0
+A1-YEL-M,A1,مطرزات,مطرزات,Other,اصفر,Yellow,M,5,1
+A1-YEL-L,A1,مطرزات,مطرزات,Other,اصفر,Yellow,L,5,0
+A1-YEL-XL,A1,مطرزات,مطرزات,Other,اصفر,Yellow,XL,5,0
+A1-YEL-2XL,A1,مطرزات,مطرزات,Other,اصفر,Yellow,2XL,5,0
+A1-YEL-3XL,A1,مطرزات,مطرزات,Other,اصفر,Yellow,3XL,5,0
+A1-YEL-4XL,A1,مطرزات,مطرزات,Other,اصفر,Yellow,4XL,5,0
+A2-MNT-S,A2,مطرزات,مطرزات,Other,مينت جرين,Mint Green,S,5,0
+A2-MNT-M,A2,مطرزات,مطرزات,Other,مينت جرين,Mint Green,M,5,0
+A2-MNT-L,A2,مطرزات,مطرزات,Other,مينت جرين,Mint Green,L,5,0
+A2-MNT-XL,A2,مطرزات,مطرزات,Other,مينت جرين,Mint Green,XL,5,0
+A2-MNT-2XL,A2,مطرزات,مطرزات,Other,مينت جرين,Mint Green,2XL,5,0
+A2-MNT-3XL,A2,مطرزات,مطرزات,Other,مينت جرين,Mint Green,3XL,5,0
+A2-MNT-4XL,A2,مطرزات,مطرزات,Other,مينت جرين,Mint Green,4XL,5,0
+A3-BLK-S,A3,مطرزات,مطرزات,Other,اسود,Black,S,5,0
+A3-BLK-M,A3,مطرزات,مطرزات,Other,اسود,Black,M,5,0
+A3-BLK-L,A3,مطرزات,مطرزات,Other,اسود,Black,L,5,0
+A3-BLK-XL,A3,مطرزات,مطرزات,Other,اسود,Black,XL,5,0
+A3-BLK-2XL,A3,مطرزات,مطرزات,Other,اسود,Black,2XL,5,0
+A3-BLK-3XL,A3,مطرزات,مطرزات,Other,اسود,Black,3XL,5,0
+A3-BLK-4XL,A3,مطرزات,مطرزات,Other,اسود,Black,4XL,5,0
+A4-BBL-S,A4,مطرزات,مطرزات,Other,بيبي بلو,Baby Blue,S,5,0
+A4-BBL-M,A4,مطرزات,مطرزات,Other,بيبي بلو,Baby Blue,M,5,0
+A4-BBL-L,A4,مطرزات,مطرزات,Other,بيبي بلو,Baby Blue,L,5,0
+A4-BBL-XL,A4,مطرزات,مطرزات,Other,بيبي بلو,Baby Blue,XL,5,0
+A4-BBL-2XL,A4,مطرزات,مطرزات,Other,بيبي بلو,Baby Blue,2XL,5,0
+A4-BBL-3XL,A4,مطرزات,مطرزات,Other,بيبي بلو,Baby Blue,3XL,5,0
+A4-BBL-4XL,A4,مطرزات,مطرزات,Other,بيبي بلو,Baby Blue,4XL,5,0
+A5-BLK-S,A5,مطرزات,مطرزات,Other,اسود,Black,S,5,1
+A5-BLK-M,A5,مطرزات,مطرزات,Other,اسود,Black,M,5,1
+A5-BLK-L,A5,مطرزات,مطرزات,Other,اسود,Black,L,5,11
+A5-BLK-XL,A5,مطرزات,مطرزات,Other,اسود,Black,XL,5,12
+A5-BLK-2XL,A5,مطرزات,مطرزات,Other,اسود,Black,2XL,5,3
+A5-BLK-3XL,A5,مطرزات,مطرزات,Other,اسود,Black,3XL,5,8
+A5-BLK-4XL,A5,مطرزات,مطرزات,Other,اسود,Black,4XL,5,8
+A6-BLK-S,A6,مطرزات,مطرزات,Other,اسود,Black,S,5,1
+A6-BLK-M,A6,مطرزات,مطرزات,Other,اسود,Black,M,5,10
+A6-BLK-L,A6,مطرزات,مطرزات,Other,اسود,Black,L,5,13
+A6-BLK-XL,A6,مطرزات,مطرزات,Other,اسود,Black,XL,5,13
+A6-BLK-2XL,A6,مطرزات,مطرزات,Other,اسود,Black,2XL,5,23
+A6-BLK-3XL,A6,مطرزات,مطرزات,Other,اسود,Black,3XL,5,15
+A6-BLK-4XL,A6,مطرزات,مطرزات,Other,اسود,Black,4XL,5,15
+S2-WHT-S,S2,القميص,القميص,Other,ابيض,White,S,5,7
+S2-WHT-M,S2,القميص,القميص,Other,ابيض,White,M,5,7
+S2-WHT-L,S2,القميص,القميص,Other,ابيض,White,L,5,8
+S2-WHT-XL,S2,القميص,القميص,Other,ابيض,White,XL,5,0
+S2-WHT-2XL,S2,القميص,القميص,Other,ابيض,White,2XL,5,0
+S2-BLK-S,S2,القميص,القميص,Other,اسود,Black,S,5,60
+S2-BLK-M,S2,القميص,القميص,Other,اسود,Black,M,5,53
+S2-BLK-L,S2,القميص,القميص,Other,اسود,Black,L,5,38
+S2-BLK-XL,S2,القميص,القميص,Other,اسود,Black,XL,5,44
+S2-BLK-2XL,S2,القميص,القميص,Other,اسود,Black,2XL,5,15
+S2-NVY-S,S2,القميص,القميص,Other,كحلي,Navy,S,5,34
+S2-NVY-M,S2,القميص,القميص,Other,كحلي,Navy,M,5,35
+S2-NVY-L,S2,القميص,القميص,Other,كحلي,Navy,L,5,24
+S2-NVY-XL,S2,القميص,القميص,Other,كحلي,Navy,XL,5,21
+S2-NVY-2XL,S2,القميص,القميص,Other,كحلي,Navy,2XL,5,6
+S2-RED-S,S2,القميص,القميص,Other,احمر,Red,S,5,21
+S2-RED-M,S2,القميص,القميص,Other,احمر,Red,M,5,26
+S2-RED-L,S2,القميص,القميص,Other,احمر,Red,L,5,6
+S2-RED-XL,S2,القميص,القميص,Other,احمر,Red,XL,5,2
+S2-RED-2XL,S2,القميص,القميص,Other,احمر,Red,2XL,5,3
+BR4-BLK-S,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,اسود,Black,S,20,32
+BR4-BLK-M,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,اسود,Black,M,20,70
+BR4-BLK-L,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,اسود,Black,L,20,80
+BR4-BLK-XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,اسود,Black,XL,20,89
+BR4-BLK-2XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,اسود,Black,2XL,20,59
+BR4-BLK-3XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,اسود,Black,3XL,20,26
+BR4-BLK-4XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,اسود,Black,4XL,20,40
+BR4-WHT-S,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,ابيض,White,S,20,18
+BR4-WHT-M,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,ابيض,White,M,20,48
+BR4-WHT-L,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,ابيض,White,L,20,67
+BR4-WHT-XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,ابيض,White,XL,20,64
+BR4-WHT-2XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,ابيض,White,2XL,20,47
+BR4-WHT-3XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,ابيض,White,3XL,20,32
+BR4-WHT-4XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,ابيض,White,4XL,20,42
+BR4-RED-S,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,احمر,Red,S,20,80
+BR4-RED-M,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,احمر,Red,M,20,96
+BR4-RED-L,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,احمر,Red,L,20,105
+BR4-RED-XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,احمر,Red,XL,20,174
+BR4-RED-2XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,احمر,Red,2XL,20,179
+BR4-RED-3XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,احمر,Red,3XL,20,121
+BR4-RED-4XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,احمر,Red,4XL,20,125
+BR4-BEG-S,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,بيج,Beige,S,20,52
+BR4-BEG-M,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,بيج,Beige,M,20,77
+BR4-BEG-L,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,بيج,Beige,L,20,89
+BR4-BEG-XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,بيج,Beige,XL,20,147
+BR4-BEG-2XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,بيج,Beige,2XL,20,190
+BR4-BEG-3XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,بيج,Beige,3XL,20,97
+BR4-BEG-4XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,بيج,Beige,4XL,20,126
+BR4-GRY-S,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,رمادي,Grey,S,20,27
+BR4-GRY-M,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,رمادي,Grey,M,20,43
+BR4-GRY-L,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,رمادي,Grey,L,20,53
+BR4-GRY-XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,رمادي,Grey,XL,20,57
+BR4-GRY-2XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,رمادي,Grey,2XL,20,26
+BR4-GRY-3XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,رمادي,Grey,3XL,20,27
+BR4-GRY-4XL,BR4,برا حماله رفيعه,Thin-Strap Bralette,Bras,رمادي,Grey,4XL,20,20
+SH2-BLK-S,SH2,شورت,Contrast-Trim Short,Shorts,اسود,Black,S,30,147
+SH2-BLK-M,SH2,شورت,Contrast-Trim Short,Shorts,اسود,Black,M,30,141
+SH2-BLK-L,SH2,شورت,Contrast-Trim Short,Shorts,اسود,Black,L,30,142
+SH2-BLK-XL,SH2,شورت,Contrast-Trim Short,Shorts,اسود,Black,XL,30,75
+SH2-BLK-2XL,SH2,شورت,Contrast-Trim Short,Shorts,اسود,Black,2XL,30,22
+SH2-BLK-3XL,SH2,شورت,Contrast-Trim Short,Shorts,اسود,Black,3XL,30,143
+SH2-BLK-4XL,SH2,شورت,Contrast-Trim Short,Shorts,اسود,Black,4XL,30,203
+SH2-WHT-S,SH2,شورت,Contrast-Trim Short,Shorts,ابيض,White,S,30,169
+SH2-WHT-M,SH2,شورت,Contrast-Trim Short,Shorts,ابيض,White,M,30,148
+SH2-WHT-L,SH2,شورت,Contrast-Trim Short,Shorts,ابيض,White,L,30,151
+SH2-WHT-XL,SH2,شورت,Contrast-Trim Short,Shorts,ابيض,White,XL,30,173
+SH2-WHT-2XL,SH2,شورت,Contrast-Trim Short,Shorts,ابيض,White,2XL,30,94
+SH2-WHT-3XL,SH2,شورت,Contrast-Trim Short,Shorts,ابيض,White,3XL,30,76
+SH2-WHT-4XL,SH2,شورت,Contrast-Trim Short,Shorts,ابيض,White,4XL,30,78
+SH2-RED-S,SH2,شورت,Contrast-Trim Short,Shorts,احمر,Red,S,30,329
+SH2-RED-M,SH2,شورت,Contrast-Trim Short,Shorts,احمر,Red,M,30,232
+SH2-RED-L,SH2,شورت,Contrast-Trim Short,Shorts,احمر,Red,L,30,221
+SH2-RED-XL,SH2,شورت,Contrast-Trim Short,Shorts,احمر,Red,XL,30,173
+SH2-RED-2XL,SH2,شورت,Contrast-Trim Short,Shorts,احمر,Red,2XL,30,252
+SH2-RED-3XL,SH2,شورت,Contrast-Trim Short,Shorts,احمر,Red,3XL,30,227
+SH2-RED-4XL,SH2,شورت,Contrast-Trim Short,Shorts,احمر,Red,4XL,30,138
+SH2-BEG-S,SH2,شورت,Contrast-Trim Short,Shorts,بيج,Beige,S,30,63
+SH2-BEG-M,SH2,شورت,Contrast-Trim Short,Shorts,بيج,Beige,M,30,111
+SH2-BEG-L,SH2,شورت,Contrast-Trim Short,Shorts,بيج,Beige,L,30,85
+SH2-BEG-XL,SH2,شورت,Contrast-Trim Short,Shorts,بيج,Beige,XL,30,103
+SH2-BEG-2XL,SH2,شورت,Contrast-Trim Short,Shorts,بيج,Beige,2XL,30,189
+SH2-BEG-3XL,SH2,شورت,Contrast-Trim Short,Shorts,بيج,Beige,3XL,30,138
+SH2-BEG-4XL,SH2,شورت,Contrast-Trim Short,Shorts,بيج,Beige,4XL,30,93
+SH2-GRY-S,SH2,شورت,Contrast-Trim Short,Shorts,رمادي,Grey,S,30,271
+SH2-GRY-M,SH2,شورت,Contrast-Trim Short,Shorts,رمادي,Grey,M,30,84
+SH2-GRY-L,SH2,شورت,Contrast-Trim Short,Shorts,رمادي,Grey,L,30,19
+SH2-GRY-XL,SH2,شورت,Contrast-Trim Short,Shorts,رمادي,Grey,XL,30,115
+SH2-GRY-2XL,SH2,شورت,Contrast-Trim Short,Shorts,رمادي,Grey,2XL,30,201
+SH2-GRY-3XL,SH2,شورت,Contrast-Trim Short,Shorts,رمادي,Grey,3XL,30,158
+SH2-GRY-4XL,SH2,شورت,Contrast-Trim Short,Shorts,رمادي,Grey,4XL,30,86
+SH2-ORG-S,SH2,شورت,Contrast-Trim Short,Shorts,برتقالي,Orange,S,30,93
+SH2-ORG-M,SH2,شورت,Contrast-Trim Short,Shorts,برتقالي,Orange,M,30,125
+SH2-ORG-L,SH2,شورت,Contrast-Trim Short,Shorts,برتقالي,Orange,L,30,198
+SH2-ORG-XL,SH2,شورت,Contrast-Trim Short,Shorts,برتقالي,Orange,XL,30,78
+SH2-ORG-2XL,SH2,شورت,Contrast-Trim Short,Shorts,برتقالي,Orange,2XL,30,136
+SH2-ORG-3XL,SH2,شورت,Contrast-Trim Short,Shorts,برتقالي,Orange,3XL,30,122
+SH2-ORG-4XL,SH2,شورت,Contrast-Trim Short,Shorts,برتقالي,Orange,4XL,30,83
+PAN5-BLK-S,PAN5,بانتي,Brief,Panties,اسود,Black,S,15,68
+PAN5-BLK-M,PAN5,بانتي,Brief,Panties,اسود,Black,M,15,66
+PAN5-BLK-L,PAN5,بانتي,Brief,Panties,اسود,Black,L,15,67
+PAN5-BLK-XL,PAN5,بانتي,Brief,Panties,اسود,Black,XL,15,25
+PAN5-BLK-2XL,PAN5,بانتي,Brief,Panties,اسود,Black,2XL,15,33
+PAN5-BLK-3XL,PAN5,بانتي,Brief,Panties,اسود,Black,3XL,15,44
+PAN5-BLK-4XL,PAN5,بانتي,Brief,Panties,اسود,Black,4XL,15,122
+PAN5-WHT-S,PAN5,بانتي,Brief,Panties,ابيض,White,S,15,52
+PAN5-WHT-M,PAN5,بانتي,Brief,Panties,ابيض,White,M,15,49
+PAN5-WHT-L,PAN5,بانتي,Brief,Panties,ابيض,White,L,15,38
+PAN5-WHT-XL,PAN5,بانتي,Brief,Panties,ابيض,White,XL,15,39
+PAN5-WHT-2XL,PAN5,بانتي,Brief,Panties,ابيض,White,2XL,15,10
+PAN5-WHT-3XL,PAN5,بانتي,Brief,Panties,ابيض,White,3XL,15,101
+PAN5-WHT-4XL,PAN5,بانتي,Brief,Panties,ابيض,White,4XL,15,51
+PAN5-RED-S,PAN5,بانتي,Brief,Panties,احمر,Red,S,15,70
+PAN5-RED-M,PAN5,بانتي,Brief,Panties,احمر,Red,M,15,82
+PAN5-RED-L,PAN5,بانتي,Brief,Panties,احمر,Red,L,15,40
+PAN5-RED-XL,PAN5,بانتي,Brief,Panties,احمر,Red,XL,15,125
+PAN5-RED-2XL,PAN5,بانتي,Brief,Panties,احمر,Red,2XL,15,161
+PAN5-RED-3XL,PAN5,بانتي,Brief,Panties,احمر,Red,3XL,15,158
+PAN5-RED-4XL,PAN5,بانتي,Brief,Panties,احمر,Red,4XL,15,120
+PAN5-BEG-S,PAN5,بانتي,Brief,Panties,بيج,Beige,S,15,56
+PAN5-BEG-M,PAN5,بانتي,Brief,Panties,بيج,Beige,M,15,40
+PAN5-BEG-L,PAN5,بانتي,Brief,Panties,بيج,Beige,L,15,47
+PAN5-BEG-XL,PAN5,بانتي,Brief,Panties,بيج,Beige,XL,15,93
+PAN5-BEG-2XL,PAN5,بانتي,Brief,Panties,بيج,Beige,2XL,15,245
+PAN5-BEG-3XL,PAN5,بانتي,Brief,Panties,بيج,Beige,3XL,15,12
+PAN5-BEG-4XL,PAN5,بانتي,Brief,Panties,بيج,Beige,4XL,15,200
+PAN5-GRY-S,PAN5,بانتي,Brief,Panties,رمادي,Grey,S,15,18
+PAN5-GRY-M,PAN5,بانتي,Brief,Panties,رمادي,Grey,M,15,65
+PAN5-GRY-L,PAN5,بانتي,Brief,Panties,رمادي,Grey,L,15,57
+PAN5-GRY-XL,PAN5,بانتي,Brief,Panties,رمادي,Grey,XL,15,30
+PAN5-GRY-2XL,PAN5,بانتي,Brief,Panties,رمادي,Grey,2XL,15,26
+PAN5-GRY-3XL,PAN5,بانتي,Brief,Panties,رمادي,Grey,3XL,15,63
+PAN5-GRY-4XL,PAN5,بانتي,Brief,Panties,رمادي,Grey,4XL,15,13
+PAN4-BLK-S,PAN4,بانتي,Bikini,Panties,اسود,Black,S,15,81
+PAN4-BLK-M,PAN4,بانتي,Bikini,Panties,اسود,Black,M,15,70
+PAN4-BLK-L,PAN4,بانتي,Bikini,Panties,اسود,Black,L,15,66
+PAN4-BLK-XL,PAN4,بانتي,Bikini,Panties,اسود,Black,XL,15,68
+PAN4-BLK-2XL,PAN4,بانتي,Bikini,Panties,اسود,Black,2XL,15,51
+PAN4-BLK-3XL,PAN4,بانتي,Bikini,Panties,اسود,Black,3XL,15,81
+PAN4-BLK-4XL,PAN4,بانتي,Bikini,Panties,اسود,Black,4XL,15,42
+PAN4-WHT-S,PAN4,بانتي,Bikini,Panties,ابيض,White,S,15,54
+PAN4-WHT-M,PAN4,بانتي,Bikini,Panties,ابيض,White,M,15,63
+PAN4-WHT-L,PAN4,بانتي,Bikini,Panties,ابيض,White,L,15,48
+PAN4-WHT-XL,PAN4,بانتي,Bikini,Panties,ابيض,White,XL,15,45
+PAN4-WHT-2XL,PAN4,بانتي,Bikini,Panties,ابيض,White,2XL,15,59
+PAN4-WHT-3XL,PAN4,بانتي,Bikini,Panties,ابيض,White,3XL,15,101
+PAN4-WHT-4XL,PAN4,بانتي,Bikini,Panties,ابيض,White,4XL,15,26
+PAN4-RED-S,PAN4,بانتي,Bikini,Panties,احمر,Red,S,15,0
+PAN4-RED-M,PAN4,بانتي,Bikini,Panties,احمر,Red,M,15,131
+PAN4-RED-L,PAN4,بانتي,Bikini,Panties,احمر,Red,L,15,61
+PAN4-RED-XL,PAN4,بانتي,Bikini,Panties,احمر,Red,XL,15,111
+PAN4-RED-2XL,PAN4,بانتي,Bikini,Panties,احمر,Red,2XL,15,193
+PAN4-RED-3XL,PAN4,بانتي,Bikini,Panties,احمر,Red,3XL,15,113
+PAN4-RED-4XL,PAN4,بانتي,Bikini,Panties,احمر,Red,4XL,15,97
+PAN4-BEG-S,PAN4,بانتي,Bikini,Panties,بيج,Beige,S,15,120
+PAN4-BEG-M,PAN4,بانتي,Bikini,Panties,بيج,Beige,M,15,39
+PAN4-BEG-L,PAN4,بانتي,Bikini,Panties,بيج,Beige,L,15,111
+PAN4-BEG-XL,PAN4,بانتي,Bikini,Panties,بيج,Beige,XL,15,129
+PAN4-BEG-2XL,PAN4,بانتي,Bikini,Panties,بيج,Beige,2XL,15,122
+PAN4-BEG-3XL,PAN4,بانتي,Bikini,Panties,بيج,Beige,3XL,15,8
+PAN4-BEG-4XL,PAN4,بانتي,Bikini,Panties,بيج,Beige,4XL,15,189
+PAN4-GRY-S,PAN4,بانتي,Bikini,Panties,رمادي,Grey,S,15,58
+PAN4-GRY-M,PAN4,بانتي,Bikini,Panties,رمادي,Grey,M,15,42
+PAN4-GRY-L,PAN4,بانتي,Bikini,Panties,رمادي,Grey,L,15,33
+PAN4-GRY-XL,PAN4,بانتي,Bikini,Panties,رمادي,Grey,XL,15,93
+PAN4-GRY-2XL,PAN4,بانتي,Bikini,Panties,رمادي,Grey,2XL,15,38
+PAN4-GRY-3XL,PAN4,بانتي,Bikini,Panties,رمادي,Grey,3XL,15,43
+PAN4-GRY-4XL,PAN4,بانتي,Bikini,Panties,رمادي,Grey,4XL,15,33
+PAN3-BLK-S,PAN3,بانتي,High-Cut Thong,Panties,اسود,Black,S,30,242
+PAN3-BLK-M,PAN3,بانتي,High-Cut Thong,Panties,اسود,Black,M,30,35
+PAN3-BLK-L,PAN3,بانتي,High-Cut Thong,Panties,اسود,Black,L,30,90
+PAN3-BLK-XL,PAN3,بانتي,High-Cut Thong,Panties,اسود,Black,XL,30,75
+PAN3-BLK-2XL,PAN3,بانتي,High-Cut Thong,Panties,اسود,Black,2XL,30,123
+PAN3-BLK-3XL,PAN3,بانتي,High-Cut Thong,Panties,اسود,Black,3XL,30,288
+PAN3-BLK-4XL,PAN3,بانتي,High-Cut Thong,Panties,اسود,Black,4XL,30,185
+PAN3-WHT-S,PAN3,بانتي,High-Cut Thong,Panties,ابيض,White,S,30,188
+PAN3-WHT-M,PAN3,بانتي,High-Cut Thong,Panties,ابيض,White,M,30,153
+PAN3-WHT-L,PAN3,بانتي,High-Cut Thong,Panties,ابيض,White,L,30,100
+PAN3-WHT-XL,PAN3,بانتي,High-Cut Thong,Panties,ابيض,White,XL,30,361
+PAN3-WHT-2XL,PAN3,بانتي,High-Cut Thong,Panties,ابيض,White,2XL,30,108
+PAN3-WHT-3XL,PAN3,بانتي,High-Cut Thong,Panties,ابيض,White,3XL,30,179
+PAN3-WHT-4XL,PAN3,بانتي,High-Cut Thong,Panties,ابيض,White,4XL,30,129
+PAN3-RED-S,PAN3,بانتي,High-Cut Thong,Panties,احمر,Red,S,30,96
+PAN3-RED-M,PAN3,بانتي,High-Cut Thong,Panties,احمر,Red,M,30,162
+PAN3-RED-L,PAN3,بانتي,High-Cut Thong,Panties,احمر,Red,L,30,269
+PAN3-RED-XL,PAN3,بانتي,High-Cut Thong,Panties,احمر,Red,XL,30,314
+PAN3-RED-2XL,PAN3,بانتي,High-Cut Thong,Panties,احمر,Red,2XL,30,326
+PAN3-RED-3XL,PAN3,بانتي,High-Cut Thong,Panties,احمر,Red,3XL,30,130
+PAN3-RED-4XL,PAN3,بانتي,High-Cut Thong,Panties,احمر,Red,4XL,30,64
+PAN3-BEG-S,PAN3,بانتي,High-Cut Thong,Panties,بيج,Beige,S,30,185
+PAN3-BEG-M,PAN3,بانتي,High-Cut Thong,Panties,بيج,Beige,M,30,176
+PAN3-BEG-L,PAN3,بانتي,High-Cut Thong,Panties,بيج,Beige,L,30,238
+PAN3-BEG-XL,PAN3,بانتي,High-Cut Thong,Panties,بيج,Beige,XL,30,190
+PAN3-BEG-2XL,PAN3,بانتي,High-Cut Thong,Panties,بيج,Beige,2XL,30,306
+PAN3-BEG-3XL,PAN3,بانتي,High-Cut Thong,Panties,بيج,Beige,3XL,30,168
+PAN3-BEG-4XL,PAN3,بانتي,High-Cut Thong,Panties,بيج,Beige,4XL,30,156
+PAN3-GRY-S,PAN3,بانتي,High-Cut Thong,Panties,رمادي,Grey,S,30,195
+PAN3-GRY-M,PAN3,بانتي,High-Cut Thong,Panties,رمادي,Grey,M,30,120
+PAN3-GRY-L,PAN3,بانتي,High-Cut Thong,Panties,رمادي,Grey,L,30,111
+PAN3-GRY-XL,PAN3,بانتي,High-Cut Thong,Panties,رمادي,Grey,XL,30,214
+PAN3-GRY-2XL,PAN3,بانتي,High-Cut Thong,Panties,رمادي,Grey,2XL,30,256
+PAN3-GRY-3XL,PAN3,بانتي,High-Cut Thong,Panties,رمادي,Grey,3XL,30,163
+PAN3-GRY-4XL,PAN3,بانتي,High-Cut Thong,Panties,رمادي,Grey,4XL,30,153
+PAN2-BLK-S,PAN2,بانتي,Sideless Thong,Panties,اسود,Black,S,15,96
+PAN2-BLK-M,PAN2,بانتي,Sideless Thong,Panties,اسود,Black,M,15,99
+PAN2-BLK-L,PAN2,بانتي,Sideless Thong,Panties,اسود,Black,L,15,80
+PAN2-BLK-XL,PAN2,بانتي,Sideless Thong,Panties,اسود,Black,XL,15,74
+PAN2-BLK-2XL,PAN2,بانتي,Sideless Thong,Panties,اسود,Black,2XL,15,139
+PAN2-BLK-3XL,PAN2,بانتي,Sideless Thong,Panties,اسود,Black,3XL,15,115
+PAN2-BLK-4XL,PAN2,بانتي,Sideless Thong,Panties,اسود,Black,4XL,15,87
+PAN2-WHT-S,PAN2,بانتي,Sideless Thong,Panties,ابيض,White,S,15,70
+PAN2-WHT-M,PAN2,بانتي,Sideless Thong,Panties,ابيض,White,M,15,113
+PAN2-WHT-L,PAN2,بانتي,Sideless Thong,Panties,ابيض,White,L,15,42
+PAN2-WHT-XL,PAN2,بانتي,Sideless Thong,Panties,ابيض,White,XL,15,90
+PAN2-WHT-2XL,PAN2,بانتي,Sideless Thong,Panties,ابيض,White,2XL,15,98
+PAN2-WHT-3XL,PAN2,بانتي,Sideless Thong,Panties,ابيض,White,3XL,15,91
+PAN2-WHT-4XL,PAN2,بانتي,Sideless Thong,Panties,ابيض,White,4XL,15,96
+PAN2-RED-S,PAN2,بانتي,Sideless Thong,Panties,احمر,Red,S,15,88
+PAN2-RED-M,PAN2,بانتي,Sideless Thong,Panties,احمر,Red,M,15,88
+PAN2-RED-L,PAN2,بانتي,Sideless Thong,Panties,احمر,Red,L,15,43
+PAN2-RED-XL,PAN2,بانتي,Sideless Thong,Panties,احمر,Red,XL,15,56
+PAN2-RED-2XL,PAN2,بانتي,Sideless Thong,Panties,احمر,Red,2XL,15,92
+PAN2-RED-3XL,PAN2,بانتي,Sideless Thong,Panties,احمر,Red,3XL,15,17
+PAN2-RED-4XL,PAN2,بانتي,Sideless Thong,Panties,احمر,Red,4XL,15,80
+PAN2-BEG-S,PAN2,بانتي,Sideless Thong,Panties,بيج,Beige,S,15,21
+PAN2-BEG-M,PAN2,بانتي,Sideless Thong,Panties,بيج,Beige,M,15,33
+PAN2-BEG-L,PAN2,بانتي,Sideless Thong,Panties,بيج,Beige,L,15,23
+PAN2-BEG-XL,PAN2,بانتي,Sideless Thong,Panties,بيج,Beige,XL,15,9
+PAN2-BEG-2XL,PAN2,بانتي,Sideless Thong,Panties,بيج,Beige,2XL,15,15
+PAN2-BEG-3XL,PAN2,بانتي,Sideless Thong,Panties,بيج,Beige,3XL,15,22
+PAN2-BEG-4XL,PAN2,بانتي,Sideless Thong,Panties,بيج,Beige,4XL,15,21
+PAN2-GRY-S,PAN2,بانتي,Sideless Thong,Panties,رمادي,Grey,S,15,102
+PAN2-GRY-M,PAN2,بانتي,Sideless Thong,Panties,رمادي,Grey,M,15,62
+PAN2-GRY-L,PAN2,بانتي,Sideless Thong,Panties,رمادي,Grey,L,15,89
+PAN2-GRY-XL,PAN2,بانتي,Sideless Thong,Panties,رمادي,Grey,XL,15,73
+PAN2-GRY-2XL,PAN2,بانتي,Sideless Thong,Panties,رمادي,Grey,2XL,15,118
+PAN2-GRY-3XL,PAN2,بانتي,Sideless Thong,Panties,رمادي,Grey,3XL,15,101
+PAN2-GRY-4XL,PAN2,بانتي,Sideless Thong,Panties,رمادي,Grey,4XL,15,105
+PAN1-BLK-S,PAN1,بانتي,Classic Thong,Panties,اسود,Black,S,15,48
+PAN1-WHT-S,PAN1,بانتي,Classic Thong,Panties,ابيض,White,S,15,29
+PAN1-RED-S,PAN1,بانتي,Classic Thong,Panties,احمر,Red,S,15,76
+PAN1-BEG-S,PAN1,بانتي,Classic Thong,Panties,بيج,Beige,S,15,57
+PAN1-GRY-S,PAN1,بانتي,Classic Thong,Panties,رمادي,Grey,S,15,41
+PAN1-BLK-M,PAN1,بانتي,Classic Thong,Panties,اسود,Black,M,15,51
+PAN1-WHT-M,PAN1,بانتي,Classic Thong,Panties,ابيض,White,M,15,44
+PAN1-RED-M,PAN1,بانتي,Classic Thong,Panties,احمر,Red,M,15,31
+PAN1-BEG-M,PAN1,بانتي,Classic Thong,Panties,بيج,Beige,M,15,51
+PAN1-GRY-M,PAN1,بانتي,Classic Thong,Panties,رمادي,Grey,M,15,42
+PAN1-BLK-L,PAN1,بانتي,Classic Thong,Panties,اسود,Black,L,15,60
+PAN1-WHT-L,PAN1,بانتي,Classic Thong,Panties,ابيض,White,L,15,34
+PAN1-RED-L,PAN1,بانتي,Classic Thong,Panties,احمر,Red,L,15,87
+PAN1-BEG-L,PAN1,بانتي,Classic Thong,Panties,بيج,Beige,L,15,83
+PAN1-GRY-L,PAN1,بانتي,Classic Thong,Panties,رمادي,Grey,L,15,23
+PAN1-BLK-XL,PAN1,بانتي,Classic Thong,Panties,اسود,Black,XL,15,73
+PAN1-WHT-XL,PAN1,بانتي,Classic Thong,Panties,ابيض,White,XL,15,48
+PAN1-RED-XL,PAN1,بانتي,Classic Thong,Panties,احمر,Red,XL,15,151
+PAN1-BEG-XL,PAN1,بانتي,Classic Thong,Panties,بيج,Beige,XL,15,115
+PAN1-GRY-XL,PAN1,بانتي,Classic Thong,Panties,رمادي,Grey,XL,15,81
+PAN1-BLK-2XL,PAN1,بانتي,Classic Thong,Panties,اسود,Black,2XL,15,34
+PAN1-WHT-2XL,PAN1,بانتي,Classic Thong,Panties,ابيض,White,2XL,15,33
+PAN1-RED-2XL,PAN1,بانتي,Classic Thong,Panties,احمر,Red,2XL,15,161
+PAN1-BEG-2XL,PAN1,بانتي,Classic Thong,Panties,بيج,Beige,2XL,15,38
+PAN1-GRY-2XL,PAN1,بانتي,Classic Thong,Panties,رمادي,Grey,2XL,15,48
+PAN1-BLK-3XL,PAN1,بانتي,Classic Thong,Panties,اسود,Black,3XL,15,58
+PAN1-WHT-3XL,PAN1,بانتي,Classic Thong,Panties,ابيض,White,3XL,15,45
+PAN1-RED-3XL,PAN1,بانتي,Classic Thong,Panties,احمر,Red,3XL,15,74
+PAN1-BEG-3XL,PAN1,بانتي,Classic Thong,Panties,بيج,Beige,3XL,15,123
+PAN1-GRY-3XL,PAN1,بانتي,Classic Thong,Panties,رمادي,Grey,3XL,15,33
+PAN1-BLK-4XL,PAN1,بانتي,Classic Thong,Panties,اسود,Black,4XL,15,49
+PAN1-WHT-4XL,PAN1,بانتي,Classic Thong,Panties,ابيض,White,4XL,15,46
+PAN1-RED-4XL,PAN1,بانتي,Classic Thong,Panties,احمر,Red,4XL,15,99
+PAN1-BEG-4XL,PAN1,بانتي,Classic Thong,Panties,بيج,Beige,4XL,15,116
+PAN1-GRY-4XL,PAN1,بانتي,Classic Thong,Panties,رمادي,Grey,4XL,15,28
+BR3-BLK-S,BR3,سبورت برا,Racerback Sports Bra,Bras,اسود,Black,S,15,40
+BR3-BLK-M,BR3,سبورت برا,Racerback Sports Bra,Bras,اسود,Black,M,15,43
+BR3-BLK-L,BR3,سبورت برا,Racerback Sports Bra,Bras,اسود,Black,L,15,95
+BR3-BLK-XL,BR3,سبورت برا,Racerback Sports Bra,Bras,اسود,Black,XL,15,98
+BR3-BLK-2XL,BR3,سبورت برا,Racerback Sports Bra,Bras,اسود,Black,2XL,15,60
+BR3-BLK-3XL,BR3,سبورت برا,Racerback Sports Bra,Bras,اسود,Black,3XL,15,51
+BR3-BLK-4XL,BR3,سبورت برا,Racerback Sports Bra,Bras,اسود,Black,4XL,15,29
+BR3-WHT-S,BR3,سبورت برا,Racerback Sports Bra,Bras,ابيض,White,S,15,64
+BR3-WHT-M,BR3,سبورت برا,Racerback Sports Bra,Bras,ابيض,White,M,15,74
+BR3-WHT-L,BR3,سبورت برا,Racerback Sports Bra,Bras,ابيض,White,L,15,112
+BR3-WHT-XL,BR3,سبورت برا,Racerback Sports Bra,Bras,ابيض,White,XL,15,105
+BR3-WHT-2XL,BR3,سبورت برا,Racerback Sports Bra,Bras,ابيض,White,2XL,15,87
+BR3-WHT-3XL,BR3,سبورت برا,Racerback Sports Bra,Bras,ابيض,White,3XL,15,78
+BR3-WHT-4XL,BR3,سبورت برا,Racerback Sports Bra,Bras,ابيض,White,4XL,15,61
+BR3-RED-S,BR3,سبورت برا,Racerback Sports Bra,Bras,احمر,Red,S,15,77
+BR3-RED-M,BR3,سبورت برا,Racerback Sports Bra,Bras,احمر,Red,M,15,67
+BR3-RED-L,BR3,سبورت برا,Racerback Sports Bra,Bras,احمر,Red,L,15,59
+BR3-RED-XL,BR3,سبورت برا,Racerback Sports Bra,Bras,احمر,Red,XL,15,19
+BR3-RED-2XL,BR3,سبورت برا,Racerback Sports Bra,Bras,احمر,Red,2XL,15,278
+BR3-RED-3XL,BR3,سبورت برا,Racerback Sports Bra,Bras,احمر,Red,3XL,15,112
+BR3-RED-4XL,BR3,سبورت برا,Racerback Sports Bra,Bras,احمر,Red,4XL,15,110
+BR3-BEG-S,BR3,سبورت برا,Racerback Sports Bra,Bras,بيج,Beige,S,15,66
+BR3-BEG-M,BR3,سبورت برا,Racerback Sports Bra,Bras,بيج,Beige,M,15,71
+BR3-BEG-L,BR3,سبورت برا,Racerback Sports Bra,Bras,بيج,Beige,L,15,107
+BR3-BEG-XL,BR3,سبورت برا,Racerback Sports Bra,Bras,بيج,Beige,XL,15,146
+BR3-BEG-2XL,BR3,سبورت برا,Racerback Sports Bra,Bras,بيج,Beige,2XL,15,212
+BR3-BEG-3XL,BR3,سبورت برا,Racerback Sports Bra,Bras,بيج,Beige,3XL,15,152
+BR3-BEG-4XL,BR3,سبورت برا,Racerback Sports Bra,Bras,بيج,Beige,4XL,15,121
+BR3-GRY-S,BR3,سبورت برا,Racerback Sports Bra,Bras,رمادي,Grey,S,15,54
+BR3-GRY-M,BR3,سبورت برا,Racerback Sports Bra,Bras,رمادي,Grey,M,15,88
+BR3-GRY-L,BR3,سبورت برا,Racerback Sports Bra,Bras,رمادي,Grey,L,15,70
+BR3-GRY-XL,BR3,سبورت برا,Racerback Sports Bra,Bras,رمادي,Grey,XL,15,119
+BR3-GRY-2XL,BR3,سبورت برا,Racerback Sports Bra,Bras,رمادي,Grey,2XL,15,80
+BR3-GRY-3XL,BR3,سبورت برا,Racerback Sports Bra,Bras,رمادي,Grey,3XL,15,56
+BR3-GRY-4XL,BR3,سبورت برا,Racerback Sports Bra,Bras,رمادي,Grey,4XL,15,47
+BR2-BLK-S,BR2,برا,Triangle Bra,Bras,اسود,Black,S,15,168
+BR2-BLK-M,BR2,برا,Triangle Bra,Bras,اسود,Black,M,15,153
+BR2-BLK-L,BR2,برا,Triangle Bra,Bras,اسود,Black,L,15,115
+BR2-BLK-XL,BR2,برا,Triangle Bra,Bras,اسود,Black,XL,15,118
+BR2-BLK-2XL,BR2,برا,Triangle Bra,Bras,اسود,Black,2XL,15,194
+BR2-BLK-3XL,BR2,برا,Triangle Bra,Bras,اسود,Black,3XL,15,91
+BR2-BLK-4XL,BR2,برا,Triangle Bra,Bras,اسود,Black,4XL,15,138
+BR2-WHT-S,BR2,برا,Triangle Bra,Bras,ابيض,White,S,15,104
+BR2-WHT-M,BR2,برا,Triangle Bra,Bras,ابيض,White,M,15,36
+BR2-WHT-L,BR2,برا,Triangle Bra,Bras,ابيض,White,L,15,154
+BR2-WHT-XL,BR2,برا,Triangle Bra,Bras,ابيض,White,XL,15,40
+BR2-WHT-2XL,BR2,برا,Triangle Bra,Bras,ابيض,White,2XL,15,95
+BR2-WHT-3XL,BR2,برا,Triangle Bra,Bras,ابيض,White,3XL,15,218
+BR2-WHT-4XL,BR2,برا,Triangle Bra,Bras,ابيض,White,4XL,15,33
+BR2-RED-S,BR2,برا,Triangle Bra,Bras,احمر,Red,S,15,156
+BR2-RED-M,BR2,برا,Triangle Bra,Bras,احمر,Red,M,15,184
+BR2-RED-L,BR2,برا,Triangle Bra,Bras,احمر,Red,L,15,70
+BR2-RED-XL,BR2,برا,Triangle Bra,Bras,احمر,Red,XL,15,163
+BR2-RED-2XL,BR2,برا,Triangle Bra,Bras,احمر,Red,2XL,15,109
+BR2-RED-3XL,BR2,برا,Triangle Bra,Bras,احمر,Red,3XL,15,81
+BR2-RED-4XL,BR2,برا,Triangle Bra,Bras,احمر,Red,4XL,15,100
+BR2-BEG-S,BR2,برا,Triangle Bra,Bras,بيج,Beige,S,15,39
+BR2-BEG-M,BR2,برا,Triangle Bra,Bras,بيج,Beige,M,15,95
+BR2-BEG-L,BR2,برا,Triangle Bra,Bras,بيج,Beige,L,15,122
+BR2-BEG-XL,BR2,برا,Triangle Bra,Bras,بيج,Beige,XL,15,148
+BR2-BEG-2XL,BR2,برا,Triangle Bra,Bras,بيج,Beige,2XL,15,153
+BR2-BEG-3XL,BR2,برا,Triangle Bra,Bras,بيج,Beige,3XL,15,83
+BR2-BEG-4XL,BR2,برا,Triangle Bra,Bras,بيج,Beige,4XL,15,117
+BR2-GRY-S,BR2,برا,Triangle Bra,Bras,رمادي,Grey,S,15,163
+BR2-GRY-M,BR2,برا,Triangle Bra,Bras,رمادي,Grey,M,15,57
+BR2-GRY-L,BR2,برا,Triangle Bra,Bras,رمادي,Grey,L,15,89
+BR2-GRY-XL,BR2,برا,Triangle Bra,Bras,رمادي,Grey,XL,15,20
+BR2-GRY-2XL,BR2,برا,Triangle Bra,Bras,رمادي,Grey,2XL,15,165
+BR2-GRY-3XL,BR2,برا,Triangle Bra,Bras,رمادي,Grey,3XL,15,134
+BR2-GRY-4XL,BR2,برا,Triangle Bra,Bras,رمادي,Grey,4XL,15,72
+SH1-BLK-S,SH1,هوت شورت,Hot Short,Shorts,اسود,Black,S,15,228
+SH1-WHT-S,SH1,هوت شورت,Hot Short,Shorts,ابيض,White,S,15,180
+SH1-RED-S,SH1,هوت شورت,Hot Short,Shorts,احمر,Red,S,15,21
+SH1-BEG-S,SH1,هوت شورت,Hot Short,Shorts,بيج,Beige,S,15,65
+SH1-GRY-S,SH1,هوت شورت,Hot Short,Shorts,رمادي,Grey,S,15,168
+SH1-BLK-M,SH1,هوت شورت,Hot Short,Shorts,اسود,Black,M,15,232
+SH1-WHT-M,SH1,هوت شورت,Hot Short,Shorts,ابيض,White,M,15,200
+SH1-RED-M,SH1,هوت شورت,Hot Short,Shorts,احمر,Red,M,15,69
+SH1-BEG-M,SH1,هوت شورت,Hot Short,Shorts,بيج,Beige,M,15,63
+SH1-GRY-M,SH1,هوت شورت,Hot Short,Shorts,رمادي,Grey,M,15,241
+SH1-BLK-L,SH1,هوت شورت,Hot Short,Shorts,اسود,Black,L,15,187
+SH1-WHT-L,SH1,هوت شورت,Hot Short,Shorts,ابيض,White,L,15,164
+SH1-RED-L,SH1,هوت شورت,Hot Short,Shorts,احمر,Red,L,15,81
+SH1-BEG-L,SH1,هوت شورت,Hot Short,Shorts,بيج,Beige,L,15,79
+SH1-GRY-L,SH1,هوت شورت,Hot Short,Shorts,رمادي,Grey,L,15,103
+SH1-BLK-XL,SH1,هوت شورت,Hot Short,Shorts,اسود,Black,XL,15,240
+SH1-WHT-XL,SH1,هوت شورت,Hot Short,Shorts,ابيض,White,XL,15,122
+SH1-RED-XL,SH1,هوت شورت,Hot Short,Shorts,احمر,Red,XL,15,93
+SH1-BEG-XL,SH1,هوت شورت,Hot Short,Shorts,بيج,Beige,XL,15,201
+SH1-GRY-XL,SH1,هوت شورت,Hot Short,Shorts,رمادي,Grey,XL,15,178
+SH1-BLK-2XL,SH1,هوت شورت,Hot Short,Shorts,اسود,Black,2XL,15,308
+SH1-WHT-2XL,SH1,هوت شورت,Hot Short,Shorts,ابيض,White,2XL,15,180
+SH1-RED-2XL,SH1,هوت شورت,Hot Short,Shorts,احمر,Red,2XL,15,115
+SH1-BEG-2XL,SH1,هوت شورت,Hot Short,Shorts,بيج,Beige,2XL,15,225
+SH1-GRY-2XL,SH1,هوت شورت,Hot Short,Shorts,رمادي,Grey,2XL,15,195
+SH1-BLK-3XL,SH1,هوت شورت,Hot Short,Shorts,اسود,Black,3XL,15,282
+SH1-WHT-3XL,SH1,هوت شورت,Hot Short,Shorts,ابيض,White,3XL,15,271
+SH1-RED-3XL,SH1,هوت شورت,Hot Short,Shorts,احمر,Red,3XL,15,16
+SH1-BEG-3XL,SH1,هوت شورت,Hot Short,Shorts,بيج,Beige,3XL,15,185
+SH1-GRY-3XL,SH1,هوت شورت,Hot Short,Shorts,رمادي,Grey,3XL,15,206
+SH1-BLK-4XL,SH1,هوت شورت,Hot Short,Shorts,اسود,Black,4XL,15,240
+SH1-WHT-4XL,SH1,هوت شورت,Hot Short,Shorts,ابيض,White,4XL,15,205
+SH1-RED-4XL,SH1,هوت شورت,Hot Short,Shorts,احمر,Red,4XL,15,48
+SH1-BEG-4XL,SH1,هوت شورت,Hot Short,Shorts,بيج,Beige,4XL,15,168
+SH1-GRY-4XL,SH1,هوت شورت,Hot Short,Shorts,رمادي,Grey,4XL,15,173
+BR1-BLK-S,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,اسود,Black,S,30,240
+BR1-WHT-S,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,ابيض,White,S,30,115
+BR1-RED-S,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,احمر,Red,S,30,97
+BR1-GRY-S,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,رمادي,Grey,S,30,117
+BR1-BEG-S,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,بيج,Beige,S,30,83
+BR1-BLK-M,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,اسود,Black,M,30,214
+BR1-RED-M,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,احمر,Red,M,30,93
+BR1-WHT-M,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,ابيض,White,M,30,153
+BR1-GRY-M,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,رمادي,Grey,M,30,133
+BR1-BEG-M,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,بيج,Beige,M,30,90
+BR1-BLK-L,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,اسود,Black,L,30,320
+BR1-RED-L,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,احمر,Red,L,30,165
+BR1-WHT-L,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,ابيض,White,L,30,171
+BR1-GRY-L,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,رمادي,Grey,L,30,179
+BR1-BEG-L,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,بيج,Beige,L,30,50
+BR1-BLK-XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,اسود,Black,XL,30,359
+BR1-WHT-XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,ابيض,White,XL,30,203
+BR1-RED-XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,احمر,Red,XL,30,53
+BR1-GRY-XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,رمادي,Grey,XL,30,175
+BR1-BEG-XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,بيج,Beige,XL,30,124
+BR1-BLK-2XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,اسود,Black,2XL,30,309
+BR1-RED-2XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,احمر,Red,2XL,30,232
+BR1-WHT-2XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,ابيض,White,2XL,30,160
+BR1-GRY-2XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,رمادي,Grey,2XL,30,190
+BR1-BEG-2XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,بيج,Beige,2XL,30,150
+BR1-BLK-3XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,اسود,Black,3XL,30,195
+BR1-RED-3XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,احمر,Red,3XL,30,86
+BR1-WHT-3XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,ابيض,White,3XL,30,171
+BR1-GRY-3XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,رمادي,Grey,3XL,30,201
+BR1-BEG-3XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,بيج,Beige,3XL,30,142
+BR1-BLK-4XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,اسود,Black,4XL,30,197
+BR1-RED-4XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,احمر,Red,4XL,30,78
+BR1-WHT-4XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,ابيض,White,4XL,30,186
+BR1-GRY-4XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,رمادي,Grey,4XL,30,151
+BR1-BEG-4XL,BR1,سبورت برا مبطن,Padded Sports Bra,Bras,بيج,Beige,4XL,30,121
+A12-OLV-S,A12,مطرزات,مطرزات,Other,زيتى,Olive,S,0,0
+A12-OLV-M,A12,مطرزات,مطرزات,Other,زيتى,Olive,M,0,0
+A12-OLV-L,A12,مطرزات,مطرزات,Other,زيتى,Olive,L,0,0
+A12-OLV-XL,A12,مطرزات,مطرزات,Other,زيتى,Olive,XL,0,0
+A12-OLV-2XL,A12,مطرزات,مطرزات,Other,زيتى,Olive,2XL,0,0
+A12-OLV-3XL,A12,مطرزات,مطرزات,Other,زيتى,Olive,3XL,0,0
+A12-OLV-4XL,A12,مطرزات,مطرزات,Other,زيتى,Olive,4XL,0,0
+A11-PNK-S,A11,مطرزات,مطرزات,Other,بينك,Pink,S,0,0
+A11-PNK-M,A11,مطرزات,مطرزات,Other,بينك,Pink,M,0,0
+A11-PNK-L,A11,مطرزات,مطرزات,Other,بينك,Pink,L,0,0
+A11-PNK-XL,A11,مطرزات,مطرزات,Other,بينك,Pink,XL,0,0
+A11-PNK-2XL,A11,مطرزات,مطرزات,Other,بينك,Pink,2XL,0,0
+A11-PNK-3XL,A11,مطرزات,مطرزات,Other,بينك,Pink,3XL,0,0
+A11-PNK-4XL,A11,مطرزات,مطرزات,Other,بينك,Pink,4XL,0,0
+A9-SAL-S,A9,مطرزات,مطرزات,Other,سيمون,Salmon,S,0,1
+A9-SAL-M,A9,مطرزات,مطرزات,Other,سيمون,Salmon,M,0,1
+A9-SAL-L,A9,مطرزات,مطرزات,Other,سيمون,Salmon,L,0,0
+A9-SAL-XL,A9,مطرزات,مطرزات,Other,سيمون,Salmon,XL,0,1
+A9-SAL-2XL,A9,مطرزات,مطرزات,Other,سيمون,Salmon,2XL,0,0
+A9-SAL-3XL,A9,مطرزات,مطرزات,Other,سيمون,Salmon,3XL,0,0
+A9-SAL-4XL,A9,مطرزات,مطرزات,Other,سيمون,Salmon,4XL,0,0
+A8-ROS-S,A8,مطرزات,مطرزات,Other,روز,Rose,S,0,0
+A8-ROS-M,A8,مطرزات,مطرزات,Other,روز,Rose,M,0,0
+A8-ROS-L,A8,مطرزات,مطرزات,Other,روز,Rose,L,0,0
+A8-ROS-XL,A8,مطرزات,مطرزات,Other,روز,Rose,XL,0,0
+A8-ROS-2XL,A8,مطرزات,مطرزات,Other,روز,Rose,2XL,0,0
+A8-ROS-3XL,A8,مطرزات,مطرزات,Other,روز,Rose,3XL,0,0
+A8-ROS-4XL,A8,مطرزات,مطرزات,Other,روز,Rose,4XL,0,0
+A7-RBK-S,A7,مطرزات,مطرزات,Other,احمر تطعيم اسود,Red / Black trim,S,0,0
+A7-RBK-M,A7,مطرزات,مطرزات,Other,احمر تطعيم اسود,Red / Black trim,M,0,0
+A7-RBK-L,A7,مطرزات,مطرزات,Other,احمر تطعيم اسود,Red / Black trim,L,0,0
+A7-RBK-XL,A7,مطرزات,مطرزات,Other,احمر تطعيم اسود,Red / Black trim,XL,0,0
+A7-RBK-2XL,A7,مطرزات,مطرزات,Other,احمر تطعيم اسود,Red / Black trim,2XL,0,0
+A7-RBK-3XL,A7,مطرزات,مطرزات,Other,احمر تطعيم اسود,Red / Black trim,3XL,0,0
+A7-RBK-4XL,A7,مطرزات,مطرزات,Other,احمر تطعيم اسود,Red / Black trim,4XL,0,0
+D3-BLK-S,D3,دانتيل,دانتيل,Other,اسود,Black,S,0,0
+D3-BLK-M,D3,دانتيل,دانتيل,Other,اسود,Black,M,0,0
+D3-BLK-L,D3,دانتيل,دانتيل,Other,اسود,Black,L,0,0
+D3-BLK-XL,D3,دانتيل,دانتيل,Other,اسود,Black,XL,0,0
+D3-BLK-2XL,D3,دانتيل,دانتيل,Other,اسود,Black,2XL,0,0
+D3-BLK-3XL,D3,دانتيل,دانتيل,Other,اسود,Black,3XL,0,0
+D3-OLV-S,D3,دانتيل,دانتيل,Other,زيتى,Olive,S,0,0
+D3-OLV-M,D3,دانتيل,دانتيل,Other,زيتى,Olive,M,0,0
+D3-OLV-L,D3,دانتيل,دانتيل,Other,زيتى,Olive,L,0,0
+D3-OLV-XL,D3,دانتيل,دانتيل,Other,زيتى,Olive,XL,0,0
+D3-OLV-2XL,D3,دانتيل,دانتيل,Other,زيتى,Olive,2XL,0,0
+D3-OLV-3XL,D3,دانتيل,دانتيل,Other,زيتى,Olive,3XL,0,0
+D3-ORG-S,D3,دانتيل,دانتيل,Other,برتقالي,Orange,S,0,0
+D3-ORG-M,D3,دانتيل,دانتيل,Other,برتقالي,Orange,M,0,0
+D3-ORG-L,D3,دانتيل,دانتيل,Other,برتقالي,Orange,L,0,0
+D3-ORG-XL,D3,دانتيل,دانتيل,Other,برتقالي,Orange,XL,0,0
+D3-ORG-2XL,D3,دانتيل,دانتيل,Other,برتقالي,Orange,2XL,0,0
+D3-ORG-3XL,D3,دانتيل,دانتيل,Other,برتقالي,Orange,3XL,0,0
+D3-WHT-S,D3,دانتيل,دانتيل,Other,ابيض,White,S,0,0
+D3-WHT-M,D3,دانتيل,دانتيل,Other,ابيض,White,M,0,0
+D3-WHT-L,D3,دانتيل,دانتيل,Other,ابيض,White,L,0,0
+D3-WHT-XL,D3,دانتيل,دانتيل,Other,ابيض,White,XL,0,0
+D3-WHT-2XL,D3,دانتيل,دانتيل,Other,ابيض,White,2XL,0,0
+D3-WHT-3XL,D3,دانتيل,دانتيل,Other,ابيض,White,3XL,0,0
+D3-RED-S,D3,دانتيل,دانتيل,Other,احمر,Red,S,0,0
+D3-RED-M,D3,دانتيل,دانتيل,Other,احمر,Red,M,0,0
+D3-RED-L,D3,دانتيل,دانتيل,Other,احمر,Red,L,0,0
+D3-RED-XL,D3,دانتيل,دانتيل,Other,احمر,Red,XL,0,0
+D3-RED-2XL,D3,دانتيل,دانتيل,Other,احمر,Red,2XL,0,0
+D3-RED-3XL,D3,دانتيل,دانتيل,Other,احمر,Red,3XL,0,0
+D3-FUC-S,D3,دانتيل,دانتيل,Other,فوشيا,Fuchsia,S,0,0
+D3-FUC-M,D3,دانتيل,دانتيل,Other,فوشيا,Fuchsia,M,0,0
+D3-FUC-L,D3,دانتيل,دانتيل,Other,فوشيا,Fuchsia,L,0,0
+D3-FUC-XL,D3,دانتيل,دانتيل,Other,فوشيا,Fuchsia,XL,0,0
+D3-FUC-2XL,D3,دانتيل,دانتيل,Other,فوشيا,Fuchsia,2XL,0,0
+D3-FUC-3XL,D3,دانتيل,دانتيل,Other,فوشيا,Fuchsia,3XL,0,0
+S1-WHT-S,S1,الروب,الروب,Other,ابيض,White,S,0,0
+S1-WHT-M,S1,الروب,الروب,Other,ابيض,White,M,0,0
+S1-WHT-L,S1,الروب,الروب,Other,ابيض,White,L,0,0
+S1-WHT-XL,S1,الروب,الروب,Other,ابيض,White,XL,0,0
+S1-WHT-2XL,S1,الروب,الروب,Other,ابيض,White,2XL,0,0
+S1-BLK-S,S1,الروب,الروب,Other,اسود,Black,S,0,0
+S1-BLK-M,S1,الروب,الروب,Other,اسود,Black,M,0,0
+S1-BLK-L,S1,الروب,الروب,Other,اسود,Black,L,0,0
+S1-BLK-XL,S1,الروب,الروب,Other,اسود,Black,XL,0,0
+S1-BLK-2XL,S1,الروب,الروب,Other,اسود,Black,2XL,0,0
+S1-NVY-S,S1,الروب,الروب,Other,كحلي,Navy,S,0,0
+S1-NVY-M,S1,الروب,الروب,Other,كحلي,Navy,M,0,0
+S1-NVY-L,S1,الروب,الروب,Other,كحلي,Navy,L,0,0
+S1-NVY-XL,S1,الروب,الروب,Other,كحلي,Navy,XL,0,0
+S1-NVY-2XL,S1,الروب,الروب,Other,كحلي,Navy,2XL,0,0
+S1-RED-S,S1,الروب,الروب,Other,احمر,Red,S,0,0
+S1-RED-M,S1,الروب,الروب,Other,احمر,Red,M,0,0
+S1-RED-L,S1,الروب,الروب,Other,احمر,Red,L,0,0
+S1-RED-XL,S1,الروب,الروب,Other,احمر,Red,XL,0,0
+S1-RED-2XL,S1,الروب,الروب,Other,احمر,Red,2XL,0,0
