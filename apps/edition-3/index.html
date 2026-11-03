@@ -293,6 +293,64 @@ details.dd[open]>summary::after{transform:rotate(180deg)}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:sl .18s ease-out}.sheet.keep{animation:none}@keyframes sl{from{transform:translateX(-24px);opacity:.4}to{transform:none;opacity:1}}}
 </style>
 <style>
+/* Phone layout (<=820px). Desktop is untouched. */
+.nav.more{display:none}
+@media (max-width:820px){
+  body{font-size:15px}
+  .nav.sec{display:none}
+  .nav.more{display:flex}
+  .nav{flex:1 1 0;min-width:0;padding:7px 4px}
+  .nav .bd{inset-inline-end:calc(50% - 30px);top:1px;font-size:10px;padding:3px 6px}
+  .main{padding-top:16px;padding-bottom:112px}
+  .top{gap:10px;margin-bottom:14px}
+  .top h1{font-size:22px}
+  .top .sub{font-size:13px;line-height:1.5}
+  .top .tools{margin-inline-start:0;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .top .tools>.pill{grid-column:1/-1;justify-self:start}
+  .top .tools>.seg{grid-column:1/-1;display:flex}
+  .top .tools>.seg button{flex:1;text-align:center;padding:9px 6px}
+  .top .tools>.btn{justify-content:center}
+  .btn{min-height:42px}.btn.sm{min-height:36px}
+  .chip{padding:8px 14px;min-height:36px}
+  input,select,textarea{font-size:16px;min-height:42px}
+  input[type=checkbox]{min-height:0;width:20px;height:20px}
+  input[type=number]{width:84px}
+  .card{padding:14px;border-radius:14px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpi{padding:12px}.kpi b{font-size:24px}
+  .tabs button{padding:10px 12px}
+  .opgrid{grid-template-columns:1fr;gap:8px}
+  .op{grid-template-columns:auto minmax(0,1fr);column-gap:12px;align-items:center;padding:12px}
+  .op .ic{grid-row:1/3;margin-bottom:0}
+  .op em{display:none}
+  .op.mini{grid-template-columns:auto minmax(0,1fr)}
+  .op.mini .ic{grid-row:auto}
+  /* tables: one line per row, scroll sideways, drop low-value columns */
+  .tw{-webkit-overflow-scrolling:touch}
+  th,td{white-space:nowrap}
+  .ordtbl th:nth-child(3),.ordtbl td:nth-child(3),.ordtbl th:nth-child(4),.ordtbl td:nth-child(4),.ordtbl th:nth-child(5),.ordtbl td:nth-child(5){display:none}
+  .ledtbl th:nth-child(2),.ledtbl td:nth-child(2),.ledtbl th:nth-child(7),.ledtbl td:nth-child(7){display:none}
+  /* stock matrix: every size fits without sideways scroll */
+  .card:has(.mx){padding:10px 6px}
+  .tw:has(.mx){border:0;background:none;border-radius:0;overflow:visible}
+  .mx{width:100%;border-spacing:2px}
+  .mx th{padding:3px 0;font-size:11px}
+  .mx .cl{padding:0 4px 0 2px;font-size:12px}
+  .cell{min-width:0;width:100%;height:44px;font-size:12.5px;border-radius:8px;letter-spacing:-.02em}
+  .cell small{font-size:8.5px}
+  .chips.scrollx{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px;padding-block:2px}
+  .chips.scrollx::-webkit-scrollbar{display:none}
+  .chips.scrollx .chip{flex:none}
+  .row>.chips.scrollx{flex:1 1 100%;min-width:0}
+  .sheet.compact{top:auto;bottom:0;max-height:75%;height:auto;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}
+  /* sheets */
+  .sheet>header{padding:14px 16px}
+  .sheet>header .x{min-height:40px}
+  .sheet>div.body{overscroll-behavior:contain}
+  .scrim{backdrop-filter:blur(2px)}
+}
+</style>
+<style>
 /* Sidebar toggle (desktop): a slim top bar with a panel button. Ctrl+B also toggles. The rail slides out and the page widens. */
 #topbar{position:fixed;top:0;left:0;right:224px;height:48px;z-index:20;display:flex;align-items:center;gap:10px;padding-inline:16px;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line);color:var(--muted);font-weight:500}
 #topbar button{all:unset;cursor:pointer;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--ink)}
@@ -1205,7 +1263,7 @@ function vOrders(){
   h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.o.f===f[0])+'" data-a="of" data-v="'+f[0]+'">'+f[1]+' <span class="n">'+cnt[f[0]]+'</span></button>').join('')+(cxN?'<button class="chip" aria-pressed="'+(UI.o.f==='cx')+'" data-a="of" data-v="cx">ملغي <span class="n">'+cxN+'</span></button>':'')+(bad?'<button class="chip" aria-pressed="'+(UI.o.f==='bad')+'" data-a="of" data-v="bad">كود غير مربوط <span class="n">'+bad+'</span></button>':'')+'</div><input type="search" id="oq" placeholder="ابحث بكود الأوردر أو البوليصة أو المحافظة" value="'+esc(UI.o.q)+'" data-c="oq" style="flex:1;min-width:200px;max-width:380px">'+(UI.o.pk?'<button class="btn sm ghost" data-a="gopk" data-id="">شيل فلتر البيك أب</button>':'')+'</div>';
   const list=ordFilter(),selN=Object.keys(UI.sel).filter(k=>UI.sel[k]).length;
   if(selN)h+='<div class="msg row sp" style="margin-bottom:12px"><span>اخترت <b>'+selN+'</b> أوردر</span><span class="row"><button class="btn sm" data-a="selclear">إلغاء الاختيار</button><button class="btn sm pri" data-a="manual">سجّلهم كأوردرات اتشحنت</button></span></div>';
-  h+='<div class="tw"><table><thead><tr><th style="width:36px"></th><th>كود الأوردر</th><th>البوليصة</th><th>النوع</th><th>المحافظة</th><th class="num">قطع</th><th>الحالة</th></tr></thead><tbody id="ordrows">'+(list.length?ordRows(list):'<tr><td colspan="7" class="empty">مفيش أوردرات بالفلتر ده.</td></tr>')+'</tbody></table></div>';
+  h+='<div class="tw"><table class="ordtbl"><thead><tr><th style="width:36px"></th><th>كود الأوردر</th><th>البوليصة</th><th>النوع</th><th>المحافظة</th><th class="num">قطع</th><th>الحالة</th></tr></thead><tbody id="ordrows">'+(list.length?ordRows(list):'<tr><td colspan="7" class="empty">مفيش أوردرات بالفلتر ده.</td></tr>')+'</tbody></table></div>';
   if(list.length>UI.o.n)h+='<div style="text-align:center;margin-top:12px"><button class="btn" data-a="omore">عرض المزيد ('+fmt(list.length-UI.o.n)+' متبقي)</button></div>';
   return h;
 }
@@ -1271,6 +1329,9 @@ function sheetHTML(){
     const r=modelRmSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='skuadd'){
     const r=skuAddSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='more'){
+    const bd=badges();title='المزيد';
+    body='<div class="opgrid" style="grid-template-columns:1fr 1fr">'+NAV.filter(n=>SEC[n[0]]).map(n=>'<button class="op mini" data-a="go" data-t="'+n[0]+'"><span class="ic">'+ic(n[0])+'</span><b>'+n[1]+(bd[n[0]]?' <span class="pill crit" style="margin-inline-start:4px">'+bd[n[0]]+'</span>':'')+'</b></button>').join('')+'</div><button class="btn" data-a="theme">◐ المظهر: '+({system:'تلقائي',light:'فاتح',dark:'داكن'})[theme]+'</button><p class="muted" style="font-size:12px">'+esc(S.actor)+' · نسخة تجريبية</p>';
   }else if(s.kind==='state'){
     const r=stateSheet(s.l);title=r.title;body=r.body;
   }else if(s.kind==='flow'){
@@ -1292,7 +1353,7 @@ function sheetHTML(){
     const mv=S.moves.filter(m=>m.sku===s.sku).slice(-10).reverse();
     body+='<h3 style="font-size:15px">آخر الحركات</h3>'+(mv.length?'<div class="tw"><table class="t-sm"><tbody>'+mv.map(m=>'<tr><td class="mono muted">'+esc(m.date)+'</td><td>'+esc(m.note||OT[m.type]&&OT[m.type].ar||m.type)+'<div class="muted" style="font-size:12px">من '+esc(LOC[m.from])+' إلى '+esc(LOC[m.to])+'</div></td><td class="num mono">'+m.q+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">مفيش حركات.</div>');
   }
-  return '<div class="scrim" data-a="closesheet"></div><aside class="sheet" role="dialog" aria-label="'+esc(title)+'"><header><h2>'+esc(title)+'</h2><button class="btn sm ghost x" data-a="closesheet" aria-label="إغلاق">إغلاق ✕</button></header><div class="body">'+body+'</div></aside>';
+  return '<div class="scrim" data-a="closesheet"></div><aside class="sheet'+(s.kind==='more'?' compact':'')+'" role="dialog" aria-label="'+esc(title)+'"><header><h2>'+esc(title)+'</h2><button class="btn sm ghost x" data-a="closesheet" aria-label="إغلاق">إغلاق ✕</button></header><div class="body">'+body+'</div></aside>';
 }
 function scanNeg(matched){
   const a={};matched.forEach(m=>{const o=orderByRef(m.ref);if(o)o.lines.forEach(s=>a[s]=(a[s]||0)+1)});
@@ -1320,16 +1381,16 @@ function vStock(){
   const s=UI.s,m=MODEL.get(s.m)||MODEL.get(MORDER[0]);
   const tools='<div class="seg"><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">كل الموديلات</button><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">موديل واحد</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
   let h=top('المخزون','كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.',tools+'<button class="btn" data-a="catedit">تعديل</button><button class="btn pri" data-a="skuadd" data-m="__new" data-only="1">+ موديل جديد</button>');
-  h+='<div class="chips" style="margin-bottom:14px">'+INTERNAL.map(l=>'<button class="chip" aria-pressed="'+(s.state===l)+'" data-a="sstate" data-v="'+l+'"><i class="dot" style="background:'+LCOL[l]+'"></i>'+LOC[l]+' <span class="n">'+fmt(locSum(l))+'</span></button>').join('')+'</div>';
+  h+='<div class="chips scrollx" style="margin-bottom:14px">'+INTERNAL.map(l=>'<button class="chip" aria-pressed="'+(s.state===l)+'" data-a="sstate" data-v="'+l+'"><i class="dot" style="background:'+LCOL[l]+'"></i>'+LOC[l]+' <span class="n">'+fmt(locSum(l))+'</span></button>').join('')+'</div>';
   if(s.view==='table'){
-    h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+[['all','الكل'],['low','قرب يخلص'],['neg','بالسالب'],['dem','عليه طلب مفتوح'],['arch','مؤرشف ('+Object.keys(S.cat.arch).filter(k=>S.cat.arch[k]).length+')']].map(f=>'<button class="chip" aria-pressed="'+((s.flt||'all')===f[0])+'" data-a="sflt" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><input type="search" id="sq" placeholder="ابحث: BR2 احمر L" value="'+esc(s.q)+'" data-c="sq" style="flex:1;min-width:200px;max-width:340px"></div><div id="stres">'+stockTable()+'</div>';
+    h+='<div class="row" style="margin-bottom:12px"><div class="chips scrollx">'+[['all','الكل'],['low','قرب يخلص'],['neg','بالسالب'],['dem','عليه طلب مفتوح'],['arch','مؤرشف ('+Object.keys(S.cat.arch).filter(k=>S.cat.arch[k]).length+')']].map(f=>'<button class="chip" aria-pressed="'+((s.flt||'all')===f[0])+'" data-a="sflt" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><input type="search" id="sq" placeholder="ابحث: BR2 احمر L" value="'+esc(s.q)+'" data-c="sq" style="flex:1;min-width:200px;max-width:340px"></div><div id="stres">'+stockTable()+'</div>';
     return h;
   }
   const groups={},OM=ordM();OM.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
   const sortBtn='<div class="seg" role="group" aria-label="الترتيب"><button aria-pressed="'+(s.sort!=='alpha')+'" data-a="ssort" data-v="pull">الأكتر سحبًا</button><button aria-pressed="'+(s.sort==='alpha')+'" data-a="ssort" data-v="alpha">أبجدي</button></div>';
   if(s.view==='all'){
     const L=s.line||'all',ms=OM.filter(c=>L==='all'||lineOf(c)===L);
-    h+='<div class="row" style="margin-bottom:14px"><div class="chips">'+[['all','كل الموديلات']].concat(LINE_ORDER.filter(l=>groups[l]).map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="sline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div>'+sortBtn+'</div>';
+    h+='<div class="row" style="margin-bottom:14px"><div class="chips scrollx">'+[['all','كل الموديلات']].concat(LINE_ORDER.filter(l=>groups[l]).map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="sline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div>'+sortBtn+'</div>';
     h+='<div class="stack">'+ms.map(c=>'<section class="card">'+modelHead(MODEL.get(c))+matrixHTML(MODEL.get(c))+'</section>').join('')+'</div>'+matrixLegend;
     return h;
   }
@@ -1369,7 +1430,7 @@ function vOps(){
     h+='<div class="gh">'+g_+'</div><div class="opgrid" style="margin-bottom:12px">'+OPS_LIST.filter(t=>OT[t].grp===g_).map(t=>'<button class="op" data-a="newop" data-t="'+t+'"><span class="ic">'+ic(OT[t].ic)+'</span><b>'+OT[t].ar+'</b><small>'+OT[t].d+'</small><em>'+OT[t].en+'</em></button>').join('')+'</div>';
   });
   const F=[['all','الكل'],['draft','مسودة'],['done','مؤكدة'],['reversed','معكوسة']],docs=S.docs.filter(x=>UI.opF==='all'||x.status===UI.opF).slice().reverse();
-  h+='<div class="row sp" style="margin:20px 0 10px"><h2 style="font-size:17px">آخر العمليات</h2><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.opF===f[0])+'" data-a="opf" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div></div>';
+  h+='<div class="row sp" style="margin:20px 0 10px"><h2 style="font-size:17px">آخر العمليات</h2><div class="chips scrollx">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.opF===f[0])+'" data-a="opf" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div></div>';
   h+=docs.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>العملية</th><th>التاريخ</th><th class="num">حركات</th><th>اتعملت بواسطة</th><th>الحالة</th></tr></thead><tbody>'+docs.slice(0,60).map(x=>'<tr data-a="opendoc" data-id="'+x.id+'"><td class="mono">'+(x.no||'مسودة')+'</td><td>'+OT[x.type].ar+' <span class="muted" style="font-size:12px">'+OT[x.type].en+'</span></td><td class="mono">'+x.date+'</td><td class="num">'+N(x.nMoves||0)+'</td><td>'+esc(x.hdr.emp||x.by)+'</td><td>'+(x.status==='done'?pill('good','مؤكدة'):x.status==='draft'?pill('warn','مسودة'):pill('','معكوسة'))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش عمليات. ابدأ من الكروت اللي فوق. الرصيد الافتتاحي ظاهر في سجل الحركات.</div></div>';
   return h;
 }
@@ -1474,7 +1535,7 @@ function ledRows(){
   const L=UI.led,q=L.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const rows=S.moves.filter(m=>{if(L.type&&m.type!==L.type)return false;if(q.length){const hay=(m.sku+' '+SKU.get(m.sku).c+' '+m.doc).toLowerCase();if(!q.every(w=>hay.indexOf(w)>=0))return false}return true});
   const shown=rows.slice(-L.n).reverse();
-  return '<div class="tw"><table class="t-sm"><thead><tr><th>التاريخ</th><th>المستند</th><th>الصنف</th><th class="num">كمية</th><th>من</th><th>إلى</th><th>ملاحظة</th></tr></thead><tbody>'+shown.map(m=>'<tr><td class="mono">'+esc(m.date)+'</td><td class="mono">'+esc(m.doc)+'</td><td>'+esc(skuName(m.sku))+'</td><td class="num mono">'+m.q+'</td><td>'+esc(LOC[m.from])+'</td><td>'+esc(LOC[m.to])+'</td><td class="muted">'+esc(m.note||'')+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:8px">'+fmt(rows.length)+' حركة'+(rows.length>L.n?' (آخر '+L.n+')':'')+'</p>';
+  return '<div class="tw"><table class="t-sm ledtbl"><thead><tr><th>التاريخ</th><th>المستند</th><th>الصنف</th><th class="num">كمية</th><th>من</th><th>إلى</th><th>ملاحظة</th></tr></thead><tbody>'+shown.map(m=>'<tr><td class="mono">'+esc(m.date)+'</td><td class="mono">'+esc(m.doc)+'</td><td>'+esc(skuName(m.sku))+'</td><td class="num mono">'+m.q+'</td><td>'+esc(LOC[m.from])+'</td><td>'+esc(LOC[m.to])+'</td><td class="muted">'+esc(m.note||'')+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:8px">'+fmt(rows.length)+' حركة'+(rows.length>L.n?' (آخر '+L.n+')':'')+'</p>';
 }
 
 /* ---------- CONFIG ---------- */
@@ -1660,7 +1721,7 @@ function insPlan(A,C){
   rows.forEach(r=>{(by[SKU.get(r.id).m]||(by[SKU.get(r.id).m]=[])).push(r)});
   const ms=Object.keys(by).sort((a,b)=>by[b].reduce((x,r)=>x+r.q,0)-by[a].reduce((x,r)=>x+r.q,0)),tot=rows.reduce((a,r)=>a+r.q,0),crit=rows.filter(r=>r.i.cls==='c').length;
   let h='<div class="kpis" style="margin-bottom:16px">'+kpi('قطع مقترحة',N(tot),'للتصنيع',tot?'warn':'')+kpi('أصناف',N(rows.length),'في '+ms.length+' موديل')+kpi('حرجة (خلصت أو الطلب أكبر)',N(crit),'',crit?'crit':'')+kpi('الهدف',N(rv('tgtW')),'أسبوع تغطية')+'</div>';
-  h+='<div class="row sp" style="margin-bottom:12px"><div class="chips">'+[['all','الكل']].concat(LINE_ORDER.map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="insline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><button class="btn pri" data-a="copyplan">نسخ للمصنع</button></div>';
+  h+='<div class="row sp" style="margin-bottom:12px"><div class="chips scrollx">'+[['all','الكل']].concat(LINE_ORDER.map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="insline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><button class="btn pri" data-a="copyplan">نسخ للمصنع</button></div>';
   if(!rows.length)return h+'<div class="card"><div class="empty">مفيش أصناف تحت الحد حاليًا'+(L!=='all'?' في '+L:'')+'.</div></div>';
   h+='<p class="muted" style="margin-bottom:12px;font-size:13px">المقترح = اللي يوصّل كل صنف لـ '+rv('tgtW')+' أسبوع سحب بعد مهلة المصنع ('+rv('leadW')+' أسبوع) ومخزون الأمان، وبعد خصم الطلب المفتوح وإضافة اللي راجع من المصنع'+(C.velOK?'':'. لسه مفيش تاريخ كفاية، فالحساب على الحد الأدنى القديم')+'. ده اقتراح، مش أمر تصنيع.</p>';
   const mx=by[ms[0]].reduce((a,r)=>a+r.q,0);
@@ -1704,6 +1765,7 @@ function insHealth(A,C){
 
 
 /* ---------- shell & render ---------- */
+const SEC={supplies:1,insights:1,ledger:1,files:1,config:1};
 const NAV=[['today','النهارده'],['stock','المخزون'],['supplies','المستلزمات'],['ops','العمليات'],['insights','التحليلات'],['orders','الأوردرات'],['ledger','السجل'],['files','الملفات'],['config','الإعدادات']];
 const VIEWS={files:vFiles,today:vToday,orders:vOrders,stock:vStock,ops:vOps,supplies:vSupplies,insights:vInsights,ledger:vLedger,config:vConfig};
 let theme='system';
@@ -1727,7 +1789,7 @@ function focusSig(){
 }
 function render(){
   const b=badges();
-  const railH='<nav class="rail" aria-label="التنقل"><div class="brand"><i>F</i><div><b>Fémini</b><small>Stock · مخزن</small></div></div>'+NAV.map(n=>'<button class="nav" data-a="go" data-t="'+n[0]+'" '+(UI.tab===n[0]?'aria-current="page"':'')+'>'+ic(n[0])+'<span>'+n[1]+'</span>'+(b[n[0]]?'<span class="bd">'+b[n[0]]+'</span>':'')+'</button>').join('')+'<div class="sp"></div><div class="foot"><button class="tbtn" data-a="theme">◐ المظهر: '+({system:'تلقائي',light:'فاتح',dark:'داكن'})[theme]+'</button><span>'+esc(S.actor)+' · نسخة تجريبية</span></div></nav>';
+  const railH='<nav class="rail" aria-label="التنقل"><div class="brand"><i>F</i><div><b>Fémini</b><small>Stock · مخزن</small></div></div>'+NAV.map(n=>'<button class="nav'+(SEC[n[0]]?' sec':'')+'" data-a="go" data-t="'+n[0]+'" '+(UI.tab===n[0]?'aria-current="page"':'')+'>'+ic(n[0])+'<span>'+n[1]+'</span>'+(b[n[0]]?'<span class="bd">'+b[n[0]]+'</span>':'')+'</button>').join('')+'<button class="nav more" data-a="more" '+(SEC[UI.tab]?'aria-current="page"':'')+' aria-label="المزيد"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg><span>المزيد</span>'+(Object.keys(SEC).reduce((a,k)=>a+(b[k]||0),0)?'<span class="bd">'+Object.keys(SEC).reduce((a,k)=>a+(b[k]||0),0)+'</span>':'')+'</button><div class="sp"></div><div class="foot"><button class="tbtn" data-a="theme">◐ المظهر: '+({system:'تلقائي',light:'فاتح',dark:'داكن'})[theme]+'</button><span>'+esc(S.actor)+' · نسخة تجريبية</span></div></nav>';
   const mainH='<main class="main" id="main">'+storeBanner()+(VIEWS[UI.tab]||vToday)()+'</main>',sheetH=sheetHTML(),app=$('#app');
   if(!$('#railw')){app.innerHTML='<div class="shell"><div id="railw" style="display:contents"></div><div id="mainw" style="display:contents"></div></div><div id="sheetw"></div>';_L.rail=_L.main=_L.sheet=null}
   const fs=focusSig(),y=window.scrollY;
@@ -1911,6 +1973,7 @@ const ACT={
   supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
   flow:el=>{UI.sheet={kind:'flow',w:el.dataset.w};render()},
   state:el=>{UI.sheet={kind:'state',l:el.dataset.l};render()},
+  more:()=>{UI.sheet={kind:'more'};render()},
   ratejump:()=>{UI.ins='rate';go('insights')},
   stateop:el=>{const l=el.dataset.l,t=el.dataset.t;UI.sheet=null;go('ops',()=>{const d=newDoc(t);D.skus.forEach(k=>{const q=g(k.id,l);if(q>0)addLine(d,k.id,q)});d.lines.sort((a,b)=>skuSort(a.sku,b.sku))})},
   blkview:()=>{UI.sheet={kind:'flow',w:'blocked'};render()},

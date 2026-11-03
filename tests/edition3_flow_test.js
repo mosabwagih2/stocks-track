@@ -97,7 +97,7 @@ const fs=require('fs');
   await p.keyboard.press('Escape');
   // 15 reset
   // mobile
-  await p.setViewportSize({width:400,height:800});for(const tb of ['today','orders','stock','ops','supplies','insights','ledger','config']){await nav(tb);await p.waitForTimeout(80);const ow=await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);if(ow>0)ok('mobile overflow '+tb+' '+ow,false)}
+  await p.setViewportSize({width:400,height:800});for(const tb of ['today','orders','stock','ops','supplies','insights','ledger','config']){await p.evaluate(t=>__F.go(t),tb);await p.waitForTimeout(80);const ow=await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);if(ow>0)ok('mobile overflow '+tb+' '+ow,false)}
   ok('mobile pass',true);
   await p.screenshot({path:require('os').tmpdir()+'/m_ops.png'});await nav('today');await p.screenshot({path:require('os').tmpdir()+'/m_today.png'});
   console.log(pass+' passed, '+fail+' failed');console.log(errs.length?errs.join('\n'):'ERRORS: none');

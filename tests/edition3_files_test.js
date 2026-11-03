@@ -16,7 +16,7 @@ const { chromium } = require('playwright');
   await p.click('[data-a=go][data-t=today]');
   await p.click('button.kpi[data-w=done]');await p.waitForSelector('.sheet');ok('done tile shows employee table',/حسب الموظف/.test(await txt('.sheet'))&&/عبدالله/.test(await txt('.sheet')));await p.keyboard.press('Escape');
   // files page
-  const nav=await p.$$eval('.rail .nav span:first-of-type',e=>e.map(x=>x.textContent));console.log('nav:',nav.join(' | '));
+  const nav=await p.$$eval('.rail .nav:not(.more) span:first-of-type',e=>e.map(x=>x.textContent));console.log('nav:',nav.join(' | '));
   ok('files above settings',nav.indexOf('الملفات')===nav.length-2);
   await p.click('[data-a=go][data-t=files]');ok('where-saved note',/فين بتتحفظ ملفاتي/.test(await txt()));
   ok('pickup files listed (2)',await p.locator('tbody tr').count()===2);
@@ -48,6 +48,6 @@ const { chromium } = require('playwright');
   await p.waitForTimeout(400);await p.reload();await p.waitForSelector('.shell');await p.click('[data-a=go][data-t=files]');await p.click('[data-a=fltab][data-v=ph]');await p.waitForTimeout(500);
   ok('photo survives reload (IndexedDB)',await p.locator('.grid.g3 img').count()===1);
   await p.screenshot({path:require('os').tmpdir()+'/fl_ph.png'});
-  await p.setViewportSize({width:400,height:800});for(const tb of ['files','today']){await p.click('[data-a=go][data-t='+tb+']');await p.waitForTimeout(80);if(await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)>0)ok('mobile overflow '+tb,false)}
+  await p.setViewportSize({width:400,height:800});for(const tb of ['files','today']){await p.evaluate(t=>__F.go(t),tb);await p.waitForTimeout(80);if(await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)>0)ok('mobile overflow '+tb,false)}
   console.log(pass+' passed, '+fail+' failed');console.log(errs.join('\n')||'ERRORS: none');await b.close();
 })();

@@ -66,7 +66,7 @@ const { chromium } = require('playwright');
   await p.click('[data-a=go][data-t=config]');await p.click('[data-a=supconf][data-id=FLY]');ok('config opens edit form',await p.locator('input[data-f=name]').count()===1);await p.click('[data-a=closesheet]');
   // today alert + mobile
   await p.keyboard.press('Escape');
-  await p.setViewportSize({width:400,height:800});await p.click('[data-a=go][data-t=supplies]');
+  await p.setViewportSize({width:400,height:800});await p.evaluate(()=>__F.go('supplies'));
   ok('mobile no overflow',(await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth))<=0);
   await p.click('[data-a=supnew]');await p.screenshot({path:require('os').tmpdir()+'/sp_m_new.png'});
   console.log(pass+' passed, '+fail+' failed');console.log(errs.join('\n')||'ERRORS: none');await b.close();
