@@ -65,3 +65,5 @@ See the brief for everything else (open questions: bundles, cups, lead times, ch
 ### Redesign copy (`apps/edition-3-brand-v2`)
 
 Built by `variants/edition-3/5_redesign.py` (with `redesign_stock.js` and `redesign_rest.js`) from the same base, so logic and data are identical. It only changes how data is organised: stock as a grouped list with the matrix on demand, orders grouped by pickup with value, the ledger as a document feed by day, supplies as a table with operations grouped, settings in sections, operations as a launcher with pinned drafts. `tests/edition3_v2_test.js` checks every figure against the raw data (31 checks).
+
+The redesign copy also rebuilds Today (hero with ring, next action, activity timeline) and Analytics (six tabs by question; demand and manufacturing pages merge what used to be spread over four tabs). `tests/edition3_v2b_test.js` covers both (24 checks).

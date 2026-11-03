@@ -511,6 +511,53 @@ button,[data-a],.chip,.nav{touch-action:manipulation;-webkit-tap-highlight-color
 }
 </style>
 <style>
+/* ----- today: hero ----- */
+.hero{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(240px,300px);gap:22px;align-items:center;padding:20px 22px}
+.rwrap{position:relative;width:128px;height:128px}
+.rc{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.rc b{font:600 26px/1 var(--f-mono)}.rc small{color:var(--muted);font-size:12px}
+.hhead{font:500 20px/1.35 var(--f-disp)}.hhead b{font-weight:600}
+.hlegend{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.hl{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--surface);cursor:pointer;font-size:13px}
+.hl:hover:not([disabled]){border-color:var(--accent);background:var(--lav)}.hl[disabled]{opacity:.5;cursor:default}
+.hl .dot{width:9px;height:9px}
+.hside{display:grid;gap:10px;border-inline-start:1px solid var(--line);padding-inline-start:20px}
+.hmoney{display:grid;gap:6px}
+.hmoney>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.hmoney small{color:var(--muted)}.hmoney b{font:600 15px var(--f-mono)}
+.spk{display:flex;align-items:flex-end;gap:4px;height:38px;direction:ltr}
+.spk .b{flex:1;display:flex;align-items:flex-end;height:100%}
+.spk .b i{display:block;width:100%;border-radius:4px 4px 1px 1px;background:var(--line2)}
+.spk .b.now i{background:var(--c-ready)}
+.tsplit{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.t3{align-items:start}
+.tl{display:grid}
+.tli{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--grid)}
+.tli:last-child{border-bottom:0}
+.tb{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--lav);color:var(--accent)}
+.tb svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tb.good{background:var(--good-bg);color:var(--good)}.tb.info{background:var(--info-bg);color:var(--info)}.tb.warn{background:var(--warn-bg);color:var(--warn)}.tb.lost{background:var(--lost-bg);color:var(--lost)}
+.tt{display:grid;gap:1px;min-width:0}.tt b{font-weight:600}.tt small{font-size:12px}
+.tq{font-size:14px}
+.emp{display:grid;gap:5px;padding:8px 0;border-bottom:1px solid var(--grid)}.emp:last-of-type{border-bottom:0}
+.col .b .lb{font-size:10px}.col .b:not(:nth-child(3n+1)):not(:last-child) .lb{visibility:hidden}
+/* ----- analytics: plan table ----- */
+.rb.m{position:relative;overflow:visible;width:90px}
+.rb.m b{position:absolute;inset-inline-start:var(--x);top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.55;border-radius:2px}
+.plt .mrow{cursor:pointer}.plt .chev{color:var(--muted);text-align:center;transition:transform .2s}.plt .mrow.open .chev{transform:rotate(-90deg);color:var(--accent)}.plt .mrow.open>td{background:var(--lav)}
+.plt>tbody>tr.mopen>td{background:var(--surface);padding:8px 14px 14px}
+.skt{width:100%;border-collapse:collapse}.skt th{font-size:12px;color:var(--muted);font-weight:600;padding:6px 10px;text-align:start;border-bottom:1px solid var(--line)}.skt td{padding:7px 10px;border-bottom:1px solid var(--grid)}.skt tr[data-a]{cursor:pointer}.skt tr[data-a]:hover td{background:var(--lav)}
+.skt td.num,.skt th.num{text-align:center}
+@media (max-width:1000px){.hero{grid-template-columns:auto minmax(0,1fr)}.hside{grid-column:1/-1;border-inline-start:0;padding-inline-start:0;border-top:1px solid var(--line);padding-top:14px}.tsplit{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:820px){
+  .hero{grid-template-columns:1fr;justify-items:center;text-align:center;padding:16px}
+  .hhead{font-size:17px}.hlegend{justify-content:center;gap:6px}.hl{padding:5px 10px;font-size:12.5px}.hside{width:100%}
+  .hero{gap:10px;padding:14px}.rwrap{width:96px;height:96px}.rwrap svg{width:100%;height:100%}.rc b{font-size:21px}.hmoney b{font-size:14px}
+  .plt th:nth-child(3),.plt td:nth-child(3),.plt th:nth-child(5),.plt td:nth-child(5),.plt th:nth-child(7),.plt td:nth-child(7){display:none}
+  .plt tr.mopen,.plt tr.mopen>td{display:block;width:100%}
+}
+</style>
+<style>
 /* Brand pass: same layout and components; only the logo and color tokens change. Everything derives from the logo purple #43316f. */
 :root{--page:#faf9fd;--surface:#ffffff;--lav:#f3f0f9;--ink:#1f1738;--accent:#43316f;--on-accent:#ffffff;--muted:#655e80;
   --line:#e5e0f0;--line2:#d3cbe6;--grid:#eeeaf6;--rail:#2b2150;--on-rail:#f1edfb;--rail-mute:#b9afdc;--shadow:0 1px 2px rgba(43,33,80,.07),0 10px 26px -14px rgba(43,33,80,.25);
@@ -1366,6 +1413,8 @@ function actions(){
 }
 
 /* ---------- TODAY ---------- */
+function ring(parts,total,size){const r=48,c=2*Math.PI*r;let off=0;
+  return '<svg viewBox="0 0 120 120" width="'+size+'" height="'+size+'" aria-hidden="true"><circle cx="60" cy="60" r="'+r+'" fill="none" stroke="var(--grid)" stroke-width="12"/>'+parts.map(p=>{const len=total?p[0]/total*c:0,sv='<circle cx="60" cy="60" r="'+r+'" fill="none" stroke="'+p[1]+'" stroke-width="12" stroke-dasharray="'+len.toFixed(2)+' '+(c-len).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'" transform="rotate(-90 60 60)"/>';off+=len;return len>0?sv:''}).join('')+'</svg>'}
 function vToday(){
   const C=ctx(),date=viewDate(),isToday=date===S.date,pks=S.pickups.filter(p=>p.date===date),ids=pks.map(p=>p.id);
   const os=S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx'),done=os.filter(o=>o.st==='done'),open=os.filter(o=>o.st==='open'),blk=open.filter(o=>C.blocked[o.ref]);
@@ -1376,25 +1425,41 @@ function vToday(){
   let h=top(isToday?'النهارده':'يوم سابق','الطلب من القنوات، اللي اتشحن فعلًا، واللي واقف.'+(isToday?'':' العرض للقراءة بس. الرفع والتسجيل بيتم على النهارده.'),tools);
   h+='<div class="stack">';
   if(isToday&&older.length)h+='<div class="msg warn row sp"><span>فيه <b>'+older.length+'</b> أوردر من أيام فاتت (من '+esc(oldDay)+') لسه ما اتشحنوش.</span><span class="row"><button class="btn sm" data-a="vdset" data-d="'+oldDay+'">اعرض يوم '+esc(oldDay)+'</button><button class="btn sm" data-a="of2" data-v="wait">افتحهم في الأوردرات</button></span></div>';
-  h+='<section class="card lift"><h2>تدفق اليوم <span class="hint">البيك أب هو المطلوب. الخصم من المخزون بيحصل بالسكان بس.</span></h2>';
-  if(!os.length)h+='<div class="empty">مفيش بيك أب في اليوم ده. ارفع ملف البيك أب أو غيّر يوم العمل.</div>';
-  else{
-    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('المطلوب (بيك أب)',N(os.length),fmt(pc(os))+' قطعة','','flow:all')+kpi('اتشحن (خرج فعلًا)',N(done.length),fmt(pc(done))+' قطعة · '+pct(done.length,os.length),'good',done.length?'flow:done':'')+kpi('لسه ما اتشحنش',N(open.length-blk.length),fmt(pc(open.filter(o=>!C.blocked[o.ref])))+' قطعة',open.length-blk.length?'warn':'',open.length-blk.length?'flow:wait':'')+kpi('هيقف بالمخزون',N(blk.length),fmt(pc(blk))+' قطعة',blk.length?'crit':'',blk.length?'flow:blocked':'')+'</div>';
-    const w=x=>(x/os.length*100).toFixed(2)+'%';
-    h+='<div class="flow" role="img" aria-label="اتشحن '+done.length+' من '+os.length+'"><i class="a" style="width:'+w(done.length)+'"></i><i class="b" style="width:'+w(open.length-blk.length)+'"></i><i class="c" style="width:'+w(blk.length)+'"></i></div>';
-    h+='<div class="legend" style="margin-top:8px"><span><i class="dot" style="background:var(--c-ready)"></i>اتشحن</span><span><i class="dot" style="background:var(--line2)"></i>مستني الشحن</span><span><i class="dot" style="background:var(--c-scrap)"></i>هيقف بالمخزون</span></div>';
-    const vv=a=>a.reduce((x,o)=>x+ordVal(o),0);
-    h+='<div class="strip" style="margin:14px 0 0">'+si('قيمة المطلوب',N(Math.round(vv(os)/1000))+'<span class="muted" style="font-size:13px;font-weight:500"> ألف ج</span>','')+si('اتشحن',N(Math.round(vv(done)/1000))+'<span class="muted" style="font-size:13px;font-weight:500"> ألف ج</span>','','good')+si('واقف بالرصيد',N(Math.round(vv(blk)/1000))+'<span class="muted" style="font-size:13px;font-weight:500"> ألف ج</span>','',blk.length?'crit':'')+'</div>';
-    h+='<div class="tw" style="margin-top:12px"><table class="dt"><thead><tr><th>البيك أب</th><th>القناة</th><th>التقدم</th><th class="num">قطع</th><th class="num">القيمة</th></tr></thead><tbody>'+pks.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
-      return '<tr data-a="gopk" data-id="'+p.id+'" style="cursor:pointer"><td><b>'+esc(p.label)+'</b></td><td class="muted">'+esc(chanName(p.channel))+'</td><td><span class="cvr">'+bar(pd,po.length,'g')+'<span class="n">'+pd+' / '+po.length+'</span></span></td><td class="num">'+N(po.reduce((x,o)=>x+o.lines.length,0))+'</td><td class="num">'+EGP(vv(po))+'</td></tr>'}).join('')+'</tbody></table></div>';
-  }
-  h+='</section>';
-  h+='<div class="grid split"><section class="card"><h2>محتاج تدخّل <span class="hint">'+(A.length?A.length+' حاجة':'')+'</span></h2>';
-  h+=A.length?'<div class="queue">'+A.map((a,i)=>'<div class="q '+a.sev+'"><div class="ic">'+(a.sev==='info'?'i':'!')+'</div><div><b>'+a.t+'</b><span>'+a.d+'</span></div><button class="btn sm" data-a="act" data-i="'+i+'">'+a.b+'</button></div>').join('')+'</div>':'<div class="msg good">كل حاجة تمام. مفيش حاجة محتاجة تدخّل دلوقتي.</div>';
-  h+='</section><div class="stack">';
-  h+='<section class="card"><h2>المخزون حسب الحالة</h2>'+stateBar()+'</section>';
-  h+='<section class="card"><h2>'+(isToday?'الفريق النهارده':'الفريق في اليوم ده')+'</h2>'+(Object.keys(emp).length?'<div class="tw"><table class="t-sm"><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">من - إلى</th></tr></thead><tbody>'+Object.keys(emp).sort((a,b)=>emp[b].o-emp[a].o).map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(emp[k].o)+'</td><td class="num">'+N(emp[k].p)+'</td><td class="num mono">'+timeOf(emp[k].a)+' - '+timeOf(emp[k].b)+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:8px;font-size:12px">الوقت هو وقت تسجيل الملف، مش وقت التغليف.</p>':'<div class="empty">لسه محدش سجّل سكان النهارده.</div>')+'</section>';
-  h+='</div></div></div>';
+  const wait=open.filter(o=>!C.blocked[o.ref]),vv=a=>a.reduce((x,o)=>x+ordVal(o),0);
+  const shipDay={};S.moves.forEach(m=>{if(m.type==='SCN'){const q=m.from==='READY'&&m.to==='EXT_CH'?m.q:m.from==='EXT_CH'&&m.to==='READY'?-m.q:0;if(q)shipDay[m.date]=(shipDay[m.date]||0)+q}});
+  const l7=[];for(let i=6;i>=0;i--){const d=addDays(date,-i);l7.push([d,Math.max(0,shipDay[d]||0)])}
+  const prev6=l7.slice(0,6).map(x=>x[1]),avg=prev6.reduce((a,v)=>a+v,0)/6,tdy=l7[6][1],cmp=(avg>0&&prev6.filter(v=>v>0).length>=3)?(tdy>=avg?'▲ ':'▼ ')+Math.abs(Math.round((tdy-avg)/avg*100))+'% عن متوسط آخر 6 أيام':'';
+  /* ---- hero: where are we, what next ---- */
+  let head,btn='';
+  if(!os.length){head='مفيش بيك أب في اليوم ده';if(isToday)btn='<button class="btn pri" data-a="upload" data-t="pickup">ارفع بيك أب</button>'}
+  else if(blk.length){head='<b>'+fmt(blk.length)+' أوردر</b> هيقف بالرصيد · '+EGP(vv(blk));btn='<button class="btn pri" data-a="flow" data-w="blocked">شوف الواقف</button>'}
+  else if(wait.length){head='<b>'+fmt(wait.length)+' أوردر</b> مستنيين الشحن · '+EGP(vv(wait));if(isToday)btn='<button class="btn pri" data-a="upload" data-t="scan">ارفع ملف السكان</button>'}
+  else head='كل اللي اتطلب اتشحن ✓';
+  const pctD=os.length?Math.round(done.length/os.length*100):0,mx7=Math.max(1,...l7.map(x=>x[1]));
+  const leg=(l,n,p,c,w)=>'<button type="button" class="hl" '+(n?'data-a="flow" data-w="'+w+'"':'disabled')+'><i class="dot" style="background:'+c+'"></i><span>'+l+'</span><b class="n">'+fmt(n)+'</b><span class="muted">'+fmt(p)+' قطعة</span></button>';
+  h+='<section class="card hero lift"><div class="rwrap" role="img" aria-label="اتشحن '+done.length+' من '+os.length+'">'+ring([[done.length,'var(--c-ready)'],[wait.length,'var(--line2)'],[blk.length,'var(--c-scrap)']],os.length,128)+'<div class="rc"><b class="n">'+pctD+'%</b><small>اتشحن</small></div></div>'
+   +'<div class="hmain"><div class="hhead">'+head+'</div><div class="muted" style="font-size:13px;margin-top:2px">'+(os.length?fmt(os.length)+' أوردر · '+fmt(pc(os))+' قطعة مطلوبة '+(isToday?'النهارده':'في اليوم ده'):'ارفع ملف البيك أب أو غيّر يوم العمل.')+'</div>'+(btn?'<div style="margin-top:12px">'+btn+'</div>':'')
+   +(os.length?'<div class="hlegend">'+leg('اتشحن',done.length,pc(done),'var(--c-ready)','done')+leg('مستني الشحن',wait.length,pc(wait),'var(--line2)','wait')+leg('هيقف بالرصيد',blk.length,pc(blk),'var(--c-scrap)','blocked')+'</div>':'')+'</div>'
+   +'<div class="hside"><div class="hmoney"><div><small>قيمة المطلوب</small><b class="n">'+EGP(vv(os))+'</b></div><div><small>اتشحن</small><b class="n" style="color:var(--good)">'+EGP(vv(done))+'</b></div><div><small>واقف</small><b class="n" style="color:'+(blk.length?'var(--crit)':'var(--muted)')+'">'+EGP(vv(blk))+'</b></div></div>'
+   +'<div class="spk" data-tip="المشحون يوميًا (بالقطعة) آخر 7 أيام">'+l7.map((x,i)=>'<span class="b'+(i===6?' now':'')+'" data-tip="'+x[0]+': '+fmt(x[1])+' قطعة"><i style="height:'+Math.max(3,Math.round(x[1]/mx7*34))+'px"></i></span>').join('')+'</div><div class="muted" style="font-size:11.5px">اتشحن '+fmt(tdy)+' قطعة'+(cmp?' · '+cmp:'')+'</div></div></section>';
+  /* ---- what needs me + what happened ---- */
+  const G={};S.moves.forEach(m=>{if(m.date!==date)return;const k=m.doc+'|'+m.type,g=G[k]||(G[k]={doc:m.doc,type:m.type,t:0,by:m.by,pcs:0,sk:new Set()});g.pcs+=m.q;g.sk.add(m.sku);if(m.t>g.t)g.t=m.t});
+  const ev=Object.keys(G).map(k=>{const g=G[k],dc=S.docs.find(x=>x.no===g.doc),T=OT[g.type]||{ar:g.type,grp:'',ic:'swap'};
+    return {t:g.t,ic:T.ic||'swap',grp:T.grp,txt:(g.type==='SCN'&&dc&&dc.hdr&&dc.hdr.refs?fmt(dc.hdr.refs.length)+' أوردر اتشحنوا':T.ar+' · '+g.sk.size+' صنف'),by:(dc&&dc.hdr&&dc.hdr.emp)||g.by,pcs:g.pcs,rev:/\(عكس\)/.test(g.doc||'')}});
+  S.orders.forEach(o=>{if(o.cx&&o.cx.date===date)ev.push({t:o.cx.at,ic:'back',grp:'',txt:'اتلغى أوردر '+o.ref,by:o.cx.by,pcs:o.lines.length,rev:false})});
+  ev.sort((a,b)=>b.t-a.t);
+  const GP={'دخول':'good','خروج':'info','داخلي':'warn','رقابة':'lost'};
+  const acts=A.length?'<div class="queue">'+A.map((a,i)=>'<div class="q '+a.sev+'"><div class="ic">'+(a.sev==='info'?'i':'!')+'</div><div><b>'+a.t+'</b><span>'+a.d+'</span></div><button class="btn sm" data-a="act" data-i="'+i+'">'+a.b+'</button></div>').join('')+'</div>':'<div class="msg good">كل حاجة تمام. مفيش حاجة محتاجة تدخّل دلوقتي.</div>';
+  const tl=ev.length?'<div class="tl">'+ev.slice(0,7).map(e=>'<div class="tli"><span class="tb '+(GP[e.grp]||'')+'">'+ic(e.ic)+'</span><span class="tt"><b>'+e.txt+(e.rev?' <span class="pill crit">عكس</span>':'')+'</b><small class="muted">'+esc(e.by||'')+(e.t>1e12?' · '+timeOf(e.t):'')+'</small></span><b class="n tq">'+fmt(e.pcs)+'</b></div>').join('')+'</div>'+(ev.length>7?'<button class="btn sm ghost" data-a="go" data-t="ledger" style="margin-top:8px">كل الحركات ('+ev.length+')</button>':''):'<div class="empty">'+(isToday?'لسه مفيش حركات النهارده.':'مفيش حركات في اليوم ده.')+'</div>';
+  h+='<div class="grid tsplit"><section class="card"><h2>محتاج تدخّل <span class="hint">'+(A.length?A.length+' حاجة':'')+'</span></h2>'+acts+'</section><section class="card"><h2>حصل إيه '+(isToday?'النهارده':'في اليوم ده')+' <span class="hint">'+(ev.length?ev.length+' عملية':'')+'</span></h2>'+tl+'</section></div>';
+  /* ---- pickups, stock by state, team ---- */
+  const pkT=pks.length?'<div class="tw" style="border:0"><table class="dt"><thead><tr><th>البيك أب</th><th>التقدم</th><th class="num">قطع</th><th class="num">القيمة</th></tr></thead><tbody>'+pks.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
+    return '<tr data-a="gopk" data-id="'+p.id+'" style="cursor:pointer"><td><b>'+esc(p.label)+'</b><br><span class="muted" style="font-size:12px">'+esc(chanName(p.channel))+'</span></td><td><span class="cvr">'+bar(pd,po.length,'g')+'<span class="n">'+pd+' / '+po.length+'</span></span></td><td class="num">'+N(po.reduce((x,o)=>x+o.lines.length,0))+'</td><td class="num">'+EGP(vv(po))+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">مفيش بيك أب.</div>';
+  const names=Object.keys(emp).sort((a,b)=>emp[b].o-emp[a].o),mxe=names.length?emp[names[0]].o:1;
+  const tm=names.length?names.map(k=>'<div class="emp"><span class="row sp"><b>'+esc(k)+'</b><span class="muted" style="font-size:12px">'+timeOf(emp[k].a)+' ← '+timeOf(emp[k].b)+'</span></span><span class="cvr">'+bar(emp[k].o,mxe,'')+'<span class="n">'+fmt(emp[k].o)+'</span> <span class="muted" style="font-size:12px">أوردر · '+fmt(emp[k].p)+' قطعة</span></span></div>').join('')+'<p class="muted" style="margin:8px 0 0;font-size:12px">الوقت هو وقت تسجيل الملف، مش وقت التغليف.</p>':'<div class="empty">لسه محدش سجّل سكان '+(isToday?'النهارده':'في اليوم ده')+'.</div>';
+  h+='<section class="card"><h2>البيك أب <span class="hint">'+pks.length+'</span></h2>'+pkT+'</section>';
+  h+='<div class="grid g2 t3"><section class="card"><h2>المخزون حسب الحالة</h2>'+stateBar()+'</section><section class="card"><h2>'+(isToday?'الفريق النهارده':'الفريق')+'</h2>'+tm+'</section></div>';
+  h+='</div>';
   return h;
 }
 function stateBar(){
@@ -1870,7 +1935,7 @@ function vConfigOrig(){
 
 
 /* ---------- INSIGHTS (redesigned) ---------- */
-const INS_TABS=[['dash','لوحة القيادة'],['over','نظرة عامة'],['rate','معدل السحب'],['demand','الطلب'],['plan','التصنيع'],['stuck','الواقف'],['team','الفريق'],['health','صحة المخزون']];
+const INS_TABS=[['dash','لوحة القيادة'],['demand','الطلب'],['plan','التصنيع'],['stuck','الواقف'],['health','صحة المخزون'],['team','الفريق']];
 const INS_PER=[['1','النهارده'],['7','7 أيام'],['14','14 يوم'],['30','30 يوم'],['90','90 يوم'],['all','كل البيانات']];
 const shortDay=d=>d.slice(8,10)+'/'+d.slice(5,7);
 const shareP=(v,t)=>t?Math.round(v/t*100):0;
@@ -1924,11 +1989,12 @@ function heatmap(A){
 }
 
 function vInsights(){
-  const C=ctx(),A=anData(),T=UI.ins&&INS_TABS.some(t=>t[0]===UI.ins)?UI.ins:'over';
-  let h=top('التحليلات','قرارات مبنية على الطلب الفعلي: نصنّع إيه، إيه بيتباع، إيه واقف، ومين شغال.','<div class="seg" role="group" aria-label="الفترة">'+INS_PER.map(p=>'<button aria-pressed="'+((UI.insP||'all')===p[0])+'" data-a="insper" data-v="'+p[0]+'">'+p[1]+'</button>').join('')+'</div>');
+  if(UI.ins==='rate')UI.ins='plan';if(UI.ins==='over')UI.ins='dash';
+  const C=ctx(),A=anData(),T=UI.ins&&INS_TABS.some(t=>t[0]===UI.ins)?UI.ins:'dash';
+  let h=top('التحليلات','قرارات مبنية على الطلب الفعلي: نصنّع إيه، إيه بيتباع، إيه واقف، ومين شغال.',(['dash','demand','team'].indexOf(T)<0?'<span class="pill" data-tip="الصفحة دي لقطة من حالة المخزون والأوردرات دلوقتي، مش مرتبطة بفترة">لقطة دلوقتي</span>':'')+'<div class="seg" role="group" aria-label="الفترة"'+(['dash','demand','team'].indexOf(T)<0?' hidden':'')+'>'+INS_PER.map(p=>'<button aria-pressed="'+((UI.insP||'all')===p[0])+'" data-a="insper" data-v="'+p[0]+'">'+p[1]+'</button>').join('')+'</div>');
   h+='<div class="tabs" role="tablist">'+INS_TABS.map(t=>'<button role="tab" aria-selected="'+(T===t[0])+'" data-a="instab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
   if(A.nDays&&A.nDays<3&&(T==='over'||T==='demand'||T==='plan'))h+='<div class="msg warn" style="margin-bottom:14px">عندنا <b>'+A.nDays+' يوم</b> بيانات طلب بس. الأرقام دقيقة للأيام دي، بس مش كفاية نحدد اتجاه أو سرعة سحب مضمونة قبل 3 أيام.</div>';
-  h+=({dash:insDash,over:insOver,rate:insRate,demand:insDemand,plan:insPlan,stuck:insStuck,team:insTeam,health:insHealth})[T](A,C);
+  h+=({dash:insDash,over:insOver,rate:insRate,demand:insDemand2,plan:insPlan2,stuck:insStuck,team:insTeam,health:insHealth})[T](A,C);
   return h;
 }
 
@@ -2074,7 +2140,7 @@ function dashData(){
   let stockV=0,lossV=0;if(hasCosts)D.skus.forEach(k=>{stockV+=cost(k.m)*g(k.id,'READY');lossV+=cost(k.m)*(g(k.id,'SCRAP')+g(k.id,'LOST'))});
   return cache[P]={P,N,from,end,first,spanAll,hasPrev,M,PM,bk,lvl,step,hasCosts,top10,topBy,gov,open,blk,openV,blkV,oos,rdAll,rdOos,low,stockV,lossV,nowR};
 }
-function dDelta(cur,prev,has){if(!has||!prev)return '';const p=(cur-prev)/prev;return (p>=0?'▲ ':'▼ ')+Math.abs(Math.round(p*100))+'% عن الفترة اللي قبلها'}
+function dDelta(cur,prev,has){if(!has||!prev)return '';const p=(cur-prev)/prev;return (p>=0?'▲ ':'▼ ')+(Math.abs(p)>3?'>300':Math.abs(Math.round(p*100)))+'% عن الفترة اللي قبلها'}
 function lineChart(pts,o){
   const mob=innerWidth<=820,W=mob?400:(o.W||620),Hh=mob?240:230,L=54,R=16,T=14,B=30,n=pts.length,vals=pts.map(p=>p.v),mn=Math.min(0,...vals),mx=Math.max(1,...vals),rng=(mx-mn)||1;
   const X=i=>n===1?W-R:L+i*(W-L-R)/(n-1),Y=v=>T+(1-(v-mn)/rng)*(Hh-T-B);
@@ -2124,6 +2190,47 @@ function insDash(A,C){
   h+='<div class="grid g2">'+card('الطلب والشحن',flow,per)+card('مستوى المخزون الجاهز',stockC,'عبر الوقت')+'</div>';
   h+='<div class="grid g2" style="margin-top:16px">'+card('أعلى 10 أصناف '+(Dd.topBy==='ship'?'شحنًا':'طلبًا'),topC,per)+card('الأوردرات حسب المحافظة',govC,'عدد · قيمة')+'</div>';
   if(valC)h+='<div style="margin-top:16px">'+valC+'</div>';
+  return h;
+}
+
+/* ---------- v2: analytics questions in one place each ---------- */
+function insNoteList(A,C){const notes=insNotes(A,C);return '<div>'+notes.map(x=>'<div class="insn"><span class="ic '+x.k+'">'+(x.k==='crit'||x.k==='warn'?'!':x.k==='good'?'✓':'i')+'</span><span>'+x.t+'</span></div>').join('')+'</div>'}
+function insDemand2(A,C){
+  if(!A.o)return noData();
+  const nM=Object.keys(A.m).length,nS=Object.keys(A.sku).length,mxs=Math.max(1,...Object.values(A.s));
+  let h=strip([si('أوردرات مطلوبة',N(A.o),fmt(A.p)+' قطعة'),si('متوسط القطع في الأوردر',(A.p/A.o).toFixed(1),A.bk['1']+' أوردر قطعة واحدة'),si('موديلات بتتسحب',N(nM),'من '+MORDER.length),si('أصناف بتتسحب',N(nS),'من '+D.skus.length+' صنف'),si('اتشحن',N(A.done),shareP(A.done,A.o)+'% من المطلوب','good')]);
+  h+='<div class="grid split">'+card('أهم الملاحظات',insNoteList(A,C))+card('الطلب اليومي',trendChart(A))+'</div>';
+  h+='<div style="margin-top:16px">'+card('خريطة الطلب: الموديل × المقاس','<p class="muted" style="margin-bottom:10px;font-size:13px">كل خانة هي عدد القطع المطلوبة. اللون الأغمق يعني طلب أكتر.</p>'+heatmap(A),'أعلى 14 موديل')+'</div>';
+  h+='<div class="grid g2" style="margin-top:16px">'+card('حصة الموديلات من الطلب',modelBars(A,8),'أعلى 8 موديلات')+card('الألوان',topKeys(A.c,10).map(c=>hbar(sw(c)+' '+esc(c),A.c[c],A.c[topKeys(A.c,1)[0]],fmt(A.c[c])+' · '+shareP(A.c[c],A.p)+'%')).join(''),'أعلى 10')+'</div>';
+  h+='<div class="grid g2" style="margin-top:16px">'+card('المقاسات',Object.keys(A.s).sort((a,b)=>szi(a)-szi(b)).map(z=>hbar(z,A.s[z],mxs,fmt(A.s[z])+' · '+shareP(A.s[z],A.p)+'%')).join(''))+card('المحافظات',Object.keys(A.g).length?topKeys(A.g,10).map(g_=>hbar(esc(g_),A.g[g_],A.g[topKeys(A.g,1)[0]],fmt(A.g[g_])+' أوردر')).join(''):'<div class="empty">مفيش بيانات محافظات.</div>','أعلى 10')+'</div>';
+  const bk=A.bk,mxb=Math.max(...Object.values(bk),1);
+  h+='<div class="grid g2" style="margin-top:16px">'+card('حجم الأوردر','<p class="muted" style="margin-bottom:8px;font-size:13px">كام قطعة في الأوردر الواحد</p>'+['1','2','3-4','5+'].map(k=>hbar(k==='1'?'قطعة واحدة':k==='2'?'قطعتين':k+' قطع',bk[k],mxb,fmt(bk[k])+' · '+shareP(bk[k],A.o)+'%')).join('')+'<div style="margin-top:12px">'+Object.keys(A.ty).map(k=>hbar(esc(k),A.ty[k],A.o,fmt(A.ty[k])+' · '+shareP(A.ty[k],A.o)+'%',k==='استبدال'?'w':'g')).join('')+'</div>')+insKits(C)+'</div>';
+  return h;
+}
+function insPlan2(A,C){
+  const R=rateData(),PR=planRows(),L=UI.insL||'all',byM={};PR.forEach(r=>{(byM[SKU.get(r.id).m]||(byM[SKU.get(r.id).m]=[])).push(r)});
+  UI.insX=UI.insX||{};
+  const rows=R.rows.filter(r=>(r.rate>0||r.need>0||r.ready>0)&&(L==='all'||lineOf(r.m)===L)).sort((a,b)=>prioK(a.k)-prioK(b.k)||b.need-a.need||b.rate-a.rate);
+  const nCrit=R.rows.filter(r=>r.k==='crit').length,nWarn=R.rows.filter(r=>r.k==='warn').length,need=R.rows.reduce((a,r)=>a+r.need,0),cover=R.tot>0?R.totReady/R.tot:null;
+  const fw=n=>n==null?'—':(n>=99?'99+':n.toFixed(1)),pc=v=>v==null?'—':Math.round(v*100)+'%';
+  const arrow=t=>t==null?'<span class="muted">—</span>':(t>=0?'<span style="color:var(--good)">▲ ':'<span style="color:var(--crit)">▼ ')+(Math.abs(t)>3?'>300':Math.abs(Math.round(t*100)))+'%</span>';
+  let h=strip([si('اطلب تصنيع دلوقتي',N(nCrit),nWarn?nWarn+' كمان قربوا':'موديل',nCrit?'crit':nWarn?'warn':'good'),si('مقترح تصنيعه',N(need),'قطعة · لهدف '+R.tgt+' أسابيع',need?'warn':''),si('تغطية المخزون',fw(cover),'أسبوع بمعدل السحب'),si('معدل السحب',N(Math.round(R.tot)),'قطعة / أسبوع'),si('مهلة المصنع',N(R.lead),'أسبوع · مستوى الخدمة '+R.svc+'%','','go:config')]);
+  if(R.span<14)h+='<div class="msg warn" style="margin-bottom:14px">عندنا <b>'+R.span+' يوم</b> بيانات بس. المعدل الأسبوعي تقدير ومخزون الأمان ببديل بسيط. الاتجاه وثبات الطلب بيظهروا بعد 14 يوم.</div>';
+  h+='<div class="row sp" style="margin-bottom:12px"><div class="chips scrollx">'+[['all','الكل']].concat(LINE_ORDER.map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="insline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><button class="btn pri" data-a="copyplan">نسخ للمصنع</button></div>';
+  if(!rows.length)return h+'<div class="card"><div class="empty">مفيش موديلات'+(L!=='all'?' في '+L:'')+'.</div></div>';
+  const mk=((R.lead+(R.rows.length?R.rows.reduce((a,r)=>a+(r.rate>0?r.ss/r.rate:0),0)/Math.max(1,R.rows.filter(r=>r.rate>0).length):R.safe))/12*100).toFixed(1);
+  h+='<div class="tw"><table class="dt plt"><thead><tr><th>الموديل</th><th class="num">جاهز</th><th class="num">عند المصنع</th><th class="num">سحب/أسبوع</th><th class="num">الاتجاه</th><th>التغطية (أسبوع)</th><th class="num">نقطة الطلب</th><th class="num">يتصنّع</th><th>الحالة</th><th style="width:28px"></th></tr></thead><tbody>';
+  rows.forEach(r=>{const op=!!UI.insX[r.m],sk=(byM[r.m]||[]).slice().sort((a,b)=>(a.i.cls==='c'?0:1)-(b.i.cls==='c'?0:1)||skuSort(a.id,b.id));
+    h+='<tr class="mrow'+(op?' open':'')+'" data-a="plx" data-m="'+r.m+'" role="button" aria-expanded="'+op+'"><td><span class="row" style="flex-wrap:nowrap;gap:10px">'+thumb(r.m,30)+'<span><b class="mono">'+r.m+'</b> <span class="muted">'+esc(MODEL.get(r.m).name)+'</span></span></span></td><td class="num">'+N(r.ready)+'</td><td class="num">'+(r.fac?N(r.fac):'<span class="muted">0</span>')+'</td><td class="num">'+(r.rate>0?N(Math.round(r.rate)):'<span class="muted">—</span>')+'</td><td class="num">'+arrow(r.trend)+'</td>'
+     +'<td>'+(r.cover==null?'<span class="muted">—</span>':'<span class="cvr"><span class="rb m" style="--x:'+mk+'%">'+'<i class="'+(r.k==='crit'?'c':r.k==='warn'?'w':'g')+'" style="width:'+Math.max(2,Math.min(100,r.cover/12*100)).toFixed(1)+'%"></i><b></b></span><span class="n">'+fw(r.cover)+'</span></span>')+'</td><td class="num">'+(r.rate>0?N(Math.round(r.rop)):'—')+'</td><td class="num">'+(r.need?'<span class="pill warn">'+fmt(r.need)+'</span>':'<span class="muted">0</span>')+'</td><td>'+(r.label==='—'?'':sd(r.k)+'<span class="sdt">'+esc(r.label)+'</span>')+'</td><td class="chev" aria-hidden="true">‹</td></tr>';
+    if(op)h+='<tr class="mopen"><td colspan="10">'+(sk.length?'<table class="skt"><thead><tr><th>الصنف</th><th class="num">جاهز</th><th class="num">طلب مفتوح</th><th class="num">راجع من المصنع</th><th class="num">يتصنّع</th><th></th></tr></thead><tbody>'+sk.map(x=>'<tr data-a="sku" data-sku="'+x.id+'"><td>'+sw(SKU.get(x.id).c)+' '+esc(SKU.get(x.id).c)+' · '+esc(SKU.get(x.id).s)+'</td><td class="num">'+N(x.i.R)+'</td><td class="num">'+N(x.i.dm)+'</td><td class="num">'+N(x.pend)+'</td><td class="num"><b class="n">'+fmt(x.q)+'</b></td><td>'+(x.i.cls==='c'?pill('crit','حرج'):pill('warn','قرب'))+'</td></tr>').join('')+'</tbody></table>':'<div class="muted" style="padding:6px 2px">مفيش أصناف محتاجة تصنيع في الموديل ده دلوقتي.</div>')+'</td></tr>';
+  });
+  h+='</tbody></table></div><p class="muted" style="margin:8px 0 0;font-size:12px">الخط الأسود = مهلة المصنع + متوسط الأمان. المقترح = اللي يوصّل كل صنف لـ '+R.tgt+' أسبوع سحب بعد المهلة والأمان وخصم الطلب المفتوح، وده اقتراح مش أمر تصنيع.</p>';
+  const RH=insRate(),pick=t=>{const m=RH.match(new RegExp('<section class="card[^"]*">\\s*<h2>'+t+'[\\s\\S]*?<\\/section>'));return m?m[0]:''};
+  const wk=pick('السحب الأسبوعي'),cv=pick('التغطية بالأسابيع'),sth=pick('Sell-through'),fm=(RH.match(/<details class="dd"[\s\S]*?<\/details>/)||[''])[0];
+  if(wk)h+='<div style="margin-top:16px">'+wk+'</div>';
+  if(cv||sth)h+='<div class="grid g2" style="margin-top:16px">'+cv+sth+'</div>';
+  if(fm)h+='<div style="margin-top:16px">'+fm+'</div>';
   return h;
 }
 
@@ -2420,6 +2527,7 @@ const ACT={
   flow:el=>{UI.sheet={kind:'flow',w:el.dataset.w};render()},
   state:el=>{UI.sheet={kind:'state',l:el.dataset.l};render()},
   more:()=>{UI.sheet={kind:'more'};render()},
+  plx:el=>{UI.insX=UI.insX||{};UI.insX[el.dataset.m]=!UI.insX[el.dataset.m];render()},
   ldoc:el=>{const L=UI.led;L.open=L.open||{};L.open[el.dataset.k]=!L.open[el.dataset.k];render()},
   ldmore:()=>{UI.led.nd=(UI.led.nd||10)+10;render()},
   cfgtab:el=>{UI.cfgTab=el.dataset.v;render()},

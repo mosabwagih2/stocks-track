@@ -139,5 +139,75 @@ css2=r"""<style>
 i=s.index('<div id="app"></div>')
 s=s[:i]+css2+s[i:]
 
+# ================= TODAY + ANALYTICS =================
+ring_js="""function ring(parts,total,size){const r=48,c=2*Math.PI*r;let off=0;
+  return '<svg viewBox="0 0 120 120" width="'+size+'" height="'+size+'" aria-hidden="true"><circle cx="60" cy="60" r="'+r+'" fill="none" stroke="var(--grid)" stroke-width="12"/>'+parts.map(p=>{const len=total?p[0]/total*c:0,sv='<circle cx="60" cy="60" r="'+r+'" fill="none" stroke="'+p[1]+'" stroke-width="12" stroke-dasharray="'+len.toFixed(2)+' '+(c-len).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'" transform="rotate(-90 60 60)"/>';off+=len;return len>0?sv:''}).join('')+'</svg>'}
+"""
+a=s.index("function vToday(){");b=s.index("\n}\n",a)+3
+orig=s[a:b]
+pre=orig[:orig.index("  h+='<div class=\"stack\">';")]
+body=(H/'redesign_today_body.js').read_text(encoding='utf-8')
+s=s[:a]+ring_js+pre+body+"}\n"+s[b:]
+ins_before("function insOver(A,C){",(H/'redesign_analytics.js').read_text(encoding='utf-8')+"\n")
+import re
+rep_tabs=re.search(r"const INS_TABS=\[[^\n]*\];",s)
+assert rep_tabs
+s=s.replace(rep_tabs.group(0),"const INS_TABS=[['dash','لوحة القيادة'],['demand','الطلب'],['plan','التصنيع'],['stuck','الواقف'],['health','صحة المخزون'],['team','الفريق']];")
+rep("demand:insDemand,plan:insPlan,","demand:insDemand2,plan:insPlan2,")
+rep("function vInsights(){\n  const C=ctx()","function vInsights(){\n  if(UI.ins==='rate')UI.ins='plan';if(UI.ins==='over')UI.ins='dash';\n  const C=ctx()")
+rep("INS_TABS.some(t=>t[0]===UI.ins)?UI.ins:'over'","INS_TABS.some(t=>t[0]===UI.ins)?UI.ins:'dash'")
+rep("""'<div class="seg" role="group" aria-label="الفترة">'+INS_PER.map(""","""(['dash','demand','team'].indexOf(T)<0?'<span class="pill" data-tip="الصفحة دي لقطة من حالة المخزون والأوردرات دلوقتي، مش مرتبطة بفترة">لقطة دلوقتي</span>':'')+'<div class="seg" role="group" aria-label="الفترة"'+(['dash','demand','team'].indexOf(T)<0?' hidden':'')+'>'+INS_PER.map(""")
+rep("  more:()=>{UI.sheet={kind:'more'};render()},","  more:()=>{UI.sheet={kind:'more'};render()},\n  plx:el=>{UI.insX=UI.insX||{};UI.insX[el.dataset.m]=!UI.insX[el.dataset.m];render()},")
+css3=r"""<style>
+/* ----- today: hero ----- */
+.hero{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(240px,300px);gap:22px;align-items:center;padding:20px 22px}
+.rwrap{position:relative;width:128px;height:128px}
+.rc{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.rc b{font:600 26px/1 var(--f-mono)}.rc small{color:var(--muted);font-size:12px}
+.hhead{font:500 20px/1.35 var(--f-disp)}.hhead b{font-weight:600}
+.hlegend{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.hl{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--surface);cursor:pointer;font-size:13px}
+.hl:hover:not([disabled]){border-color:var(--accent);background:var(--lav)}.hl[disabled]{opacity:.5;cursor:default}
+.hl .dot{width:9px;height:9px}
+.hside{display:grid;gap:10px;border-inline-start:1px solid var(--line);padding-inline-start:20px}
+.hmoney{display:grid;gap:6px}
+.hmoney>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.hmoney small{color:var(--muted)}.hmoney b{font:600 15px var(--f-mono)}
+.spk{display:flex;align-items:flex-end;gap:4px;height:38px;direction:ltr}
+.spk .b{flex:1;display:flex;align-items:flex-end;height:100%}
+.spk .b i{display:block;width:100%;border-radius:4px 4px 1px 1px;background:var(--line2)}
+.spk .b.now i{background:var(--c-ready)}
+.tsplit{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.t3{align-items:start}
+.tl{display:grid}
+.tli{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--grid)}
+.tli:last-child{border-bottom:0}
+.tb{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--lav);color:var(--accent)}
+.tb svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tb.good{background:var(--good-bg);color:var(--good)}.tb.info{background:var(--info-bg);color:var(--info)}.tb.warn{background:var(--warn-bg);color:var(--warn)}.tb.lost{background:var(--lost-bg);color:var(--lost)}
+.tt{display:grid;gap:1px;min-width:0}.tt b{font-weight:600}.tt small{font-size:12px}
+.tq{font-size:14px}
+.emp{display:grid;gap:5px;padding:8px 0;border-bottom:1px solid var(--grid)}.emp:last-of-type{border-bottom:0}
+.col .b .lb{font-size:10px}.col .b:not(:nth-child(3n+1)):not(:last-child) .lb{visibility:hidden}
+/* ----- analytics: plan table ----- */
+.rb.m{position:relative;overflow:visible;width:90px}
+.rb.m b{position:absolute;inset-inline-start:var(--x);top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.55;border-radius:2px}
+.plt .mrow{cursor:pointer}.plt .chev{color:var(--muted);text-align:center;transition:transform .2s}.plt .mrow.open .chev{transform:rotate(-90deg);color:var(--accent)}.plt .mrow.open>td{background:var(--lav)}
+.plt>tbody>tr.mopen>td{background:var(--surface);padding:8px 14px 14px}
+.skt{width:100%;border-collapse:collapse}.skt th{font-size:12px;color:var(--muted);font-weight:600;padding:6px 10px;text-align:start;border-bottom:1px solid var(--line)}.skt td{padding:7px 10px;border-bottom:1px solid var(--grid)}.skt tr[data-a]{cursor:pointer}.skt tr[data-a]:hover td{background:var(--lav)}
+.skt td.num,.skt th.num{text-align:center}
+@media (max-width:1000px){.hero{grid-template-columns:auto minmax(0,1fr)}.hside{grid-column:1/-1;border-inline-start:0;padding-inline-start:0;border-top:1px solid var(--line);padding-top:14px}.tsplit{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:820px){
+  .hero{grid-template-columns:1fr;justify-items:center;text-align:center;padding:16px}
+  .hhead{font-size:17px}.hlegend{justify-content:center;gap:6px}.hl{padding:5px 10px;font-size:12.5px}.hside{width:100%}
+  .hero{gap:10px;padding:14px}.rwrap{width:96px;height:96px}.rwrap svg{width:100%;height:100%}.rc b{font-size:21px}.hmoney b{font-size:14px}
+  .plt th:nth-child(3),.plt td:nth-child(3),.plt th:nth-child(5),.plt td:nth-child(5),.plt th:nth-child(7),.plt td:nth-child(7){display:none}
+  .plt tr.mopen,.plt tr.mopen>td{display:block;width:100%}
+}
+</style>
+"""
+i=s.index('<div id="app"></div>')
+s=s[:i]+css3+s[i:]
+
 (T/'base_v2.html').write_text(s,encoding='utf-8')
 print('5 ok')
