@@ -5,6 +5,8 @@ import { useDerived } from '@/hooks/data';
 import { cn } from '@/lib/cn';
 import { repo } from '@/data';
 import { qty } from '@/domain/ledger';
+import { BRAND } from '@/lib/brand';
+import logoLight from '@/assets/femini-logo-light.png';
 
 const NAV = [
   { to: '/', label: 'اليوم', icon: LayoutGrid, end: true },
@@ -33,10 +35,17 @@ export default function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-screen md:grid-cols-[224px_minmax(0,1fr)]">
       <nav aria-label="التنقل" className="fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-line2 bg-rail px-1.5 pt-1.5 pb-safe md:sticky md:inset-auto md:top-0 md:h-screen md:flex-col md:gap-1 md:overflow-y-auto md:border-0 md:p-3">
+        {BRAND ? (
+          <div className="mb-3 hidden flex-col items-center gap-1 px-2.5 pt-3 pb-2 md:flex">
+            <img src={logoLight} alt="Fémini" className="w-[132px]" />
+            <small className="text-[11px] tracking-wide text-rail-mute">Stock · مخزن</small>
+          </div>
+        ) : (
         <div className="mb-3 hidden items-center gap-2.5 px-2.5 pt-2 md:flex">
           <i className="grid size-8 place-items-center rounded-[10px] bg-linear-to-br from-[#9a7fe0] to-[#5e4394] font-semibold text-white not-italic">F</i>
           <div className="text-on-rail"><b className="text-xl font-semibold">Fémini</b><small className="block text-[11px] leading-tight text-rail-mute">Stock · مخزن</small></div>
         </div>
+        )}
         {NAV.map(({ to, label, icon: Icon, ...rest }) => (
           <NavLink key={to} to={to} end={'end' in rest}
             className={({ isActive }) => cn('relative flex min-w-[62px] flex-1 flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 text-[11px] font-medium md:flex-none md:flex-row md:gap-3 md:px-3 md:py-2.5 md:text-sm', isActive ? 'bg-white/12 text-white' : 'text-rail-mute hover:bg-white/7 hover:text-on-rail')}>

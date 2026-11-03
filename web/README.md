@@ -44,4 +44,6 @@ Done: Today (tiles with drill-down, action queue), Orders (filters, search, pick
 
 Next: returns, stocktake and shop transfers (the single-file prototype in `apps/edition-3` has them), costs and prices, roles (two levels) with Supabase Auth, installable PWA manifest and offline queue.
 
+Brand variant: `npm run build:brand` (or `build:single:brand`) builds the same app with the Fémini logo in the sidebar/favicon and a palette derived from the logo color (#43316f). It only adds `src/brand.css` (scoped to `html[data-brand]`) and the logo files in `src/assets/`, so the default build is unchanged.
+
 Fonts load from Google Fonts (`index.html`); self-host them for an offline deployment.
