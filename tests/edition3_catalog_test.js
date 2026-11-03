@@ -56,6 +56,6 @@ const { chromium } = require('playwright');
   await p.reload();await p.waitForSelector('.shell');await p.click('[data-a=go][data-t=stock]');
   ok('catalog survives reload',(await cat()).skus.length>=9&&(await p.evaluate(()=>__F.S().cat.names.TST1))==='اختبار تاني');
   await p.setViewportSize({width:400,height:800});await p.click('.top [data-a=catedit]');await p.waitForSelector('.sheet');
-  ok('mobile no overflow',(await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth))<=0);await p.screenshot({path:'cat_m.png'});
+  ok('mobile no overflow',(await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth))<=0);await p.screenshot({path:require('os').tmpdir()+'/cat_m.png'});
   console.log(pass+' passed, '+fail+' failed');console.log(errs.join('\n')||'ERRORS: none');await b.close();
 })();

@@ -9,13 +9,13 @@ const { chromium } = require('playwright');
   await p.click('[data-a=go][data-t=insights]');
   const txt=async s=>((await p.textContent(s||'#app'))||'').replace(/\s+/g,' ');
   for(const [v,name,chk] of [['over','over',/أهم الملاحظات/],['demand','demand',/خريطة الطلب/],['plan','plan',/اللي نصنّعه/],['stuck','stuck',/الأصناف اللي بتعطّل/],['team','team',/عبدالله/],['health','health',/اتزان الحركات/]]){
-    await p.click(`[data-a=instab][data-v=${v}]`);await p.waitForTimeout(120);ok('tab '+v,chk.test(await txt()));await p.screenshot({path:'ins_'+name+'.png',fullPage:true});
+    await p.click(`[data-a=instab][data-v=${v}]`);await p.waitForTimeout(120);ok('tab '+v,chk.test(await txt()));await p.screenshot({path:require('os').tmpdir()+'/ins_'+name+'.png',fullPage:true});
   }
   await p.click('[data-a=instab][data-v=plan]');await p.click('[data-a=insline][data-v=برا]');ok('plan line filter',!/PAN3/.test(await txt('.stack'))||true);
   await p.click('[data-a=insper][data-v="1"]');ok('period 1 (today) – no orders today since fixed day 2026-11-02 has pickups',true);
   await p.click('[data-a=insper][data-v=all]');
   await p.click('[data-a=instab][data-v=over]');await p.click('.kpi[data-a=instab][data-v=stuck]');ok('tile navigates to tab',/الأصناف اللي بتعطّل/.test(await txt()));
   await p.setViewportSize({width:400,height:800});for(const v of ['over','demand','plan','stuck','team','health']){await p.click(`[data-a=instab][data-v=${v}]`);await p.waitForTimeout(80);const ow=await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);if(ow>0)ok('mobile overflow '+v+' '+ow,false)}
-  await p.click('[data-a=instab][data-v=over]');await p.screenshot({path:'ins_m_over.png'});
+  await p.click('[data-a=instab][data-v=over]');await p.screenshot({path:require('os').tmpdir()+'/ins_m_over.png'});
   ok('mobile ok',true);console.log(pass+' passed, '+fail+' failed');console.log(errs.join('\n')||'ERRORS: none');await b.close();
 })();

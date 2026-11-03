@@ -20,7 +20,7 @@ const { chromium } = require('playwright');
   ok('files above settings',nav.indexOf('الملفات')===nav.length-2);
   await p.click('[data-a=go][data-t=files]');ok('where-saved note',/فين بتتحفظ ملفاتي/.test(await txt()));
   ok('pickup files listed (2)',await p.locator('tbody tr').count()===2);
-  await p.screenshot({path:'fl_pk.png'});
+  await p.screenshot({path:require('os').tmpdir()+'/fl_pk.png'});
   // edit pickup
   await p.click('[data-a=pkedit] >> nth=0');await p.waitForSelector('.sheet');
   await p.fill('input[data-f=label]','بيك أب معدّل');await p.fill('input[data-f=date]','2026-11-02');
@@ -47,7 +47,7 @@ const { chromium } = require('playwright');
   ok('done doc shows photo + change control',await p.locator('.sum img').count()===1&&await p.locator('.sum input[type=file]').count()===1);
   await p.waitForTimeout(400);await p.reload();await p.waitForSelector('.shell');await p.click('[data-a=go][data-t=files]');await p.click('[data-a=fltab][data-v=ph]');await p.waitForTimeout(500);
   ok('photo survives reload (IndexedDB)',await p.locator('.grid.g3 img').count()===1);
-  await p.screenshot({path:'fl_ph.png'});
+  await p.screenshot({path:require('os').tmpdir()+'/fl_ph.png'});
   await p.setViewportSize({width:400,height:800});for(const tb of ['files','today']){await p.click('[data-a=go][data-t='+tb+']');await p.waitForTimeout(80);if(await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)>0)ok('mobile overflow '+tb,false)}
   console.log(pass+' passed, '+fail+' failed');console.log(errs.join('\n')||'ERRORS: none');await b.close();
 })();

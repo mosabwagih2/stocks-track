@@ -48,6 +48,6 @@ const { chromium } = require('playwright');
   await p.waitForTimeout(400);await p.reload();await p.waitForSelector('.shell');await p.click('[data-a=go][data-t=files]');await p.click('[data-a=fltab][data-v=cx]');await p.waitForTimeout(500);
   ok('cancel photos survive reload',await p.locator('.grid.g3 img').count()===2);
   await p.setViewportSize({width:400,height:800});await p.click('[data-a=go][data-t=orders]');await p.click('.top [data-a=cxopen]');
-  ok('mobile no overflow',(await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth))<=0);await p.screenshot({path:'cx_m.png'});
+  ok('mobile no overflow',(await p.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth))<=0);await p.screenshot({path:require('os').tmpdir()+'/cx_m.png'});
   console.log(pass+' passed, '+fail+' failed');console.log(errs.join('\n')||'ERRORS: none');await b.close();
 })();

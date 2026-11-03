@@ -1,0 +1,6 @@
+*.png
+!docs/**/*.png
+node_modules/
+dist/
+.env
+.env.local
