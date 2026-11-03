@@ -5,6 +5,7 @@ import type { Derived } from '@/hooks/data';
 import type { Loc } from '@/domain/types';
 import { qty } from '@/domain/ledger';
 import { LOC_AR } from '@/domain/constants';
+import { Thumb } from './Thumb';
 
 /** model -> color -> size selectors (three separate fields, never a typed code) */
 export function VariantPicker({ d, onAdd, from }: { d: Derived; onAdd: (sku: string, q: number) => void; from?: Loc }) {
@@ -24,7 +25,7 @@ export function VariantPicker({ d, onAdd, from }: { d: Derived; onAdd: (sku: str
         <Field label="الكمية"><input type="number" min={1} value={q} onChange={(e) => setQ(Math.max(1, Math.floor(+e.target.value || 1)))} className="w-20" /></Field>
         <Button variant="primary" disabled={!sku} onClick={() => sku && onAdd(sku.id, q)}><Plus className="size-4" /> إضافة</Button>
       </div>
-      {sku && <p className="text-xs text-muted">{from ? `المتاح في ${LOC_AR[from]}` : 'جاهز حاليًا'}: <b className="font-mono">{qty(d.snap.balances, sku.id, from ?? 'READY')}</b></p>}
+      {sku && <p className="flex items-center gap-2 text-xs text-muted"><Thumb model={d.modelMap.get(model)} size={40} />{from ? `المتاح في ${LOC_AR[from]}` : 'جاهز حاليًا'}: <b className="font-mono">{qty(d.snap.balances, sku.id, from ?? 'READY')}</b></p>}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Loc, Snapshot } from '@/domain/types';
+import type { Loc, Snapshot, SupplyRule } from '@/domain/types';
 import type { ParsedOrder } from '@/domain/pickup';
 
 export interface ShipResult { doc: string; shipped: number; pieces: number; negative: { sku: string; ready: number }[] }
@@ -18,6 +18,19 @@ export interface Repo {
   undoSupplyMove(id: number): Promise<void>;
   /** a displayable URL for an attachment path, or null when the file is not available */
   photoUrl(path: string): Promise<string | null>;
+  // ---- product images, catalog ----
+  setModelImage(code: string, file: File | null): Promise<void>;
+  catalogNewModel(i: { code: string; name: string; colors: string[]; sizes: string[]; minAlert: number }): Promise<{ model: string; skus: number }>;
+  catalogEditModel(i: { code: string; name: string; add: { color: string; size: string }[]; remove: string[] }): Promise<{ added: number; removed: number }>;
+  catalogRemoveModel(code: string): Promise<number>;
+  catalogRestore(i: { model: string; sku?: string }): Promise<number>;
+  // ---- supplies administration ----
+  supplySave(i: { id?: string; name: string; unit: string; pack: number; packName: string; minAlert: number; note: string; rule: SupplyRule; open: number }): Promise<string>;
+  supplyArchive(id: string, archived: boolean): Promise<void>;
+  // ---- pickup / shipment files ----
+  pickupUpdate(i: { id: string; label: string; date: string; channel: string }): Promise<void>;
+  pickupDelete(id: string): Promise<number>;
+  renameShipmentEmployee(doc: string, name: string): Promise<number>;
   resetDemo?(): Promise<void>;
 }
 export const ACTOR = 'مصعب';

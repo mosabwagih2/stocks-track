@@ -10,6 +10,7 @@ const Operations = lazy(() => import('./pages/Operations'));
 const Supplies = lazy(() => import('./pages/Supplies'));
 const Insights = lazy(() => import('./pages/Insights'));
 const Ledger = lazy(() => import('./pages/Ledger'));
+const Files = lazy(() => import('./pages/Files'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/insights" element={<Insights />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/ledger" element={<Ledger />} />
+          <Route path="/files" element={<Files />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

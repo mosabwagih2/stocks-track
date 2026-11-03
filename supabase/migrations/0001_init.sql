@@ -262,6 +262,8 @@ begin
   if v_n = 0 then raise exception 'none of the orders is open'; end if;
 
   select coalesce(sum(array_length(lines,1)),0) into v_pcs from orders where ship_doc = v_doc;
+  insert into docs(no,type,doc_date,by,hdr,lines)
+  values (v_doc,'SCN',v_date,btrim(p_employee),jsonb_build_object('employee',btrim(p_employee),'source',coalesce(p_source,''),'orders',v_n,'pieces',v_pcs),'[]'::jsonb);
 
   -- supplies: one aggregated entry per item for the whole file
   insert into supply_log(log_date,item,qty,kind,why,doc,by)
@@ -288,6 +290,7 @@ begin
   get diagnostics v_n = row_count;
   if v_n = 0 then raise exception 'unknown shipment document'; end if;
   update orders set status='open', shipped_by=null, shipped_at=null, ship_doc=null where ship_doc = p_doc;
+  update docs set status = 'reversed' where no = p_doc and type = 'SCN';
   insert into supply_log(log_date,item,qty,kind,why,doc,by,of_id)
   select cairo_today(), item, -qty, 'rev', 'reverse ' || p_doc, v_rev, p_by, id
   from supply_log where doc = p_doc and kind = 'auto' and not reversed;

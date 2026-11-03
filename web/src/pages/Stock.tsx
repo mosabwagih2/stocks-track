@@ -1,8 +1,10 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { useDerived, useAct } from '@/hooks/data';
 import { PageHead } from '@/components/PageHead';
-import { Alert, Button, Card, Chip, Dot, Empty, Field, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from '@/components/ui';
+import { Button, Card, Chip, Dot, Empty, Field, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from '@/components/ui';
 import { ErrorBox } from '@/components/shared';
+import { ModelImageSheet, Thumb } from '@/components/Thumb';
+import { ArchivedList, EditCatalogSheet, NewModelSheet } from '@/components/CatalogSheets';
 import { Spinner } from '@/components/Spinner';
 import { LOCS, LOC_AR, LOC_COLOR, LOC_HINT } from '@/domain/constants';
 import { locTotal, qty, totalOwned } from '@/domain/ledger';
@@ -80,6 +82,7 @@ function SkuSheet({ d, sku, onClose }: { d: Derived; sku: Sku; onClose: () => vo
   const have = qty(b, sku.id, from);
   return (
     <Sheet title={skuLabel(d.skuMap, sku.id)} onClose={onClose}>
+      <div className="flex items-center gap-3"><Thumb model={d.modelMap.get(sku.model)} size={72} /><div><b>{sku.model} · {d.modelMap.get(sku.model)?.name}</b><div className="text-muted"><Swatch c={sku.color} /> {sku.color} · مقاس {sku.size}</div></div></div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="جاهز للبيع" value={fmt(info.ready)} tone={info.ready < 0 ? 'crit' : undefined} /><Kpi label="مطلوب (مفتوح)" value={fmt(info.demand)} tone={info.demand > info.ready ? 'crit' : undefined} />
         <Kpi label="سرعة السحب" value={info.velocity ? info.velocity.toFixed(1) : '—'} sub="قطعة / يوم" /><Kpi label="يغطّي" value={info.cover != null ? Math.floor(info.cover) : '—'} sub="يوم" />
@@ -108,8 +111,8 @@ export default function Stock() {
   const { d, isLoading, error } = useDerived();
   const [view, setView] = useState<'all' | 'one' | 'table'>('all'); const [loc, setLoc] = useState<Loc>('READY');
   const [model, setModel] = useState('BR2'); const [line, setLine] = useState('all'); const [sort, setSort] = useState<'pull' | 'alpha'>('pull');
-  const [q, setQ] = useState(''); const dq = useDeferredValue(q); const [flt, setFlt] = useState<'all' | 'low' | 'neg' | 'dem'>('all'); const [sku, setSku] = useState<Sku | null>(null);
-  const [list, setList] = useState(true);
+  const [q, setQ] = useState(''); const dq = useDeferredValue(q); const [flt, setFlt] = useState<'all' | 'low' | 'neg' | 'dem' | 'arch'>('all'); const [sku, setSku] = useState<Sku | null>(null);
+  const [list, setList] = useState(true); const [imgModel, setImgModel] = useState<string | null>(null); const [catSheet, setCatSheet] = useState<'new' | 'edit' | null>(null);
   const order = useMemo(() => (d ? (sort === 'pull' ? d.modelsByPull : [...d.snap.models].map((m) => m.code).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))) : []), [d, sort]);
   const rows = useMemo(() => {
     if (!d || view !== 'table') return [];
@@ -128,7 +131,10 @@ export default function Stock() {
   const shown = order.filter((c) => line === 'all' || lineOf(c) === line);
   const head = (c: string) => (
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <div><h2 className="font-display text-base font-semibold">{mName(c)}</h2><span className="text-muted">{LOC_AR[loc]}: <b className="font-mono">{fmt(modelSum(c, loc))}</b> قطعة · طلب مفتوح <span className="font-mono">{fmt(modelDemand(c))}</span></span></div>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => setImgModel(c)} aria-label={`صورة ${c}`} title="عرض الصورة أو تغييرها" className="relative"><Thumb model={d.modelMap.get(c)} size={64} /><span className="absolute -bottom-1 -end-1 grid size-[18px] place-items-center rounded-full bg-accent text-[11px] text-on-accent">✎</span></button>
+        <div><h2 className="font-display text-base font-semibold">{mName(c)}</h2><span className="text-muted">{LOC_AR[loc]}: <b className="font-mono">{fmt(modelSum(c, loc))}</b> قطعة · طلب مفتوح <span className="font-mono">{fmt(modelDemand(c))}</span></span></div>
+      </div>
       <Pill>{d.pull[c] ? `المسحوب ${fmt(d.pull[c])} قطعة` : 'لا يوجد سحب'}</Pill>
     </div>
   );
@@ -136,6 +142,8 @@ export default function Stock() {
     <>
       <PageHead title="المخزون" sub="كل صنف (موديل × لون × مقاس) وحالته. اضغط على أي خانة لعرض تفاصيلها.">
         <Seg value={view} onChange={setView} options={[['all', 'كل الموديلات'], ['one', 'موديل واحد'], ['table', 'كل الأصناف']]} label="العرض" />
+        <Button onClick={() => setCatSheet('edit')}>تعديل</Button>
+        <Button variant="primary" onClick={() => setCatSheet('new')}>+ موديل جديد</Button>
       </PageHead>
       <div className="mb-3 flex flex-wrap gap-1.5">
         {LOCS.map((l) => <Chip key={l} pressed={loc === l} onClick={() => setLoc(l)}><Dot className={LOC_COLOR[l]} />{LOC_AR[l]} <span className="font-mono text-xs opacity-75">{fmt(locTotal(d.snap.balances, l))}</span></Chip>)}
@@ -143,18 +151,20 @@ export default function Stock() {
       {view === 'table' ? (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            {([['all', 'الكل'], ['low', 'على وشك النفاد'], ['neg', 'سالب'], ['dem', 'عليه طلب مفتوح']] as const).map(([v, l]) => <Chip key={v} pressed={flt === v} onClick={() => setFlt(v)}>{l}</Chip>)}
+            {([['all', 'الكل'], ['low', 'على وشك النفاد'], ['neg', 'سالب'], ['dem', 'عليه طلب مفتوح'], ['arch', `مؤرشف (${d.snap.archivedSkus.length})`]] as const).map(([v, l]) => <Chip key={v} pressed={flt === v} onClick={() => setFlt(v)}>{l}</Chip>)}
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث: BR2 احمر L" className="min-w-52 max-w-xs flex-1" aria-label="بحث" />
           </div>
+          {flt === 'arch' ? <ArchivedList d={d} /> : (
           <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'جاهز', 'هالك نظافة', 'عند المصنع', 'مفقود', 'طلب مفتوح', 'يغطّي (يوم)', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{rows.slice(0, 200).map((s) => { const c = cellInfo(s, d.snap.balances, d.demand, d.velocity, d.velocityOK, 14); return (
               <tr key={s.id} className="cursor-pointer hover:bg-lav" onClick={() => setSku(s)}>
-                <td className={td}><Swatch c={s.color} /> <b className="font-mono">{s.model}</b> {s.color} · {s.size}</td><td className={td + ' font-mono'}>{fmt(c.ready)}</td>
+                <td className={td}><Thumb model={d.modelMap.get(s.model)} size={26} className="me-1.5" /><Swatch c={s.color} /> <b className="font-mono">{s.model}</b> {s.color} · {s.size}</td><td className={td + ' font-mono'}>{fmt(c.ready)}</td>
                 <td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'DIRTY')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'FACTORY')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'LOST')}</td>
                 <td className={td + ' font-mono'}>{c.demand}</td><td className={td + ' font-mono'}>{c.cover != null ? Math.floor(c.cover) : '—'}</td>
                 <td className={td}>{c.ready < 0 ? <Pill tone="crit">سالب</Pill> : c.level === 'crit' ? <Pill tone="crit">سينفد</Pill> : c.level === 'warn' ? <Pill tone="warn">منخفض</Pill> : null}</td></tr>); })}
               {!rows.length && <tr><td colSpan={8}><Empty>لا توجد أصناف مطابقة للفلتر.</Empty></td></tr>}</tbody></table></TableWrap>
-          {rows.length > 200 && <p className="mt-2 text-muted">أول 200 من {fmt(rows.length)}. ضيّق نطاق البحث.</p>}
+          )}
+          {flt !== 'arch' && rows.length > 200 && <p className="mt-2 text-muted">أول 200 من {fmt(rows.length)}. ضيّق نطاق البحث.</p>}
         </>
       ) : (
         <>
@@ -173,7 +183,7 @@ export default function Stock() {
                     <div key={l}><div className="px-2.5 pt-2.5 pb-1 text-[11px] font-bold tracking-wider text-muted">{l}</div>
                       {order.filter((c) => lineOf(c) === l).map((c) => (
                         <button key={c} type="button" aria-current={c === model} onClick={() => setModel(c)} className={cn('grid w-full grid-cols-[1fr_auto] items-center gap-2 rounded-xl px-2.5 py-2 text-start', c === model ? 'bg-ink text-page dark:bg-accent dark:text-on-accent' : 'hover:bg-lav')}>
-                          <span><b className="font-mono text-[13px]">{c}</b> <small className="opacity-70">{d.modelMap.get(c)?.name}</small></span><span className="font-mono text-sm">{fmt(modelSum(c, loc))}</span>
+                          <span className="flex items-center gap-2"><Thumb model={d.modelMap.get(c)} size={30} /><span><b className="font-mono text-[13px]">{c}</b> <small className="opacity-70">{d.modelMap.get(c)?.name}</small></span></span><span className="font-mono text-sm">{fmt(modelSum(c, loc))}</span>
                         </button>))}
                     </div>))}
                 </nav>
@@ -192,7 +202,9 @@ export default function Stock() {
         </>
       )}
       {sku && <SkuSheet d={d} sku={sku} onClose={() => setSku(null)} />}
-      <Alert className="mt-6">تتم إضافة وتعديل الموديلات والأصناف (الكتالوج) حاليًا من جداول <span className="font-mono">models / skus</span> في Supabase، وستتوفر شاشتها في الخطوة التالية.</Alert>
+      {catSheet === 'new' && <NewModelSheet d={d} onClose={() => setCatSheet(null)} onCreated={(c) => { setModel(c); setView('one'); }} />}
+      {catSheet === 'edit' && <EditCatalogSheet d={d} initial={view === 'one' && d.modelMap.has(model) ? model : order[0]} onClose={() => setCatSheet(null)} />}
+      {imgModel && d.modelMap.get(imgModel) && <ModelImageSheet model={d.modelMap.get(imgModel)!} onClose={() => setImgModel(null)} />}
     </>
   );
 }

@@ -1,37 +1,31 @@
 @import "tailwindcss";
-@import "@fontsource/ibm-plex-sans-arabic/400.css";
-@import "@fontsource/ibm-plex-sans-arabic/500.css";
-@import "@fontsource/ibm-plex-sans-arabic/600.css";
-@import "@fontsource/ibm-plex-sans-arabic/700.css";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/500.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Neutral theme (zinc scale). Semantic status colors stay separate from the accent. */
+/* Neutral surfaces (faint violet tint) + the Fémini purple as the only accent. Signal colors are one pastel family. */
 :root {
-  --page: #fafafa; --surface: #ffffff; --lav: #f4f4f5; --ink: #18181b; --accent: #18181b; --on-accent: #fafafa;
-  --muted: #71717a; --line: #e4e4e7; --line2: #d4d4d8; --grid: #f4f4f5; --rail: #18181b; --on-rail: #fafafa; --rail-mute: #a1a1aa;
-  --crit: #b42318; --crit-bg: #fef3f2; --crit-line: #fecdca; --warn: #93370d; --warn-bg: #fffaeb; --warn-line: #fedf89;
-  --good: #067647; --good-bg: #ecfdf3; --good-line: #abefc6; --info: #175cd3; --info-bg: #eff8ff; --info-line: #b2ddff; --lost: #6941c6; --lost-bg: #f4f3ff;
-  --ready: #2f9e75; --dirty: #d89a2b; --scrap: #cf4a52; --factory: #4a86d6; --lostc: #7c6bb5;
-  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 18px -10px rgba(0,0,0,.12);
+  --page: #faf9fc; --surface: #ffffff; --lav: #f3f1f8; --ink: #1f1b2e; --accent: #5e4394; --on-accent: #ffffff;
+  --muted: #645e78; --line: #e6e2ef; --line2: #d3cde3; --grid: #efecf5; --rail: #231c3d; --on-rail: #f4f1fb; --rail-mute: #b4abd4;
+  --crit: #a4262c; --crit-bg: #fdecee; --crit-line: #f4c4c8; --warn: #8a5a00; --warn-bg: #fdf3dc; --warn-line: #f0d9a0;
+  --good: #17663f; --good-bg: #e8f5ee; --good-line: #bfe2cf; --info: #2457a6; --info-bg: #e8f0fb; --info-line: #bdd2f0; --lost: #6b3fa0; --lost-bg: #f1eafa;
+  --ready: #3a9d7a; --dirty: #d9a03a; --scrap: #d4545c; --factory: #5b8fd6; --lostc: #9b7bc4;
+  --shadow: 0 1px 2px rgba(35,28,61,.06), 0 8px 22px -12px rgba(35,28,61,.18);
   color-scheme: light;
 }
 .dark {
-  --page: #09090b; --surface: #18181b; --lav: #27272a; --ink: #fafafa; --accent: #fafafa; --on-accent: #18181b;
-  --muted: #a1a1aa; --line: #27272a; --line2: #3f3f46; --grid: #27272a; --rail: #09090b; --on-rail: #fafafa; --rail-mute: #a1a1aa;
-  --crit: #fda29b; --crit-bg: #3b1410; --crit-line: #7a271a; --warn: #fec84b; --warn-bg: #32230a; --warn-line: #7a4a07;
-  --good: #75e0a7; --good-bg: #0b2a1c; --good-line: #085d3a; --info: #84caff; --info-bg: #0f2540; --info-line: #1849a9; --lost: #bdb4fe; --lost-bg: #1f1a3d;
-  --ready: #3fb589; --dirty: #e3a93f; --scrap: #e0606a; --factory: #5f98e6; --lostc: #a89bdc;
-  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 6px 18px -10px rgba(0,0,0,.7);
+  --page: #14111f; --surface: #1c1830; --lav: #251f3d; --ink: #ece9f6; --accent: #b9a4f0; --on-accent: #1a1330;
+  --muted: #a8a1c2; --line: #2f2950; --line2: #463e6c; --grid: #2a2446; --rail: #0f0c1a; --on-rail: #ece9f6; --rail-mute: #9d94c2;
+  --crit: #ff9aa1; --crit-bg: #3a1a20; --crit-line: #6b2c35; --warn: #f2c066; --warn-bg: #33270f; --warn-line: #6b501c;
+  --good: #6fd3a2; --good-bg: #12302a; --good-line: #246650; --info: #8db8f5; --info-bg: #14283f; --info-line: #274d7a; --lost: #d3b6ee; --lost-bg: #2c1d44;
+  --ready: #46b690; --dirty: #e3aa44; --scrap: #e0646c; --factory: #6a9ee6; --lostc: #b093d6;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 22px -12px rgba(0,0,0,.6);
   color-scheme: dark;
 }
 
 @theme inline {
   --font-sans: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
-  --font-display: "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Readex Pro", "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
   --color-page: var(--page); --color-surface: var(--surface); --color-lav: var(--lav); --color-ink: var(--ink);
   --color-accent: var(--accent); --color-on-accent: var(--on-accent); --color-muted: var(--muted);
   --color-line: var(--line); --color-line2: var(--line2); --color-grid: var(--grid);

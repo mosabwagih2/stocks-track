@@ -83,6 +83,41 @@ select import_pickup('P test', cairo_today(), 'VENDOOR', 'f.xlsx', '[{"ref":"zz0
 select t_assert((select imported from (select (import_pickup('P test2', cairo_today(), 'VENDOOR', 'f.xlsx', '[{"ref":"zz0001","waybill":"9000001","lines":["PAN3-BLK-S"]}]'::jsonb)->>'duplicates')::int as imported) q)=1, 'duplicate order code skipped');
 select t_assert(t_ready()=:r1, 'pickup import does not move stock');
 
+\echo '-- catalog: new model, edit, remove rules, restore'
+select catalog_new_model('tst1','Test',array['احمر','موف'],array['S','M']);
+select t_assert((select count(*) from skus where model='TST1')=4, 'new model creates color x size skus');
+select t_assert((select count(*) from colors where ar='موف')=1, 'new color registered once');
+select t_fails($$select catalog_new_model('TST1','x',array['احمر'],array['S'])$$, 'already exists');
+select t_fails($$select catalog_new_model('1bad','x',array['احمر'],array['S'])$$, 'bad model code');
+select catalog_edit_model('TST1','Test 2','[{"color":"احمر","size":"L"}]'::jsonb, array['TST1-RED-S']);
+select t_assert((select count(*) from skus where model='TST1' and active)=4, '+1 added, -1 removed');
+select t_assert((select name from models where code='TST1')='Test 2', 'renamed');
+select t_fails($$select catalog_edit_model('BR2','',null,array['BR2-BLK-L'])$$, 'has stock');
+select t_fails($$select catalog_remove_model('BR2')$$, 'has stock');
+select catalog_remove_model('TST1');
+select t_assert(not (select active from models where code='TST1') and (select count(*) from skus where model='TST1' and active)=0, 'empty model removed');
+select catalog_restore('TST1');
+select t_assert((select count(*) from skus where model='TST1' and active)=5, 'model restored (including the variant removed earlier)');
+select set_model_image('PAN3','models/pan3.jpg');
+select t_assert((select image from models where code='PAN3')='models/pan3.jpg', 'product image path saved');
+
+\echo '-- supplies admin'
+select supply_save(null,'Tape','roll',1,'',20,'', '{"kind":"order","qty":1}'::jsonb, 50,'u');
+select t_assert((select qty from supply_balances where item=(select id from supplies where name='Tape'))=50, 'new supply opens with its balance');
+select t_fails($$select supply_save(null,'','x',1,'',0,'','{"kind":"none"}'::jsonb)$$, 'name is required');
+select t_fails($$select supply_save(null,'Bad','x',1,'',0,'','{"kind":"order","qty":0}'::jsonb)$$, 'quantity must be positive');
+select supply_archive((select id from supplies where name='Tape'), true);
+select t_assert((select archived from supplies where name='Tape'), 'supply archived');
+
+\echo '-- pickup files'
+select pickup_update('P2','Renamed',cairo_today(),'VENDOOR');
+select t_assert((select label from pickups where id='P2')='Renamed', 'pickup renamed');
+select t_fails($$select pickup_update('P2','x',cairo_today()+1,'VENDOOR')$$, 'future');
+select ship_orders(array['fd8523'],'Zed','file');
+select t_fails(format('select pickup_delete(%L)', (select pickup_id from orders where ref='fd8523')), 'shipped orders');
+select rename_shipment_employee((select ship_doc from orders where ref='fd8523'),'Ali');
+select t_assert((select shipped_by from orders where ref='fd8523')='Ali', 'employee renamed on orders');
+
 \echo '-- direct writes are refused for browser roles (ledger is immutable)'
 set role anon;
 select t_fails($$insert into moves(move_date,sku,qty,from_loc,to_loc,type,doc,by) values (current_date,'PAN3-BLK-S',1,'READY','EXT_CH','X','X','x')$$, 'permission denied');

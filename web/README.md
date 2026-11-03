@@ -37,9 +37,11 @@ Deploy: any static host (Vercel, Netlify, Cloudflare Pages) with the two env var
 ## Tests
 - `supabase/tests/run.sh`: starts a throw-away Postgres, applies the migrations and seed, ships the real QRbot file (28 orders, 456 pieces, READY 43,863 → 43,407) and asserts the rules above, including that browser roles cannot write directly.
 - `web/src/domain/*.test.ts`: the same logic in TypeScript (stuck-order allocation, scan matching, pickup parsing, supplies, Cairo day).
-- `web/e2e/smoke.mjs`: browser run of the main flows against `npm run build && npm run preview` (needs Playwright). It fakes the clock to 2026-11-02, the date of the demo data.
+- `web/e2e/smoke.mjs` and `web/e2e/restore.mjs`: browser runs of the main flows (29 + 28 checks) against `npm run build && npm run preview` (needs Playwright). It fakes the clock to 2026-11-02, the date of the demo data.
 
 ## What is done and what is next
-Done: Today (tiles with drill-down, action queue), Orders (filters, search, pick list, scan upload, pickup import, manual shipping, cancel with waybill photo, restore), Stock (all models / one model / all SKUs, SKU sheet with state moves), Operations (receipt with photo, status change, documents), Supplies (receive / issue / count with preview and undo, automatic consumption), Insights (overview, manufacturing plan), Ledger, Settings.
+Done: Today (tiles with drill-down, action queue), Orders (filters, search, pick list, scan upload, pickup import, manual shipping, cancel with waybill photo, restore), Stock (all models / one model / all SKUs, **product photos**, SKU sheet with state moves, **Edit and + New model** with locked variants, remove and restore), Operations (receipt with photo, status change, documents), Supplies (receive / issue / count with preview and undo, automatic consumption, **add / edit rules / archive**), Insights (overview, demand heatmap, manufacturing plan, stuck orders, team, stock health), **Files** (pickup files edit/delete, shipment files rename employee/reverse, document photos, cancellations), Ledger, Settings.
 
-Next (the old single-file prototype in `apps/edition-3` already has these screens, to port): catalog editing (add/remove models and SKUs), supplies add/edit/archive, returns and stocktake, shop transfers, Files page, more analytics tabs, roles (two levels) with Supabase Auth, installable PWA manifest and offline queue.
+Next: returns, stocktake and shop transfers (the single-file prototype in `apps/edition-3` has them), costs and prices, roles (two levels) with Supabase Auth, installable PWA manifest and offline queue.
+
+Fonts load from Google Fonts (`index.html`); self-host them for an offline deployment.

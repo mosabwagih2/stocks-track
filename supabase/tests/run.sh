@@ -14,6 +14,7 @@ PSQL="psql -h $DATA -p $PORT -U postgres -v ON_ERROR_STOP=1 -q"
 $PSQL -d postgres -c "create database femini" 
 $PSQL -d femini -c "create role anon nologin; create role authenticated nologin;"
 $PSQL -d femini -f "$ROOT/supabase/migrations/0001_init.sql"
+$PSQL -d femini -f "$ROOT/supabase/migrations/0003_catalog_supplies_files.sql"
 $PSQL -d femini -f "$ROOT/supabase/seed.sql"
 # the 28 order codes of the real QRbot scan file
 REFS=$(tail -n +2 "$ROOT/data/QRbot_202611021914566_scanned_orders.csv" | cut -d, -f4 | tr -d '"' | paste -sd, -)

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Sheet, Button, Pill, Alert, Field, Kpi, TableWrap, th, td } from './ui';
 import { OrderPill, Photo, PhotoInput } from './shared';
+import { Thumb } from './Thumb';
 import type { Derived } from '@/hooks/data';
 import { useAct } from '@/hooks/data';
 import { repo } from '@/data';
@@ -25,7 +26,7 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
       <TableWrap>
         <table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>في الأوردر</th><th className={th}>جاهز حاليًا</th></tr></thead>
           <tbody>{Object.keys(n).map((s) => { const r = qty(d.snap.balances, s, 'READY'); return (
-            <tr key={s}><td className={td}>{skuLabel(d.skuMap, s)}</td><td className={td + ' font-mono'}>{n[s]}</td><td className={td}>{r < n[s] && o.status === 'open' ? <Pill tone="crit">{r}</Pill> : <span className="font-mono">{fmt(r)}</span>}</td></tr>); })}</tbody></table>
+            <tr key={s}><td className={td}><Thumb model={d.modelMap.get(d.skuMap.get(s)?.model ?? '')} size={26} className="me-1.5" />{skuLabel(d.skuMap, s)}</td><td className={td + ' font-mono'}>{n[s]}</td><td className={td}>{r < n[s] && o.status === 'open' ? <Pill tone="crit">{r}</Pill> : <span className="font-mono">{fmt(r)}</span>}</td></tr>); })}</tbody></table>
       </TableWrap>
       {o.unmapped.length > 0 && <Alert tone="warn">توجد أصناف غير مرتبطة بالكتالوج. اربطها قبل الشحن.</Alert>}
       {o.status === 'shipped' && <Alert tone="good">شُحن بواسطة {o.shippedBy}{o.shippedAt ? ` الساعة ${timeCairo(o.shippedAt)}` : ''} · {o.shipDoc}</Alert>}

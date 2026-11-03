@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Settings2 } from 'lucide-react';
+import { SupplyFormSheet } from '@/components/SupplyForm';
 import { useAct, useDerived } from '@/hooks/data';
 import { PageHead } from '@/components/PageHead';
 import { Alert, Button, Card, Empty, Field, Pill, Seg, Sheet, Tabs, TableWrap, th, td } from '@/components/ui';
@@ -53,13 +54,18 @@ function SupplySheet({ d, s, start, onClose }: { d: Derived; s: Supply; start: '
 export default function Supplies() {
   const { d, isLoading, error } = useDerived();
   const [open, setOpen] = useState<{ id: string; start: 'rcv' | 'issue' | 'count' } | null>(null);
+  const [form, setForm] = useState<{ supply?: Supply } | null>(null); const [arch, setArch] = useState(false); const act = useAct();
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
-  const items = d.snap.supplies.filter((s) => !s.archived); const sel = d.snap.supplies.find((s) => s.id === open?.id);
+  const nArch = d.snap.supplies.filter((s) => s.archived).length; const items = d.snap.supplies.filter((s) => s.archived === arch); const sel = d.snap.supplies.find((s) => s.id === open?.id);
   const lg = [...d.snap.supplyLog].slice(-25).reverse(); const nameOf = (id: string) => d.snap.supplies.find((s) => s.id === id)?.name ?? id;
   return (
     <>
-      <PageHead title="المستلزمات" sub="عبوات وفلايرز وكاسات. تُخصم تلقائيًا مع كل أوردر يُشحن وفق قاعدة كل مستلزم." />
+      <PageHead title={arch ? 'المستلزمات المؤرشفة' : 'المستلزمات'} sub="عبوات وفلايرز وكاسات. تُخصم تلقائيًا مع كل أوردر يُشحن وفق قاعدة كل مستلزم.">
+        {(nArch > 0 || arch) && <Button onClick={() => setArch((x) => !x)}>{arch ? '← رجوع للمستلزمات' : `المؤرشفة (${nArch})`}</Button>}
+        <Button variant="primary" onClick={() => setForm({})}><Plus className="size-4" /> إضافة مستلزم</Button>
+      </PageHead>
+      {!items.length && <Card><Empty>{arch ? 'لا توجد مستلزمات مؤرشفة.' : 'لا توجد مستلزمات بعد. اضغط «إضافة مستلزم».'}</Empty></Card>}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((s) => {
           const b = supplyBalance(d.snap.supplyLog, s.id), u = dailyUse(d.snap.supplyLog, s.id, d.today), st = supplyStatus(s, b, u), c = u > 0 ? b / u : null;
@@ -71,7 +77,7 @@ export default function Supplies() {
               <div className="my-2 h-2 overflow-hidden rounded-full bg-grid" aria-hidden><i className={`block h-full rounded-full ${st === 'good' ? 'bg-ready' : st === 'warn' ? 'bg-dirty' : 'bg-scrap'}`} style={{ width: `${c == null ? 0 : Math.min(100, (c / 30) * 100)}%` }} /></div>
               <div className="text-xs text-muted">{c != null ? <>يكفي <b className="font-mono">{Math.floor(c)}</b> يوم · الاستهلاك <span className="font-mono">{u.toFixed(1)}</span> / يوم</> : 'لا يوجد استهلاك مسجّل بعد'}{s.minAlert ? <> · حد التنبيه <span className="font-mono">{fmt(s.minAlert)}</span></> : null}</div>
               <div className="my-3"><Pill>{ruleText(s.rule)}</Pill></div>
-              <div className="flex gap-2"><Button size="sm" variant="primary" onClick={() => setOpen({ id: s.id, start: 'rcv' })}><Plus className="size-4" /> استلام</Button><Button size="sm" onClick={() => setOpen({ id: s.id, start: 'issue' })}>إدارة</Button></div>
+              <div className="flex flex-wrap gap-2">{s.archived ? <Button size="sm" onClick={() => act(() => repo.supplyArchive(s.id, false), 'تمت الاستعادة')}>استعادة</Button> : <><Button size="sm" variant="primary" onClick={() => setOpen({ id: s.id, start: 'rcv' })}><Plus className="size-4" /> استلام</Button><Button size="sm" onClick={() => setOpen({ id: s.id, start: 'issue' })}>إدارة الرصيد</Button><Button size="sm" variant="ghost" onClick={() => setForm({ supply: s })} aria-label="إعدادات المستلزم"><Settings2 className="size-4" /> إعدادات</Button></>}</div>
             </Card>
           );
         })}
@@ -79,6 +85,7 @@ export default function Supplies() {
       <h2 className="font-display mt-6 mb-2 text-lg font-semibold">آخر الحركات</h2>
       <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'المستلزم', 'النوع', 'الكمية', 'السبب'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
         <tbody>{lg.map((e) => <tr key={e.id} className={e.reversed ? 'opacity-55 line-through' : ''}><td className={td + ' font-mono'}>{e.date}</td><td className={td}>{nameOf(e.item)}</td><td className={td}><Pill>{KIND_AR[e.kind]}</Pill></td><td className={td + ' font-mono ' + (e.qty < 0 ? 'text-crit' : 'text-good')}>{e.qty > 0 ? '+' : ''}{e.qty}</td><td className={td + ' text-muted'}>{e.why}</td></tr>)}</tbody></table></TableWrap>
+      {form && <SupplyFormSheet d={d} supply={form.supply} onClose={() => setForm(null)} />}
       {sel && open && <SupplySheet d={d} s={sel} start={open.start} onClose={() => setOpen(null)} />}
     </>
   );

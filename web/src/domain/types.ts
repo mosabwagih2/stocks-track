@@ -2,7 +2,7 @@ export type Loc = 'READY' | 'DIRTY' | 'FACTORY' | 'SCRAP' | 'LOST';
 export type ExtLoc = 'EXT_OPEN' | 'EXT_FACTORY' | 'EXT_CH' | 'EXT_SHOP' | 'EXT_ADJ' | 'EXT_OFF';
 export type AnyLoc = Loc | ExtLoc;
 
-export interface Model { code: string; name: string }
+export interface Model { code: string; name: string; /** data URL (demo) or storage path (Supabase) of the square product photo */ image?: string | null }
 export interface Sku { id: string; model: string; color: string; size: string; minAlert: number }
 
 export interface Move {
@@ -50,6 +50,8 @@ export interface Snapshot {
   today: string;
   models: Model[];
   skus: Sku[];
+  /** removed (archived) variants, kept for the history and for restoring */
+  archivedSkus: Sku[];
   balances: Balances;
   pickups: Pickup[];
   orders: Order[];

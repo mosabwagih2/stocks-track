@@ -7,7 +7,7 @@ import os from 'node:os';
 const here = dirname(fileURLToPath(import.meta.url));
 const CSV = resolve(here, '../../data/QRbot_202611021914566_scanned_orders.csv');
 const BASE = process.env.BASE ?? 'http://127.0.0.1:4173/';
-const PNG = { name: 'w.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64') };
+const PNG = { name: 'w.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAADwAAAAoCAIAAAAt2Q6oAAAAZklEQVR4nO3YQQ3AIBAFUZZUDBIqonIRUQnIWAm1UJp0CMm88z9M9riRmWU3dXXAF0ZTjKYYTTGackytx3n91NHu/n685aWNphhNMZpiNMVoitEUoylGU4ymhF9TiNEUoylGU4ymPJfUCPHDu5WIAAAAAElFTkSuQmCC', 'base64') };
 const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1360, height: 900 } }); const p = await ctx.newPage();
 // the demo data is dated 2026-11-02: fake the clock so "today" has a pickup, like the original day
 await p.addInitScript(() => { const RD = Date; window.__fixed = new RD('2026-11-02T10:00:00+02:00').getTime(); class FD extends RD { constructor(...a) { a.length ? super(...a) : super(window.__fixed); } static now() { return window.__fixed; } } window.Date = FD; });
@@ -57,7 +57,7 @@ const sg = p.locator('[role=dialog] button:has-text("تأكيد الاستلام
 await p.fill('[role=dialog] input[type=number]', '100'); ok('preview shows after', /سيصبح/.test(await txt('[role=dialog]'))); await sg.click(); await p.waitForTimeout(300);
 ok('flyers now 2,072', /2,072/.test(await txt('main'))); await p.locator('[role=status] button:has-text("تراجع")').last().click(); await p.waitForTimeout(400); ok('undo restores 1,972', /1,972/.test(await txt('main')));
 // ---- popup keeps scroll & focus (no remount on state change)
-await p.goto(BASE + '#/stock'); await p.waitForSelector('h1'); await p.click('button[aria-label*="BR2"] >> nth=0'); await p.waitForSelector('[role=dialog]');
+await p.goto(BASE + '#/stock'); await p.waitForSelector('h1'); await p.click('button[aria-label*=" · "] >> nth=0'); await p.waitForSelector('[role=dialog]');
 ok('SKU sheet opens', /جاهز للبيع/.test(await txt('[role=dialog]'))); await p.keyboard.press('Escape'); ok('Escape closes', (await p.locator('[role=dialog]').count()) === 0);
 // ---- theme + mobile
 await p.setViewportSize({ width: 400, height: 800 });

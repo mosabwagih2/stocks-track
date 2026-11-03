@@ -4,6 +4,7 @@ import { ACTOR } from './repo';
 import type { Balances, Doc, Loc, Move, Order, Pickup, Sku, Snapshot, Supply, SupplyEntry } from '@/domain/types';
 import { cairoToday } from '@/domain/dates';
 import { shrinkImage } from './photos';
+import { squareImage } from './image';
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const PAGE = 1000; // PostgREST returns at most 1000 rows per request
@@ -40,6 +41,11 @@ export function friendlyError(e: unknown): string {
     [/cannot issue/, 'لا يمكن صرف كمية أكبر من الرصيد'],
     [/count equals the balance/, 'العدد مطابق للرصيد'],
     [/already reversed/, 'تم عكس العملية مسبقًا'],
+    [/cannot remove (\S+): it has stock/, 'لا يمكن الإزالة: عليه رصيد'],
+    [/cannot remove (\S+): it has open demand/, 'لا يمكن الإزالة: عليه طلب مفتوح'],
+    [/model already exists/, 'كود الموديل موجود بالفعل'],
+    [/bad model code/, 'كود الموديل حروف إنجليزية وأرقام، ويبدأ بحرف'],
+    [/pickup has shipped orders/, 'لا يمكن حذف بيك أب فيه أوردرات مشحونة'],
   ];
   for (const [re, ar] of map) if (re.test(m)) return ar;
   return m;
@@ -68,7 +74,9 @@ export function createSupabaseRepo(url: string, key: string): Repo {
         fetchAll(sb, 'pickups', 'id'), fetchAll(sb, 'orders', 'ref'), fetchAll(sb, 'supplies', 'id'), fetchAll(sb, 'supply_log', 'id'), fetchAll(sb, 'docs', 'id'),
         sb.from('moves').select('*').order('id', { ascending: false }).limit(400).then((r) => { if (r.error) throw r.error; return r.data as Row[]; }),
       ]);
-      const skus: Sku[] = skuRows.filter((r) => r.active).map((r) => ({ id: r.id, model: r.model, color: r.color, size: r.size, minAlert: r.min_alert ?? 0 }));
+      const toSku = (r: Row): Sku => ({ id: r.id, model: r.model, color: r.color, size: r.size, minAlert: r.min_alert ?? 0 });
+      const skus: Sku[] = skuRows.filter((r) => r.active).map(toSku);
+      const archivedSkus: Sku[] = skuRows.filter((r) => !r.active).map(toSku);
       const balances: Balances = {};
       for (const r of bal) (balances[r.sku] ??= {})[r.loc as Loc] = r.qty;
       const sizes = [...new Set(skus.map((s) => s.size))];
@@ -76,8 +84,8 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       sizes.sort((a, b) => (sizeOrder.indexOf(a) + 99) % 99 - (sizeOrder.indexOf(b) + 99) % 99);
       return {
         today: cairoToday(),
-        models: models.filter((m) => m.active).map((m) => ({ code: m.code, name: m.name })),
-        colors: colors.map((c) => ({ code: c.code, ar: c.ar })), sizes, skus, balances,
+        models: models.filter((m) => m.active).map((m) => ({ code: m.code, name: m.name, image: m.image ?? null })),
+        colors: colors.map((c) => ({ code: c.code, ar: c.ar })), sizes, skus, archivedSkus, balances,
         pickups: pickups.map((p): Pickup => ({ id: p.id, label: p.label, date: p.pickup_date, channel: p.channel, source: p.source })),
         orders: orders.map(mapOrder),
         supplies: supplies.map((s): Supply => ({ id: s.id, name: s.name, unit: s.unit, pack: s.pack, packName: s.pack_name, minAlert: s.min_alert, note: s.note, archived: s.archived, rule: s.rule })),
@@ -109,6 +117,24 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return rpc('supply_move', { p_item: item, p_kind: kind, p_qty: qty, p_why: why, p_by: ACTOR });
     },
     async undoSupplyMove(id) { await rpc('undo_supply_move', { p_id: id, p_by: ACTOR }); },
+    async setModelImage(code, file) {
+      if (!file) { await rpc('set_model_image', { p_code: code, p_path: '' }); return; }
+      const path = `models/${code}-${crypto.randomUUID()}.jpg`;
+      const { error } = await sb.storage.from('documents').upload(path, await squareImage(file), { contentType: 'image/jpeg' });
+      if (error) throw new Error('تعذّر رفع الصورة: ' + error.message);
+      await rpc('set_model_image', { p_code: code, p_path: path });
+    },
+    async catalogNewModel(i) { return rpc('catalog_new_model', { p_code: i.code, p_name: i.name, p_colors: i.colors, p_sizes: i.sizes, p_min: i.minAlert }); },
+    async catalogEditModel(i) { return rpc('catalog_edit_model', { p_code: i.code, p_name: i.name, p_add: i.add, p_remove: i.remove }); },
+    async catalogRemoveModel(code) { return rpc('catalog_remove_model', { p_code: code }); },
+    async catalogRestore({ model, sku }) { return rpc('catalog_restore', { p_model: model, p_sku: sku ?? null }); },
+    async supplySave(i) {
+      return rpc('supply_save', { p_id: i.id ?? null, p_name: i.name, p_unit: i.unit, p_pack: i.pack, p_pack_name: i.packName, p_min: i.minAlert, p_note: i.note, p_rule: i.rule, p_open: i.open, p_by: ACTOR });
+    },
+    async supplyArchive(id, archived) { await rpc('supply_archive', { p_id: id, p_archived: archived }); },
+    async pickupUpdate(i) { await rpc('pickup_update', { p_id: i.id, p_label: i.label, p_date: i.date, p_channel: i.channel }); },
+    async pickupDelete(id) { return rpc('pickup_delete', { p_id: id }); },
+    async renameShipmentEmployee(doc, name) { return rpc('rename_shipment_employee', { p_doc: doc, p_name: name }); },
     async photoUrl(path) {
       const { data, error } = await sb.storage.from('documents').createSignedUrl(path, 3600);
       return error ? null : data.signedUrl;
