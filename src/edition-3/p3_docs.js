@@ -5,7 +5,7 @@ const IP={files:'<path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/>',today:'<pa
 const ic=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(IP[n]||'')+'</svg>';
 
 /* ---------- documents ---------- */
-const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'all'},fl:'pk',opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'plan'};
+const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'all'},fl:'pk',opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'over',insP:'all',insL:'all'};
 const PH={};
 const viewDate=()=>UI.vd||S.date;
 const logE=m=>({t:Date.now(),by:S.actor,m});

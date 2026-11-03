@@ -4,7 +4,7 @@ const pill=(k,t,tip)=>'<span class="pill '+k+'"'+(tip?' data-tip="'+esc(tip)+'"'
 const hbar=(label,v,max,right,cls,tip)=>'<div class="hb"'+(tip?' data-tip="'+esc(tip)+'"':'')+'><span class="nm">'+label+'</span><div class="tr"><i class="'+(cls||'')+'" style="width:'+(max?Math.max(2,v/max*100).toFixed(1):0)+'%"></i></div><span class="v">'+right+'</span></div>';
 const top=(title,sub,tools)=>'<div class="top"><div><h1>'+title+'</h1>'+(sub?'<p class="sub">'+sub+'</p>':'')+'</div><div class="tools">'+(tools||'')+'</div></div>';
 const timeOf=ms=>new Date(ms).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Africa/Cairo'});
-const kpi=(l,v,s,k,act)=>(act?'<button type="button" class="kpi '+(k||'')+'" data-a="'+act.split(':')[0]+'" data-w="'+(act.split(':')[1]||'')+'" data-tip="اضغط تشوف التفاصيل">':'<div class="kpi '+(k||'')+'">')+'<small>'+l+(act?' ‹':'')+'</small><b>'+v+'</b>'+(s?'<em>'+s+'</em>':'')+(act?'</button>':'</div>');
+const kpi=(l,v,s,k,act)=>(act?'<button type="button" class="kpi '+(k||'')+'" data-a="'+act.split(':')[0]+'" data-w="'+(act.split(':')[1]||'')+'" data-v="'+(act.split(':')[1]||'')+'" data-tip="اضغط تشوف التفاصيل">':'<div class="kpi '+(k||'')+'">')+'<small>'+l+(act?' ‹':'')+'</small><b>'+v+'</b>'+(s?'<em>'+s+'</em>':'')+(act?'</button>':'</div>');
 const stp=(i,v,f)=>'<span class="stp"><button type="button" data-a="ls" data-i="'+i+'" data-f="'+f+'" data-d="-1" aria-label="أقل">−</button><input type="number" min="0" value="'+v+'" data-c="ln" data-i="'+i+'" data-f="'+f+'" aria-label="الكمية"><button type="button" data-a="ls" data-i="'+i+'" data-f="'+f+'" data-d="1" aria-label="أكتر">+</button></span>';
 
 function actions(){

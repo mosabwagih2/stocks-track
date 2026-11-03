@@ -110,7 +110,7 @@ function info(s){
   return {R,dm,v,th,after,cls,cov:v>0?R/v:null};
 }
 function lowList(){
-  const out=[];D.skus.forEach(k=>{const i=info(k.id);if(i.cls&&(mSum(k.m,'READY')>0||i.dm>0))out.push([k.id,i])});return out;
+  const out=[];D.skus.forEach(k=>{const i=info(k.id);if(i.cls&&(mSum(k.m,'READY')>0||i.dm>0)&&(ctx().velOK||ctx().hm[k.m]||i.dm>0))out.push([k.id,i])});return out;
 }
 
 /* ---------- order import / scan parsing ---------- */

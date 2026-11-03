@@ -209,7 +209,9 @@ const ACT={
   supundo:el=>{UI.sheet.undo=+el.dataset.id;render()},
   supundo2:el=>{if(supUndo(+el.dataset.id))toast('اتسجّل التراجع');UI.sheet.undo=null;render()},
   undoentry:el=>{const id=+el.dataset.id;if(supUndo(id))toast('اتسجّل التراجع');el.closest('.toast')&&el.closest('.toast').remove();render()},
-  instab:el=>{UI.ins=el.dataset.v;render()},
+  instab:el=>{UI.ins=el.dataset.v;render();window.scrollTo(0,0)},
+  insper:el=>{UI.insP=el.dataset.v;render()},
+  insline:el=>{UI.insL=el.dataset.v;render()},
   ltab:el=>{UI.led.tab=el.dataset.v;render()},
   copyplan:()=>{
     const rows=planRows().sort((a,b)=>skuSort(a.id,b.id));

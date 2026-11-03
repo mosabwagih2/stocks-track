@@ -87,8 +87,8 @@ const fs=require('fs');
   const fly=await p.evaluate(()=>__F.S().sup.log.filter(e=>e.item==='FLY').reduce((a,e)=>a+e.q,0));ok('flyers consumed 28 (2000-28)',fly===1972);
   const cup=await p.evaluate(()=>__F.S().sup.log.filter(e=>e.item==='CUP').reduce((a,e)=>a+e.q,0));ok('cups consumed for BR1',cup<960);
   // 13 insights tabs
-  await nav('insights');for(const v of ['plan','demand','kits','team','health']){await p.click(`[data-a=instab][data-v=${v}]`);}
-  t=await txt();ok('health shows zero drift',/صفر/.test(t));
+  await nav('insights');for(const v of ['over','demand','plan','stuck','team','health']){await p.click(`[data-a=instab][data-v=${v}]`);}
+  t=await txt();ok('health shows balanced ledger',/سليم/.test(t));
   await p.click('[data-a=instab][data-v=team]');t=await txt();ok('team table has عبدالله',/عبدالله/.test(t));
   // 14 stock table search
   await nav('stock');await p.click('[data-a=sview][data-v=table]');await p.fill('#sq','PAN1 احمر');await p.waitForTimeout(100);

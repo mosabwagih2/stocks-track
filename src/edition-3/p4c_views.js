@@ -5,45 +5,6 @@ function planRows(){
   lowList().forEach(x=>{const id=x[0],i=x[1],k=SKU.get(id),pend=g(id,'FACTORY'),have=i.R-i.dm+pend,target=C.velOK?Math.ceil(i.v*S.st.target):Math.max((k.min||0)*2,i.dm),q=Math.max(0,target-have);if(q>0)rows.push({id,q,i,pend})});
   return rows;
 }
-function vInsights(){
-  const C=ctx(),T=[['plan','اقتراح التصنيع'],['demand','الطلب'],['kits','الباندلز'],['team','الفريق'],['health','صحة المخزون']];
-  let h=top('التحليلات','قرارات مبنية على الطلب الفعلي: إيه نصنّع، إيه بيتباع، مين شغال.','');
-  h+='<div class="tabs" role="tablist">'+T.map(t=>'<button role="tab" aria-selected="'+(UI.ins===t[0])+'" data-a="instab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
-  if(!C.velOK)h+='<div class="msg warn" style="margin-bottom:14px">عندنا '+C.days+' يوم بيانات بس. سرعة السحب مش مضمونة قبل 3 أيام، فالتنبيهات مبنية على الحد الأدنى القديم.</div>';
-  if(UI.ins==='plan'){
-    const rows=planRows(),by={};rows.forEach(r=>{(by[SKU.get(r.id).m]||(by[SKU.get(r.id).m]=[])).push(r)});
-    const ms=Object.keys(by).sort((a,b)=>by[b].reduce((x,r)=>x+r.q,0)-by[a].reduce((x,r)=>x+r.q,0)),tot=rows.reduce((a,r)=>a+r.q,0);
-    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('أصناف محتاجة تصنيع',N(rows.length),'')+kpi('إجمالي مقترح',N(tot),'قطعة')+kpi('الهدف',N(S.st.target),'يوم تغطية')+'</div>';
-    if(!rows.length)return h+'<div class="card"><div class="empty">مفيش أصناف تحت الحد حاليًا.</div></div>';
-    h+='<div class="row sp" style="margin-bottom:10px"><p class="muted">المقترح = اللي يوصّل كل صنف لـ '+S.st.target+' يوم سحب، بعد خصم الطلب المفتوح وإضافة اللي راجع من المصنع. ده اقتراح، مش أمر تصنيع.</p><button class="btn" data-a="copyplan">نسخ للمصنع</button></div>';
-    h+='<div class="grid g2">'+ms.map(m=>'<section class="card"><h2>'+thumb(m,30)+' '+esc(mName(m))+' <span class="hint"><span class="n">'+fmt(by[m].reduce((a,r)=>a+r.q,0))+'</span> قطعة</span></h2><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">جاهز</th><th class="num">طلب</th><th class="num">يتصنّع</th></tr></thead><tbody>'+by[m].sort((a,b)=>skuSort(a.id,b.id)).map(r=>'<tr data-a="sku" data-sku="'+r.id+'"><td>'+sw(SKU.get(r.id).c)+' '+esc(SKU.get(r.id).c)+' · '+SKU.get(r.id).s+'</td><td class="num">'+N(r.i.R)+'</td><td class="num">'+N(r.i.dm)+'</td><td class="num"><b>'+N(r.q)+'</b></td></tr>').join('')+'</tbody></table></div></section>').join('')+'</div>';
-  }else if(UI.ins==='demand'){
-    const top_=(o,n)=>Object.keys(o).sort((a,b)=>o[b]-o[a]).slice(0,n);
-    const bars=(o,n,lab)=>{const ks=top_(o,n),mx=o[ks[0]]||1;return ks.map(k=>hbar(lab?lab(k):esc(k),o[k],mx,fmt(o[k])+'')).join('')};
-    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('قطع مطلوبة في الفترة',N(C.pcs),C.days+' يوم بيانات')+kpi('موديلات بتتسحب',N(Object.keys(C.hm).length),'')+'</div>';
-    h+='<div class="grid g2"><section class="card"><h2>الموديلات <span class="hint">فئة A هي أول 80% من الطلب</span></h2>'+bars(C.hm,12,m=>'<b class="mono">'+m+'</b> <span class="pill" style="padding:0 6px">'+C.abc[m]+'</span>')+'</section><section class="card"><h2>المقاسات</h2>'+Object.keys(C.hs).sort((a,b)=>szi(a)-szi(b)).map(z=>hbar(z,C.hs[z],Math.max(...Object.values(C.hs)),fmt(C.hs[z]))).join('')+'</section><section class="card"><h2>الألوان</h2>'+bars(C.hc,10,c=>sw(c)+' '+esc(c))+'</section><section class="card"><h2>المحافظات</h2>'+bars(C.hg,10)+'</section></div>';
-  }else if(UI.ins==='kits'){
-    const cs=Object.keys(C.combos).map(k=>Object.assign({k},C.combos[k])).filter(c=>c.n>=2).sort((a,b)=>b.n-a.n).slice(0,12);
-    h+='<p class="muted" style="margin-bottom:12px">تركيبات اتطلبت مع بعض 2 مرة أو أكتر (نفس الموديلات والألوان). لو اتكررت 3 مرات أو أكتر تبقى مرشّحة تتعرّف كباندل.</p>';
-    h+=cs.length?'<div class="tw"><table><thead><tr><th>التركيبة</th><th class="num">اتطلبت</th><th class="num">تكفي (حسب مقاسات أول أوردر)</th></tr></thead><tbody>'+cs.map(c=>{const need={};c.lines.forEach(s=>need[s]=(need[s]||0)+1);const cap=Math.min(...Object.keys(need).map(s=>Math.floor(Math.max(0,g(s,'READY'))/need[s])));
-      return '<tr data-a="order" data-ref="'+esc(c.ex)+'"><td>'+c.k.split(' + ').map(x=>{const p=x.split('|');return '<span class="pill">'+p[0]+' '+esc(p[1])+'</span>'}).join(' ')+'</td><td class="num">'+N(c.n)+'</td><td class="num">'+(cap===0?pill('crit','0'):N(cap))+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">مفيش تركيبات متكررة لسه.</div></div>';
-    const ex=C.open.filter(o=>C.blocked[o.ref]),bv={};ex.forEach(o=>C.blocked[o.ref].forEach(x=>bv[x[0]]=(bv[x[0]]||0)+1));
-    const ks=Object.keys(bv).sort((a,b)=>bv[b]-bv[a]).slice(0,10);
-    if(ks.length)h+='<section class="card" style="margin-top:16px"><h2>أصناف بتوقّف أكتر أوردرات <span class="hint">اللي المصنع محتاجه الأول</span></h2>'+ks.map(s=>hbar(esc(skuName(s)),bv[s],bv[ks[0]],bv[s]+' أوردر','c')).join('')+'</section>';
-  }else if(UI.ins==='team'){
-    const e={};S.orders.forEach(o=>{if(o.st==='done'&&o.sc){const x=e[o.sc.by]||(e[o.sc.by]={o:0,p:0,days:{},a:o.sc.at,b:o.sc.at});x.o++;x.p+=o.lines.length;x.days[o.sc.date]=1;x.a=Math.min(x.a,o.sc.at);x.b=Math.max(x.b,o.sc.at)}});
-    const ks=Object.keys(e).sort((a,b)=>e[b].o-e[a].o);
-    h+=ks.length?'<div class="tw"><table><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">أيام شغل</th><th class="num">متوسط أوردر / يوم</th></tr></thead><tbody>'+ks.map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(e[k].o)+'</td><td class="num">'+N(e[k].p)+'</td><td class="num">'+N(Object.keys(e[k].days).length)+'</td><td class="num">'+N(e[k].o/Object.keys(e[k].days).length)+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:10px">ده عدد الأوردرات المسجّلة بالسكان. وقت السكان هو وقت رفع الملف مش وقت التغليف، فمتقيّمش بيه السرعة.</p>':'<div class="card"><div class="empty">لسه مفيش أوردرات اتشحنت.</div></div>';
-  }else{
-    const neg=D.skus.filter(k=>g(k.id,'READY')<0),drift=D.skus.filter(k=>{const b=bal()[k.id]||{};return Object.values(b).reduce((a,v)=>a+v,0)!==0});
-    const dead=D.skus.filter(k=>g(k.id,'READY')>0&&!C.vel[k.id]);const exc=C.velOK?D.skus.filter(k=>{const i=info(k.id);return i.cov!=null&&i.cov>S.st.excess}):[];
-    let val=0,hasCost=false;D.skus.forEach(k=>{const c=+((S.costs[k.m]||{}).cost);if(c){hasCost=true;val+=c*total(k.id)}});
-    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('مجموع كل الحركات',drift.length?N(drift.length)+' خطأ':'صفر','لازم يساوي صفر لكل صنف',drift.length?'crit':'good')+kpi('أصناف بالسالب',N(neg.length),'',neg.length?'crit':'good')+kpi('أصناف راكدة',N(dead.length),'عليها رصيد ومن غير سحب في الفترة',dead.length?'warn':'')+(exc.length||C.velOK?kpi('زيادة عن اللازم',N(exc.length),'تغطية أكتر من '+S.st.excess+' يوم',''):'')+(hasCost?kpi('قيمة المخزون',N(val),'جنيه (حسب التكلفة المسجّلة)'):kpi('قيمة المخزون','—','سجّل التكلفة في الإعدادات'))+'</div>';
-    h+='<section class="card"><h2>الأصناف الراكدة <span class="hint">أكبر 12 رصيدًا</span></h2>'+(dead.length?'<div class="tw"><table class="t-sm"><tbody>'+dead.sort((a,b)=>g(b.id,'READY')-g(a.id,'READY')).slice(0,12).map(k=>'<tr data-a="sku" data-sku="'+k.id+'"><td>'+sw(k.c)+' '+esc(skuName(k.id))+'</td><td class="num">'+N(g(k.id,'READY'))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">مفيش.</div>')+'</section>';
-  }
-  return h;
-}
-
 /* ---------- LEDGER ---------- */
 function vLedger(){
   const L=UI.led;let h=top('سجل الحركات','كل حركة اتسجلت. مفيش حاجة بتتعدّل أو بتتمسح، والتصحيح بحركة عكسية.','');
