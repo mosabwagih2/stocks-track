@@ -31,7 +31,7 @@ const { chromium } = require('playwright');
   const idNo=await p.evaluate(()=>__F.S().pickups.find(pk=>!__F.S().orders.some(o=>o.pk===pk.id&&o.st==='done'))&&__F.S().pickups.find(pk=>!__F.S().orders.some(o=>o.pk===pk.id&&o.st==='done')).id);
   if(idNo){await p.click('[data-a=pkedit][data-id='+idNo+']');await p.click('[data-a=pkdel]');ok('delete asks confirm',await p.locator('[data-a=pkdel2]').count()===1);await p.click('[data-a=pkdel2]');await p.waitForTimeout(100);ok('pickup deleted',await p.evaluate(i=>!__F.S().pickups.some(x=>x.id===i)&&!__F.S().orders.some(o=>o.pk===i),idNo))}
   // scan files
-  await p.click('[data-a=fltab][data-v=sc]');ok('scan file listed',/عبدالله/.test(await txt())&&/scan\.csv/.test(await txt()));
+  await p.click('[data-a=fltab][data-v=sc]');ok('scan file listed',/عبدالله/.test(await txt())&&/QRbot_.*\.csv/.test(await txt()));
   await p.click('[data-a=scedit]');await p.fill('#scemp','حسام');await p.click('[data-a=scsave]');await p.waitForTimeout(100);
   ok('employee renamed on orders',await p.evaluate(()=>__F.S().orders.filter(o=>o.sc&&o.sc.by==='حسام').length)===28);
   await p.click('[data-a=scedit]');await p.click('[data-a=screv]');ok('reverse asks confirm',await p.locator('[data-a=screv2]').count()===1);
