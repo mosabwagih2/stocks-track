@@ -48,15 +48,6 @@ const OT={
 };
 const OPS_LIST=['RCV','RTN','SCN','SHP','CLN','FSD','FRC','CNT','LOS'];
 
-/* ---------- supplies ---------- */
-const SUP=[
-  {id:'FLY',ar:'فلاير الشحن',unit:'قطعة',rule:'واحد لكل أوردر. عليه البوليصة'},
-  {id:'PKS',ar:'تغليف فيميني S',unit:'قطعة',rule:'أوردرات صغيرة'},
-  {id:'PKM',ar:'تغليف فيميني M',unit:'قطعة',rule:'أوردرات متوسطة'},
-  {id:'PKL',ar:'تغليف فيميني L',unit:'قطعة',rule:'أوردرات كبيرة'},
-  {id:'CUP',ar:'كاسات البرا',unit:'كاسة',rule:'كاستين لكل قطعة BR1. الكيس 24 كاسة'}
-];
-
 /* ---------- state ---------- */
 const KEY='femini-stock-v3';
 let S,_bal=null,_ctx=null,_t=null;
@@ -71,7 +62,7 @@ function seed(){
     sup:{log:[['FLY',2000],['PKS',600],['PKM',600],['PKL',300],['CUP',960]].map(x=>({t,date:D.asOf,item:x[0],q:x[1],why:'رصيد افتتاحي تجريبي. عدّله بجرد',doc:null}))},
     st:{lookback:14,cover:14,excess:60,target:30,packS:2,packM:5,cupBR1:2,flyPer:1},costs:{},alias:{},img:{}};
 }
-function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;return}}}catch(e){}S=seed()}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;ensureSup(S);return}}}catch(e){}S=seed();ensureSup(S)}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function dirty(){_bal=null;_ctx=null;clearTimeout(_t);_t=setTimeout(save,250)}
 function bal(){if(_bal)return _bal;const b={};for(const m of S.moves){const o=b[m.sku]||(b[m.sku]={});o[m.from]=(o[m.from]||0)-m.q;o[m.to]=(o[m.to]||0)+m.q}return _bal=b}
@@ -117,16 +108,6 @@ function info(s){
 }
 function lowList(){
   const out=[];D.skus.forEach(k=>{const i=info(k.id);if(i.cls&&(mSum(k.m,'READY')>0||i.dm>0))out.push([k.id,i])});return out;
-}
-
-/* ---------- supplies ---------- */
-const supBal=id=>S.sup.log.reduce((a,e)=>a+(e.item===id?e.q:0),0);
-function supUse(id,days=7){const to=S.date,from=addDays(to,-(days-1));let u=0;S.sup.log.forEach(e=>{if(e.item===id&&e.q<0&&e.date>=from&&e.date<=to)u-=e.q});return u/days}
-const supCover=id=>{const u=supUse(id);return u>0?supBal(id)/u:null};
-function packOf(n){return n<=S.st.packS?'PKS':n<=S.st.packM?'PKM':'PKL'}
-function consumption(o){
-  const l=[['FLY',-S.st.flyPer],[packOf(o.lines.length),-1]],cups=o.lines.filter(s=>SKU.get(s).m==='BR1').length*S.st.cupBR1;
-  if(cups)l.push(['CUP',-cups]);return l;
 }
 
 /* ---------- order import / scan parsing ---------- */

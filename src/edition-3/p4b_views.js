@@ -140,13 +140,3 @@ function vDoc(d){
   return h+'</aside></div>';
 }
 
-/* ---------- SUPPLIES ---------- */
-function vSupplies(){
-  let h=top('المستلزمات','فلاير الشحن والتغليف والكاسات. بتتخصم أوتوماتيك مع كل أوردر بيتسكان.','');
-  h+='<div class="msg" style="margin-bottom:14px">القواعد الحالية: فلاير لكل أوردر، تغليف <b>S</b> لحد '+S.st.packS+' قطع و<b>M</b> لحد '+S.st.packM+' و<b>L</b> أكتر، وكاستين لكل BR1. قاعدة اختيار حجم التغليف افتراضية لحد ما تتأكد. عدّلها من الإعدادات.</div>';
-  h+='<div class="grid g3">'+SUP.map(s=>{const b=supBal(s.id),u=supUse(s.id),c=supCover(s.id),k=b<=0?'crit':(c!=null&&c<7)?'warn':'good';
-    return '<section class="card"><div class="row sp"><h2 style="margin:0">'+s.ar+'</h2>'+pill(k,b<=0?'خلص':c!=null&&c<7?'قرب يخلص':'تمام')+'</div><div class="kpi" style="border:0;padding:12px 0 4px"><b class="'+k+'" style="color:var(--'+(k==='good'?'ink':k)+')">'+N(b)+'</b><em>'+s.unit+(s.id==='CUP'?' ('+Math.floor(b/24)+' كيس)':'')+'</em></div><div class="muted" style="font-size:12px;margin-bottom:10px">'+s.rule+'<br>الاستهلاك: <span class="n">'+(u?u.toFixed(1):'0')+'</span> / يوم (آخر 7 أيام) · يكفي '+(c!=null?'<span class="n">'+Math.floor(c)+'</span> يوم':'—')+'</div><div class="row"><input type="number" min="0" id="su-'+s.id+'" placeholder="'+(s.id==='CUP'?'عدد الكيس':'الكمية')+'" style="width:96px"><button class="btn sm" data-a="suprcv" data-id="'+s.id+'">استلام</button><button class="btn sm" data-a="supcnt" data-id="'+s.id+'">جرد</button></div></section>'}).join('')+'</div>';
-  const lg=S.sup.log.slice(-25).reverse();
-  h+='<h2 style="font-size:17px;margin:22px 0 10px">آخر الحركات</h2><div class="tw"><table class="t-sm"><thead><tr><th>التاريخ</th><th>الصنف</th><th class="num">الكمية</th><th>السبب</th></tr></thead><tbody>'+lg.map(e=>'<tr><td class="mono">'+e.date+'</td><td>'+esc((SUP.find(s=>s.id===e.item)||{}).ar)+'</td><td class="num mono" style="color:var(--'+(e.q<0?'crit':'good')+')">'+(e.q>0?'+':'')+e.q+'</td><td class="muted">'+esc(e.why)+'</td></tr>').join('')+'</tbody></table></div>';
-  return h;
-}

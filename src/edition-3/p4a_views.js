@@ -16,7 +16,7 @@ function actions(){
   const dirtyN=locSum('DIRTY');if(dirtyN>0)a.push({sev:'info',t:fmt(dirtyN)+' قطعة هالك نظافة',d:'ابعتهم للمصنع للغسيل المجاني.',go:['ops',()=>{newDoc('FSD')}],b:'إرسال للمصنع'});
   const lostN=locSum('LOST');if(lostN>0)a.push({sev:'warn',t:fmt(lostN)+' قطعة مفقودة مستنية تسوية',d:'لقيناهم ولا هنشطبهم؟',go:['ops',()=>{newDoc('LOS')}],b:'عالج المفقود'});
   const dr=S.docs.filter(d=>d.status==='draft').length;if(dr)a.push({sev:'info',t:dr+' عملية مسودة',d:'لسه ما اتأكدتش ومش مأثّرة على الرصيد.',go:['ops',()=>{UI.opF='draft';UI.doc=null}],b:'كمّلها'});
-  const sl=SUP.filter(s=>{const c=supCover(s.id);return supBal(s.id)<=0||(c!=null&&c<7)});if(sl.length)a.push({sev:'warn',t:'مستلزمات قربت تخلص: '+sl.map(s=>s.ar).join('، '),d:'احسب من آخر 7 أيام سكان.',go:['supplies',()=>{}],b:'المستلزمات'});
+  const sl=S.sup.items.filter(s=>!s.arch&&supStatus(s)!=='good');if(sl.length)a.push({sev:'warn',t:'مستلزمات قربت تخلص: '+sl.map(s=>s.name).join('، '),d:'بيتحسب من آخر 7 أيام سكان وحد التنبيه.',go:['supplies',()=>{UI.supArch=false}],b:'المستلزمات'});
   return a;
 }
 
@@ -146,6 +146,8 @@ function sheetHTML(){
     if(o.st==='done')body+='<div class="msg good">اتسكّن بواسطة '+esc(o.sc.by)+' يوم '+esc(o.sc.date)+' الساعة '+timeOf(o.sc.at)+' · '+esc(o.sc.doc)+'</div>';
     if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (ملغي من القناة)</button></div>';
     if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
+  }else if(s.kind==='sup'||s.kind==='supnew'){
+    const r=supSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='img'){
     title='صورة '+mName(s.m);const u=imgOf(s.m);
     body=(u?'<img class="bigimg" src="'+u+'" alt="'+esc(s.m)+'">':'<div class="drop" data-a="pickimg" data-m="'+s.m+'"><b>مفيش صورة للموديل ده</b><span class="muted">اضغط لاختيار صورة (الأفضل خلفية فاتحة وصورة المنتج كله)</span></div>')+'<div class="row"><button class="btn pri" data-a="pickimg" data-m="'+s.m+'">'+(u?'تغيير الصورة':'رفع صورة')+'</button>'+(u?'<button class="btn danger" data-a="rmimg" data-m="'+s.m+'">إزالة</button>':'')+'</div><p class="muted" style="font-size:12px">أي صورة بترفعها بتتحوّل أوتوماتيك لمربع 1:1 (600×600) من غير قص: الصورة كاملة بتتحط في النص وبياض الخلفية بياخد لون ركن الصورة. الأفضل ترفعها مربعة من الأول (مثلًا 1000×1000). بتتحفظ في المتصفح ده بس.</p>';

@@ -25,7 +25,7 @@ function partial(){
   const ns=t.querySelector('.sum'),os=$('.sum');if(ns&&os&&os.innerHTML!==ns.innerHTML)os.innerHTML=ns.innerHTML;
   $$('[data-sync]',t).forEach(n=>{const o=$('[data-sync="'+n.dataset.sync+'"]');if(o&&o.innerHTML!==n.innerHTML)o.innerHTML=n.innerHTML});
 }
-function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;t.setAttribute('role','status');document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
+function toast(m,undoId){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;if(undoId){const b=document.createElement('button');b.className='btn sm';b.style.marginInlineStart='12px';b.textContent='تراجع';b.dataset.a='undoentry';b.dataset.id=undoId;t.appendChild(b)}document.body.appendChild(t);setTimeout(()=>t.remove(),undoId?9000:3200)}
 function go(tab,fn){UI.sheet=null;if(tab!=='ops'||fn)UI.doc=null;if(fn)fn();UI.tab=tab;render();if(location.hash.slice(1)!==tab)location.hash=tab;window.scrollTo(0,0)}
 function copy(text,ok){
   const fb=()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(ok)}catch(e){toast('انسخ يدويًا')}ta.remove()};
@@ -129,15 +129,36 @@ const ACT={
     codes.forEach(c=>{const o=S.orders.find(x=>x.ref.toLowerCase()===c.toLowerCase()||String(x.wb)===c);if(!o||o.st!=='done'){unk.push(c);return}o.lines.forEach(s=>addLine(d,s,1))});
     d.hdr.unk=unk;dirty();render();
   },
-  suprcv:el=>{
-    const id=el.dataset.id,i=$('#su-'+id),v=Math.floor(+i.value||0);if(v<=0){toast('اكتب كمية');return}
-    const q=id==='CUP'?v*24:v;S.sup.log.push({t:Date.now(),date:S.date,item:id,q,why:id==='CUP'?'استلام '+v+' كيس':'استلام',doc:null});dirty();toast('اتسجّل الاستلام');render();
+  supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
+  supnew:()=>{UI.sheet={kind:'supnew',f:blankForm(),err:''};render()},
+  suptab:el=>{const s=UI.sheet;s.tab=el.dataset.v;s.err='';s.arch=false;s.undo=null;if(s.tab==='edit'&&!s.f)s.f=formOf(supItem(s.id));render()},
+  supact:el=>{const s=UI.sheet;s.act=el.dataset.v;s.qty='';render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},40)},
+  supmode:el=>{UI.sheet.mode=el.dataset.v;render()},
+  supgo:()=>{
+    const s=UI.sheet,m=supMove(s);if(!m.ok)return;
+    const why=s.act==='rcv'?(s.note?'استلام: '+s.note:'استلام'):s.act==='issue'?'صرف: '+s.reason:'جرد: العدد الفعلي '+m.counted;
+    const e=supPush(s.id,m.delta,s.act==='rcv'?'rcv':s.act==='issue'?'issue':'count',why);
+    UI.sheet=null;toast((s.act==='rcv'?'اتسجّل الاستلام ':s.act==='issue'?'اتسجّل الصرف ':'اتضبط الرصيد ')+'('+(m.delta>0?'+':'')+fmt(m.delta)+') · '+supName(s.id),e.id);render();
   },
-  supcnt:el=>{
-    const id=el.dataset.id,i=$('#su-'+id),raw=i.value;if(raw===''){toast('اكتب الكمية اللي عدّيتها');return}
-    const c=Math.floor(+raw||0),cur=supBal(id),diff=c-(id==='CUP'?cur:cur);const v=id==='CUP'?c:c;
-    S.sup.log.push({t:Date.now(),date:S.date,item:id,q:v-cur,why:'جرد: العدّ الفعلي '+v,doc:null});dirty();toast('اتعدّل الرصيد بالجرد');render();
+  supsave:()=>{
+    const s=UI.sheet,err=formErr(s.f);if(err){s.err=err;render();return}
+    if(s.kind==='supnew'){
+      let n=S.sup.items.length+1,id='S'+n;while(supItem(id))id='S'+(++n);
+      const it=formToItem(s.f,{id,arch:false});S.sup.items.push(it);
+      const o=Math.floor(+s.f.open)||0;if(o>0)supPush(id,o,'open','رصيد افتتاحي');
+      dirty();UI.sheet=null;toast('اتضاف المستلزم: '+it.name);render();
+    }else{
+      const it=supItem(s.id);formToItem(s.f,it);dirty();UI.sheet=null;toast('اتحفظ التعديل: '+it.name);render();
+    }
   },
+  suparch:()=>{UI.sheet.arch=!UI.sheet.arch;render()},
+  suparch2:()=>{const it=supItem(UI.sheet.id);it.arch=true;dirty();UI.sheet=null;toast('اتأرشف: '+it.name);render()},
+  suprestore:el=>{const it=supItem(el.dataset.id);it.arch=false;dirty();if(!S.sup.items.some(i=>i.arch))UI.supArch=false;toast('اترجّع: '+it.name);render()},
+  suplog:el=>{UI.sheet.logAll=el.dataset.v==='all';UI.sheet.undo=null;render()},
+  suparchview:()=>{UI.supArch=!UI.supArch;render()},
+  supundo:el=>{UI.sheet.undo=+el.dataset.id;render()},
+  supundo2:el=>{if(supUndo(+el.dataset.id))toast('اتسجّل التراجع');UI.sheet.undo=null;render()},
+  undoentry:el=>{const id=+el.dataset.id;if(supUndo(id))toast('اتسجّل التراجع');el.closest('.toast')&&el.closest('.toast').remove();render()},
   instab:el=>{UI.ins=el.dataset.v;render()},
   ltab:el=>{UI.led.tab=el.dataset.v;render()},
   copyplan:()=>{
@@ -145,7 +166,7 @@ const ACT={
     copy('اقتراح تصنيع Fémini · '+S.date+'\n'+rows.map(r=>skuName(r.id)+' : '+r.q).join('\n')+'\nالإجمالي: '+rows.reduce((a,r)=>a+r.q,0),'اتنسخ اقتراح التصنيع');
   },
   reset:()=>{UI.confirmReset=!UI.confirmReset;render()},
-  reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
+  reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
 };
 const CHG={
   wd:el=>{if(el.value){S.date=el.value;dirty();render()}},
@@ -169,9 +190,15 @@ const CHG={
   cost:el=>{const c=S.costs[el.dataset.m]||(S.costs[el.dataset.m]={});c[el.dataset.f]=+el.value||0;dirty();render()},
   actor:el=>{S.actor=el.value.trim()||'مصعب';dirty()},
   smsel:el=>{UI.s.m=el.value;render()},
+  supf:el=>{const s=UI.sheet;if(!s||!s.f)return;s.f[el.dataset.f]=el.value;if(s.err)s.err=''},
+  supkind:el=>{UI.sheet.f.kind=el.value;render()},
+  supreason:el=>{UI.sheet.reason=el.value},
   ltype:el=>{UI.led.type=el.value;render()}
 };
 const INP={
+  supq:el=>{const s=UI.sheet;s.qty=el.value;const p=$('#supprev');if(p)p.innerHTML=supPreviewHTML(s);const b=$('#supgo');if(b)b.disabled=!supMove(s).ok},
+  supnote:el=>{UI.sheet.note=el.value},
+  supf:el=>{const s=UI.sheet;if(s&&s.f)s.f[el.dataset.f]=el.value},
   h:el=>{const d=curDoc();d.hdr[el.dataset.f]=el.value;dirty();partial()},
   ln:el=>{const d=curDoc(),l=d.lines[+el.dataset.i];l[el.dataset.f]=num(el.value);dirty();partial()},
   cnt:el=>{const d=curDoc();if(d.hdr.reveal)return;d.hdr.cnt[el.dataset.sku]=el.value===''?'':num(el.value);dirty();partial()},

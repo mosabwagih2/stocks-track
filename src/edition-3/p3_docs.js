@@ -95,8 +95,10 @@ function confirmDoc(d){
   d.status='done';d.confirmedAt=Date.now();d.nMoves=r.mv.length;
   post(r.mv,d);
   if(d.type==='SCN'){
+    const agg={},nOrd=d.hdr.refs.length;
     d.hdr.refs.forEach(ref=>{const o=orderByRef(ref);if(!o)return;o.st='done';o.sc={by:d.hdr.emp.trim(),at:Date.now(),date:d.date,doc:d.no,t:(d.hdr.times||{})[ref]||''};
-      consumption(o).forEach(c=>S.sup.log.push({t:Date.now(),date:d.date,item:c[0],q:c[1],why:'سكان '+ref,doc:d.no}))});
+      consumption(o).forEach(c=>{agg[c[0]]=(agg[c[0]]||0)+c[1]})});
+    Object.keys(agg).forEach(k=>supPush(k,agg[k],'auto','سكان '+d.hdr.emp.trim()+': '+nOrd+' أوردر',d.no,d.date));
     const e=d.hdr.emp.trim();if(e&&S.emps.indexOf(e)<0)S.emps.push(e);
   }
   d.log.push(logE('اتأكدت وسجّلت '+r.mv.length+' حركة'));dirty();return true;
@@ -113,7 +115,7 @@ function reverseDoc(d){
   d.status='reversed';d.log.push(logE('اتعكست'));
   if(d.type==='SCN'){
     S.orders.forEach(o=>{if(o.sc&&o.sc.doc===d.no){o.st='open';o.sc=null}});
-    S.sup.log.filter(e=>e.doc===d.no).forEach(e=>S.sup.log.push({t:Date.now(),date:S.date,item:e.item,q:-e.q,why:'عكس '+d.no,doc:d.no+' (عكس)'}));
+    S.sup.log.filter(e=>e.doc===d.no&&e.kind==='auto'&&!e.rev).forEach(e=>{supPush(e.item,-e.q,'rev','عكس '+d.no,d.no+' (عكس)',S.date,{of:e.id,ofKind:'auto'});e.rev=true});
   }
   dirty();return {ok:true};
 }
