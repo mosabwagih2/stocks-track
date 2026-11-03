@@ -1795,7 +1795,8 @@ function heatCells(){
 }
 function stockHeat(){
   const s=UI.s,sq=stockQ(),mode=s.hm||'avail',cell=heatCells();
-  const SZ=D.sizes,ms=MORDER.filter(c=>!sq||modelHit(c,sq));
+  const SZ=D.sizes,R0=rateData(),rt={};R0.rows.forEach(r=>rt[r.m]=r.rate||0);
+  const ms=MORDER.filter(c=>!sq||modelHit(c,sq));if(s.sort!=='alpha')ms.sort((a,b)=>(rt[b]||0)-(rt[a]||0)||mIdx[a]-mIdx[b]);
   const cnt={out:0,low:0,ok:0,excess:0};ms.forEach(m=>SZ.forEach(z=>{const c=cell[m+'|'+z];if(c&&cnt[c.st]!=null)cnt[c.st]++}));
   const val=c=>mode==='avail'?c.P:mode==='cover'?(c.cover==null?0:Math.min(99,c.cover)):c.need;
   const szs=SZ.filter(z=>ms.some(m=>{const c=cell[m+'|'+z];return c&&(c.P||c.st!=='none')}));
@@ -1805,14 +1806,14 @@ function stockHeat(){
   let h=strip([si('ناقص (خلصان وعليه طلب)',N(cnt.out),'خانة',cnt.out?'crit':'good'),si('تحت نقطة الطلب',N(cnt.low),'خانة',cnt.low?'warn':'good'),si('تمام',N(cnt.ok),'خانة','good'),si('زيادة عن اللازم',N(cnt.excess),'خانة (فوق '+S.st.excess+' يوم تغطية أو راكد)')]);
   const sub=mode==='avail'?'كل خانة هي عدد القطع المتاحة. اللون الأغمق يعني مخزون أكتر.':mode==='cover'?'كل خانة هي عدد أسابيع التغطية. اللون الأغمق يعني تغطية أطول.':'كل خانة هي عدد القطع المطلوب تصنيعها. اللون الأغمق يعني احتياج أكبر.';
   const seg='<div class="seg" role="group" aria-label="المعروض في الخانة"><button aria-pressed="'+(mode==='avail')+'" data-a="hmode" data-v="avail">المتاح</button><button aria-pressed="'+(mode==='cover')+'" data-a="hmode" data-v="cover">التغطية (أسبوع)</button><button aria-pressed="'+(mode==='need')+'" data-a="hmode" data-v="need">المطلوب تصنيعه</button></div>';
-  const legend='<div class="legend"><span><i class="dot hd crit"></i>ناقص</span><span><i class="dot hd warn"></i>تحت نقطة الطلب</span><span><i class="dot hd info"></i>زيادة / راكد</span><span class="muted">من غير نقطة = تمام</span></div>';
+  const srt='<div class="seg" role="group" aria-label="ترتيب الموديلات"><button aria-pressed="'+(s.sort!=='alpha')+'" data-a="ssort" data-v="pull">الأكثر سحبًا</button><button aria-pressed="'+(s.sort==='alpha')+'" data-a="ssort" data-v="alpha">أبجدي</button></div>';
   if(!ms.length)return h+'<div class="card"><div class="empty">مفيش نتيجة.</div></div>';
   const tbl='<div class="tw"><table class="hm hms"><thead><tr><th></th>'+szs.map(z=>'<th>'+z+'</th>').join('')+'<th>الإجمالي</th></tr></thead><tbody>'+ms.map(m=>'<tr><th style="text-align:start;background:none;position:static"><b class="mono">'+esc(m)+'</b></th>'+szs.map(z=>{
     const c=cell[m+'|'+z];if(!c)return '<td></td>';const v=val(c),a=Math.round(v/mx*88),shown=mode==='cover'?(c.cover==null?'':(c.cover>=99?'99+':c.cover.toFixed(1))):(v?fmt(v):'');
     const tip=mName(m)+' · '+z+': '+fmt(c.P)+' قطعة'+(TX[c.st]?' · '+TX[c.st]:'')+(c.need?' · يتصنّع '+fmt(c.need):'');
-    return '<td class="hmc'+(v?'':' z')+(DOT[c.st]&&s.state==='READY'?' '+DOT[c.st]:'')+'" data-a="hcell" data-m="'+m+'" data-z="'+z+'" data-st="'+c.st+'" title="'+esc(tip)+'" tabindex="0" style="background:'+(v?'color-mix(in srgb,var(--accent) '+a+'%,var(--surface))':'var(--grid)')+';color:'+(a>50?'var(--on-accent)':'var(--ink)')+'">'+shown+'</td>'}).join('')+'<td style="text-align:center;font:600 12px var(--f-mono)">'+fmt(mSum(m,s.state))+'</td></tr>').join('')
+    return '<td class="hmc'+(v?'':' z')+'" data-a="hcell" data-m="'+m+'" data-z="'+z+'" data-st="'+c.st+'" title="'+esc(tip)+'" tabindex="0" style="background:'+(v?'color-mix(in srgb,var(--accent) '+a+'%,var(--surface))':'var(--grid)')+';color:'+(a>50?'var(--on-accent)':'var(--ink)')+'">'+shown+'</td>'}).join('')+'<td style="text-align:center;font:600 12px var(--f-mono)">'+fmt(mSum(m,s.state))+'</td></tr>').join('')
     +'<tr class="hf"><th style="text-align:start;background:none;position:static"><b>الإجمالي</b></th>'+szs.map(z=>'<td class="hft"><b class="n">'+fmt(col[z].P)+'</b></td>').join('')+'<td class="hft"><b class="n">'+fmt(szs.reduce((a,z)=>a+col[z].P,0))+'</b></td></tr></tbody></table></div>';
-  h+=card('خريطة المخزون: الموديل × المقاس','<p class="muted" style="margin:0 0 10px;font-size:12.5px">'+sub+'</p><div class="row sp" style="margin:0 0 10px;gap:10px">'+seg+legend+'</div>'+tbl+'<p class="muted" style="margin:8px 0 0;font-size:12px">النقطة في ركن الخانة هي الحالة. الخانة بتجمع كل ألوان الموديل في المقاس ده. اضغط عليها تشوف الألوان.</p>');
+  h+=card('خريطة المخزون: الموديل × المقاس','<p class="muted" style="margin:0 0 10px;font-size:12.5px">'+sub+'</p><div class="row" style="margin:0 0 10px;gap:10px;flex-wrap:wrap">'+seg+srt+'</div>'+tbl+'<p class="muted" style="margin:8px 0 0;font-size:12px">الخانة بتجمع كل ألوان الموديل في المقاس ده. اضغط عليها تشوف الألوان.</p>');
   return h;
 }
 function heatSheet(m,z){

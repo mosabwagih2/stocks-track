@@ -44,7 +44,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   for(const t of ['stock','orders','ledger','insights','supplies','today']){await p.evaluate(t=>{__F.go(t)},t);await p.waitForTimeout(250)}
   await p.evaluate(()=>{__F.UI.ins='plan';__F.go('insights')});await p.waitForTimeout(250);
   await p.evaluate(()=>{__F.UI.s.view='heat';__F.go('stock')});await p.waitForTimeout(300);
-  ok('heat map on demo data has all three marker kinds',await p.evaluate(()=>['crit','warn','info'].every(c=>document.querySelector('td.hmc.'+c))));
+  ok('heat map on demo data has out, low and excess cells; sorted by pull, alphabetical option works',await p.evaluate(()=>['out','low','excess'].every(c=>document.querySelector('td.hmc[data-st='+c+']')))&&await (async()=>{const first=()=>document.querySelector('.hms tbody tr th b').textContent;const a=await p.evaluate(()=>document.querySelector('.hms tbody tr th b').textContent);await p.click('[data-a=ssort][data-v=alpha]');await p.waitForTimeout(150);const b=await p.evaluate(()=>[...document.querySelectorAll('.hms tbody tr:not(.hf) th b')].map(e=>e.textContent));await p.click('[data-a=ssort][data-v=pull]');return a==='BR2'&&b.join()===b.slice().sort((x,y)=>x<y?-1:1).join()||b[0]!==a})());
   ok('no page errors across all pages',errs.length===0,errs.join('|'));
   // reset
   await p.evaluate(()=>{__F.UI.cfgTab='demo';__F.go('config')});await p.waitForTimeout(200);
