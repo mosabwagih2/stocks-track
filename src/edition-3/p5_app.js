@@ -102,6 +102,35 @@ const ACT={
   sline:el=>{UI.s.line=el.dataset.v;render()},
   slist:()=>{UI.s.list=UI.s.list===false;try{localStorage.setItem(KEY+'-list',UI.s.list)}catch(e){}render()},
   sflt:el=>{UI.s.flt=el.dataset.v;render()},
+  skuadd:el=>{UI.sheet=skuAddInit(el.dataset.m||(UI.s.view==='matrix'?UI.s.m:''));render()},
+  skuc:el=>{const a=UI.sheet.colors,i=a.indexOf(el.dataset.v);if(i>=0)a.splice(i,1);else a.push(el.dataset.v);UI.sheet.err='';render()},
+  skus:el=>{const a=UI.sheet.sizes,i=a.indexOf(el.dataset.v);if(i>=0)a.splice(i,1);else a.push(el.dataset.v);UI.sheet.err='';render()},
+  skuaddc:()=>{const s=UI.sheet,v=String(s.newColor||'').trim();if(!v)return;if(s.cc.indexOf(v)<0&&knownColors().indexOf(v)<0)s.cc.push(v);if(s.colors.indexOf(v)<0)s.colors.push(v);s.newColor='';render()},
+  skuaddz:()=>{const s=UI.sheet,v=String(s.newSize||'').trim().toUpperCase();if(!v)return;if(s.cs.indexOf(v)<0&&SIZES.indexOf(v)<0)s.cs.push(v);if(s.sizes.indexOf(v)<0)s.sizes.push(v);s.newSize='';render()},
+  skusave:()=>{
+    const s=UI.sheet,isNew=s.m==='__new';let m=s.m;
+    if(isNew){m=String(s.newCode).trim().toUpperCase();
+      if(!/^[A-Z][A-Z0-9]{0,9}$/.test(m)){s.err='كود الموديل حروف إنجليزي وأرقام، وأوله حرف (مثلًا PAN6)';render();return}
+      if(MODEL.has(m)){s.err=MORDER.indexOf(m)<0?'الموديل ده اتشال قبل كده. استرجعه من المخزون ← كل الأصناف ← مؤرشف':'كود الموديل ده موجود بالفعل. اختاره من القايمة';render();return}
+      if(!String(s.newName).trim()){s.err='اكتب نوع الموديل (بانتي، برا...)';render();return}}
+    const cb=skuCombos(s);if(!(cb.fresh+cb.rest)){s.err='مفيش أصناف جديدة للإضافة';render();return}
+    const C=S.cat;s.sizes.forEach(z=>{if(SIZES.indexOf(z)<0&&C.sizes.indexOf(z)<0)C.sizes.push(z)});
+    const mn=Math.floor(+s.min)||0;let n=0;
+    if(isNew)C.models.push({code:m,name:String(s.newName).trim(),colors:s.colors.slice(),sizes:s.sizes.slice()});
+    else{const e=C.ext[m]||(C.ext[m]={colors:[],sizes:[]});s.colors.forEach(c=>{if(e.colors.indexOf(c)<0)e.colors.push(c)});s.sizes.forEach(z=>{if(e.sizes.indexOf(z)<0)e.sizes.push(z)})}
+    s.colors.forEach(c=>{const code=colorCode(c);s.sizes.forEach(z=>{const id=m+'-'+code+'-'+z;
+      if(IDX[m+'|'+c+'|'+z])return;
+      if(SKU.has(id)&&C.arch[id]){delete C.arch[id];n++;return}
+      if(!SKU.has(id)){C.skus.push({id,m,c,s:z,min:mn,open:0});n++}})});
+    dirty();rebuildCatalog();UI.sheet=null;if(isNew)UI.s.m=m;toast('اتضاف '+n+' صنف'+(isNew?' للموديل '+m:''));render();
+  },
+  modelrm:el=>{UI.sheet={kind:'modelrm',m:el.dataset.m,rm:false};render()},
+  modelarch:()=>{UI.sheet.rm=!UI.sheet.rm;render()},
+  modelarch2:()=>{const m=UI.sheet.m,b=modelBlockers(m);if(b.tot||b.dm)return;D.skus.filter(k=>k.m===m).forEach(k=>{S.cat.arch[k.id]=true});dirty();rebuildCatalog();UI.sheet=null;toast('اتشال الموديل '+m+' ('+b.n+' صنف)');render()},
+  modelrestore:el=>{const m=el.dataset.m;let n=0;Object.keys(S.cat.arch).forEach(id=>{if(S.cat.arch[id]&&SKU.has(id)&&SKU.get(id).m===m){delete S.cat.arch[id];n++}});dirty();rebuildCatalog();UI.s.m=m;toast('اترجّع '+n+' صنف من '+m);render()},
+  skuarch:()=>{UI.sheet.rm=!UI.sheet.rm;render()},
+  skuarch2:()=>{const id=UI.sheet.sku;if(total(id)||(ctx().demand[id]||0))return;S.cat.arch[id]=true;dirty();rebuildCatalog();UI.sheet=null;toast('اتشال الصنف: '+skuName(id));render()},
+  skurestore:el=>{delete S.cat.arch[el.dataset.sku];dirty();rebuildCatalog();toast('اترجّع: '+skuName(el.dataset.sku));render()},
   skuop:el=>{
     const t=el.dataset.t,sku=el.dataset.sku,k=SKU.get(sku);UI.sheet=null;
     const pre=t==='CNT'?{hdr:{models:[k.m]}}:{sku};
@@ -187,7 +216,7 @@ const ACT={
     copy('اقتراح تصنيع Fémini · '+S.date+'\n'+rows.map(r=>skuName(r.id)+' : '+r.q).join('\n')+'\nالإجمالي: '+rows.reduce((a,r)=>a+r.q,0),'اتنسخ اقتراح التصنيع');
   },
   reset:()=>{UI.confirmReset=!UI.confirmReset;render()},
-  reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);phClear();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
+  reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);ensureCat(S);rebuildCatalog();phClear();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
 };
 const CHG={
   wd:el=>{if(!el.value)return;UI.vd=el.value>=S.date?null:el.value;render()},
@@ -213,6 +242,8 @@ const CHG={
   cost:el=>{const c=S.costs[el.dataset.m]||(S.costs[el.dataset.m]={});c[el.dataset.f]=+el.value||0;dirty();render()},
   actor:el=>{S.actor=el.value.trim()||'مصعب';dirty()},
   smsel:el=>{UI.s.m=el.value;render()},
+  skum:el=>{const s=UI.sheet;s.m=el.value;s.err='';render()},
+  skuf:el=>{const s=UI.sheet;if(s)s[el.dataset.f]=el.value},
   supf:el=>{const s=UI.sheet;if(!s||!s.f)return;s.f[el.dataset.f]=el.value;if(s.err)s.err=''},
   supkind:el=>{UI.sheet.f.kind=el.value;render()},
   supreason:el=>{UI.sheet.reason=el.value},

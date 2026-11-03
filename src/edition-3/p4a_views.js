@@ -26,7 +26,7 @@ function vToday(){
   const os=S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx'),done=os.filter(o=>o.st==='done'),open=os.filter(o=>o.st==='open'),blk=open.filter(o=>C.blocked[o.ref]);
   const pc=a=>a.reduce((x,o)=>x+o.lines.length,0),A=actions();
   const emp={};S.orders.forEach(o=>{if(o.st==='done'&&o.sc&&o.sc.date===date){const e=emp[o.sc.by]||(emp[o.sc.by]={o:0,p:0,a:o.sc.at,b:o.sc.at});e.o++;e.p+=o.lines.length;e.a=Math.min(e.a,o.sc.at);e.b=Math.max(e.b,o.sc.at)}});
-  const tools='<span class="pill '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<label class="f" style="grid-auto-flow:column;align-items:center;gap:8px">عرض يوم تاني <input type="date" id="wd" value="'+date+'" max="'+S.date+'" data-c="wd"></label><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
+  const tools='<span class="pill '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
   const older=S.orders.filter(o=>o.st==='open'&&(S.pickups.find(p=>p.id===o.pk)||{date:S.date}).date<S.date),oldDay=older.length?older.map(o=>(S.pickups.find(p=>p.id===o.pk)||{}).date).sort()[0]:'';
   let h=top(isToday?'النهارده':'يوم سابق','الطلب من القنوات، اللي اتشحن فعلًا، واللي واقف.'+(isToday?'':' العرض للقراءة بس. الرفع والتسجيل بيتم على النهارده.'),tools);
   h+='<div class="stack">';
@@ -151,6 +151,10 @@ function sheetHTML(){
     if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
   }else if(s.kind==='sup'||s.kind==='supnew'){
     const r=supSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='modelrm'){
+    const r=modelRmSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='skuadd'){
+    const r=skuAddSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='flow'){
     const r=flowSheet(s.w);title=r.title;body=r.body;
   }else if(s.kind==='pkedit'){
@@ -166,6 +170,7 @@ function sheetHTML(){
     body+='<div class="kpis">'+kpi('جاهز للبيع',N(i.R),'',i.R<0?'crit':'')+kpi('مطلوب (مفتوح)',N(i.dm),i.dm>i.R?'أكتر من الجاهز':'',i.dm>i.R?'crit':'')+kpi('سرعة السحب',i.v?'<span class="n">'+i.v.toFixed(1)+'</span>':'—','قطعة / يوم')+kpi('يغطّي',i.cov!=null?'<span class="n">'+Math.floor(i.cov)+'</span>':'—','يوم')+'</div>';
     body+='<div class="tw"><table class="t-sm"><tbody>'+INTERNAL.map(l=>'<tr><td><i class="dot" style="background:'+LCOL[l]+'"></i> '+LOC[l]+' <span class="muted" style="font-size:12px">'+LDESC[l]+'</span></td><td class="num">'+N(g(s.sku,l))+'</td></tr>').join('')+'<tr><td><b>الإجمالي في ملكنا</b></td><td class="num"><b>'+N(total(s.sku))+'</b></td></tr></tbody></table></div>';
     body+='<div class="chips"><button class="btn sm" data-a="skuop" data-t="CLN" data-sku="'+s.sku+'">نقل لهالك نظافة</button><button class="btn sm" data-a="skuop" data-t="RCV" data-sku="'+s.sku+'">استلام</button><button class="btn sm" data-a="skuop" data-t="CNT" data-sku="'+s.sku+'">جرد الصنف</button></div>';
+    body+=skuRemoveBlock(s);
     const mv=S.moves.filter(m=>m.sku===s.sku).slice(-10).reverse();
     body+='<h3 style="font-size:15px">آخر الحركات</h3>'+(mv.length?'<div class="tw"><table class="t-sm"><tbody>'+mv.map(m=>'<tr><td class="mono muted">'+esc(m.date)+'</td><td>'+esc(m.note||OT[m.type]&&OT[m.type].ar||m.type)+'<div class="muted" style="font-size:12px">من '+esc(LOC[m.from])+' إلى '+esc(LOC[m.to])+'</div></td><td class="num mono">'+m.q+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">مفيش حركات.</div>');
   }

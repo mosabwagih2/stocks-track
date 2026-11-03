@@ -9,7 +9,7 @@ const { chromium } = require('playwright');
   const S=()=>p.evaluate(()=>__F.S().date);
   ok('day starts 2026-11-02 (23:50 Cairo)',(await S())==='2026-11-02');
   ok('Today shows 92 requested',/92/.test(await txt()));
-  ok('no raw editable date on Today (view-only picker has max=today)',await p.getAttribute('#wd','max')==='2026-11-02');
+  ok('no editable date control on Today',await p.locator('#wd').count()===0);
   // 00:05 next day
   await p.evaluate(()=>{window.__fixed=new Date('2026-11-03T00:05:00+02:00').getTime();document.dispatchEvent(new Event('visibilitychange'))});await p.waitForTimeout(150);
   ok('auto rollover to 2026-11-03',(await S())==='2026-11-03');

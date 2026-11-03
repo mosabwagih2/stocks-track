@@ -1,6 +1,7 @@
 (function(){
 'use strict';
 const D=__DATA__;
+const D0={skus:D.skus.slice(),models:D.models.map(m=>({code:m.code,name:m.name,colors:m.colors.slice(),sizes:m.sizes.slice()})),colors:D.colors.slice(),sizes:D.sizes.slice()};
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>Math.round(n).toLocaleString('en-US');
@@ -16,7 +17,7 @@ const SIZES=D.sizes,szi=s=>SIZES.indexOf(s);
 const mkey=c=>{const m=/^([A-Z]+)(\d+)$/.exec(c);return m?m[1]+String(m[2]).padStart(3,'0'):c};
 const MORDER=D.models.map(m=>m.code).sort((a,b)=>mkey(a)<mkey(b)?-1:1);
 const mIdx=Object.fromEntries(MORDER.map((c,i)=>[c,i]));
-const skuSort=(a,b)=>{const x=SKU.get(a),y=SKU.get(b);return(mIdx[x.m]-mIdx[y.m])||(MODEL.get(x.m).colors.indexOf(x.c)-MODEL.get(y.m).colors.indexOf(y.c))||(szi(x.s)-szi(y.s))};
+const skuSort=(a,b)=>{const x=SKU.get(a),y=SKU.get(b);return((mIdx[x.m]==null?999:mIdx[x.m])-(mIdx[y.m]==null?999:mIdx[y.m]))||(MODEL.get(x.m).colors.indexOf(x.c)-MODEL.get(y.m).colors.indexOf(y.c))||(szi(x.s)-szi(y.s))};
 const lineOf=m=>/^PAN/.test(m)?'بانتي':/^BR/.test(m)?'برا':/^SH/.test(m)?'شورت':'موديلات تانية';
 const LINE_ORDER=['بانتي','برا','شورت','موديلات تانية'];
 const HEX={'اسود':'#1e1b24','ابيض':'#ffffff','احمر':'#d9262e','بيج':'#ead9be','رمادي':'#bdbcc4','برتقالي':'#f07a2b','زيتى':'#6f7a3c','فوشيا':'#c2317a','اصفر':'#f2c230','مينت جرين':'#8fd3b6','بيبي بلو':'#a9cbe8','كحلي':'#1f2a5a','بينك':'#f4b6c8','سيمون':'#f3a28c','روز':'#e58fa8','احمر تطعيم اسود':'#a3262c'};
@@ -64,7 +65,7 @@ function seed(){
     sup:{log:[['FLY',2000],['PKS',600],['PKM',600],['PKL',300],['CUP',960]].map(x=>({t,date:D.asOf,item:x[0],q:x[1],why:'رصيد افتتاحي تجريبي. عدّله بجرد',doc:null}))},
     st:{lookback:14,cover:14,excess:60,target:30,packS:2,packM:5,cupBR1:2,flyPer:1},costs:{},alias:{},img:{}};
 }
-function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;S.date=cairoToday();ensureSup(S);return}}}catch(e){}S=seed();ensureSup(S)}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;S.date=cairoToday();ensureSup(S);ensureCat(S);rebuildCatalog();return}}}catch(e){}S=seed();ensureSup(S);ensureCat(S);rebuildCatalog()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function dirty(){_bal=null;_ctx=null;clearTimeout(_t);_t=setTimeout(save,250)}
 function bal(){if(_bal)return _bal;const b={};for(const m of S.moves){const o=b[m.sku]||(b[m.sku]={});o[m.from]=(o[m.from]||0)-m.q;o[m.to]=(o[m.to]||0)+m.q}return _bal=b}
