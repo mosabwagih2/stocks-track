@@ -2,7 +2,7 @@ import pathlib
 H=pathlib.Path(__file__).parent
 T=H/'.work'
 T.mkdir(exist_ok=True)
-s=(T/'state.html').read_text(encoding='utf-8')
+s=(T/'state2.html').read_text(encoding='utf-8')
 def rep(a,b):
     global s
     assert s.count(a)==1,(a[:70],s.count(a))
