@@ -132,7 +132,8 @@ function supSheet(s){
   const it=supItem(s.id);if(!it)return {title:'',body:''};
   const b=supBal(it.id);
   let body='<div class="row sp"><div><div class="muted">الرصيد الحالي</div><b class="n" style="font:600 28px var(--f-mono)">'+fmt(b)+'</b> <span class="muted">'+esc(it.unit)+'</span>'+(packText(it,b)?'<div class="muted" style="font-size:12px">= '+esc(packText(it,b))+'</div>':'')+'</div><span class="pill">'+esc(ruleText(it))+'</span></div>';
-  body+='<div class="tabs" role="tablist">'+[['move','حركة'],['edit','تعديل'],['log','السجل']].map(t=>'<button role="tab" aria-selected="'+(s.tab===t[0])+'" data-a="suptab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
+  if(s.tab==='edit')body+='<div class="row sp"><button class="btn sm ghost" data-a="suptab" data-v="move">← رجوع للحركات</button><b>إعدادات المستلزم</b></div>';
+  else body+='<div class="row sp" style="gap:6px"><div class="tabs" role="tablist" style="margin:0;border:0">'+[['move','حركة'],['log','السجل']].map(t=>'<button role="tab" aria-selected="'+(s.tab===t[0])+'" data-a="suptab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div><button class="btn sm" data-a="supedit" data-tip="الاسم والوحدة والعبوة وحد التنبيه وقاعدة الخصم والأرشفة">⚙ إعدادات المستلزم</button></div><hr style="border:0;border-top:1px solid var(--line);margin:0">';
   if(s.tab==='move'){
     const m=supMove(s);
     body+='<div class="seg" role="group" aria-label="نوع الحركة">'+[['rcv','استلام (زيادة)'],['issue','صرف / شطب (نقص)'],['count','ضبط الرصيد بالجرد']].map(a=>'<button type="button" aria-pressed="'+(s.act===a[0])+'" data-a="supact" data-v="'+a[0]+'">'+a[1]+'</button>').join('')+'</div>';

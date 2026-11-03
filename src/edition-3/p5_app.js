@@ -130,6 +130,8 @@ const ACT={
     d.hdr.unk=unk;dirty();render();
   },
   supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
+  supedit:()=>{const s=UI.sheet;s.tab='edit';s.err='';s.arch=false;s.f=formOf(supItem(s.id));render()},
+  supconf:el=>{const it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:'edit',act:'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:formOf(it),err:'',arch:false,undo:null};render()},
   supnew:()=>{UI.sheet={kind:'supnew',f:blankForm(),err:''};render()},
   suptab:el=>{const s=UI.sheet;s.tab=el.dataset.v;s.err='';s.arch=false;s.undo=null;if(s.tab==='edit'&&!s.f)s.f=formOf(supItem(s.id));render()},
   supact:el=>{const s=UI.sheet;s.act=el.dataset.v;s.qty='';render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},40)},

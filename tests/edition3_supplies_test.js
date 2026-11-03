@@ -47,12 +47,12 @@ const { chromium } = require('playwright');
   const cup=await p.evaluate(()=>__F.S().sup.log.filter(e=>e.item==='CUP'&&e.kind==='auto').reduce((a,e)=>a+e.q,0));ok('cups auto consumed',cup<0);
   // edit rule then reverse scan restores
   await p.click('[data-a=go][data-t=supplies]');
-  await p.click('[data-a=supopen][data-id='+newId+'][data-act=manage]');await p.click('[data-a=suptab][data-v=edit]');await p.fill('input[data-f=name]','شريط لاصق شفاف');await p.click('[data-a=supsave]');await p.waitForTimeout(100);
+  await p.click('[data-a=supopen][data-id='+newId+'][data-act=manage]');await p.click('[data-a=supedit]');await p.fill('input[data-f=name]','شريط لاصق شفاف');await p.click('[data-a=supsave]');await p.waitForTimeout(100);
   ok('rename saved',(await p.evaluate(i=>__F.S().sup.items.find(x=>x.id===i).name,newId))==='شريط لاصق شفاف');
   await p.click('[data-a=go][data-t=ops]');await p.click('tbody tr[data-a=opendoc]');await p.click('[data-a=reverse]');await p.waitForTimeout(150);
   ok('reverse scan restores supplies',(await bal(newId))===50);
   // archive two-step
-  await p.click('[data-a=go][data-t=supplies]');await p.click('[data-a=supopen][data-id='+newId+'][data-act=manage]');await p.click('[data-a=suptab][data-v=edit]');
+  await p.click('[data-a=go][data-t=supplies]');await p.click('[data-a=supopen][data-id='+newId+'][data-act=manage]');await p.click('[data-a=supedit]');
   await p.click('[data-a=suparch]');ok('archive asks confirmation',await p.locator('[data-a=suparch2]').count()===1);
   await p.click('[data-a=suparch2]');await p.waitForTimeout(100);ok('archived hidden',await p.locator('.grid.g3 > section.card').count()===5);
   await p.click('[data-a=suparchview]');await p.click('[data-a=suprestore]');await p.waitForTimeout(100);
@@ -61,6 +61,8 @@ const { chromium } = require('playwright');
   await p.click('[data-a=supopen][data-id=FLY][data-act=manage]');await p.click('[data-a=suptab][data-v=log]');
   await p.click('[data-a=supundo]');ok('undo asks confirm',await p.locator('[data-a=supundo2]').count()===1);
   const fb=await bal('FLY');await p.click('[data-a=supundo2]');await p.waitForTimeout(100);ok('log undo changes balance',(await bal('FLY'))!==fb);
+  await p.keyboard.press('Escape');await p.click('[data-a=go][data-t=supplies]');await p.click('[data-a=supopen][data-id=FLY][data-act=manage]');ok('no edit tab in tabs',!(await p.locator('.tabs [data-v=edit]').count())&&await p.locator('[data-a=supedit]').count()===1);await p.screenshot({path:'sp_gear.png'});await p.keyboard.press('Escape');
+  await p.click('[data-a=go][data-t=config]');await p.click('[data-a=supconf][data-id=FLY]');ok('config opens edit form',await p.locator('input[data-f=name]').count()===1);await p.click('[data-a=closesheet]');
   // today alert + mobile
   await p.keyboard.press('Escape');
   await p.setViewportSize({width:400,height:800});await p.click('[data-a=go][data-t=supplies]');

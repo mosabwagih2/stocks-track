@@ -672,7 +672,8 @@ function supSheet(s){
   const it=supItem(s.id);if(!it)return {title:'',body:''};
   const b=supBal(it.id);
   let body='<div class="row sp"><div><div class="muted">الرصيد الحالي</div><b class="n" style="font:600 28px var(--f-mono)">'+fmt(b)+'</b> <span class="muted">'+esc(it.unit)+'</span>'+(packText(it,b)?'<div class="muted" style="font-size:12px">= '+esc(packText(it,b))+'</div>':'')+'</div><span class="pill">'+esc(ruleText(it))+'</span></div>';
-  body+='<div class="tabs" role="tablist">'+[['move','حركة'],['edit','تعديل'],['log','السجل']].map(t=>'<button role="tab" aria-selected="'+(s.tab===t[0])+'" data-a="suptab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
+  if(s.tab==='edit')body+='<div class="row sp"><button class="btn sm ghost" data-a="suptab" data-v="move">← رجوع للحركات</button><b>إعدادات المستلزم</b></div>';
+  else body+='<div class="row sp" style="gap:6px"><div class="tabs" role="tablist" style="margin:0;border:0">'+[['move','حركة'],['log','السجل']].map(t=>'<button role="tab" aria-selected="'+(s.tab===t[0])+'" data-a="suptab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div><button class="btn sm" data-a="supedit" data-tip="الاسم والوحدة والعبوة وحد التنبيه وقاعدة الخصم والأرشفة">⚙ إعدادات المستلزم</button></div><hr style="border:0;border-top:1px solid var(--line);margin:0">';
   if(s.tab==='move'){
     const m=supMove(s);
     body+='<div class="seg" role="group" aria-label="نوع الحركة">'+[['rcv','استلام (زيادة)'],['issue','صرف / شطب (نقص)'],['count','ضبط الرصيد بالجرد']].map(a=>'<button type="button" aria-pressed="'+(s.act===a[0])+'" data-a="supact" data-v="'+a[0]+'">'+a[1]+'</button>').join('')+'</div>';
@@ -1077,7 +1078,7 @@ function vConfig(){
   const stf=(f,l,u)=>'<label class="f">'+l+'<span class="row" style="gap:6px"><input type="number" min="0" value="'+S.st[f]+'" data-c="st" data-f="'+f+'">'+(u?'<span class="muted">'+u+'</span>':'')+'</span></label>';
   let h=top('الإعدادات','حدود التنبيه وقواعد المستلزمات والتكلفة.','');
   h+='<div class="grid g2"><section class="card"><h2>التنبيهات</h2><div class="grid g2">'+stf('lookback','فترة حساب السحب','يوم')+stf('cover','نبّهني لما التغطية أقل من','يوم')+stf('target','هدف التصنيع','يوم تغطية')+stf('excess','زيادة عن اللازم بعد','يوم')+'</div></section>';
-  h+='<section class="card"><h2>المستلزمات</h2><p class="muted" style="margin-bottom:10px">قواعد الخصم التلقائي (فلاير، تغليف، كاسات) بقت في صفحة المستلزمات، لكل مستلزم على حدة.</p><button class="btn" data-a="go" data-t="supplies">افتح المستلزمات</button></section>';
+  h+='<section class="card"><h2>المستلزمات</h2><p class="muted" style="margin-bottom:10px">الاسم والوحدة والعبوة وحد التنبيه وقاعدة الخصم التلقائي لكل مستلزم. الاستلام والصرف والجرد من صفحة المستلزمات.</p><div class="tw"><table class="t-sm"><tbody>'+S.sup.items.map(i=>'<tr style="'+(i.arch?'opacity:.6':'')+'"><td><b>'+esc(i.name)+'</b>'+(i.arch?' '+pill('','مؤرشف'):'')+'</td><td class="muted">'+esc(ruleText(i))+'</td><td>'+(i.arch?'<button class="btn sm" data-a="suprestore" data-id="'+i.id+'">استرجاع</button>':'<button class="btn sm" data-a="supconf" data-id="'+i.id+'">تعديل</button>')+'</td></tr>').join('')+'</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn sm" data-a="supnew">+ إضافة مستلزم</button><button class="btn sm ghost" data-a="go" data-t="supplies">افتح صفحة المستلزمات</button></div></section>';
   h+='<section class="card"><h2>المستخدمين</h2><label class="f">اسم المستخدم الحالي (يظهر في السجل)<input value="'+esc(S.actor)+'" data-c="actor"></label><p class="muted" style="margin-top:8px;font-size:12px">السيستم مفتوح للكل في فترة التجربة. الصلاحيات هتتفصل بعدين على مستويين بس.</p></section>';
   h+='<section class="card"><h2>البيانات</h2><p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. ده نموذج تجريبي.</p>'+(UI.confirmReset?'<div class="msg crit">هتمسح كل العمليات والسكان وترجع للبيانات الأصلية. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="reset2">أيوه، امسح</button><button class="btn sm" data-a="reset">لأ</button></div></div>':'<button class="btn danger" data-a="reset">رجوع للبيانات الأصلية</button>')+'</section></div>';
   const nimg=MORDER.filter(m=>imgOf(m)).length;
@@ -1218,6 +1219,8 @@ const ACT={
     d.hdr.unk=unk;dirty();render();
   },
   supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
+  supedit:()=>{const s=UI.sheet;s.tab='edit';s.err='';s.arch=false;s.f=formOf(supItem(s.id));render()},
+  supconf:el=>{const it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:'edit',act:'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:formOf(it),err:'',arch:false,undo:null};render()},
   supnew:()=>{UI.sheet={kind:'supnew',f:blankForm(),err:''};render()},
   suptab:el=>{const s=UI.sheet;s.tab=el.dataset.v;s.err='';s.arch=false;s.undo=null;if(s.tab==='edit'&&!s.f)s.f=formOf(supItem(s.id));render()},
   supact:el=>{const s=UI.sheet;s.act=el.dataset.v;s.qty='';render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},40)},
