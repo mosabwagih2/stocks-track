@@ -99,7 +99,7 @@ function vDoc(d){
   h+='<div class="grid split2"><div class="stack"><section class="card">';
   // header fields
   h+='<h2>البيانات</h2><div class="grid g2">';
-  h+='<label class="f">التاريخ<input type="date" value="'+d.date+'" data-c="hdate" '+(draft?'':'disabled')+'></label>';
+  h+='<label class="f">التاريخ<input type="date" value="'+d.date+'" min="'+addDays(S.date,-3)+'" max="'+S.date+'" data-c="hdate" '+(draft?'':'disabled')+'></label>';
   const dis=draft?'':'disabled';
   if(d.type==='RCV')h+='<label class="f">رقم الإذن / الورقة<input value="'+esc(H.ref)+'" data-c="h" data-f="ref" '+dis+'></label><label class="f">إجمالي القطع المكتوب في الورقة<input type="number" min="0" value="'+esc(H.declared)+'" data-c="h" data-f="declared" '+dis+'></label>';
   if(d.type==='SHP')h+='<label class="f">ملاحظة<input value="'+esc(H.note)+'" data-c="h" data-f="note" '+dis+'></label>';
@@ -111,7 +111,7 @@ function vDoc(d){
   h+='</div>';
   if(draft&&(d.type==='RCV'||d.type==='SHP'))h+='<div style="margin-top:12px"><label class="f">صورة الورقة الموقّعة من الطرفين<input type="file" accept="image/*" data-c="photo"></label>'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="الورقة" style="margin-top:8px;max-height:140px;border-radius:10px;border:1px solid var(--line)">':'')+'</div>';
   h+='</section>';
-  if(d.type==='RTN'&&draft)h+='<section class="card"><h2>المتوقع رجوعه</h2><label class="f">أكواد الأوردرات المرتجعة (لو الشيت فيه أكواد)<textarea data-c="rtncodes" placeholder="كود في كل سطر">'+esc(H.codes)+'</textarea></label><div class="row" style="margin-top:8px"><button class="btn sm" data-a="rtnfill">املا المتوقع من الأكواد</button><span class="muted" style="font-size:12px">بيدوّر في الأوردرات اللي اتسكانت بس. أو ضيف الأصناف يدويًا تحت.</span></div>'+(H.unk&&H.unk.length?'<div class="msg warn" style="margin-top:8px">أكواد مش متسكّنة أو مش موجودة: <span class="mono">'+H.unk.slice(0,10).map(esc).join('، ')+'</span></div>':'')+'</section>';
+  if(d.type==='RTN'&&draft)h+='<section class="card"><h2>المتوقع رجوعه</h2><label class="f">أكواد الأوردرات المرتجعة (لو الشيت فيه أكواد)<textarea data-c="rtncodes" placeholder="كود في كل سطر">'+esc(H.codes)+'</textarea></label><div class="row" style="margin-top:8px"><button class="btn sm" data-a="rtnfill">املا المتوقع من الأكواد</button><span class="muted" style="font-size:12px">بيدوّر في الأوردرات اللي اتشحنت بس. أو ضيف الأصناف يدويًا تحت.</span></div>'+(H.unk&&H.unk.length?'<div class="msg warn" style="margin-top:8px">أكواد مش متشحنة أو مش موجودة: <span class="mono">'+H.unk.slice(0,10).map(esc).join('، ')+'</span></div>':'')+'</section>';
   if(d.type==='CNT'){
     h+='<section class="card"><h2>الجرد</h2>';
     if(draft&&!H.started){h+='<div class="chips" style="margin-bottom:10px">'+MORDER.map(c=>'<button class="chip" aria-pressed="'+(H.models.indexOf(c)>=0)+'" data-a="cntm" data-m="'+c+'">'+c+'</button>').join('')+'</div><button class="btn pri" data-a="cntstart" '+(H.models.length?'':'disabled')+'>ابدأ الجرد ('+H.models.length+' موديل)</button>'}

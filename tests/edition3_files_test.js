@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 (async()=>{
   const b=await chromium.launch();const ctx=await b.newContext({viewport:{width:1360,height:900}});const p=await ctx.newPage();
   const errs=[];p.on('pageerror',e=>errs.push('PAGEERR '+e.message));
+  await p.addInitScript(()=>{const RD=Date;window.__fixed=new RD('2026-11-02T10:00:00+02:00').getTime();class FD extends RD{constructor(...a){a.length?super(...a):super(window.__fixed)}static now(){return window.__fixed}};window.Date=FD});
   await p.goto('file://'+require('path').resolve(__dirname,'../apps/edition-3/index.html'));await p.waitForSelector('.shell');
   let pass=0,fail=0;const ok=(l,c)=>{console.log((c?'PASS ':'FAIL ')+l);c?pass++:fail++};
   const txt=async s=>((await p.textContent(s||'#app'))||'').replace(/\s+/g,' ');

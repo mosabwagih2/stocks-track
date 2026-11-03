@@ -67,7 +67,7 @@ const ACT={
     const s=UI.sheet,r=s.res;if(!r||!r.orders.length)return;
     const n=S.pickups.reduce((a,p)=>Math.max(a,+p.id.slice(1)||0),0)+1,id='P'+n;
     S.pickups.push({id,label:'بيك أب '+n,date:s.date,channel:s.channel,src:s.fname});
-    r.orders.forEach(o=>{o.pk=id;S.orders.push(o)});S.date=s.date;dirty();
+    r.orders.forEach(o=>{o.pk=id;S.orders.push(o)});dirty();
     UI.sheet=null;UI.o.pk=id;UI.o.f='all';toast('اتستورد '+r.orders.length+' أوردر. لسه ما اتخصمش حاجة.');go('orders');
   },
   scansave:()=>{
@@ -132,6 +132,9 @@ const ACT={
   supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
   flow:el=>{UI.sheet={kind:'flow',w:el.dataset.w};render()},
   blkview:()=>{UI.sheet={kind:'flow',w:'blocked'};render()},
+  vdtoday:()=>{UI.vd=null;render()},
+  vdset:el=>{UI.vd=el.dataset.d;render()},
+  updtunlock:()=>{UI.sheet.unlock=true;render()},
   fltab:el=>{UI.fl=el.dataset.v;render()},
   opendoc2:el=>{const id=el.dataset.id;UI.sheet=null;go('ops',()=>{UI.doc=id})},
   pkedit:el=>{const p=S.pickups.find(x=>x.id===el.dataset.id);UI.sheet={kind:'pkedit',id:p.id,f:{label:p.label,date:p.date,channel:p.channel},del:false,err:''};render()},
@@ -187,11 +190,11 @@ const ACT={
   reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);phClear();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
 };
 const CHG={
-  wd:el=>{if(el.value){S.date=el.value;dirty();render()}},
+  wd:el=>{if(!el.value)return;UI.vd=el.value>=S.date?null:el.value;render()},
   sel:el=>{UI.sel[el.dataset.ref]=el.checked;render()},
   upch:el=>{const s=UI.sheet;s.channel=el.value;if(s.rows){try{s.res=importRows(s.rows,s.channel,'__new__');s.err=''}catch(e){s.err=String(e.message||e)}}render()},
-  updt:el=>{UI.sheet.date=el.value},
-  hdate:el=>{const d=curDoc();d.date=el.value;dirty()},
+  updt:el=>{UI.sheet.date=(el.value&&el.value<=S.date)?el.value:S.date;render()},
+  hdate:el=>{const d=curDoc(),v=el.value;if(!v||v>S.date||v<addDays(S.date,-3)){toast('التاريخ لازم يكون ضمن آخر 3 أيام ومش في المستقبل');el.value=d.date;return}d.date=v;dirty();partial()},
   h:el=>{const d=curDoc();if(String(d.hdr[el.dataset.f])===el.value){return}d.hdr[el.dataset.f]=el.value;dirty();if(['to'].indexOf(el.dataset.f)>=0)render();else partial()},
   clnfrom:el=>{const d=curDoc();d.hdr.from=el.value;d.hdr.to=el.value==='DIRTY'?'SCRAP':'DIRTY';dirty();render()},
   fsdkind:el=>{const d=curDoc();d.hdr.kind=el.value;dirty();render()},
@@ -252,6 +255,17 @@ document.addEventListener('mouseover',e=>{
 window.addEventListener('scroll',()=>{tip.hidden=true},{passive:true});
 
 window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save()});
+/* ---------- daily rollover at midnight (Cairo) ---------- */
+function rollCheck(){
+  const idle=!UI.sheet&&!(UI.tab==='ops'&&UI.doc);
+  if(UI.pendingRender&&idle){UI.pendingRender=false;render()}
+  const t=cairoToday();if(t===S.date)return;
+  S.date=t;UI.vd=null;dirty();
+  if(idle){render();toast('يوم جديد: '+dayName(t))}else UI.pendingRender=true;
+}
+setInterval(rollCheck,30000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')rollCheck()});
+window.addEventListener('focus',rollCheck);
 /* ---------- boot ---------- */
 load();
 try{theme=localStorage.getItem(KEY+'-theme')||'system'}catch(e){}
@@ -268,5 +282,5 @@ const h0=(location.hash||'').slice(1);if(VIEWS[h0])UI.tab=h0;
 document.documentElement.lang='ar';document.documentElement.dir='rtl';
 render();
 idbOpen().then(db=>{IDBH=db;return phLoad()}).then(()=>{if(Object.keys(PH).length)render()});
-window.__F={S:()=>S,UI,go,ctx,g,dirty,render};
+window.__F={S:()=>S,UI,go,ctx,g,dirty,render,rollCheck};
 })();

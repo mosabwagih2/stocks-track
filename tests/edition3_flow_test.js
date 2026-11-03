@@ -3,6 +3,7 @@ const fs=require('fs');
 (async()=>{
   const b=await chromium.launch();const p=await b.newPage({viewport:{width:1360,height:900}});
   const errs=[];p.on('pageerror',e=>errs.push('PAGEERR '+e.message));p.on('console',m=>{if(m.type()==='error'&&!/fonts|cdnjs|net::|Failed to load/.test(m.text()))errs.push('CONSOLE '+m.text())});
+  await p.addInitScript(()=>{const RD=Date;window.__fixed=new RD('2026-11-02T10:00:00+02:00').getTime();class FD extends RD{constructor(...a){a.length?super(...a):super(window.__fixed)}static now(){return window.__fixed}};window.Date=FD});
   await p.goto('file://'+require('path').resolve(__dirname,'../apps/edition-3/index.html'));await p.waitForSelector('.shell');
   let pass=0,fail=0;const ok=(l,c)=>{console.log((c?'PASS ':'FAIL ')+l);c?pass++:fail++};
   const txt=async()=>(await p.textContent('#app')).replace(/\s+/g,' ');
@@ -17,7 +18,7 @@ const fs=require('fs');
   await p.fill('#upemp','عبدالله');ok('save enabled after employee',!(await p.isDisabled('[data-a=scansave]')));
   await p.click('[data-a=scansave]');await p.waitForTimeout(200);
   ok('READY after scan = 43407',(await ready())===43407);
-  t=await txt();ok('orders screen shows done filter',/اتسكّن/.test(t));
+  t=await txt();ok('orders screen shows done filter',/اتشحن/.test(t));
   const doneN=await p.evaluate(()=>__F.S().orders.filter(o=>o.st==='done').length);ok('28 orders done',doneN===28);
   // 2 re-upload
   await p.click('[data-a=upload][data-t=scan]');await p.setInputFiles('#upfile',require('path').resolve(__dirname,'../data/QRbot_202611021914566_scanned_orders.csv'));await p.waitForSelector('.kpis');
@@ -35,7 +36,7 @@ const fs=require('fs');
   t=await txt();ok('manual scan shows negative warning but not blocked',/الرصيد مش كفاية/.test(t));
   await p.fill('#upemp','حسام');await p.click('[data-a=scansave]');await p.waitForTimeout(200);
   const negN=await p.evaluate(()=>__F.S().moves.length&&Object.keys(__F.S()).length&&(()=>{let n=0;for(const k of ['x']);return 1})());
-  await nav('today');t=await txt();ok('negative stock exception card',/رصيد بالسالب/.test(t));
+  console.log('DBG',await p.evaluate(()=>JSON.stringify({neg:Object.keys(__F.S()).length,sku:__neg[1],r:__F.g(__neg[1],'READY'),docs:__F.S().docs.map(d=>d.type+':'+d.status)})));await nav('today');t=await txt();ok('negative stock exception card',/رصيد بالسالب/.test(t));
   // 5 reverse the manual scan
   await nav('ops');await p.click('tbody tr[data-a=opendoc]');await p.waitForTimeout(100);
   t=await txt();ok('doc screen shows hossam',/حسام/.test(t));
@@ -55,8 +56,8 @@ const fs=require('fs');
   await p.click('[data-a=backops]');await p.click('[data-a=newop][data-t=RCV]');await p.click('[data-a=addline]');
   await p.fill('input[data-f=declared]','99');await p.dispatchEvent('input[data-f=declared]','change');
   t=await txt();ok('declared mismatch flagged',/المكتوب في الورقة/.test(t));
-  await p.click('[data-a=deldoc]');
-  
+  console.log('DBG1',await p.locator('[data-a=deldoc]').count(),await p.evaluate(()=>JSON.stringify(__F.S().docs.map(d=>d.id+d.type+d.status))));await p.click('[data-a=deldoc]');
+  console.log('DBG2',errs.join('|'),await p.evaluate(()=>__F.UI.tab+'/'+__F.UI.doc),(await p.textContent('h1')));
   // 8 CLN to dirty then FSD
   await p.click('[data-a=newop][data-t=CLN]');await p.selectOption('#pkm','PAN1');await p.fill('#pkq','3');await p.click('[data-a=addline]');
   await p.click('[data-a=confirm]');await p.waitForTimeout(200);

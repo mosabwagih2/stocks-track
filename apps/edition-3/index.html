@@ -265,6 +265,8 @@ const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelecto
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>Math.round(n).toLocaleString('en-US');
 const N=n=>'<span class="n">'+fmt(n)+'</span>';
+const cairoToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const dayName=d=>new Date(d+'T12:00:00Z').toLocaleDateString('ar-EG-u-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
 const pct=(a,b)=>'<span class="n">'+(b?Math.round(a/b*100):0)+'%</span>';
 
 /* ---------- master data ---------- */
@@ -297,7 +299,7 @@ const chanName=id=>(CHAN.find(c=>c.id===id)||{name:id}).name;
 const OT={
   RCV:{ar:'استلام توريد',en:'Receipts',grp:'دخول',pre:'RCV',d:'قطع جت من المصنع بورقة موقّعة',ic:'in'},
   RTN:{ar:'مرتجعات العملاء',en:'Customer Returns',grp:'دخول',pre:'RTN',d:'اللي رجع من القنوات: جاهز أو هالك، والناقص بيتسجل مفقود',ic:'back'},
-  SCN:{ar:'أوردرات اتسكانت',en:'Delivery Orders',grp:'خروج',pre:'SCN',d:'الخروج الفعلي من ملف السكان',ic:'scan'},
+  SCN:{ar:'أوردرات اتشحنت',en:'Delivery Orders',grp:'خروج',pre:'SCN',d:'الخروج الفعلي من ملف السكان',ic:'scan'},
   SHP:{ar:'توريد للمحل',en:'Shop Transfer',grp:'خروج',pre:'SHP',d:'قطع للمحل بورقة موقّعة',ic:'shop'},
   CLN:{ar:'تصنيف حالة',en:'Status Change',grp:'داخلي',pre:'CLN',d:'قطعة بقت هالك نظافة أو هالك نهائي',ic:'swap'},
   FSD:{ar:'إرسال للمصنع',en:'Factory Send',grp:'داخلي',pre:'FSD',d:'غسيل (هيرجع) أو هالك للتسليم',ic:'out'},
@@ -318,11 +320,11 @@ function seed(){
   D.pickups.forEach((p,i)=>{const id='P'+(i+1);pickups.push({id,label:p.label,date:D.today,channel:'VENDOOR',src:'ملف فيندور 2-11-2026'});
     p.orders.forEach(o=>orders.push({ref:o.ref,wb:o.wb,type:o.type,gov:o.gov,total:o.total,lines:o.lines.slice(),pk:id,st:'open',sc:null,bad:[]}))});
   const t=Date.parse(D.asOf+'T11:00:00+02:00');
-  return {v:3,moves,mid,docs:[],did:1,seq:{},pickups,orders,emps:[],actor:'مصعب',date:D.today,
+  return {v:3,moves,mid,docs:[],did:1,seq:{},pickups,orders,emps:[],actor:'مصعب',date:cairoToday(),
     sup:{log:[['FLY',2000],['PKS',600],['PKM',600],['PKL',300],['CUP',960]].map(x=>({t,date:D.asOf,item:x[0],q:x[1],why:'رصيد افتتاحي تجريبي. عدّله بجرد',doc:null}))},
     st:{lookback:14,cover:14,excess:60,target:30,packS:2,packM:5,cupBR1:2,flyPer:1},costs:{},alias:{},img:{}};
 }
-function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;ensureSup(S);return}}}catch(e){}S=seed();ensureSup(S)}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;S.date=cairoToday();ensureSup(S);return}}}catch(e){}S=seed();ensureSup(S)}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function dirty(){_bal=null;_ctx=null;clearTimeout(_t);_t=setTimeout(save,250)}
 function bal(){if(_bal)return _bal;const b={};for(const m of S.moves){const o=b[m.sku]||(b[m.sku]={});o[m.from]=(o[m.from]||0)-m.q;o[m.to]=(o[m.to]||0)+m.q}return _bal=b}
@@ -423,6 +425,7 @@ const ic=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(IP[n]||'')+'</svg>';
 /* ---------- documents ---------- */
 const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'all'},fl:'pk',opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'plan'};
 const PH={};
+const viewDate=()=>UI.vd||S.date;
 const logE=m=>({t:Date.now(),by:S.actor,m});
 const srcLoc=(d)=>d.type==='CLN'?d.hdr.from:d.type==='FSD'?(d.hdr.kind==='wash'?'DIRTY':'SCRAP'):d.type==='FRC'?'FACTORY':d.type==='LOS'?'LOST':d.type==='SHP'?'READY':null;
 function newDoc(type,pre){
@@ -481,8 +484,8 @@ function build(d){
     if(lostN)warn.push('الناقص '+fmt(lostN)+' قطعة هيتسجل مفقود ومربوط بالقناة');
   }else if(d.type==='SCN'){
     scnLines(d).forEach(l=>add(l.sku,l.q,'READY','EXT_CH','سكان: '+H.emp));
-    chk(H.refs.length>0,'فيه أوردرات متسكّنة');chk((H.emp||'').trim(),'اسم الموظف متسجّل');
-    scnLines(d).forEach(l=>{if(g(l.sku,'READY')<l.q)warn.push(skuName(l.sku)+': الرصيد '+g(l.sku,'READY')+' والمسكّن '+l.q+'. هيبقى بالسالب، راجع الجرد')});
+    chk(H.refs.length>0,'فيه أوردرات متشحنة');chk((H.emp||'').trim(),'اسم الموظف متسجّل');
+    scnLines(d).forEach(l=>{if(g(l.sku,'READY')<l.q)warn.push(skuName(l.sku)+': الرصيد '+g(l.sku,'READY')+' والمشحون '+l.q+'. هيبقى بالسالب، راجع الجرد')});
   }else if(d.type==='CNT'){
     const keys=Object.keys(H.cnt).filter(s=>H.cnt[s]!==''&&H.cnt[s]!=null);
     let conflict=0;
@@ -491,6 +494,7 @@ function build(d){
     chk(keys.length>0,'فيه أصناف اتعدّت');chk(H.reveal,'كشفت الفروق وراجعتها');
     if(conflict){chk(H.ack,conflict+' صنف الرصيد اتغيّر من وقت بداية الجرد. وافقت إن الفرق يتحسب على الرصيد الحالي');}
   }
+  if(d.type!=='SCN')chk(d.date<=S.date&&d.date>=addDays(S.date,-3),'التاريخ ضمن آخر 3 أيام ومش في المستقبل');
   const err=[];
   if(d.type!=='SCN'){
     const sim={};
@@ -611,7 +615,7 @@ const KIND_P={open:'',rcv:'good',issue:'warn',count:'info',auto:'',rev:'lost'};
 function vSupplies(){
   const items=S.sup.items.filter(i=>UI.supArch?i.arch:!i.arch),nArch=S.sup.items.filter(i=>i.arch).length;
   const tools=(nArch||UI.supArch?'<button class="btn" data-a="suparchview">'+(UI.supArch?'← رجوع للمستلزمات':'المؤرشفة ('+nArch+')')+'</button>':'')+'<button class="btn pri" data-a="supnew">+ إضافة مستلزم</button>';
-  let h=top(UI.supArch?'المستلزمات المؤرشفة':'المستلزمات','عبوات وفلايرز وكاسات. بتتخصم لوحدها مع كل أوردر بيتسكان حسب قاعدة كل مستلزم.',tools);
+  let h=top(UI.supArch?'المستلزمات المؤرشفة':'المستلزمات','عبوات وفلايرز وكاسات. بتتخصم لوحدها مع كل أوردر بيتشحن حسب قاعدة كل مستلزم.',tools);
   if(!items.length)h+='<div class="card"><div class="empty">'+(UI.supArch?'مفيش مستلزمات مؤرشفة.':'لسه مفيش مستلزمات. اضغط "إضافة مستلزم".')+'</div></div>';
   h+='<div class="grid g3">'+items.map(it=>{
     const b=supBal(it.id),u=supUse(it.id),c=supCover(it.id),k=supStatus(it),pt=packText(it,b);
@@ -637,7 +641,7 @@ function supForm(f,isNew){
    ff('pack','عدد الوحدات في العبوة (اختياري)',f.pack,{num:true,ph:'مثلًا 24'})+ff('packName','اسم العبوة',f.packName,{ph:'كيس'})+ff('note','ملاحظة',f.note,{span:true})+'</div>';
   h+='<datalist id="supunits">'+SUP_UNITS.map(u=>'<option value="'+u+'">').join('')+'</datalist>';
   if(isNew)h+='<div class="grid g2" style="margin-top:12px">'+ff('open','الرصيد الحالي (اختياري)',f.open,{num:true,span:true})+'</div>';
-  h+='<div class="card flat" style="margin-top:14px;background:var(--lav)"><h2 style="font-size:15px">الخصم التلقائي مع السكان</h2><label class="f">القاعدة<select data-c="supkind"><option value="none" '+(f.kind==='none'?'selected':'')+'>يدوي: مفيش خصم تلقائي</option><option value="order" '+(f.kind==='order'?'selected':'')+'>كمية ثابتة لكل أوردر (مثلًا الفلاير)</option><option value="pieces" '+(f.kind==='pieces'?'selected':'')+'>كمية لكل قطعة في الأوردر (مثلًا الكاسات)</option><option value="range" '+(f.kind==='range'?'selected':'')+'>لكل أوردر حسب عدد القطع (مثلًا حجم التغليف)</option></select></label>';
+  h+='<div class="card flat" style="margin-top:14px;background:var(--lav)"><h2 style="font-size:15px">الخصم التلقائي مع الشحن</h2><label class="f">القاعدة<select data-c="supkind"><option value="none" '+(f.kind==='none'?'selected':'')+'>يدوي: مفيش خصم تلقائي</option><option value="order" '+(f.kind==='order'?'selected':'')+'>كمية ثابتة لكل أوردر (مثلًا الفلاير)</option><option value="pieces" '+(f.kind==='pieces'?'selected':'')+'>كمية لكل قطعة في الأوردر (مثلًا الكاسات)</option><option value="range" '+(f.kind==='range'?'selected':'')+'>لكل أوردر حسب عدد القطع (مثلًا حجم التغليف)</option></select></label>';
   if(f.kind!=='none'){
     h+='<div class="grid g2" style="margin-top:10px">'+ff('qty',f.kind==='pieces'?'الكمية لكل قطعة':'الكمية لكل أوردر',f.qty,{num:true});
     if(f.kind==='pieces')h+='<label class="f">الموديل<select data-c="supf" data-f="model"><option value="">أي موديل</option>'+MORDER.map(m=>'<option value="'+m+'" '+(f.model===m?'selected':'')+'>'+m+' · '+esc(MODEL.get(m).name)+'</option>').join('')+'</select></label>';
@@ -711,10 +715,10 @@ function phFromFile(f,cb){
 }
 
 /* ---------- Today tiles drill-down ---------- */
-function ordsOfDay(){const ids=S.pickups.filter(p=>p.date===S.date).map(p=>p.id);return S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx')}
+function ordsOfDay(){const ids=S.pickups.filter(p=>p.date===viewDate()).map(p=>p.id);return S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx')}
 function flowSheet(w){
   const C=ctx(),os=ordsOfDay(),done=os.filter(o=>o.st==='done'),open=os.filter(o=>o.st==='open'),bl=open.filter(o=>C.blocked[o.ref]),wait=open.filter(o=>!C.blocked[o.ref]);
-  const T={all:['المطلوب النهارده',os],done:['اتسكّن النهارده',done],wait:['لسه ما اتسكانش',wait],blocked:['هيقف بالمخزون',bl]}[w]||['المطلوب',os];
+  const T={all:['المطلوب النهارده',os],done:['اتشحن النهارده',done],wait:['لسه ما اتشحنش',wait],blocked:['هيقف بالمخزون',bl]}[w]||['المطلوب',os];
   const list=T[1],pcs=list.reduce((a,o)=>a+o.lines.length,0),title=T[0]+' ('+list.length+' أوردر · '+fmt(pcs)+' قطعة)';
   if(!list.length)return {title,body:'<div class="empty">مفيش أوردرات هنا.</div>'};
   let body='';
@@ -725,12 +729,12 @@ function flowSheet(w){
     body+='<div class="msg">الأوردر بيقف لو أي قطعة فيه ناقصة، لأنه بيتبعت كامل. الناقص محسوب على الجاهز دلوقتي ومتوزّع على الأوردرات بالترتيب.</div><h3 style="font-size:15px">الأصناف الناقصة <span class="muted" style="font-weight:400">(بتوقّف أكتر أوردرات الأول)</span></h3>'+varT(byS,['ناقص','أوردرات واقفة'])+'<h3 style="font-size:15px">الأوردرات الواقفة</h3>'+rowsT(bl,true);
   }else if(w==='wait'){
     const byS={};wait.forEach(o=>{const c={};o.lines.forEach(s=>c[s]=(c[s]||0)+1);Object.keys(c).forEach(s=>{const e=byS[s]||(byS[s]={n:0,q:0});e.n++;e.q+=c[s]})});
-    body+='<div class="msg">دي أوردرات اتطلبت ومعاها رصيد، بس لسه ما اتسكانتش. الرصيد ما اتخصمش لسه.</div><h3 style="font-size:15px">القطع اللي لازم تتجهّز</h3>'+varT(byS,['مطلوب','في أوردرات'])+'<h3 style="font-size:15px">الأوردرات</h3>'+rowsT(wait.slice(0,80),false);
+    body+='<div class="msg">دي أوردرات اتطلبت ومعاها رصيد، بس لسه ما اتشحنتش. الرصيد ما اتخصمش لسه.</div><h3 style="font-size:15px">القطع اللي لازم تتجهّز</h3>'+varT(byS,['مطلوب','في أوردرات'])+'<h3 style="font-size:15px">الأوردرات</h3>'+rowsT(wait.slice(0,80),false);
   }else if(w==='done'){
     const em={};done.forEach(o=>{const e=em[o.sc.by]||(em[o.sc.by]={o:0,p:0,a:o.sc.at,b:o.sc.at});e.o++;e.p+=o.lines.length;e.a=Math.min(e.a,o.sc.at);e.b=Math.max(e.b,o.sc.at)});
     body+='<h3 style="font-size:15px">حسب الموظف</h3><div class="tw"><table class="t-sm"><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">من - إلى</th></tr></thead><tbody>'+Object.keys(em).sort((a,b)=>em[b].o-em[a].o).map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(em[k].o)+'</td><td class="num">'+N(em[k].p)+'</td><td class="num mono">'+timeOf(em[k].a)+' - '+timeOf(em[k].b)+'</td></tr>').join('')+'</tbody></table></div><h3 style="font-size:15px">الأوردرات</h3>'+rowsT(done.slice(0,80),false);
   }else{
-    body+='<h3 style="font-size:15px">حسب البيك أب</h3><div class="tw"><table class="t-sm"><thead><tr><th>البيك أب</th><th class="num">أوردرات</th><th class="num">اتسكّن</th><th class="num">مستني</th><th class="num">هيقف</th></tr></thead><tbody>'+S.pickups.filter(p=>p.date===S.date).map(p=>{const po=os.filter(o=>o.pk===p.id);return '<tr><td><b>'+esc(p.label)+'</b><div class="muted" style="font-size:12px">'+esc(p.src||'')+'</div></td><td class="num">'+N(po.length)+'</td><td class="num">'+N(po.filter(o=>o.st==='done').length)+'</td><td class="num">'+N(po.filter(o=>o.st==='open'&&!C.blocked[o.ref]).length)+'</td><td class="num">'+N(po.filter(o=>o.st==='open'&&C.blocked[o.ref]).length)+'</td></tr>'}).join('')+'</tbody></table></div><h3 style="font-size:15px">الأوردرات</h3>'+rowsT(os.slice(0,80),false);
+    body+='<h3 style="font-size:15px">حسب البيك أب</h3><div class="tw"><table class="t-sm"><thead><tr><th>البيك أب</th><th class="num">أوردرات</th><th class="num">اتشحن</th><th class="num">مستني</th><th class="num">هيقف</th></tr></thead><tbody>'+S.pickups.filter(p=>p.date===viewDate()).map(p=>{const po=os.filter(o=>o.pk===p.id);return '<tr><td><b>'+esc(p.label)+'</b><div class="muted" style="font-size:12px">'+esc(p.src||'')+'</div></td><td class="num">'+N(po.length)+'</td><td class="num">'+N(po.filter(o=>o.st==='done').length)+'</td><td class="num">'+N(po.filter(o=>o.st==='open'&&!C.blocked[o.ref]).length)+'</td><td class="num">'+N(po.filter(o=>o.st==='open'&&C.blocked[o.ref]).length)+'</td></tr>'}).join('')+'</tbody></table></div><h3 style="font-size:15px">الأوردرات</h3>'+rowsT(os.slice(0,80),false);
   }
   if(list.length>80)body+='<p class="muted" style="font-size:12px">أول 80 أوردر. الباقي في صفحة الأوردرات.</p>';
   body+='<button class="btn" data-a="of2" data-v="'+(w==='all'?'all':w)+'">افتحهم في صفحة الأوردرات</button>';
@@ -752,17 +756,17 @@ function vFiles(){
     return h+(ds.length?'<div class="grid g3">'+ds.map(d=>{const u=PH[d.id],pc=d.lines.reduce((a,l)=>a+num(l.q),0);return '<button class="card flat" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px" data-a="opendoc2" data-id="'+d.id+'">'+(u?'<img src="'+u+'" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;border:1px solid var(--line)">':'<span class="empty" style="aspect-ratio:4/3;display:grid;place-items:center;border:1px dashed var(--line2);border-radius:10px;padding:8px">'+(d.photo?'الصورة مش محفوظة بعد إعادة التحميل. ارفعها تاني':'مفيش صورة')+'</span>')+'<span class="row sp"><b>'+OT[d.type].ar+' <span class="mono">'+(d.no||'مسودة')+'</span></b>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</span><span class="muted" style="font-size:12px">'+d.date+' · '+fmt(pc)+' قطعة</span></button>'}).join('')+'</div>':'<div class="card"><div class="empty">لسه مفيش استلام أو توريد للمحل. الصور بتتضاف مع العملية.</div></div>');
   }
   const ps=S.pickups.slice().reverse();
-  return h+(ps.length?'<div class="tw"><table><thead><tr><th>البيك أب</th><th>الملف</th><th>التاريخ</th><th>القناة</th><th class="num">أوردرات</th><th class="num">اتسكّن</th><th></th></tr></thead><tbody>'+ps.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx');return '<tr><td><b>'+esc(p.label)+'</b></td><td class="muted">'+esc(p.src||'')+'</td><td class="mono">'+esc(p.date)+'</td><td>'+esc(chanName(p.channel))+'</td><td class="num">'+N(po.length)+'</td><td class="num">'+N(po.filter(o=>o.st==='done').length)+'</td><td><button class="btn sm" data-a="pkedit" data-id="'+p.id+'">تعديل</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش بيك أب. ارفع ملف من صفحة الأوردرات.</div></div>');
+  return h+(ps.length?'<div class="tw"><table><thead><tr><th>البيك أب</th><th>الملف</th><th>التاريخ</th><th>القناة</th><th class="num">أوردرات</th><th class="num">اتشحن</th><th></th></tr></thead><tbody>'+ps.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx');return '<tr><td><b>'+esc(p.label)+'</b></td><td class="muted">'+esc(p.src||'')+'</td><td class="mono">'+esc(p.date)+'</td><td>'+esc(chanName(p.channel))+'</td><td class="num">'+N(po.length)+'</td><td class="num">'+N(po.filter(o=>o.st==='done').length)+'</td><td><button class="btn sm" data-a="pkedit" data-id="'+p.id+'">تعديل</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش بيك أب. ارفع ملف من صفحة الأوردرات.</div></div>');
 }
 function pkEditSheet(s){
   const p=S.pickups.find(x=>x.id===s.id);if(!p)return {title:'',body:''};
   const po=S.orders.filter(o=>o.pk===p.id),dn=po.filter(o=>o.st==='done').length,pc=po.reduce((a,o)=>a+o.lines.length,0);
-  let body='<div class="kpis">'+kpi('أوردرات',N(po.length),fmt(pc)+' قطعة')+kpi('اتسكّن',N(dn),'',dn?'good':'')+'</div><div class="muted" style="font-size:13px">الملف الأصلي: <b>'+esc(p.src||'—')+'</b></div>';
+  let body='<div class="kpis">'+kpi('أوردرات',N(po.length),fmt(pc)+' قطعة')+kpi('اتشحن',N(dn),'',dn?'good':'')+'</div><div class="muted" style="font-size:13px">الملف الأصلي: <b>'+esc(p.src||'—')+'</b></div>';
   body+='<div class="grid g2">'+'<label class="f" style="grid-column:1/-1">اسم البيك أب<input value="'+esc(s.f.label)+'" data-c="pkf" data-f="label"></label><label class="f">التاريخ<input type="date" value="'+esc(s.f.date)+'" data-c="pkf" data-f="date"></label><label class="f">القناة<select data-c="pkf" data-f="channel">'+CHAN.map(c=>'<option value="'+c.id+'" '+(s.f.channel===c.id?'selected':'')+'>'+c.name+'</option>').join('')+'</select></label></div>';
   if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
   body+='<div class="row"><button class="btn pri" data-a="pksave2">حفظ التعديل</button><button class="btn" data-a="of3" data-id="'+p.id+'">فتح أوردراته</button></div>';
   body+='<div class="card flat" style="margin-top:6px"><h2 style="font-size:15px">حذف البيك أب</h2>';
-  if(dn)body+='<div class="msg warn">مينفعش تحذفه لأن فيه '+dn+' أوردر اتسكّن (الرصيد اتخصم). اعكس عمليات السكان الأول من صفحة العمليات.</div>';
+  if(dn)body+='<div class="msg warn">مينفعش تحذفه لأن فيه '+dn+' أوردر اتشحن (الرصيد اتخصم). اعكس عمليات السكان الأول من صفحة العمليات.</div>';
   else body+=s.del?'<div class="msg crit">هتتمسح '+po.length+' أوردر من "'+esc(p.label)+'" ومش هيتحسبوا كطلب. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="pkdel2">أيوه، احذف</button><button class="btn sm" data-a="pkdel">لأ</button></div></div>':'<p class="muted" style="margin-bottom:10px">بيمسح الأوردرات المفتوحة بتاعته. مش بيأثّر على المخزون لأن البيك أب مش بيخصم.</p><button class="btn danger sm" data-a="pkdel">حذف البيك أب</button>';
   return {title:p.label,body:body+'</div>'};
 }
@@ -773,7 +777,7 @@ function scEditSheet(s){
   if(d.status==='done'){
     body+='<label class="f">اسم الموظف<input value="'+esc(s.emp)+'" data-c="scemp" id="scemp"></label><div class="row"><button class="btn pri" data-a="scsave">حفظ اسم الموظف</button><button class="btn" data-a="opendoc2" data-id="'+d.id+'">فتح العملية</button></div><p class="muted" style="font-size:12px">تغيير الاسم بيحدّث الأوردرات وإحصائيات الموظفين. حركات المخزون القديمة بتفضل زي ما هي في السجل.</p>';
     if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
-    body+='<div class="card flat" style="margin-top:6px"><h2 style="font-size:15px">عكس الملف كله</h2>'+(s.rev?'<div class="msg crit">هيرجّع '+d.hdr.refs.length+' أوردر "مستني السكان" ويرجّع '+fmt(pc)+' قطعة للمخزون والمستلزمات. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="screv2">أيوه، اعكس</button><button class="btn sm" data-a="screv">لأ</button></div></div>':'<p class="muted" style="margin-bottom:10px">لو رفعت الملف بالغلط. بيسجّل حركة عكسية ومش بيمسح القديم.</p><button class="btn danger sm" data-a="screv">عكس الملف</button>')+'</div>';
+    body+='<div class="card flat" style="margin-top:6px"><h2 style="font-size:15px">عكس الملف كله</h2>'+(s.rev?'<div class="msg crit">هيرجّع '+d.hdr.refs.length+' أوردر "مستني الشحن" ويرجّع '+fmt(pc)+' قطعة للمخزون والمستلزمات. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="screv2">أيوه، اعكس</button><button class="btn sm" data-a="screv">لأ</button></div></div>':'<p class="muted" style="margin-bottom:10px">لو رفعت الملف بالغلط. بيسجّل حركة عكسية ومش بيمسح القديم.</p><button class="btn danger sm" data-a="screv">عكس الملف</button>')+'</div>';
   }else body+='<button class="btn" data-a="opendoc2" data-id="'+d.id+'">فتح العملية</button>';
   return {title:'ملف سكان · '+esc(d.hdr.emp),body};
 }
@@ -789,9 +793,9 @@ const stp=(i,v,f)=>'<span class="stp"><button type="button" data-a="ls" data-i="
 
 function actions(){
   const C=ctx(),a=[],neg=D.skus.filter(k=>g(k.id,'READY')<0),bl=Object.keys(C.blocked).length,wait=C.open.length-bl;
-  if(neg.length)a.push({sev:'crit',t:'رصيد بالسالب في '+neg.length+' صنف',d:'اتسكان أكتر من الرصيد. اعمل جرد للأصناف دي وصحّح الرصيد.',go:['stock',()=>{UI.s.view='table';UI.s.flt='neg';UI.s.q=''}],b:'افتح الأصناف'});
+  if(neg.length)a.push({sev:'crit',t:'رصيد بالسالب في '+neg.length+' صنف',d:'اتشحن أكتر من الرصيد. اعمل جرد للأصناف دي وصحّح الرصيد.',go:['stock',()=>{UI.s.view='table';UI.s.flt='neg';UI.s.q=''}],b:'افتح الأصناف'});
   if(bl){const pcs=C.open.filter(o=>C.blocked[o.ref]).reduce((x,o)=>x+o.lines.length,0);a.push({sev:'crit',t:bl+' أوردر هيقف بسبب الرصيد ('+fmt(pcs)+' قطعة)',d:'قطعة ناقصة واحدة في الأوردر بتوقفه كله. شوف الأصناف اللي بتعطّل أكتر.',go:['orders',()=>{UI.o.f='blocked';UI.o.tab='list'}],b:'شوف الأوردرات'})}
-  if(wait>0)a.push({sev:'warn',t:wait+' أوردر لسه ما اتسكانش',d:'اتطلبوا في البيك أب وفاضل يتسجلوا بالسكان. الرصيد لسه ما اتخصمش.',go:['orders',()=>{UI.o.f='wait';UI.o.tab='list'}],b:'شوف المستنيين'});
+  if(wait>0)a.push({sev:'warn',t:wait+' أوردر لسه ما اتشحنش',d:'اتطلبوا في البيك أب وفاضل يتسجلوا بالسكان. الرصيد لسه ما اتخصمش.',go:['orders',()=>{UI.o.f='wait';UI.o.tab='list'}],b:'شوف المستنيين'});
   const low=lowList().filter(x=>x[1].cls==='w');if(low.length)a.push({sev:'warn',t:low.length+' صنف قرب يخلص',d:C.velOK?'أقل من '+S.st.cover+' يوم سحب':'أقل من الحد الأدنى القديم (لسه معندناش تاريخ كفاية).',go:['insights',()=>{UI.ins='plan'}],b:'اقتراح التصنيع'});
   const dirtyN=locSum('DIRTY');if(dirtyN>0)a.push({sev:'info',t:fmt(dirtyN)+' قطعة هالك نظافة',d:'ابعتهم للمصنع للغسيل المجاني.',go:['ops',()=>{newDoc('FSD')}],b:'إرسال للمصنع'});
   const lostN=locSum('LOST');if(lostN>0)a.push({sev:'warn',t:fmt(lostN)+' قطعة مفقودة مستنية تسوية',d:'لقيناهم ولا هنشطبهم؟',go:['ops',()=>{newDoc('LOS')}],b:'عالج المفقود'});
@@ -802,20 +806,22 @@ function actions(){
 
 /* ---------- TODAY ---------- */
 function vToday(){
-  const C=ctx(),date=S.date,pks=S.pickups.filter(p=>p.date===date),ids=pks.map(p=>p.id);
+  const C=ctx(),date=viewDate(),isToday=date===S.date,pks=S.pickups.filter(p=>p.date===date),ids=pks.map(p=>p.id);
   const os=S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx'),done=os.filter(o=>o.st==='done'),open=os.filter(o=>o.st==='open'),blk=open.filter(o=>C.blocked[o.ref]);
   const pc=a=>a.reduce((x,o)=>x+o.lines.length,0),A=actions();
   const emp={};S.orders.forEach(o=>{if(o.st==='done'&&o.sc&&o.sc.date===date){const e=emp[o.sc.by]||(emp[o.sc.by]={o:0,p:0,a:o.sc.at,b:o.sc.at});e.o++;e.p+=o.lines.length;e.a=Math.min(e.a,o.sc.at);e.b=Math.max(e.b,o.sc.at)}});
-  const tools='<label class="f" style="grid-auto-flow:column;align-items:center;gap:8px">يوم العمل <input type="date" id="wd" value="'+date+'" data-c="wd"></label><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
-  let h=top('النهارده','الطلب من القنوات، اللي خرج فعلًا، واللي واقف.',tools);
+  const tools='<span class="pill '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<label class="f" style="grid-auto-flow:column;align-items:center;gap:8px">عرض يوم تاني <input type="date" id="wd" value="'+date+'" max="'+S.date+'" data-c="wd"></label><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
+  const older=S.orders.filter(o=>o.st==='open'&&(S.pickups.find(p=>p.id===o.pk)||{date:S.date}).date<S.date),oldDay=older.length?older.map(o=>(S.pickups.find(p=>p.id===o.pk)||{}).date).sort()[0]:'';
+  let h=top(isToday?'النهارده':'يوم سابق','الطلب من القنوات، اللي اتشحن فعلًا، واللي واقف.'+(isToday?'':' العرض للقراءة بس. الرفع والتسجيل بيتم على النهارده.'),tools);
   h+='<div class="stack">';
+  if(isToday&&older.length)h+='<div class="msg warn row sp"><span>فيه <b>'+older.length+'</b> أوردر من أيام فاتت (من '+esc(oldDay)+') لسه ما اتشحنوش.</span><span class="row"><button class="btn sm" data-a="vdset" data-d="'+oldDay+'">اعرض يوم '+esc(oldDay)+'</button><button class="btn sm" data-a="of2" data-v="wait">افتحهم في الأوردرات</button></span></div>';
   h+='<section class="card lift"><h2>تدفق اليوم <span class="hint">البيك أب هو المطلوب. الخصم من المخزون بيحصل بالسكان بس.</span></h2>';
   if(!os.length)h+='<div class="empty">مفيش بيك أب في اليوم ده. ارفع ملف البيك أب أو غيّر يوم العمل.</div>';
   else{
-    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('المطلوب (بيك أب)',N(os.length),fmt(pc(os))+' قطعة','','flow:all')+kpi('اتسكّن (خرج فعلًا)',N(done.length),fmt(pc(done))+' قطعة · '+pct(done.length,os.length),'good',done.length?'flow:done':'')+kpi('لسه ما اتسكانش',N(open.length-blk.length),fmt(pc(open.filter(o=>!C.blocked[o.ref])))+' قطعة',open.length-blk.length?'warn':'',open.length-blk.length?'flow:wait':'')+kpi('هيقف بالمخزون',N(blk.length),fmt(pc(blk))+' قطعة',blk.length?'crit':'',blk.length?'flow:blocked':'')+'</div>';
+    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('المطلوب (بيك أب)',N(os.length),fmt(pc(os))+' قطعة','','flow:all')+kpi('اتشحن (خرج فعلًا)',N(done.length),fmt(pc(done))+' قطعة · '+pct(done.length,os.length),'good',done.length?'flow:done':'')+kpi('لسه ما اتشحنش',N(open.length-blk.length),fmt(pc(open.filter(o=>!C.blocked[o.ref])))+' قطعة',open.length-blk.length?'warn':'',open.length-blk.length?'flow:wait':'')+kpi('هيقف بالمخزون',N(blk.length),fmt(pc(blk))+' قطعة',blk.length?'crit':'',blk.length?'flow:blocked':'')+'</div>';
     const w=x=>(x/os.length*100).toFixed(2)+'%';
-    h+='<div class="flow" role="img" aria-label="اتسكّن '+done.length+' من '+os.length+'"><i class="a" style="width:'+w(done.length)+'"></i><i class="b" style="width:'+w(open.length-blk.length)+'"></i><i class="c" style="width:'+w(blk.length)+'"></i></div>';
-    h+='<div class="legend" style="margin-top:8px"><span><i class="dot" style="background:var(--c-ready)"></i>اتسكّن</span><span><i class="dot" style="background:var(--line2)"></i>مستني السكان</span><span><i class="dot" style="background:var(--c-scrap)"></i>هيقف بالمخزون</span></div>';
+    h+='<div class="flow" role="img" aria-label="اتشحن '+done.length+' من '+os.length+'"><i class="a" style="width:'+w(done.length)+'"></i><i class="b" style="width:'+w(open.length-blk.length)+'"></i><i class="c" style="width:'+w(blk.length)+'"></i></div>';
+    h+='<div class="legend" style="margin-top:8px"><span><i class="dot" style="background:var(--c-ready)"></i>اتشحن</span><span><i class="dot" style="background:var(--line2)"></i>مستني الشحن</span><span><i class="dot" style="background:var(--c-scrap)"></i>هيقف بالمخزون</span></div>';
     h+='<div style="margin-top:14px;display:grid;gap:4px">'+pks.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
       return '<button class="btn ghost" style="justify-content:space-between;display:flex;width:100%;color:var(--ink)" data-a="gopk" data-id="'+p.id+'"><span><b>'+esc(p.label)+'</b> <span class="muted">· '+esc(chanName(p.channel))+'</span></span><span class="n">'+pd+' / '+po.length+'</span></button>'}).join('')+'</div>';
   }
@@ -824,7 +830,7 @@ function vToday(){
   h+=A.length?'<div class="queue">'+A.map((a,i)=>'<div class="q '+a.sev+'"><div class="ic">'+(a.sev==='info'?'i':'!')+'</div><div><b>'+a.t+'</b><span>'+a.d+'</span></div><button class="btn sm" data-a="act" data-i="'+i+'">'+a.b+'</button></div>').join('')+'</div>':'<div class="msg good">كل حاجة تمام. مفيش حاجة محتاجة تدخّل دلوقتي.</div>';
   h+='</section><div class="stack">';
   h+='<section class="card"><h2>المخزون حسب الحالة</h2>'+stateBar()+'</section>';
-  h+='<section class="card"><h2>الفريق النهارده</h2>'+(Object.keys(emp).length?'<div class="tw"><table class="t-sm"><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">من - إلى</th></tr></thead><tbody>'+Object.keys(emp).sort((a,b)=>emp[b].o-emp[a].o).map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(emp[k].o)+'</td><td class="num">'+N(emp[k].p)+'</td><td class="num mono">'+timeOf(emp[k].a)+' - '+timeOf(emp[k].b)+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:8px;font-size:12px">الوقت هو وقت تسجيل الملف، مش وقت التغليف.</p>':'<div class="empty">لسه محدش سجّل سكان النهارده.</div>')+'</section>';
+  h+='<section class="card"><h2>'+(isToday?'الفريق النهارده':'الفريق في اليوم ده')+'</h2>'+(Object.keys(emp).length?'<div class="tw"><table class="t-sm"><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">من - إلى</th></tr></thead><tbody>'+Object.keys(emp).sort((a,b)=>emp[b].o-emp[a].o).map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(emp[k].o)+'</td><td class="num">'+N(emp[k].p)+'</td><td class="num mono">'+timeOf(emp[k].a)+' - '+timeOf(emp[k].b)+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:8px;font-size:12px">الوقت هو وقت تسجيل الملف، مش وقت التغليف.</p>':'<div class="empty">لسه محدش سجّل سكان النهارده.</div>')+'</section>';
   h+='</div></div></div>';
   return h;
 }
@@ -838,11 +844,11 @@ function stateBar(){
 function ordPill(o){
   const C=ctx();
   if(o.st==='cx')return pill('','ملغي');
-  if(o.st==='done')return pill('good','اتسكّن · '+esc(o.sc.by),'سجّله '+o.sc.by+' الساعة '+timeOf(o.sc.at)+(o.sc.doc?' · '+o.sc.doc:''));
+  if(o.st==='done')return pill('good','اتشحن · '+esc(o.sc.by),'سجّله '+o.sc.by+' الساعة '+timeOf(o.sc.at)+(o.sc.doc?' · '+o.sc.doc:''));
   if(o.bad&&o.bad.length)return pill('warn','كود غير مربوط');
   const b=C.blocked[o.ref];
   if(b)return pill('crit','هيقف · ناقص '+esc(skuName(b[0][0],false))+(b.length>1?' +'+(b.length-1):''),b.map(x=>skuName(x[0])+' ناقص '+x[1]).join('\n'));
-  return pill('info','مستني السكان');
+  return pill('info','مستني الشحن');
 }
 function ordFilter(){
   const C=ctx(),f=UI.o.f,q=UI.o.q.trim().toLowerCase();
@@ -863,25 +869,25 @@ function vOrders(){
   const C=ctx(),all=S.orders.filter(o=>o.st!=='cx'),cnt={all:all.length,wait:all.filter(o=>o.st==='open'&&!C.blocked[o.ref]).length,blocked:all.filter(o=>o.st==='open'&&C.blocked[o.ref]).length,done:all.filter(o=>o.st==='done').length};
   const bad=all.filter(o=>o.bad&&o.bad.length).length;
   const tools='<button class="btn ghost" data-a="go" data-t="files">الملفات</button><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
-  let h=top('الأوردرات','البيك أب = المطلوب. السكان = اللي خرج فعلًا. الفرق بينهم هو الأوردرات الواقفة.',tools);
+  let h=top('الأوردرات','البيك أب = المطلوب. الشحن (بالسكان) = اللي خرج فعلًا. الفرق بينهم هو الأوردرات الواقفة.',tools);
   h+='<div class="tabs" role="tablist"><button role="tab" aria-selected="'+(UI.o.tab==='list')+'" data-a="otab" data-v="list">الأوردرات</button><button role="tab" aria-selected="'+(UI.o.tab==='pick')+'" data-a="otab" data-v="pick">قائمة التجهيز</button></div>';
   if(UI.o.tab==='pick')return h+vPick();
   h+='<div class="grid g3" style="margin-bottom:14px">'+S.pickups.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
-    return '<button class="card flat" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid '+(UI.o.pk===p.id?'var(--accent)':'var(--line)')+';border-radius:14px;padding:14px;display:grid;gap:8px" data-a="gopk" data-id="'+p.id+'"><span class="row sp"><b>'+esc(p.label)+'</b><span class="muted" style="font-size:12px">'+esc(p.date)+'</span></span><span class="muted" style="font-size:12px">'+esc(chanName(p.channel))+'</span><span class="flow" style="height:8px"><i class="a" style="width:'+(po.length?pd/po.length*100:0)+'%"></i></span><span class="row sp"><span class="n">'+pd+' / '+po.length+' اتسكّن</span><span class="muted">'+fmt(po.reduce((x,o)=>x+o.lines.length,0))+' قطعة</span></span></button>'}).join('')+'</div>';
-  const F=[['all','الكل'],['wait','مستني السكان'],['blocked','هيقف'],['done','اتسكّن']];
+    return '<button class="card flat" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid '+(UI.o.pk===p.id?'var(--accent)':'var(--line)')+';border-radius:14px;padding:14px;display:grid;gap:8px" data-a="gopk" data-id="'+p.id+'"><span class="row sp"><b>'+esc(p.label)+'</b><span class="muted" style="font-size:12px">'+esc(p.date)+'</span></span><span class="muted" style="font-size:12px">'+esc(chanName(p.channel))+'</span><span class="flow" style="height:8px"><i class="a" style="width:'+(po.length?pd/po.length*100:0)+'%"></i></span><span class="row sp"><span class="n">'+pd+' / '+po.length+' اتشحن</span><span class="muted">'+fmt(po.reduce((x,o)=>x+o.lines.length,0))+' قطعة</span></span></button>'}).join('')+'</div>';
+  const F=[['all','الكل'],['wait','مستني الشحن'],['blocked','هيقف'],['done','اتشحن']];
   h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.o.f===f[0])+'" data-a="of" data-v="'+f[0]+'">'+f[1]+' <span class="n">'+cnt[f[0]]+'</span></button>').join('')+(bad?'<button class="chip" aria-pressed="'+(UI.o.f==='bad')+'" data-a="of" data-v="bad">كود غير مربوط <span class="n">'+bad+'</span></button>':'')+'</div><input type="search" id="oq" placeholder="ابحث بكود الأوردر أو البوليصة أو المحافظة" value="'+esc(UI.o.q)+'" data-c="oq" style="flex:1;min-width:200px;max-width:380px">'+(UI.o.pk?'<button class="btn sm ghost" data-a="gopk" data-id="">شيل فلتر البيك أب</button>':'')+'</div>';
   const list=ordFilter(),selN=Object.keys(UI.sel).filter(k=>UI.sel[k]).length;
-  if(selN)h+='<div class="msg row sp" style="margin-bottom:12px"><span>اخترت <b>'+selN+'</b> أوردر</span><span class="row"><button class="btn sm" data-a="selclear">إلغاء الاختيار</button><button class="btn sm pri" data-a="manual">سجّلهم كمسكّنين</button></span></div>';
+  if(selN)h+='<div class="msg row sp" style="margin-bottom:12px"><span>اخترت <b>'+selN+'</b> أوردر</span><span class="row"><button class="btn sm" data-a="selclear">إلغاء الاختيار</button><button class="btn sm pri" data-a="manual">سجّلهم كأوردرات اتشحنت</button></span></div>';
   h+='<div class="tw"><table><thead><tr><th style="width:36px"></th><th>كود الأوردر</th><th>البوليصة</th><th>النوع</th><th>المحافظة</th><th class="num">قطع</th><th>الحالة</th></tr></thead><tbody id="ordrows">'+(list.length?ordRows(list):'<tr><td colspan="7" class="empty">مفيش أوردرات بالفلتر ده.</td></tr>')+'</tbody></table></div>';
   if(list.length>UI.o.n)h+='<div style="text-align:center;margin-top:12px"><button class="btn" data-a="omore">عرض المزيد ('+fmt(list.length-UI.o.n)+' متبقي)</button></div>';
   return h;
 }
 function vPick(){
   const C=ctx(),rows=Object.keys(C.demand).sort(skuSort);
-  if(!rows.length)return '<div class="card"><div class="empty">مفيش أوردرات مفتوحة. كل اللي اتطلب اتسكّن.</div></div>';
+  if(!rows.length)return '<div class="card"><div class="empty">مفيش أوردرات مفتوحة. كل اللي اتطلب اتشحن.</div></div>';
   const tot=rows.reduce((a,s)=>a+C.demand[s],0),short=rows.filter(s=>C.demand[s]>g(s,'READY'));
   let h='<div class="kpis" style="margin-bottom:14px">'+kpi('أصناف مطلوبة',N(rows.length),'')+kpi('قطع مطلوبة (لسه)',N(tot),'')+kpi('أصناف ناقصة',N(short.length),'الطلب أكبر من الجاهز',short.length?'crit':'good')+'</div>';
-  h+='<p class="muted" style="margin-bottom:10px">القطع اللي لسه ما اتسكانتش، مجمّعة بالصنف. ده اللي يتجهّز من الرف.</p><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">مطلوب</th><th class="num">جاهز</th><th class="num">الفرق</th></tr></thead><tbody>'+
+  h+='<p class="muted" style="margin-bottom:10px">القطع اللي لسه ما اتشحنتش، مجمّعة بالصنف. ده اللي يتجهّز من الرف.</p><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">مطلوب</th><th class="num">جاهز</th><th class="num">الفرق</th></tr></thead><tbody>'+
    rows.map(s=>{const R=g(s,'READY'),d=C.demand[s],k=SKU.get(s);return '<tr data-a="sku" data-sku="'+s+'"><td>'+thumb(k.m,26)+' '+sw(k.c)+' <b class="mono">'+k.m+'</b> '+esc(k.c)+' · '+k.s+'</td><td class="num">'+N(d)+'</td><td class="num">'+N(R)+'</td><td class="num">'+(R>=d?'<span class="muted">'+N(R-d)+' فاضل</span>':pill('crit','ناقص '+(d-Math.max(0,R))))+'</td></tr>'}).join('')+'</tbody></table></div>';
   return h;
 }
@@ -895,7 +901,7 @@ function sheetHTML(){
     body='<div class="seg" role="group"><button type="button" aria-pressed="'+(s.t==='pickup')+'" data-a="uptype" data-v="pickup">بيك أب (المطلوب)</button><button type="button" aria-pressed="'+(s.t==='scan')+'" data-a="uptype" data-v="scan">سكان (الخارج فعلًا)</button></div>';
     if(!s.manual){
       body+='<div class="drop" id="dropz" tabindex="0" role="button" data-a="pickfile"><b>'+(s.fname?esc(s.fname):'اسحب الملف هنا أو اضغط للاختيار')+'</b><span class="muted">'+(s.t==='scan'?'تصدير QRbot (CSV) أو أي ملف فيه عمود كود الأوردر':'ملف Excel من فيندور (أعمدة: كود الاوردر العشوائي، المنتجات المطلوبة...)')+'</span></div>';
-      if(s.t==='pickup')body+='<div class="grid g2"><label class="f">القناة<select data-c="upch" id="upch">'+CHAN.map(c=>'<option value="'+c.id+'" '+(s.channel===c.id?'selected':'')+'>'+c.name+(c.ok?'':' (التنسيق مش متاح لسه)')+'</option>').join('')+'</select></label><label class="f">تاريخ البيك أب<input type="date" id="updt" value="'+s.date+'" data-c="updt"></label></div>';
+      if(s.t==='pickup')body+='<div class="grid g2"><label class="f">القناة<select data-c="upch" id="upch">'+CHAN.map(c=>'<option value="'+c.id+'" '+(s.channel===c.id?'selected':'')+'>'+c.name+(c.ok?'':' (التنسيق مش متاح لسه)')+'</option>').join('')+'</select></label><div class="f">تاريخ البيك أب'+(s.unlock?'<input type="date" id="updt" value="'+s.date+'" max="'+S.date+'" data-c="updt">':'<span class="row" style="color:var(--ink);gap:8px"><b class="mono">'+s.date+'</b>'+pill('good','النهارده')+'<button type="button" class="btn sm ghost" data-a="updtunlock">تغيير</button></span>')+'</div></div>';
     }else body+='<div class="msg">تسجيل يدوي لأوردرات اخترتها من القائمة، من غير ملف.</div>';
     if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
     if(s.t==='scan'&&s.res){
@@ -907,14 +913,15 @@ function sheetHTML(){
       if(r.unk.length)body+='<div class="msg crit">أكواد مش موجودة في أي بيك أب: <span class="mono">'+r.unk.slice(0,12).map(esc).join('، ')+'</span>'+(r.unk.length>12?' ...':'')+'<br>ارفع البيك أب بتاعها الأول.</div>';
       if(r.bad.length)body+='<div class="msg warn">'+r.bad.length+' أوردر فيه صنف مش مربوط بالكتالوج. اربطه الأول.</div>';
       const neg=scanNeg(r.matched);
-      if(neg.length)body+='<div class="msg warn"><b>الرصيد مش كفاية لـ '+neg.length+' صنف</b>، بس السكان مش هيتمنع. هيبقى بالسالب ويظهر في "محتاج تدخّل":<ul>'+neg.slice(0,6).map(x=>'<li>'+esc(skuName(x[0]))+': رصيد '+x[1]+' والمسكّن '+x[2]+'</li>').join('')+'</ul></div>';
+      if(neg.length)body+='<div class="msg warn"><b>الرصيد مش كفاية لـ '+neg.length+' صنف</b>، بس السكان مش هيتمنع. هيبقى بالسالب ويظهر في "محتاج تدخّل":<ul>'+neg.slice(0,6).map(x=>'<li>'+esc(skuName(x[0]))+': رصيد '+x[1]+' والمشحون '+x[2]+'</li>').join('')+'</ul></div>';
       body+='<button class="btn pri" data-a="scansave" '+((r.matched.length&&(s.emp||'').trim())?'':'disabled')+'>تأكيد وخصم '+fmt(pcs)+' قطعة من المخزون</button>';
     }
     if(s.t==='pickup'&&s.res){
       const r=s.res,pcs=r.orders.reduce((a,o)=>a+o.lines.length,0),bad=r.orders.filter(o=>o.bad.length).length;
       body+='<div class="kpis">'+kpi('أوردر جديد',N(r.orders.length),fmt(pcs)+' قطعة','good')+kpi('مكرر (موجود)',N(r.dups.length),'',r.dups.length?'warn':'')+kpi('أصناف مش مربوطة',N(bad),'',bad?'crit':'')+'</div>';
       if(r.unk.length)body+='<div class="msg warn">أكواد موديل مش معروفة: <span class="mono">'+r.unk.map(esc).join('، ')+'</span>. الأوردرات دي هتتعلّم "كود غير مربوط" لحد ما تتربط.</div>';
-      body+='<div class="msg">البيك أب مش بيخصم من المخزون. بيتحسب كطلب بس لحد ما الأوردرات تتسكان. بيانات العملاء ما بتتحفظش.</div>';
+      if(s.date!==S.date)body+='<div class="msg warn">التاريخ ده مش النهارده ('+esc(S.date)+'). البيك أب هيتحسب كطلب على '+esc(s.date)+'. اتأكد إنه صح.</div>';
+      body+='<div class="msg">البيك أب مش بيخصم من المخزون. بيتحسب كطلب بس لحد ما الأوردرات تتشحن. بيانات العملاء ما بتتحفظش.</div>';
       body+='<button class="btn pri" data-a="pksave" '+(r.orders.length?'':'disabled')+'>استيراد '+r.orders.length+' أوردر</button>';
     }
   }else if(s.kind==='order'){
@@ -923,7 +930,7 @@ function sheetHTML(){
     body+='<div class="grid g2"><div class="kpi"><small>البوليصة</small><b style="font-size:18px">'+esc(o.wb)+'</b></div><div class="kpi"><small>المحافظة / النوع</small><b style="font-size:18px;font-family:var(--f-ar)">'+esc(o.gov||'')+' · '+esc(o.type)+'</b></div></div>';
     body+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">في الأوردر</th><th class="num">جاهز دلوقتي</th></tr></thead><tbody>'+Object.keys(cnt).sort(skuSort).map(x=>{const R=g(x,'READY');return '<tr><td>'+thumb(SKU.get(x).m,26)+' '+sw(SKU.get(x).c)+' '+esc(skuName(x))+'</td><td class="num">'+N(cnt[x])+'</td><td class="num">'+(R<cnt[x]&&o.st==='open'?pill('crit',R):N(R))+'</td></tr>'}).join('')+'</tbody></table></div>';
     if(o.bad&&o.bad.length)body+='<div class="msg warn">أصناف مش مربوطة: '+o.bad.map(b=>esc(b[0]+' '+b[2]+' '+b[1])).join('، ')+'</div>';
-    if(o.st==='done')body+='<div class="msg good">اتسكّن بواسطة '+esc(o.sc.by)+' يوم '+esc(o.sc.date)+' الساعة '+timeOf(o.sc.at)+' · '+esc(o.sc.doc)+'</div>';
+    if(o.st==='done')body+='<div class="msg good">اتشحن بواسطة '+esc(o.sc.by)+' يوم '+esc(o.sc.date)+' الساعة '+timeOf(o.sc.at)+' · '+esc(o.sc.doc)+'</div>';
     if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (ملغي من القناة)</button></div>';
     if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
   }else if(s.kind==='sup'||s.kind==='supnew'){
@@ -1054,7 +1061,7 @@ function vDoc(d){
   h+='<div class="grid split2"><div class="stack"><section class="card">';
   // header fields
   h+='<h2>البيانات</h2><div class="grid g2">';
-  h+='<label class="f">التاريخ<input type="date" value="'+d.date+'" data-c="hdate" '+(draft?'':'disabled')+'></label>';
+  h+='<label class="f">التاريخ<input type="date" value="'+d.date+'" min="'+addDays(S.date,-3)+'" max="'+S.date+'" data-c="hdate" '+(draft?'':'disabled')+'></label>';
   const dis=draft?'':'disabled';
   if(d.type==='RCV')h+='<label class="f">رقم الإذن / الورقة<input value="'+esc(H.ref)+'" data-c="h" data-f="ref" '+dis+'></label><label class="f">إجمالي القطع المكتوب في الورقة<input type="number" min="0" value="'+esc(H.declared)+'" data-c="h" data-f="declared" '+dis+'></label>';
   if(d.type==='SHP')h+='<label class="f">ملاحظة<input value="'+esc(H.note)+'" data-c="h" data-f="note" '+dis+'></label>';
@@ -1066,7 +1073,7 @@ function vDoc(d){
   h+='</div>';
   if(draft&&(d.type==='RCV'||d.type==='SHP'))h+='<div style="margin-top:12px"><label class="f">صورة الورقة الموقّعة من الطرفين<input type="file" accept="image/*" data-c="photo"></label>'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="الورقة" style="margin-top:8px;max-height:140px;border-radius:10px;border:1px solid var(--line)">':'')+'</div>';
   h+='</section>';
-  if(d.type==='RTN'&&draft)h+='<section class="card"><h2>المتوقع رجوعه</h2><label class="f">أكواد الأوردرات المرتجعة (لو الشيت فيه أكواد)<textarea data-c="rtncodes" placeholder="كود في كل سطر">'+esc(H.codes)+'</textarea></label><div class="row" style="margin-top:8px"><button class="btn sm" data-a="rtnfill">املا المتوقع من الأكواد</button><span class="muted" style="font-size:12px">بيدوّر في الأوردرات اللي اتسكانت بس. أو ضيف الأصناف يدويًا تحت.</span></div>'+(H.unk&&H.unk.length?'<div class="msg warn" style="margin-top:8px">أكواد مش متسكّنة أو مش موجودة: <span class="mono">'+H.unk.slice(0,10).map(esc).join('، ')+'</span></div>':'')+'</section>';
+  if(d.type==='RTN'&&draft)h+='<section class="card"><h2>المتوقع رجوعه</h2><label class="f">أكواد الأوردرات المرتجعة (لو الشيت فيه أكواد)<textarea data-c="rtncodes" placeholder="كود في كل سطر">'+esc(H.codes)+'</textarea></label><div class="row" style="margin-top:8px"><button class="btn sm" data-a="rtnfill">املا المتوقع من الأكواد</button><span class="muted" style="font-size:12px">بيدوّر في الأوردرات اللي اتشحنت بس. أو ضيف الأصناف يدويًا تحت.</span></div>'+(H.unk&&H.unk.length?'<div class="msg warn" style="margin-top:8px">أكواد مش متشحنة أو مش موجودة: <span class="mono">'+H.unk.slice(0,10).map(esc).join('، ')+'</span></div>':'')+'</section>';
   if(d.type==='CNT'){
     h+='<section class="card"><h2>الجرد</h2>';
     if(draft&&!H.started){h+='<div class="chips" style="margin-bottom:10px">'+MORDER.map(c=>'<button class="chip" aria-pressed="'+(H.models.indexOf(c)>=0)+'" data-a="cntm" data-m="'+c+'">'+c+'</button>').join('')+'</div><button class="btn pri" data-a="cntstart" '+(H.models.length?'':'disabled')+'>ابدأ الجرد ('+H.models.length+' موديل)</button>'}
@@ -1132,7 +1139,7 @@ function vInsights(){
   }else if(UI.ins==='team'){
     const e={};S.orders.forEach(o=>{if(o.st==='done'&&o.sc){const x=e[o.sc.by]||(e[o.sc.by]={o:0,p:0,days:{},a:o.sc.at,b:o.sc.at});x.o++;x.p+=o.lines.length;x.days[o.sc.date]=1;x.a=Math.min(x.a,o.sc.at);x.b=Math.max(x.b,o.sc.at)}});
     const ks=Object.keys(e).sort((a,b)=>e[b].o-e[a].o);
-    h+=ks.length?'<div class="tw"><table><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">أيام شغل</th><th class="num">متوسط أوردر / يوم</th></tr></thead><tbody>'+ks.map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(e[k].o)+'</td><td class="num">'+N(e[k].p)+'</td><td class="num">'+N(Object.keys(e[k].days).length)+'</td><td class="num">'+N(e[k].o/Object.keys(e[k].days).length)+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:10px">ده عدد الأوردرات المسجّلة بالسكان. وقت السكان هو وقت رفع الملف مش وقت التغليف، فمتقيّمش بيه السرعة.</p>':'<div class="card"><div class="empty">لسه مفيش أوردرات اتسكانت.</div></div>';
+    h+=ks.length?'<div class="tw"><table><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">أيام شغل</th><th class="num">متوسط أوردر / يوم</th></tr></thead><tbody>'+ks.map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(e[k].o)+'</td><td class="num">'+N(e[k].p)+'</td><td class="num">'+N(Object.keys(e[k].days).length)+'</td><td class="num">'+N(e[k].o/Object.keys(e[k].days).length)+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:10px">ده عدد الأوردرات المسجّلة بالسكان. وقت السكان هو وقت رفع الملف مش وقت التغليف، فمتقيّمش بيه السرعة.</p>':'<div class="card"><div class="empty">لسه مفيش أوردرات اتشحنت.</div></div>';
   }else{
     const neg=D.skus.filter(k=>g(k.id,'READY')<0),drift=D.skus.filter(k=>{const b=bal()[k.id]||{};return Object.values(b).reduce((a,v)=>a+v,0)!==0});
     const dead=D.skus.filter(k=>g(k.id,'READY')>0&&!C.vel[k.id]);const exc=C.velOK?D.skus.filter(k=>{const i=info(k.id);return i.cov!=null&&i.cov>S.st.excess}):[];
@@ -1244,7 +1251,7 @@ const ACT={
     const s=UI.sheet,r=s.res;if(!r||!r.orders.length)return;
     const n=S.pickups.reduce((a,p)=>Math.max(a,+p.id.slice(1)||0),0)+1,id='P'+n;
     S.pickups.push({id,label:'بيك أب '+n,date:s.date,channel:s.channel,src:s.fname});
-    r.orders.forEach(o=>{o.pk=id;S.orders.push(o)});S.date=s.date;dirty();
+    r.orders.forEach(o=>{o.pk=id;S.orders.push(o)});dirty();
     UI.sheet=null;UI.o.pk=id;UI.o.f='all';toast('اتستورد '+r.orders.length+' أوردر. لسه ما اتخصمش حاجة.');go('orders');
   },
   scansave:()=>{
@@ -1309,6 +1316,9 @@ const ACT={
   supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
   flow:el=>{UI.sheet={kind:'flow',w:el.dataset.w};render()},
   blkview:()=>{UI.sheet={kind:'flow',w:'blocked'};render()},
+  vdtoday:()=>{UI.vd=null;render()},
+  vdset:el=>{UI.vd=el.dataset.d;render()},
+  updtunlock:()=>{UI.sheet.unlock=true;render()},
   fltab:el=>{UI.fl=el.dataset.v;render()},
   opendoc2:el=>{const id=el.dataset.id;UI.sheet=null;go('ops',()=>{UI.doc=id})},
   pkedit:el=>{const p=S.pickups.find(x=>x.id===el.dataset.id);UI.sheet={kind:'pkedit',id:p.id,f:{label:p.label,date:p.date,channel:p.channel},del:false,err:''};render()},
@@ -1364,11 +1374,11 @@ const ACT={
   reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);phClear();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
 };
 const CHG={
-  wd:el=>{if(el.value){S.date=el.value;dirty();render()}},
+  wd:el=>{if(!el.value)return;UI.vd=el.value>=S.date?null:el.value;render()},
   sel:el=>{UI.sel[el.dataset.ref]=el.checked;render()},
   upch:el=>{const s=UI.sheet;s.channel=el.value;if(s.rows){try{s.res=importRows(s.rows,s.channel,'__new__');s.err=''}catch(e){s.err=String(e.message||e)}}render()},
-  updt:el=>{UI.sheet.date=el.value},
-  hdate:el=>{const d=curDoc();d.date=el.value;dirty()},
+  updt:el=>{UI.sheet.date=(el.value&&el.value<=S.date)?el.value:S.date;render()},
+  hdate:el=>{const d=curDoc(),v=el.value;if(!v||v>S.date||v<addDays(S.date,-3)){toast('التاريخ لازم يكون ضمن آخر 3 أيام ومش في المستقبل');el.value=d.date;return}d.date=v;dirty();partial()},
   h:el=>{const d=curDoc();if(String(d.hdr[el.dataset.f])===el.value){return}d.hdr[el.dataset.f]=el.value;dirty();if(['to'].indexOf(el.dataset.f)>=0)render();else partial()},
   clnfrom:el=>{const d=curDoc();d.hdr.from=el.value;d.hdr.to=el.value==='DIRTY'?'SCRAP':'DIRTY';dirty();render()},
   fsdkind:el=>{const d=curDoc();d.hdr.kind=el.value;dirty();render()},
@@ -1429,6 +1439,17 @@ document.addEventListener('mouseover',e=>{
 window.addEventListener('scroll',()=>{tip.hidden=true},{passive:true});
 
 window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save()});
+/* ---------- daily rollover at midnight (Cairo) ---------- */
+function rollCheck(){
+  const idle=!UI.sheet&&!(UI.tab==='ops'&&UI.doc);
+  if(UI.pendingRender&&idle){UI.pendingRender=false;render()}
+  const t=cairoToday();if(t===S.date)return;
+  S.date=t;UI.vd=null;dirty();
+  if(idle){render();toast('يوم جديد: '+dayName(t))}else UI.pendingRender=true;
+}
+setInterval(rollCheck,30000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')rollCheck()});
+window.addEventListener('focus',rollCheck);
 /* ---------- boot ---------- */
 load();
 try{theme=localStorage.getItem(KEY+'-theme')||'system'}catch(e){}
@@ -1445,7 +1466,7 @@ const h0=(location.hash||'').slice(1);if(VIEWS[h0])UI.tab=h0;
 document.documentElement.lang='ar';document.documentElement.dir='rtl';
 render();
 idbOpen().then(db=>{IDBH=db;return phLoad()}).then(()=>{if(Object.keys(PH).length)render()});
-window.__F={S:()=>S,UI,go,ctx,g,dirty,render};
+window.__F={S:()=>S,UI,go,ctx,g,dirty,render,rollCheck};
 })();
 
 </script>

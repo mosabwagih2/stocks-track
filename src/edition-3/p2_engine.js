@@ -5,6 +5,8 @@ const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelecto
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>Math.round(n).toLocaleString('en-US');
 const N=n=>'<span class="n">'+fmt(n)+'</span>';
+const cairoToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const dayName=d=>new Date(d+'T12:00:00Z').toLocaleDateString('ar-EG-u-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
 const pct=(a,b)=>'<span class="n">'+(b?Math.round(a/b*100):0)+'%</span>';
 
 /* ---------- master data ---------- */
@@ -37,7 +39,7 @@ const chanName=id=>(CHAN.find(c=>c.id===id)||{name:id}).name;
 const OT={
   RCV:{ar:'استلام توريد',en:'Receipts',grp:'دخول',pre:'RCV',d:'قطع جت من المصنع بورقة موقّعة',ic:'in'},
   RTN:{ar:'مرتجعات العملاء',en:'Customer Returns',grp:'دخول',pre:'RTN',d:'اللي رجع من القنوات: جاهز أو هالك، والناقص بيتسجل مفقود',ic:'back'},
-  SCN:{ar:'أوردرات اتسكانت',en:'Delivery Orders',grp:'خروج',pre:'SCN',d:'الخروج الفعلي من ملف السكان',ic:'scan'},
+  SCN:{ar:'أوردرات اتشحنت',en:'Delivery Orders',grp:'خروج',pre:'SCN',d:'الخروج الفعلي من ملف السكان',ic:'scan'},
   SHP:{ar:'توريد للمحل',en:'Shop Transfer',grp:'خروج',pre:'SHP',d:'قطع للمحل بورقة موقّعة',ic:'shop'},
   CLN:{ar:'تصنيف حالة',en:'Status Change',grp:'داخلي',pre:'CLN',d:'قطعة بقت هالك نظافة أو هالك نهائي',ic:'swap'},
   FSD:{ar:'إرسال للمصنع',en:'Factory Send',grp:'داخلي',pre:'FSD',d:'غسيل (هيرجع) أو هالك للتسليم',ic:'out'},
@@ -58,11 +60,11 @@ function seed(){
   D.pickups.forEach((p,i)=>{const id='P'+(i+1);pickups.push({id,label:p.label,date:D.today,channel:'VENDOOR',src:'ملف فيندور 2-11-2026'});
     p.orders.forEach(o=>orders.push({ref:o.ref,wb:o.wb,type:o.type,gov:o.gov,total:o.total,lines:o.lines.slice(),pk:id,st:'open',sc:null,bad:[]}))});
   const t=Date.parse(D.asOf+'T11:00:00+02:00');
-  return {v:3,moves,mid,docs:[],did:1,seq:{},pickups,orders,emps:[],actor:'مصعب',date:D.today,
+  return {v:3,moves,mid,docs:[],did:1,seq:{},pickups,orders,emps:[],actor:'مصعب',date:cairoToday(),
     sup:{log:[['FLY',2000],['PKS',600],['PKM',600],['PKL',300],['CUP',960]].map(x=>({t,date:D.asOf,item:x[0],q:x[1],why:'رصيد افتتاحي تجريبي. عدّله بجرد',doc:null}))},
     st:{lookback:14,cover:14,excess:60,target:30,packS:2,packM:5,cupBR1:2,flyPer:1},costs:{},alias:{},img:{}};
 }
-function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;ensureSup(S);return}}}catch(e){}S=seed();ensureSup(S)}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;S.date=cairoToday();ensureSup(S);return}}}catch(e){}S=seed();ensureSup(S)}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function dirty(){_bal=null;_ctx=null;clearTimeout(_t);_t=setTimeout(save,250)}
 function bal(){if(_bal)return _bal;const b={};for(const m of S.moves){const o=b[m.sku]||(b[m.sku]={});o[m.from]=(o[m.from]||0)-m.q;o[m.to]=(o[m.to]||0)+m.q}return _bal=b}

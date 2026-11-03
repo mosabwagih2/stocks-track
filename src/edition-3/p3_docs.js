@@ -7,6 +7,7 @@ const ic=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(IP[n]||'')+'</svg>';
 /* ---------- documents ---------- */
 const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'all'},fl:'pk',opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'plan'};
 const PH={};
+const viewDate=()=>UI.vd||S.date;
 const logE=m=>({t:Date.now(),by:S.actor,m});
 const srcLoc=(d)=>d.type==='CLN'?d.hdr.from:d.type==='FSD'?(d.hdr.kind==='wash'?'DIRTY':'SCRAP'):d.type==='FRC'?'FACTORY':d.type==='LOS'?'LOST':d.type==='SHP'?'READY':null;
 function newDoc(type,pre){
@@ -65,8 +66,8 @@ function build(d){
     if(lostN)warn.push('الناقص '+fmt(lostN)+' قطعة هيتسجل مفقود ومربوط بالقناة');
   }else if(d.type==='SCN'){
     scnLines(d).forEach(l=>add(l.sku,l.q,'READY','EXT_CH','سكان: '+H.emp));
-    chk(H.refs.length>0,'فيه أوردرات متسكّنة');chk((H.emp||'').trim(),'اسم الموظف متسجّل');
-    scnLines(d).forEach(l=>{if(g(l.sku,'READY')<l.q)warn.push(skuName(l.sku)+': الرصيد '+g(l.sku,'READY')+' والمسكّن '+l.q+'. هيبقى بالسالب، راجع الجرد')});
+    chk(H.refs.length>0,'فيه أوردرات متشحنة');chk((H.emp||'').trim(),'اسم الموظف متسجّل');
+    scnLines(d).forEach(l=>{if(g(l.sku,'READY')<l.q)warn.push(skuName(l.sku)+': الرصيد '+g(l.sku,'READY')+' والمشحون '+l.q+'. هيبقى بالسالب، راجع الجرد')});
   }else if(d.type==='CNT'){
     const keys=Object.keys(H.cnt).filter(s=>H.cnt[s]!==''&&H.cnt[s]!=null);
     let conflict=0;
@@ -75,6 +76,7 @@ function build(d){
     chk(keys.length>0,'فيه أصناف اتعدّت');chk(H.reveal,'كشفت الفروق وراجعتها');
     if(conflict){chk(H.ack,conflict+' صنف الرصيد اتغيّر من وقت بداية الجرد. وافقت إن الفرق يتحسب على الرصيد الحالي');}
   }
+  if(d.type!=='SCN')chk(d.date<=S.date&&d.date>=addDays(S.date,-3),'التاريخ ضمن آخر 3 أيام ومش في المستقبل');
   const err=[];
   if(d.type!=='SCN'){
     const sim={};

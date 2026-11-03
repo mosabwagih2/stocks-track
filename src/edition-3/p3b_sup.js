@@ -69,7 +69,7 @@ const KIND_P={open:'',rcv:'good',issue:'warn',count:'info',auto:'',rev:'lost'};
 function vSupplies(){
   const items=S.sup.items.filter(i=>UI.supArch?i.arch:!i.arch),nArch=S.sup.items.filter(i=>i.arch).length;
   const tools=(nArch||UI.supArch?'<button class="btn" data-a="suparchview">'+(UI.supArch?'← رجوع للمستلزمات':'المؤرشفة ('+nArch+')')+'</button>':'')+'<button class="btn pri" data-a="supnew">+ إضافة مستلزم</button>';
-  let h=top(UI.supArch?'المستلزمات المؤرشفة':'المستلزمات','عبوات وفلايرز وكاسات. بتتخصم لوحدها مع كل أوردر بيتسكان حسب قاعدة كل مستلزم.',tools);
+  let h=top(UI.supArch?'المستلزمات المؤرشفة':'المستلزمات','عبوات وفلايرز وكاسات. بتتخصم لوحدها مع كل أوردر بيتشحن حسب قاعدة كل مستلزم.',tools);
   if(!items.length)h+='<div class="card"><div class="empty">'+(UI.supArch?'مفيش مستلزمات مؤرشفة.':'لسه مفيش مستلزمات. اضغط "إضافة مستلزم".')+'</div></div>';
   h+='<div class="grid g3">'+items.map(it=>{
     const b=supBal(it.id),u=supUse(it.id),c=supCover(it.id),k=supStatus(it),pt=packText(it,b);
@@ -95,7 +95,7 @@ function supForm(f,isNew){
    ff('pack','عدد الوحدات في العبوة (اختياري)',f.pack,{num:true,ph:'مثلًا 24'})+ff('packName','اسم العبوة',f.packName,{ph:'كيس'})+ff('note','ملاحظة',f.note,{span:true})+'</div>';
   h+='<datalist id="supunits">'+SUP_UNITS.map(u=>'<option value="'+u+'">').join('')+'</datalist>';
   if(isNew)h+='<div class="grid g2" style="margin-top:12px">'+ff('open','الرصيد الحالي (اختياري)',f.open,{num:true,span:true})+'</div>';
-  h+='<div class="card flat" style="margin-top:14px;background:var(--lav)"><h2 style="font-size:15px">الخصم التلقائي مع السكان</h2><label class="f">القاعدة<select data-c="supkind"><option value="none" '+(f.kind==='none'?'selected':'')+'>يدوي: مفيش خصم تلقائي</option><option value="order" '+(f.kind==='order'?'selected':'')+'>كمية ثابتة لكل أوردر (مثلًا الفلاير)</option><option value="pieces" '+(f.kind==='pieces'?'selected':'')+'>كمية لكل قطعة في الأوردر (مثلًا الكاسات)</option><option value="range" '+(f.kind==='range'?'selected':'')+'>لكل أوردر حسب عدد القطع (مثلًا حجم التغليف)</option></select></label>';
+  h+='<div class="card flat" style="margin-top:14px;background:var(--lav)"><h2 style="font-size:15px">الخصم التلقائي مع الشحن</h2><label class="f">القاعدة<select data-c="supkind"><option value="none" '+(f.kind==='none'?'selected':'')+'>يدوي: مفيش خصم تلقائي</option><option value="order" '+(f.kind==='order'?'selected':'')+'>كمية ثابتة لكل أوردر (مثلًا الفلاير)</option><option value="pieces" '+(f.kind==='pieces'?'selected':'')+'>كمية لكل قطعة في الأوردر (مثلًا الكاسات)</option><option value="range" '+(f.kind==='range'?'selected':'')+'>لكل أوردر حسب عدد القطع (مثلًا حجم التغليف)</option></select></label>';
   if(f.kind!=='none'){
     h+='<div class="grid g2" style="margin-top:10px">'+ff('qty',f.kind==='pieces'?'الكمية لكل قطعة':'الكمية لكل أوردر',f.qty,{num:true});
     if(f.kind==='pieces')h+='<label class="f">الموديل<select data-c="supf" data-f="model"><option value="">أي موديل</option>'+MORDER.map(m=>'<option value="'+m+'" '+(f.model===m?'selected':'')+'>'+m+' · '+esc(MODEL.get(m).name)+'</option>').join('')+'</select></label>';
