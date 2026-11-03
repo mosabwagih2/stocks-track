@@ -1,0 +1,1137 @@
+<title>Fémini Stock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Readex+Pro:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: right-hand rail (bottom bar on phones) + one working column. Each screen is built around the daily question it answers.
+   Palette: Fémini lavender brand (ink, accent, page, line, lav) + semantic status colors kept separate from the accent. */
+:root{
+  --page:#fcf9fe;--surface:#ffffff;--lav:#f5f1fd;--ink:#302568;--accent:#5e4394;--on-accent:#ffffff;--muted:#5a5178;
+  --line:#e3dcf3;--line2:#cfc2ec;--grid:#ece6f7;--rail:#302568;--on-rail:#f1ecfb;--rail-mute:#b9aedd;--shadow:0 1px 2px rgba(48,37,104,.06),0 8px 24px -12px rgba(48,37,104,.18);
+  --crit:#a8231a;--crit-bg:#fbe7e5;--crit-line:#efc3be;--warn:#8a4a07;--warn-bg:#fcf0dc;--warn-line:#efd3a6;
+  --good:#0c6b43;--good-bg:#e4f3ea;--good-line:#b9dfc9;--info:#1f528f;--info-bg:#e0ebfa;--info-line:#b9d0ee;--lost:#74278a;--lost-bg:#f2e1f7;
+  --c-ready:#2f9e75;--c-dirty:#d89a2b;--c-scrap:#cf4a52;--c-factory:#4a86d6;--c-lost:#a05bb8;--swb:#cfc8de;
+  --f-ar:'IBM Plex Sans Arabic','Segoe UI',Tahoma,sans-serif;--f-disp:'Readex Pro','IBM Plex Sans Arabic',sans-serif;--f-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --page:#14111f;--surface:#1c1830;--lav:#252040;--ink:#ece8fa;--accent:#b9a4f0;--on-accent:#14111f;--muted:#aaa2c6;
+  --line:#2f2950;--line2:#463e6c;--grid:#2c2649;--rail:#0f0c1a;--on-rail:#ece8fa;--rail-mute:#9d94c2;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  --crit:#ff8d94;--crit-bg:#3a1a1e;--crit-line:#6b2c33;--warn:#f0b960;--warn-bg:#35280f;--warn-line:#6b4f1c;
+  --good:#5fd0a0;--good-bg:#12302a;--good-line:#246650;--info:#8db8f5;--info-bg:#14283f;--info-line:#274d7a;--lost:#d9a0ea;--lost-bg:#2f1a39;
+  --c-ready:#3fb589;--c-dirty:#e3a93f;--c-scrap:#e0606a;--c-factory:#5f98e6;--c-lost:#b873cf;--swb:#5a5280;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --page:#14111f;--surface:#1c1830;--lav:#252040;--ink:#ece8fa;--accent:#b9a4f0;--on-accent:#14111f;--muted:#aaa2c6;
+  --line:#2f2950;--line2:#463e6c;--grid:#2c2649;--rail:#0f0c1a;--on-rail:#ece8fa;--rail-mute:#9d94c2;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  --crit:#ff8d94;--crit-bg:#3a1a1e;--crit-line:#6b2c33;--warn:#f0b960;--warn-bg:#35280f;--warn-line:#6b4f1c;
+  --good:#5fd0a0;--good-bg:#12302a;--good-line:#246650;--info:#8db8f5;--info-bg:#14283f;--info-line:#274d7a;--lost:#d9a0ea;--lost-bg:#2f1a39;
+  --c-ready:#3fb589;--c-dirty:#e3a93f;--c-scrap:#e0606a;--c-factory:#5f98e6;--c-lost:#b873cf;--swb:#5a5280;color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--ink);font:14px/1.6 var(--f-ar);direction:rtl;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+h1,h2,h3,h4,p{margin:0}
+h1,h2,h3{font-family:var(--f-disp);font-weight:500;text-wrap:balance;letter-spacing:0}
+.mono,.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.n{direction:ltr;unicode-bidi:isolate;display:inline-block}
+.muted{color:var(--muted)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* shell */
+.shell{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--rail);color:var(--on-rail);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:20px 12px;gap:4px;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 10px 18px}
+.brand b{font-family:var(--f-disp);font-weight:600;font-size:20px;letter-spacing:.01em}
+.brand i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#9a7fe0,#5e4394);display:grid;place-items:center;font-style:normal;font-family:var(--f-disp);font-weight:600;color:#fff}
+.brand small{display:block;color:var(--rail-mute);font-size:11px;line-height:1.2}
+.nav{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;color:var(--rail-mute);font-weight:500;position:relative}
+.nav:hover{background:rgba(255,255,255,.07);color:var(--on-rail)}
+.nav[aria-current=page]{background:rgba(255,255,255,.12);color:#fff}
+.nav svg{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav .bd{margin-inline-start:auto;background:#e0606a;color:#fff;border-radius:99px;font:600 11px/1 var(--f-mono);padding:4px 7px}
+.rail .sp{flex:1}
+.rail .foot{padding:10px;color:var(--rail-mute);font-size:12px;display:grid;gap:8px}
+.tbtn{all:unset;cursor:pointer;display:inline-flex;gap:8px;align-items:center;color:var(--rail-mute);font-size:12px;padding:6px 8px;border-radius:8px}
+.tbtn:hover{background:rgba(255,255,255,.07);color:#fff}
+
+.main{padding-block:22px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));min-width:0;max-width:1240px;width:100%}
+.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.top h1{font-size:26px;line-height:1.25}
+.top .sub{color:var(--muted);margin-top:2px}
+.top .tools{margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* controls */
+.btn{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:10px;border:1px solid var(--line2);background:var(--surface);cursor:pointer;font-weight:500;color:var(--ink);white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.sm{padding:5px 10px;font-size:13px;border-radius:8px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--accent)}
+.btn.danger{color:var(--crit);border-color:var(--crit-line)}
+.btn[disabled],.btn[aria-disabled=true]{opacity:.45;cursor:not-allowed;pointer-events:none}
+input,select,textarea{background:var(--surface);border:1px solid var(--line2);border-radius:9px;padding:8px 10px;min-width:0;max-width:100%}
+input[type=number]{font-family:var(--f-mono);text-align:center;width:76px;direction:ltr}
+input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);padding:0}
+textarea{width:100%;min-height:70px;font-family:var(--f-mono);direction:ltr}
+label.f{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
+label.f>input,label.f>select{font-size:14px;color:var(--ink)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{all:unset;box-sizing:border-box;cursor:pointer;padding:5px 12px;border-radius:99px;border:1px solid var(--line2);background:var(--surface);font-size:13px;font-weight:500;display:inline-flex;gap:6px;align-items:center}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--page);border-color:var(--ink)}
+:root[data-theme="dark"] .chip[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .chip[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}}
+.chip .n{font-size:12px;opacity:.75}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{all:unset;cursor:pointer;padding:7px 14px;font-weight:500;font-size:13px;border-inline-start:1px solid var(--line2)}
+.seg button:first-child{border-inline-start:0}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--on-accent)}
+
+/* surfaces */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0}
+.card.flat{box-shadow:none}
+.card.lift{box-shadow:var(--shadow)}
+.card h2{font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card h2 .hint{font:400 12px var(--f-ar);color:var(--muted);margin-inline-start:auto}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.split{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+.split2{grid-template-columns:minmax(0,1fr) 340px}
+.stack{display:grid;gap:16px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row.sp{justify-content:space-between}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid var(--line2);background:var(--lav);white-space:nowrap}
+.pill.crit{background:var(--crit-bg);color:var(--crit);border-color:var(--crit-line)}
+.pill.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.pill.good{background:var(--good-bg);color:var(--good);border-color:var(--good-line)}
+.pill.info{background:var(--info-bg);color:var(--info);border-color:var(--info-line)}
+.pill.lost{background:var(--lost-bg);color:var(--lost);border-color:var(--lost-bg)}
+.dot{width:9px;height:9px;border-radius:99px;display:inline-block;flex:none}
+.sw{width:12px;height:12px;border-radius:99px;border:1px solid var(--swb);display:inline-block;vertical-align:-1px}
+
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:9px 12px;text-align:start;border-bottom:1px solid var(--grid);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--lav);white-space:nowrap;position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+tbody tr[data-a]{cursor:pointer}
+tbody tr[data-a]:hover td{background:var(--lav)}
+td.num,th.num{text-align:center}
+.t-sm td,.t-sm th{padding:6px 10px}
+
+/* big numbers */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:2px}
+.kpi small{color:var(--muted);font-weight:500}
+.kpi b{font:600 28px/1.2 var(--f-mono);letter-spacing:-.02em}
+.kpi em{font-style:normal;color:var(--muted);font-size:12px}
+.kpi.crit b{color:var(--crit)}.kpi.warn b{color:var(--warn)}.kpi.good b{color:var(--good)}
+
+/* flow bar */
+.flow{display:flex;height:16px;border-radius:99px;overflow:hidden;background:var(--grid);gap:2px}
+.flow i{display:block;min-width:0}
+.flow .a{background:var(--c-ready)}.flow .b{background:var(--line2)}.flow .c{background:var(--c-scrap)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.hb{display:grid;grid-template-columns:minmax(90px,150px) minmax(0,1fr) auto;gap:10px;align-items:center;padding:3px 0}
+.hb .tr{height:10px;background:var(--grid);border-radius:99px;overflow:hidden}
+.hb .tr i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.hb .tr i.w{background:var(--c-dirty)}.hb .tr i.c{background:var(--c-scrap)}.hb .tr i.g{background:var(--c-ready)}
+.hb .v{font:500 13px var(--f-mono);min-width:40px;text-align:end}
+.hb .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* action queue */
+.queue{display:grid;gap:8px}
+.q{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
+.q .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:700}
+.q.crit{border-color:var(--crit-line);background:var(--crit-bg)}.q.crit .ic{background:var(--crit);color:#fff}
+.q.warn{border-color:var(--warn-line);background:var(--warn-bg)}.q.warn .ic{background:var(--warn);color:#fff}
+.q.info .ic{background:var(--info);color:#fff}
+:root[data-theme="dark"] .q .ic{color:#14111f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .q .ic{color:#14111f}}
+.q b{display:block}.q span{color:var(--muted);font-size:13px}
+.q.crit span,.q.warn span{color:inherit;opacity:.85}
+.q.crit b{color:var(--crit)}.q.warn b{color:var(--warn)}
+
+/* stock */
+.wh{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start}
+.mlist{display:grid;gap:2px;max-height:calc(100vh - 220px);overflow-y:auto;padding:6px}
+.mgrp{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.06em;padding:10px 10px 4px;text-transform:uppercase}
+.mi{all:unset;box-sizing:border-box;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;cursor:pointer}
+.mi:hover{background:var(--lav)}
+.mi[aria-current=true]{background:var(--ink);color:var(--page)}
+:root[data-theme="dark"] .mi[aria-current=true]{background:var(--accent);color:var(--on-accent)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mi[aria-current=true]{background:var(--accent);color:var(--on-accent)}}
+.mi b{font-family:var(--f-mono);font-size:13px}
+.mi small{opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx{border-collapse:separate;border-spacing:4px;width:auto}
+.mx th{background:none;position:static;text-align:center;border:0;padding:4px 6px}
+.mx td{padding:0;border:0}
+.mx .cl{padding:0 8px 0 4px;white-space:nowrap;font-weight:500;text-align:start}
+.cell{all:unset;box-sizing:border-box;cursor:pointer;display:grid;place-items:center;min-width:58px;height:46px;border-radius:10px;background:var(--lav);font:500 15px var(--f-mono);position:relative;border:1px solid transparent}
+.cell:hover{border-color:var(--accent)}
+.cell.z{color:var(--muted);background:var(--grid)}
+.cell.w{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.cell.c{background:var(--crit-bg);color:var(--crit);border-color:var(--crit-line)}
+.cell small{position:absolute;bottom:2px;inset-inline:0;text-align:center;font:400 9.5px var(--f-ar);opacity:.8;line-height:1}
+.cell .dy{position:absolute;top:3px;inset-inline-end:4px;width:7px;height:7px;border-radius:9px;background:var(--c-dirty)}
+.stk{display:flex;height:14px;border-radius:99px;overflow:hidden;gap:2px;background:var(--grid)}
+.stk i{display:block;min-width:2px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(20,17,31,.45);z-index:40}
+.sheet{position:fixed;z-index:41;top:0;bottom:0;left:0;width:min(560px,100%);background:var(--page);border-inline-end:1px solid var(--line2);box-shadow:var(--shadow);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.sheet>header{display:flex;gap:10px;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+.sheet>header h2{font-size:18px}
+.sheet>header .x{margin-inline-start:auto}
+.sheet>div.body{padding:18px;overflow-y:auto;flex:1;display:grid;gap:16px;align-content:start;padding-bottom:max(18px,env(safe-area-inset-bottom,0px))}
+.drop{border:1.5px dashed var(--line2);border-radius:14px;padding:22px;text-align:center;display:grid;gap:6px;cursor:pointer;background:var(--surface)}
+.drop:hover,.drop.on{border-color:var(--accent);background:var(--lav)}
+.msg{padding:10px 14px;border-radius:10px;border:1px solid var(--line2);background:var(--lav)}
+.msg.crit{background:var(--crit-bg);border-color:var(--crit-line);color:var(--crit)}
+.msg.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+.msg.good{background:var(--good-bg);border-color:var(--good-line);color:var(--good)}
+.msg ul{margin:6px 0 0;padding-inline-start:18px}
+
+/* operations */
+.opgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.op{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:4px;align-content:start}
+.op:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.op .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--lav);color:var(--accent);margin-bottom:6px}
+.op .ic svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.op b{font-weight:600}.op small{color:var(--muted);line-height:1.45}.op em{font:500 11px var(--f-mono);color:var(--accent);font-style:normal;direction:ltr;text-align:start}
+.gh{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;margin:6px 0 8px}
+.picker{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--lav)}
+.picker label{min-width:120px;flex:1 1 120px}
+.stp{display:inline-flex;align-items:center;border:1px solid var(--line2);border-radius:9px;background:var(--surface);overflow:hidden}
+.stp button{all:unset;cursor:pointer;width:30px;height:34px;text-align:center;font-weight:700;color:var(--accent)}
+.stp button:hover{background:var(--lav)}
+.stp input{border:0;border-radius:0;width:62px;padding:6px 0}
+.sum{position:sticky;top:16px;display:grid;gap:12px}
+.eff{display:grid;gap:6px;max-height:340px;overflow-y:auto}
+.eff .e{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--lav);font-size:13px}
+.eff .e .t{display:flex;gap:8px;justify-content:space-between;font-weight:600}
+.chg{font:500 12px var(--f-mono);color:var(--muted);direction:rtl}
+.chg b{color:var(--ink)}
+.chk{display:grid;gap:6px}
+.chk div{display:flex;gap:8px;align-items:flex-start}
+.chk .ok::before{content:"✓";color:var(--good);font-weight:700}
+.chk .no::before{content:"●";color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto}
+.tabs button{all:unset;cursor:pointer;padding:9px 14px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.empty{text-align:center;color:var(--muted);padding:28px 10px}
+.toast{position:fixed;inset-inline:0;bottom:max(24px,env(safe-area-inset-bottom,0px));margin-inline:auto;width:max-content;max-width:calc(100% - 32px);background:var(--ink);color:var(--page);padding:10px 18px;border-radius:12px;z-index:60;box-shadow:var(--shadow)}
+#tip{position:fixed;z-index:70;background:var(--ink);color:var(--page);padding:8px 11px;border-radius:9px;font-size:12px;max-width:260px;pointer-events:none;line-height:1.5}
+
+@media (max-width:1000px){.split,.split2,.g3,.g4{grid-template-columns:minmax(0,1fr)}.sum{position:static}.wh{grid-template-columns:minmax(0,1fr)}.mlist{max-height:none;display:flex;overflow-x:auto;padding:6px}.mlist .mgrp{display:none}.mlist .mi{min-width:128px}}
+@media (max-width:820px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:fixed;inset:auto 0 0 0;top:auto;height:auto;flex-direction:row;padding:6px max(6px,env(safe-area-inset-right,0px)) max(6px,env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));z-index:30;gap:0;overflow-x:auto;overflow-y:hidden;border-top:1px solid var(--line2)}
+  .brand,.rail .sp,.rail .foot{display:none}
+  .nav{flex-direction:column;gap:2px;padding:6px 10px;font-size:11px;flex:1 0 auto;min-width:62px;align-items:center}
+  .nav .bd{position:absolute;top:2px;inset-inline-end:8px;margin:0}
+  .main{padding-bottom:110px}
+  .top h1{font-size:22px}
+  .g2{grid-template-columns:minmax(0,1fr)}
+  .toast{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+  .sheet{width:100%;top:8%;border-radius:18px 18px 0 0;padding-top:0}
+}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:sl .18s ease-out}@keyframes sl{from{transform:translateX(-24px);opacity:.4}to{transform:none;opacity:1}}}
+</style>
+<div id="app"></div>
+<script>
+(function(){
+'use strict';
+const D={"asOf":"2026-10-29","today":"2026-11-02","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":[{"code":"BLK","ar":"اسود"},{"code":"WHT","ar":"ابيض"},{"code":"RED","ar":"احمر"},{"code":"BEG","ar":"بيج"},{"code":"GRY","ar":"رمادي"},{"code":"ORG","ar":"برتقالي"},{"code":"OLV","ar":"زيتى"},{"code":"FUC","ar":"فوشيا"},{"code":"YEL","ar":"اصفر"},{"code":"MNT","ar":"مينت جرين"},{"code":"BBL","ar":"بيبي بلو"},{"code":"NVY","ar":"كحلي"},{"code":"PNK","ar":"بينك"},{"code":"SAL","ar":"سيمون"},{"code":"ROS","ar":"روز"},{"code":"RBK","ar":"احمر تطعيم اسود"}],"models":[{"code":"D2","name":"دانتيل","sizes":["S","M","L","XL","2XL"],"colors":["اسود","زيتى","برتقالي","ابيض","احمر","فوشيا"]},{"code":"D1","name":"دانتيل","sizes":["S","M","L","XL","2XL"],"colors":["ابيض","زيتى","فوشيا","برتقالي","احمر","اسود"]},{"code":"A1","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["ابيض","اسود","احمر","اصفر"]},{"code":"A2","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["مينت جرين"]},{"code":"A3","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود"]},{"code":"A4","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["بيبي بلو"]},{"code":"A5","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود"]},{"code":"A6","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود"]},{"code":"S2","name":"القميص","sizes":["S","M","L","XL","2XL"],"colors":["ابيض","اسود","كحلي","احمر"]},{"code":"BR4","name":"برا حماله رفيعه","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"SH2","name":"شورت","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي","برتقالي"]},{"code":"PAN5","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"PAN4","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"PAN3","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"PAN2","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"PAN1","name":"بانتي","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"BR3","name":"سبورت برا","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"BR2","name":"برا","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"SH1","name":"هوت شورت","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","بيج","رمادي"]},{"code":"BR1","name":"سبورت برا مبطن","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["اسود","ابيض","احمر","رمادي","بيج"]},{"code":"A12","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["زيتى"]},{"code":"A11","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["بينك"]},{"code":"A9","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["سيمون"]},{"code":"A8","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["روز"]},{"code":"A7","name":"مطرزات","sizes":["S","M","L","XL","2XL","3XL","4XL"],"colors":["احمر تطعيم اسود"]},{"code":"D3","name":"دانتيل","sizes":["S","M","L","XL","2XL","3XL"],"colors":["اسود","زيتى","برتقالي","ابيض","احمر","فوشيا"]},{"code":"S1","name":"الروب","sizes":["S","M","L","XL","2XL"],"colors":["ابيض","اسود","كحلي","احمر"]}],"skus":[{"id":"D2-BLK-S","m":"D2","c":"اسود","s":"S","min":5,"open":17},{"id":"D2-BLK-M","m":"D2","c":"اسود","s":"M","min":5,"open":9},{"id":"D2-BLK-L","m":"D2","c":"اسود","s":"L","min":5,"open":5},{"id":"D2-BLK-XL","m":"D2","c":"اسود","s":"XL","min":5,"open":8},{"id":"D2-BLK-2XL","m":"D2","c":"اسود","s":"2XL","min":5,"open":0},{"id":"D2-OLV-S","m":"D2","c":"زيتى","s":"S","min":5,"open":0},{"id":"D2-OLV-M","m":"D2","c":"زيتى","s":"M","min":5,"open":0},{"id":"D2-OLV-L","m":"D2","c":"زيتى","s":"L","min":5,"open":1},{"id":"D2-OLV-XL","m":"D2","c":"زيتى","s":"XL","min":5,"open":0},{"id":"D2-OLV-2XL","m":"D2","c":"زيتى","s":"2XL","min":5,"open":0},{"id":"D2-ORG-S","m":"D2","c":"برتقالي","s":"S","min":5,"open":4},{"id":"D2-ORG-M","m":"D2","c":"برتقالي","s":"M","min":5,"open":5},{"id":"D2-ORG-L","m":"D2","c":"برتقالي","s":"L","min":5,"open":1},{"id":"D2-ORG-XL","m":"D2","c":"برتقالي","s":"XL","min":5,"open":9},{"id":"D2-ORG-2XL","m":"D2","c":"برتقالي","s":"2XL","min":5,"open":2},{"id":"D2-WHT-S","m":"D2","c":"ابيض","s":"S","min":5,"open":3},{"id":"D2-WHT-M","m":"D2","c":"ابيض","s":"M","min":5,"open":1},{"id":"D2-WHT-L","m":"D2","c":"ابيض","s":"L","min":5,"open":0},{"id":"D2-WHT-XL","m":"D2","c":"ابيض","s":"XL","min":5,"open":0},{"id":"D2-WHT-2XL","m":"D2","c":"ابيض","s":"2XL","min":5,"open":0},{"id":"D2-RED-S","m":"D2","c":"احمر","s":"S","min":5,"open":1},{"id":"D2-RED-M","m":"D2","c":"احمر","s":"M","min":5,"open":0},{"id":"D2-RED-L","m":"D2","c":"احمر","s":"L","min":5,"open":0},{"id":"D2-RED-XL","m":"D2","c":"احمر","s":"XL","min":5,"open":0},{"id":"D2-RED-2XL","m":"D2","c":"احمر","s":"2XL","min":5,"open":0},{"id":"D2-FUC-S","m":"D2","c":"فوشيا","s":"S","min":5,"open":38},{"id":"D2-FUC-M","m":"D2","c":"فوشيا","s":"M","min":5,"open":0},{"id":"D2-FUC-L","m":"D2","c":"فوشيا","s":"L","min":5,"open":5},{"id":"D2-FUC-XL","m":"D2","c":"فوشيا","s":"XL","min":5,"open":7},{"id":"D2-FUC-2XL","m":"D2","c":"فوشيا","s":"2XL","min":5,"open":6},{"id":"D1-WHT-S","m":"D1","c":"ابيض","s":"S","min":5,"open":0},{"id":"D1-WHT-M","m":"D1","c":"ابيض","s":"M","min":5,"open":0},{"id":"D1-WHT-L","m":"D1","c":"ابيض","s":"L","min":5,"open":0},{"id":"D1-WHT-XL","m":"D1","c":"ابيض","s":"XL","min":5,"open":0},{"id":"D1-WHT-2XL","m":"D1","c":"ابيض","s":"2XL","min":5,"open":1},{"id":"D1-OLV-S","m":"D1","c":"زيتى","s":"S","min":5,"open":0},{"id":"D1-OLV-M","m":"D1","c":"زيتى","s":"M","min":5,"open":0},{"id":"D1-OLV-L","m":"D1","c":"زيتى","s":"L","min":5,"open":0},{"id":"D1-OLV-XL","m":"D1","c":"زيتى","s":"XL","min":5,"open":0},{"id":"D1-OLV-2XL","m":"D1","c":"زيتى","s":"2XL","min":5,"open":0},{"id":"D1-FUC-S","m":"D1","c":"فوشيا","s":"S","min":5,"open":5},{"id":"D1-FUC-M","m":"D1","c":"فوشيا","s":"M","min":5,"open":0},{"id":"D1-FUC-L","m":"D1","c":"فوشيا","s":"L","min":5,"open":0},{"id":"D1-FUC-XL","m":"D1","c":"فوشيا","s":"XL","min":5,"open":0},{"id":"D1-FUC-2XL","m":"D1","c":"فوشيا","s":"2XL","min":5,"open":0},{"id":"D1-ORG-S","m":"D1","c":"برتقالي","s":"S","min":5,"open":17},{"id":"D1-ORG-M","m":"D1","c":"برتقالي","s":"M","min":5,"open":6},{"id":"D1-ORG-L","m":"D1","c":"برتقالي","s":"L","min":5,"open":3},{"id":"D1-ORG-XL","m":"D1","c":"برتقالي","s":"XL","min":5,"open":0},{"id":"D1-ORG-2XL","m":"D1","c":"برتقالي","s":"2XL","min":5,"open":0},{"id":"D1-RED-S","m":"D1","c":"احمر","s":"S","min":5,"open":17},{"id":"D1-RED-M","m":"D1","c":"احمر","s":"M","min":5,"open":0},{"id":"D1-RED-L","m":"D1","c":"احمر","s":"L","min":5,"open":0},{"id":"D1-RED-XL","m":"D1","c":"احمر","s":"XL","min":5,"open":0},{"id":"D1-RED-2XL","m":"D1","c":"احمر","s":"2XL","min":5,"open":1},{"id":"D1-BLK-S","m":"D1","c":"اسود","s":"S","min":5,"open":1},{"id":"D1-BLK-M","m":"D1","c":"اسود","s":"M","min":5,"open":1},{"id":"D1-BLK-L","m":"D1","c":"اسود","s":"L","min":5,"open":0},{"id":"D1-BLK-XL","m":"D1","c":"اسود","s":"XL","min":5,"open":0},{"id":"D1-BLK-2XL","m":"D1","c":"اسود","s":"2XL","min":5,"open":0},{"id":"A1-WHT-S","m":"A1","c":"ابيض","s":"S","min":5,"open":0},{"id":"A1-WHT-M","m":"A1","c":"ابيض","s":"M","min":5,"open":0},{"id":"A1-WHT-L","m":"A1","c":"ابيض","s":"L","min":5,"open":0},{"id":"A1-WHT-XL","m":"A1","c":"ابيض","s":"XL","min":5,"open":0},{"id":"A1-WHT-2XL","m":"A1","c":"ابيض","s":"2XL","min":5,"open":0},{"id":"A1-WHT-3XL","m":"A1","c":"ابيض","s":"3XL","min":5,"open":0},{"id":"A1-WHT-4XL","m":"A1","c":"ابيض","s":"4XL","min":5,"open":0},{"id":"A1-BLK-S","m":"A1","c":"اسود","s":"S","min":5,"open":0},{"id":"A1-BLK-M","m":"A1","c":"اسود","s":"M","min":5,"open":0},{"id":"A1-BLK-L","m":"A1","c":"اسود","s":"L","min":5,"open":0},{"id":"A1-BLK-XL","m":"A1","c":"اسود","s":"XL","min":5,"open":0},{"id":"A1-BLK-2XL","m":"A1","c":"اسود","s":"2XL","min":5,"open":0},{"id":"A1-BLK-3XL","m":"A1","c":"اسود","s":"3XL","min":5,"open":0},{"id":"A1-BLK-4XL","m":"A1","c":"اسود","s":"4XL","min":5,"open":0},{"id":"A1-RED-S","m":"A1","c":"احمر","s":"S","min":5,"open":0},{"id":"A1-RED-M","m":"A1","c":"احمر","s":"M","min":5,"open":0},{"id":"A1-RED-L","m":"A1","c":"احمر","s":"L","min":5,"open":0},{"id":"A1-RED-XL","m":"A1","c":"احمر","s":"XL","min":5,"open":0},{"id":"A1-RED-2XL","m":"A1","c":"احمر","s":"2XL","min":5,"open":0},{"id":"A1-RED-3XL","m":"A1","c":"احمر","s":"3XL","min":5,"open":0},{"id":"A1-RED-4XL","m":"A1","c":"احمر","s":"4XL","min":5,"open":0},{"id":"A1-YEL-S","m":"A1","c":"اصفر","s":"S","min":5,"open":0},{"id":"A1-YEL-M","m":"A1","c":"اصفر","s":"M","min":5,"open":1},{"id":"A1-YEL-L","m":"A1","c":"اصفر","s":"L","min":5,"open":0},{"id":"A1-YEL-XL","m":"A1","c":"اصفر","s":"XL","min":5,"open":0},{"id":"A1-YEL-2XL","m":"A1","c":"اصفر","s":"2XL","min":5,"open":0},{"id":"A1-YEL-3XL","m":"A1","c":"اصفر","s":"3XL","min":5,"open":0},{"id":"A1-YEL-4XL","m":"A1","c":"اصفر","s":"4XL","min":5,"open":0},{"id":"A2-MNT-S","m":"A2","c":"مينت جرين","s":"S","min":5,"open":0},{"id":"A2-MNT-M","m":"A2","c":"مينت جرين","s":"M","min":5,"open":0},{"id":"A2-MNT-L","m":"A2","c":"مينت جرين","s":"L","min":5,"open":0},{"id":"A2-MNT-XL","m":"A2","c":"مينت جرين","s":"XL","min":5,"open":0},{"id":"A2-MNT-2XL","m":"A2","c":"مينت جرين","s":"2XL","min":5,"open":0},{"id":"A2-MNT-3XL","m":"A2","c":"مينت جرين","s":"3XL","min":5,"open":0},{"id":"A2-MNT-4XL","m":"A2","c":"مينت جرين","s":"4XL","min":5,"open":0},{"id":"A3-BLK-S","m":"A3","c":"اسود","s":"S","min":5,"open":0},{"id":"A3-BLK-M","m":"A3","c":"اسود","s":"M","min":5,"open":0},{"id":"A3-BLK-L","m":"A3","c":"اسود","s":"L","min":5,"open":0},{"id":"A3-BLK-XL","m":"A3","c":"اسود","s":"XL","min":5,"open":0},{"id":"A3-BLK-2XL","m":"A3","c":"اسود","s":"2XL","min":5,"open":0},{"id":"A3-BLK-3XL","m":"A3","c":"اسود","s":"3XL","min":5,"open":0},{"id":"A3-BLK-4XL","m":"A3","c":"اسود","s":"4XL","min":5,"open":0},{"id":"A4-BBL-S","m":"A4","c":"بيبي بلو","s":"S","min":5,"open":0},{"id":"A4-BBL-M","m":"A4","c":"بيبي بلو","s":"M","min":5,"open":0},{"id":"A4-BBL-L","m":"A4","c":"بيبي بلو","s":"L","min":5,"open":0},{"id":"A4-BBL-XL","m":"A4","c":"بيبي بلو","s":"XL","min":5,"open":0},{"id":"A4-BBL-2XL","m":"A4","c":"بيبي بلو","s":"2XL","min":5,"open":0},{"id":"A4-BBL-3XL","m":"A4","c":"بيبي بلو","s":"3XL","min":5,"open":0},{"id":"A4-BBL-4XL","m":"A4","c":"بيبي بلو","s":"4XL","min":5,"open":0},{"id":"A5-BLK-S","m":"A5","c":"اسود","s":"S","min":5,"open":1},{"id":"A5-BLK-M","m":"A5","c":"اسود","s":"M","min":5,"open":1},{"id":"A5-BLK-L","m":"A5","c":"اسود","s":"L","min":5,"open":11},{"id":"A5-BLK-XL","m":"A5","c":"اسود","s":"XL","min":5,"open":12},{"id":"A5-BLK-2XL","m":"A5","c":"اسود","s":"2XL","min":5,"open":3},{"id":"A5-BLK-3XL","m":"A5","c":"اسود","s":"3XL","min":5,"open":8},{"id":"A5-BLK-4XL","m":"A5","c":"اسود","s":"4XL","min":5,"open":8},{"id":"A6-BLK-S","m":"A6","c":"اسود","s":"S","min":5,"open":1},{"id":"A6-BLK-M","m":"A6","c":"اسود","s":"M","min":5,"open":10},{"id":"A6-BLK-L","m":"A6","c":"اسود","s":"L","min":5,"open":13},{"id":"A6-BLK-XL","m":"A6","c":"اسود","s":"XL","min":5,"open":13},{"id":"A6-BLK-2XL","m":"A6","c":"اسود","s":"2XL","min":5,"open":23},{"id":"A6-BLK-3XL","m":"A6","c":"اسود","s":"3XL","min":5,"open":15},{"id":"A6-BLK-4XL","m":"A6","c":"اسود","s":"4XL","min":5,"open":15},{"id":"S2-WHT-S","m":"S2","c":"ابيض","s":"S","min":5,"open":7},{"id":"S2-WHT-M","m":"S2","c":"ابيض","s":"M","min":5,"open":7},{"id":"S2-WHT-L","m":"S2","c":"ابيض","s":"L","min":5,"open":8},{"id":"S2-WHT-XL","m":"S2","c":"ابيض","s":"XL","min":5,"open":0},{"id":"S2-WHT-2XL","m":"S2","c":"ابيض","s":"2XL","min":5,"open":0},{"id":"S2-BLK-S","m":"S2","c":"اسود","s":"S","min":5,"open":60},{"id":"S2-BLK-M","m":"S2","c":"اسود","s":"M","min":5,"open":53},{"id":"S2-BLK-L","m":"S2","c":"اسود","s":"L","min":5,"open":38},{"id":"S2-BLK-XL","m":"S2","c":"اسود","s":"XL","min":5,"open":44},{"id":"S2-BLK-2XL","m":"S2","c":"اسود","s":"2XL","min":5,"open":15},{"id":"S2-NVY-S","m":"S2","c":"كحلي","s":"S","min":5,"open":34},{"id":"S2-NVY-M","m":"S2","c":"كحلي","s":"M","min":5,"open":35},{"id":"S2-NVY-L","m":"S2","c":"كحلي","s":"L","min":5,"open":24},{"id":"S2-NVY-XL","m":"S2","c":"كحلي","s":"XL","min":5,"open":21},{"id":"S2-NVY-2XL","m":"S2","c":"كحلي","s":"2XL","min":5,"open":6},{"id":"S2-RED-S","m":"S2","c":"احمر","s":"S","min":5,"open":21},{"id":"S2-RED-M","m":"S2","c":"احمر","s":"M","min":5,"open":26},{"id":"S2-RED-L","m":"S2","c":"احمر","s":"L","min":5,"open":6},{"id":"S2-RED-XL","m":"S2","c":"احمر","s":"XL","min":5,"open":2},{"id":"S2-RED-2XL","m":"S2","c":"احمر","s":"2XL","min":5,"open":3},{"id":"BR4-BLK-S","m":"BR4","c":"اسود","s":"S","min":20,"open":32},{"id":"BR4-BLK-M","m":"BR4","c":"اسود","s":"M","min":20,"open":70},{"id":"BR4-BLK-L","m":"BR4","c":"اسود","s":"L","min":20,"open":80},{"id":"BR4-BLK-XL","m":"BR4","c":"اسود","s":"XL","min":20,"open":89},{"id":"BR4-BLK-2XL","m":"BR4","c":"اسود","s":"2XL","min":20,"open":59},{"id":"BR4-BLK-3XL","m":"BR4","c":"اسود","s":"3XL","min":20,"open":26},{"id":"BR4-BLK-4XL","m":"BR4","c":"اسود","s":"4XL","min":20,"open":40},{"id":"BR4-WHT-S","m":"BR4","c":"ابيض","s":"S","min":20,"open":18},{"id":"BR4-WHT-M","m":"BR4","c":"ابيض","s":"M","min":20,"open":48},{"id":"BR4-WHT-L","m":"BR4","c":"ابيض","s":"L","min":20,"open":67},{"id":"BR4-WHT-XL","m":"BR4","c":"ابيض","s":"XL","min":20,"open":64},{"id":"BR4-WHT-2XL","m":"BR4","c":"ابيض","s":"2XL","min":20,"open":47},{"id":"BR4-WHT-3XL","m":"BR4","c":"ابيض","s":"3XL","min":20,"open":32},{"id":"BR4-WHT-4XL","m":"BR4","c":"ابيض","s":"4XL","min":20,"open":42},{"id":"BR4-RED-S","m":"BR4","c":"احمر","s":"S","min":20,"open":80},{"id":"BR4-RED-M","m":"BR4","c":"احمر","s":"M","min":20,"open":96},{"id":"BR4-RED-L","m":"BR4","c":"احمر","s":"L","min":20,"open":105},{"id":"BR4-RED-XL","m":"BR4","c":"احمر","s":"XL","min":20,"open":174},{"id":"BR4-RED-2XL","m":"BR4","c":"احمر","s":"2XL","min":20,"open":179},{"id":"BR4-RED-3XL","m":"BR4","c":"احمر","s":"3XL","min":20,"open":121},{"id":"BR4-RED-4XL","m":"BR4","c":"احمر","s":"4XL","min":20,"open":125},{"id":"BR4-BEG-S","m":"BR4","c":"بيج","s":"S","min":20,"open":52},{"id":"BR4-BEG-M","m":"BR4","c":"بيج","s":"M","min":20,"open":77},{"id":"BR4-BEG-L","m":"BR4","c":"بيج","s":"L","min":20,"open":89},{"id":"BR4-BEG-XL","m":"BR4","c":"بيج","s":"XL","min":20,"open":147},{"id":"BR4-BEG-2XL","m":"BR4","c":"بيج","s":"2XL","min":20,"open":190},{"id":"BR4-BEG-3XL","m":"BR4","c":"بيج","s":"3XL","min":20,"open":97},{"id":"BR4-BEG-4XL","m":"BR4","c":"بيج","s":"4XL","min":20,"open":126},{"id":"BR4-GRY-S","m":"BR4","c":"رمادي","s":"S","min":20,"open":27},{"id":"BR4-GRY-M","m":"BR4","c":"رمادي","s":"M","min":20,"open":43},{"id":"BR4-GRY-L","m":"BR4","c":"رمادي","s":"L","min":20,"open":53},{"id":"BR4-GRY-XL","m":"BR4","c":"رمادي","s":"XL","min":20,"open":57},{"id":"BR4-GRY-2XL","m":"BR4","c":"رمادي","s":"2XL","min":20,"open":26},{"id":"BR4-GRY-3XL","m":"BR4","c":"رمادي","s":"3XL","min":20,"open":27},{"id":"BR4-GRY-4XL","m":"BR4","c":"رمادي","s":"4XL","min":20,"open":20},{"id":"SH2-BLK-S","m":"SH2","c":"اسود","s":"S","min":30,"open":147},{"id":"SH2-BLK-M","m":"SH2","c":"اسود","s":"M","min":30,"open":141},{"id":"SH2-BLK-L","m":"SH2","c":"اسود","s":"L","min":30,"open":142},{"id":"SH2-BLK-XL","m":"SH2","c":"اسود","s":"XL","min":30,"open":75},{"id":"SH2-BLK-2XL","m":"SH2","c":"اسود","s":"2XL","min":30,"open":22},{"id":"SH2-BLK-3XL","m":"SH2","c":"اسود","s":"3XL","min":30,"open":143},{"id":"SH2-BLK-4XL","m":"SH2","c":"اسود","s":"4XL","min":30,"open":203},{"id":"SH2-WHT-S","m":"SH2","c":"ابيض","s":"S","min":30,"open":169},{"id":"SH2-WHT-M","m":"SH2","c":"ابيض","s":"M","min":30,"open":148},{"id":"SH2-WHT-L","m":"SH2","c":"ابيض","s":"L","min":30,"open":151},{"id":"SH2-WHT-XL","m":"SH2","c":"ابيض","s":"XL","min":30,"open":173},{"id":"SH2-WHT-2XL","m":"SH2","c":"ابيض","s":"2XL","min":30,"open":94},{"id":"SH2-WHT-3XL","m":"SH2","c":"ابيض","s":"3XL","min":30,"open":76},{"id":"SH2-WHT-4XL","m":"SH2","c":"ابيض","s":"4XL","min":30,"open":78},{"id":"SH2-RED-S","m":"SH2","c":"احمر","s":"S","min":30,"open":329},{"id":"SH2-RED-M","m":"SH2","c":"احمر","s":"M","min":30,"open":232},{"id":"SH2-RED-L","m":"SH2","c":"احمر","s":"L","min":30,"open":221},{"id":"SH2-RED-XL","m":"SH2","c":"احمر","s":"XL","min":30,"open":173},{"id":"SH2-RED-2XL","m":"SH2","c":"احمر","s":"2XL","min":30,"open":252},{"id":"SH2-RED-3XL","m":"SH2","c":"احمر","s":"3XL","min":30,"open":227},{"id":"SH2-RED-4XL","m":"SH2","c":"احمر","s":"4XL","min":30,"open":138},{"id":"SH2-BEG-S","m":"SH2","c":"بيج","s":"S","min":30,"open":63},{"id":"SH2-BEG-M","m":"SH2","c":"بيج","s":"M","min":30,"open":111},{"id":"SH2-BEG-L","m":"SH2","c":"بيج","s":"L","min":30,"open":85},{"id":"SH2-BEG-XL","m":"SH2","c":"بيج","s":"XL","min":30,"open":103},{"id":"SH2-BEG-2XL","m":"SH2","c":"بيج","s":"2XL","min":30,"open":189},{"id":"SH2-BEG-3XL","m":"SH2","c":"بيج","s":"3XL","min":30,"open":138},{"id":"SH2-BEG-4XL","m":"SH2","c":"بيج","s":"4XL","min":30,"open":93},{"id":"SH2-GRY-S","m":"SH2","c":"رمادي","s":"S","min":30,"open":271},{"id":"SH2-GRY-M","m":"SH2","c":"رمادي","s":"M","min":30,"open":84},{"id":"SH2-GRY-L","m":"SH2","c":"رمادي","s":"L","min":30,"open":19},{"id":"SH2-GRY-XL","m":"SH2","c":"رمادي","s":"XL","min":30,"open":115},{"id":"SH2-GRY-2XL","m":"SH2","c":"رمادي","s":"2XL","min":30,"open":201},{"id":"SH2-GRY-3XL","m":"SH2","c":"رمادي","s":"3XL","min":30,"open":158},{"id":"SH2-GRY-4XL","m":"SH2","c":"رمادي","s":"4XL","min":30,"open":86},{"id":"SH2-ORG-S","m":"SH2","c":"برتقالي","s":"S","min":30,"open":93},{"id":"SH2-ORG-M","m":"SH2","c":"برتقالي","s":"M","min":30,"open":125},{"id":"SH2-ORG-L","m":"SH2","c":"برتقالي","s":"L","min":30,"open":198},{"id":"SH2-ORG-XL","m":"SH2","c":"برتقالي","s":"XL","min":30,"open":78},{"id":"SH2-ORG-2XL","m":"SH2","c":"برتقالي","s":"2XL","min":30,"open":136},{"id":"SH2-ORG-3XL","m":"SH2","c":"برتقالي","s":"3XL","min":30,"open":122},{"id":"SH2-ORG-4XL","m":"SH2","c":"برتقالي","s":"4XL","min":30,"open":83},{"id":"PAN5-BLK-S","m":"PAN5","c":"اسود","s":"S","min":15,"open":68},{"id":"PAN5-BLK-M","m":"PAN5","c":"اسود","s":"M","min":15,"open":66},{"id":"PAN5-BLK-L","m":"PAN5","c":"اسود","s":"L","min":15,"open":67},{"id":"PAN5-BLK-XL","m":"PAN5","c":"اسود","s":"XL","min":15,"open":25},{"id":"PAN5-BLK-2XL","m":"PAN5","c":"اسود","s":"2XL","min":15,"open":33},{"id":"PAN5-BLK-3XL","m":"PAN5","c":"اسود","s":"3XL","min":15,"open":44},{"id":"PAN5-BLK-4XL","m":"PAN5","c":"اسود","s":"4XL","min":15,"open":122},{"id":"PAN5-WHT-S","m":"PAN5","c":"ابيض","s":"S","min":15,"open":52},{"id":"PAN5-WHT-M","m":"PAN5","c":"ابيض","s":"M","min":15,"open":49},{"id":"PAN5-WHT-L","m":"PAN5","c":"ابيض","s":"L","min":15,"open":38},{"id":"PAN5-WHT-XL","m":"PAN5","c":"ابيض","s":"XL","min":15,"open":39},{"id":"PAN5-WHT-2XL","m":"PAN5","c":"ابيض","s":"2XL","min":15,"open":10},{"id":"PAN5-WHT-3XL","m":"PAN5","c":"ابيض","s":"3XL","min":15,"open":101},{"id":"PAN5-WHT-4XL","m":"PAN5","c":"ابيض","s":"4XL","min":15,"open":51},{"id":"PAN5-RED-S","m":"PAN5","c":"احمر","s":"S","min":15,"open":70},{"id":"PAN5-RED-M","m":"PAN5","c":"احمر","s":"M","min":15,"open":82},{"id":"PAN5-RED-L","m":"PAN5","c":"احمر","s":"L","min":15,"open":40},{"id":"PAN5-RED-XL","m":"PAN5","c":"احمر","s":"XL","min":15,"open":125},{"id":"PAN5-RED-2XL","m":"PAN5","c":"احمر","s":"2XL","min":15,"open":161},{"id":"PAN5-RED-3XL","m":"PAN5","c":"احمر","s":"3XL","min":15,"open":158},{"id":"PAN5-RED-4XL","m":"PAN5","c":"احمر","s":"4XL","min":15,"open":120},{"id":"PAN5-BEG-S","m":"PAN5","c":"بيج","s":"S","min":15,"open":56},{"id":"PAN5-BEG-M","m":"PAN5","c":"بيج","s":"M","min":15,"open":40},{"id":"PAN5-BEG-L","m":"PAN5","c":"بيج","s":"L","min":15,"open":47},{"id":"PAN5-BEG-XL","m":"PAN5","c":"بيج","s":"XL","min":15,"open":93},{"id":"PAN5-BEG-2XL","m":"PAN5","c":"بيج","s":"2XL","min":15,"open":245},{"id":"PAN5-BEG-3XL","m":"PAN5","c":"بيج","s":"3XL","min":15,"open":12},{"id":"PAN5-BEG-4XL","m":"PAN5","c":"بيج","s":"4XL","min":15,"open":200},{"id":"PAN5-GRY-S","m":"PAN5","c":"رمادي","s":"S","min":15,"open":18},{"id":"PAN5-GRY-M","m":"PAN5","c":"رمادي","s":"M","min":15,"open":65},{"id":"PAN5-GRY-L","m":"PAN5","c":"رمادي","s":"L","min":15,"open":57},{"id":"PAN5-GRY-XL","m":"PAN5","c":"رمادي","s":"XL","min":15,"open":30},{"id":"PAN5-GRY-2XL","m":"PAN5","c":"رمادي","s":"2XL","min":15,"open":26},{"id":"PAN5-GRY-3XL","m":"PAN5","c":"رمادي","s":"3XL","min":15,"open":63},{"id":"PAN5-GRY-4XL","m":"PAN5","c":"رمادي","s":"4XL","min":15,"open":13},{"id":"PAN4-BLK-S","m":"PAN4","c":"اسود","s":"S","min":15,"open":81},{"id":"PAN4-BLK-M","m":"PAN4","c":"اسود","s":"M","min":15,"open":70},{"id":"PAN4-BLK-L","m":"PAN4","c":"اسود","s":"L","min":15,"open":66},{"id":"PAN4-BLK-XL","m":"PAN4","c":"اسود","s":"XL","min":15,"open":68},{"id":"PAN4-BLK-2XL","m":"PAN4","c":"اسود","s":"2XL","min":15,"open":51},{"id":"PAN4-BLK-3XL","m":"PAN4","c":"اسود","s":"3XL","min":15,"open":81},{"id":"PAN4-BLK-4XL","m":"PAN4","c":"اسود","s":"4XL","min":15,"open":42},{"id":"PAN4-WHT-S","m":"PAN4","c":"ابيض","s":"S","min":15,"open":54},{"id":"PAN4-WHT-M","m":"PAN4","c":"ابيض","s":"M","min":15,"open":63},{"id":"PAN4-WHT-L","m":"PAN4","c":"ابيض","s":"L","min":15,"open":48},{"id":"PAN4-WHT-XL","m":"PAN4","c":"ابيض","s":"XL","min":15,"open":45},{"id":"PAN4-WHT-2XL","m":"PAN4","c":"ابيض","s":"2XL","min":15,"open":59},{"id":"PAN4-WHT-3XL","m":"PAN4","c":"ابيض","s":"3XL","min":15,"open":101},{"id":"PAN4-WHT-4XL","m":"PAN4","c":"ابيض","s":"4XL","min":15,"open":26},{"id":"PAN4-RED-S","m":"PAN4","c":"احمر","s":"S","min":15,"open":0},{"id":"PAN4-RED-M","m":"PAN4","c":"احمر","s":"M","min":15,"open":131},{"id":"PAN4-RED-L","m":"PAN4","c":"احمر","s":"L","min":15,"open":61},{"id":"PAN4-RED-XL","m":"PAN4","c":"احمر","s":"XL","min":15,"open":111},{"id":"PAN4-RED-2XL","m":"PAN4","c":"احمر","s":"2XL","min":15,"open":193},{"id":"PAN4-RED-3XL","m":"PAN4","c":"احمر","s":"3XL","min":15,"open":113},{"id":"PAN4-RED-4XL","m":"PAN4","c":"احمر","s":"4XL","min":15,"open":97},{"id":"PAN4-BEG-S","m":"PAN4","c":"بيج","s":"S","min":15,"open":120},{"id":"PAN4-BEG-M","m":"PAN4","c":"بيج","s":"M","min":15,"open":39},{"id":"PAN4-BEG-L","m":"PAN4","c":"بيج","s":"L","min":15,"open":111},{"id":"PAN4-BEG-XL","m":"PAN4","c":"بيج","s":"XL","min":15,"open":129},{"id":"PAN4-BEG-2XL","m":"PAN4","c":"بيج","s":"2XL","min":15,"open":122},{"id":"PAN4-BEG-3XL","m":"PAN4","c":"بيج","s":"3XL","min":15,"open":8},{"id":"PAN4-BEG-4XL","m":"PAN4","c":"بيج","s":"4XL","min":15,"open":189},{"id":"PAN4-GRY-S","m":"PAN4","c":"رمادي","s":"S","min":15,"open":58},{"id":"PAN4-GRY-M","m":"PAN4","c":"رمادي","s":"M","min":15,"open":42},{"id":"PAN4-GRY-L","m":"PAN4","c":"رمادي","s":"L","min":15,"open":33},{"id":"PAN4-GRY-XL","m":"PAN4","c":"رمادي","s":"XL","min":15,"open":93},{"id":"PAN4-GRY-2XL","m":"PAN4","c":"رمادي","s":"2XL","min":15,"open":38},{"id":"PAN4-GRY-3XL","m":"PAN4","c":"رمادي","s":"3XL","min":15,"open":43},{"id":"PAN4-GRY-4XL","m":"PAN4","c":"رمادي","s":"4XL","min":15,"open":33},{"id":"PAN3-BLK-S","m":"PAN3","c":"اسود","s":"S","min":30,"open":242},{"id":"PAN3-BLK-M","m":"PAN3","c":"اسود","s":"M","min":30,"open":35},{"id":"PAN3-BLK-L","m":"PAN3","c":"اسود","s":"L","min":30,"open":90},{"id":"PAN3-BLK-XL","m":"PAN3","c":"اسود","s":"XL","min":30,"open":75},{"id":"PAN3-BLK-2XL","m":"PAN3","c":"اسود","s":"2XL","min":30,"open":123},{"id":"PAN3-BLK-3XL","m":"PAN3","c":"اسود","s":"3XL","min":30,"open":288},{"id":"PAN3-BLK-4XL","m":"PAN3","c":"اسود","s":"4XL","min":30,"open":185},{"id":"PAN3-WHT-S","m":"PAN3","c":"ابيض","s":"S","min":30,"open":188},{"id":"PAN3-WHT-M","m":"PAN3","c":"ابيض","s":"M","min":30,"open":153},{"id":"PAN3-WHT-L","m":"PAN3","c":"ابيض","s":"L","min":30,"open":100},{"id":"PAN3-WHT-XL","m":"PAN3","c":"ابيض","s":"XL","min":30,"open":361},{"id":"PAN3-WHT-2XL","m":"PAN3","c":"ابيض","s":"2XL","min":30,"open":108},{"id":"PAN3-WHT-3XL","m":"PAN3","c":"ابيض","s":"3XL","min":30,"open":179},{"id":"PAN3-WHT-4XL","m":"PAN3","c":"ابيض","s":"4XL","min":30,"open":129},{"id":"PAN3-RED-S","m":"PAN3","c":"احمر","s":"S","min":30,"open":96},{"id":"PAN3-RED-M","m":"PAN3","c":"احمر","s":"M","min":30,"open":162},{"id":"PAN3-RED-L","m":"PAN3","c":"احمر","s":"L","min":30,"open":269},{"id":"PAN3-RED-XL","m":"PAN3","c":"احمر","s":"XL","min":30,"open":314},{"id":"PAN3-RED-2XL","m":"PAN3","c":"احمر","s":"2XL","min":30,"open":326},{"id":"PAN3-RED-3XL","m":"PAN3","c":"احمر","s":"3XL","min":30,"open":130},{"id":"PAN3-RED-4XL","m":"PAN3","c":"احمر","s":"4XL","min":30,"open":64},{"id":"PAN3-BEG-S","m":"PAN3","c":"بيج","s":"S","min":30,"open":185},{"id":"PAN3-BEG-M","m":"PAN3","c":"بيج","s":"M","min":30,"open":176},{"id":"PAN3-BEG-L","m":"PAN3","c":"بيج","s":"L","min":30,"open":238},{"id":"PAN3-BEG-XL","m":"PAN3","c":"بيج","s":"XL","min":30,"open":190},{"id":"PAN3-BEG-2XL","m":"PAN3","c":"بيج","s":"2XL","min":30,"open":306},{"id":"PAN3-BEG-3XL","m":"PAN3","c":"بيج","s":"3XL","min":30,"open":168},{"id":"PAN3-BEG-4XL","m":"PAN3","c":"بيج","s":"4XL","min":30,"open":156},{"id":"PAN3-GRY-S","m":"PAN3","c":"رمادي","s":"S","min":30,"open":195},{"id":"PAN3-GRY-M","m":"PAN3","c":"رمادي","s":"M","min":30,"open":120},{"id":"PAN3-GRY-L","m":"PAN3","c":"رمادي","s":"L","min":30,"open":111},{"id":"PAN3-GRY-XL","m":"PAN3","c":"رمادي","s":"XL","min":30,"open":214},{"id":"PAN3-GRY-2XL","m":"PAN3","c":"رمادي","s":"2XL","min":30,"open":256},{"id":"PAN3-GRY-3XL","m":"PAN3","c":"رمادي","s":"3XL","min":30,"open":163},{"id":"PAN3-GRY-4XL","m":"PAN3","c":"رمادي","s":"4XL","min":30,"open":153},{"id":"PAN2-BLK-S","m":"PAN2","c":"اسود","s":"S","min":15,"open":96},{"id":"PAN2-BLK-M","m":"PAN2","c":"اسود","s":"M","min":15,"open":99},{"id":"PAN2-BLK-L","m":"PAN2","c":"اسود","s":"L","min":15,"open":80},{"id":"PAN2-BLK-XL","m":"PAN2","c":"اسود","s":"XL","min":15,"open":74},{"id":"PAN2-BLK-2XL","m":"PAN2","c":"اسود","s":"2XL","min":15,"open":139},{"id":"PAN2-BLK-3XL","m":"PAN2","c":"اسود","s":"3XL","min":15,"open":115},{"id":"PAN2-BLK-4XL","m":"PAN2","c":"اسود","s":"4XL","min":15,"open":87},{"id":"PAN2-WHT-S","m":"PAN2","c":"ابيض","s":"S","min":15,"open":70},{"id":"PAN2-WHT-M","m":"PAN2","c":"ابيض","s":"M","min":15,"open":113},{"id":"PAN2-WHT-L","m":"PAN2","c":"ابيض","s":"L","min":15,"open":42},{"id":"PAN2-WHT-XL","m":"PAN2","c":"ابيض","s":"XL","min":15,"open":90},{"id":"PAN2-WHT-2XL","m":"PAN2","c":"ابيض","s":"2XL","min":15,"open":98},{"id":"PAN2-WHT-3XL","m":"PAN2","c":"ابيض","s":"3XL","min":15,"open":91},{"id":"PAN2-WHT-4XL","m":"PAN2","c":"ابيض","s":"4XL","min":15,"open":96},{"id":"PAN2-RED-S","m":"PAN2","c":"احمر","s":"S","min":15,"open":88},{"id":"PAN2-RED-M","m":"PAN2","c":"احمر","s":"M","min":15,"open":88},{"id":"PAN2-RED-L","m":"PAN2","c":"احمر","s":"L","min":15,"open":43},{"id":"PAN2-RED-XL","m":"PAN2","c":"احمر","s":"XL","min":15,"open":56},{"id":"PAN2-RED-2XL","m":"PAN2","c":"احمر","s":"2XL","min":15,"open":92},{"id":"PAN2-RED-3XL","m":"PAN2","c":"احمر","s":"3XL","min":15,"open":17},{"id":"PAN2-RED-4XL","m":"PAN2","c":"احمر","s":"4XL","min":15,"open":80},{"id":"PAN2-BEG-S","m":"PAN2","c":"بيج","s":"S","min":15,"open":21},{"id":"PAN2-BEG-M","m":"PAN2","c":"بيج","s":"M","min":15,"open":33},{"id":"PAN2-BEG-L","m":"PAN2","c":"بيج","s":"L","min":15,"open":23},{"id":"PAN2-BEG-XL","m":"PAN2","c":"بيج","s":"XL","min":15,"open":9},{"id":"PAN2-BEG-2XL","m":"PAN2","c":"بيج","s":"2XL","min":15,"open":15},{"id":"PAN2-BEG-3XL","m":"PAN2","c":"بيج","s":"3XL","min":15,"open":22},{"id":"PAN2-BEG-4XL","m":"PAN2","c":"بيج","s":"4XL","min":15,"open":21},{"id":"PAN2-GRY-S","m":"PAN2","c":"رمادي","s":"S","min":15,"open":102},{"id":"PAN2-GRY-M","m":"PAN2","c":"رمادي","s":"M","min":15,"open":62},{"id":"PAN2-GRY-L","m":"PAN2","c":"رمادي","s":"L","min":15,"open":89},{"id":"PAN2-GRY-XL","m":"PAN2","c":"رمادي","s":"XL","min":15,"open":73},{"id":"PAN2-GRY-2XL","m":"PAN2","c":"رمادي","s":"2XL","min":15,"open":118},{"id":"PAN2-GRY-3XL","m":"PAN2","c":"رمادي","s":"3XL","min":15,"open":101},{"id":"PAN2-GRY-4XL","m":"PAN2","c":"رمادي","s":"4XL","min":15,"open":105},{"id":"PAN1-BLK-S","m":"PAN1","c":"اسود","s":"S","min":15,"open":48},{"id":"PAN1-WHT-S","m":"PAN1","c":"ابيض","s":"S","min":15,"open":29},{"id":"PAN1-RED-S","m":"PAN1","c":"احمر","s":"S","min":15,"open":76},{"id":"PAN1-BEG-S","m":"PAN1","c":"بيج","s":"S","min":15,"open":57},{"id":"PAN1-GRY-S","m":"PAN1","c":"رمادي","s":"S","min":15,"open":41},{"id":"PAN1-BLK-M","m":"PAN1","c":"اسود","s":"M","min":15,"open":51},{"id":"PAN1-WHT-M","m":"PAN1","c":"ابيض","s":"M","min":15,"open":44},{"id":"PAN1-RED-M","m":"PAN1","c":"احمر","s":"M","min":15,"open":31},{"id":"PAN1-BEG-M","m":"PAN1","c":"بيج","s":"M","min":15,"open":51},{"id":"PAN1-GRY-M","m":"PAN1","c":"رمادي","s":"M","min":15,"open":42},{"id":"PAN1-BLK-L","m":"PAN1","c":"اسود","s":"L","min":15,"open":60},{"id":"PAN1-WHT-L","m":"PAN1","c":"ابيض","s":"L","min":15,"open":34},{"id":"PAN1-RED-L","m":"PAN1","c":"احمر","s":"L","min":15,"open":87},{"id":"PAN1-BEG-L","m":"PAN1","c":"بيج","s":"L","min":15,"open":83},{"id":"PAN1-GRY-L","m":"PAN1","c":"رمادي","s":"L","min":15,"open":23},{"id":"PAN1-BLK-XL","m":"PAN1","c":"اسود","s":"XL","min":15,"open":73},{"id":"PAN1-WHT-XL","m":"PAN1","c":"ابيض","s":"XL","min":15,"open":48},{"id":"PAN1-RED-XL","m":"PAN1","c":"احمر","s":"XL","min":15,"open":151},{"id":"PAN1-BEG-XL","m":"PAN1","c":"بيج","s":"XL","min":15,"open":115},{"id":"PAN1-GRY-XL","m":"PAN1","c":"رمادي","s":"XL","min":15,"open":81},{"id":"PAN1-BLK-2XL","m":"PAN1","c":"اسود","s":"2XL","min":15,"open":34},{"id":"PAN1-WHT-2XL","m":"PAN1","c":"ابيض","s":"2XL","min":15,"open":33},{"id":"PAN1-RED-2XL","m":"PAN1","c":"احمر","s":"2XL","min":15,"open":161},{"id":"PAN1-BEG-2XL","m":"PAN1","c":"بيج","s":"2XL","min":15,"open":38},{"id":"PAN1-GRY-2XL","m":"PAN1","c":"رمادي","s":"2XL","min":15,"open":48},{"id":"PAN1-BLK-3XL","m":"PAN1","c":"اسود","s":"3XL","min":15,"open":58},{"id":"PAN1-WHT-3XL","m":"PAN1","c":"ابيض","s":"3XL","min":15,"open":45},{"id":"PAN1-RED-3XL","m":"PAN1","c":"احمر","s":"3XL","min":15,"open":74},{"id":"PAN1-BEG-3XL","m":"PAN1","c":"بيج","s":"3XL","min":15,"open":123},{"id":"PAN1-GRY-3XL","m":"PAN1","c":"رمادي","s":"3XL","min":15,"open":33},{"id":"PAN1-BLK-4XL","m":"PAN1","c":"اسود","s":"4XL","min":15,"open":49},{"id":"PAN1-WHT-4XL","m":"PAN1","c":"ابيض","s":"4XL","min":15,"open":46},{"id":"PAN1-RED-4XL","m":"PAN1","c":"احمر","s":"4XL","min":15,"open":99},{"id":"PAN1-BEG-4XL","m":"PAN1","c":"بيج","s":"4XL","min":15,"open":116},{"id":"PAN1-GRY-4XL","m":"PAN1","c":"رمادي","s":"4XL","min":15,"open":28},{"id":"BR3-BLK-S","m":"BR3","c":"اسود","s":"S","min":15,"open":40},{"id":"BR3-BLK-M","m":"BR3","c":"اسود","s":"M","min":15,"open":43},{"id":"BR3-BLK-L","m":"BR3","c":"اسود","s":"L","min":15,"open":95},{"id":"BR3-BLK-XL","m":"BR3","c":"اسود","s":"XL","min":15,"open":98},{"id":"BR3-BLK-2XL","m":"BR3","c":"اسود","s":"2XL","min":15,"open":60},{"id":"BR3-BLK-3XL","m":"BR3","c":"اسود","s":"3XL","min":15,"open":51},{"id":"BR3-BLK-4XL","m":"BR3","c":"اسود","s":"4XL","min":15,"open":29},{"id":"BR3-WHT-S","m":"BR3","c":"ابيض","s":"S","min":15,"open":64},{"id":"BR3-WHT-M","m":"BR3","c":"ابيض","s":"M","min":15,"open":74},{"id":"BR3-WHT-L","m":"BR3","c":"ابيض","s":"L","min":15,"open":112},{"id":"BR3-WHT-XL","m":"BR3","c":"ابيض","s":"XL","min":15,"open":105},{"id":"BR3-WHT-2XL","m":"BR3","c":"ابيض","s":"2XL","min":15,"open":87},{"id":"BR3-WHT-3XL","m":"BR3","c":"ابيض","s":"3XL","min":15,"open":78},{"id":"BR3-WHT-4XL","m":"BR3","c":"ابيض","s":"4XL","min":15,"open":61},{"id":"BR3-RED-S","m":"BR3","c":"احمر","s":"S","min":15,"open":77},{"id":"BR3-RED-M","m":"BR3","c":"احمر","s":"M","min":15,"open":67},{"id":"BR3-RED-L","m":"BR3","c":"احمر","s":"L","min":15,"open":59},{"id":"BR3-RED-XL","m":"BR3","c":"احمر","s":"XL","min":15,"open":19},{"id":"BR3-RED-2XL","m":"BR3","c":"احمر","s":"2XL","min":15,"open":278},{"id":"BR3-RED-3XL","m":"BR3","c":"احمر","s":"3XL","min":15,"open":112},{"id":"BR3-RED-4XL","m":"BR3","c":"احمر","s":"4XL","min":15,"open":110},{"id":"BR3-BEG-S","m":"BR3","c":"بيج","s":"S","min":15,"open":66},{"id":"BR3-BEG-M","m":"BR3","c":"بيج","s":"M","min":15,"open":71},{"id":"BR3-BEG-L","m":"BR3","c":"بيج","s":"L","min":15,"open":107},{"id":"BR3-BEG-XL","m":"BR3","c":"بيج","s":"XL","min":15,"open":146},{"id":"BR3-BEG-2XL","m":"BR3","c":"بيج","s":"2XL","min":15,"open":212},{"id":"BR3-BEG-3XL","m":"BR3","c":"بيج","s":"3XL","min":15,"open":152},{"id":"BR3-BEG-4XL","m":"BR3","c":"بيج","s":"4XL","min":15,"open":121},{"id":"BR3-GRY-S","m":"BR3","c":"رمادي","s":"S","min":15,"open":54},{"id":"BR3-GRY-M","m":"BR3","c":"رمادي","s":"M","min":15,"open":88},{"id":"BR3-GRY-L","m":"BR3","c":"رمادي","s":"L","min":15,"open":70},{"id":"BR3-GRY-XL","m":"BR3","c":"رمادي","s":"XL","min":15,"open":119},{"id":"BR3-GRY-2XL","m":"BR3","c":"رمادي","s":"2XL","min":15,"open":80},{"id":"BR3-GRY-3XL","m":"BR3","c":"رمادي","s":"3XL","min":15,"open":56},{"id":"BR3-GRY-4XL","m":"BR3","c":"رمادي","s":"4XL","min":15,"open":47},{"id":"BR2-BLK-S","m":"BR2","c":"اسود","s":"S","min":15,"open":168},{"id":"BR2-BLK-M","m":"BR2","c":"اسود","s":"M","min":15,"open":153},{"id":"BR2-BLK-L","m":"BR2","c":"اسود","s":"L","min":15,"open":115},{"id":"BR2-BLK-XL","m":"BR2","c":"اسود","s":"XL","min":15,"open":118},{"id":"BR2-BLK-2XL","m":"BR2","c":"اسود","s":"2XL","min":15,"open":194},{"id":"BR2-BLK-3XL","m":"BR2","c":"اسود","s":"3XL","min":15,"open":91},{"id":"BR2-BLK-4XL","m":"BR2","c":"اسود","s":"4XL","min":15,"open":138},{"id":"BR2-WHT-S","m":"BR2","c":"ابيض","s":"S","min":15,"open":104},{"id":"BR2-WHT-M","m":"BR2","c":"ابيض","s":"M","min":15,"open":36},{"id":"BR2-WHT-L","m":"BR2","c":"ابيض","s":"L","min":15,"open":154},{"id":"BR2-WHT-XL","m":"BR2","c":"ابيض","s":"XL","min":15,"open":40},{"id":"BR2-WHT-2XL","m":"BR2","c":"ابيض","s":"2XL","min":15,"open":95},{"id":"BR2-WHT-3XL","m":"BR2","c":"ابيض","s":"3XL","min":15,"open":218},{"id":"BR2-WHT-4XL","m":"BR2","c":"ابيض","s":"4XL","min":15,"open":33},{"id":"BR2-RED-S","m":"BR2","c":"احمر","s":"S","min":15,"open":156},{"id":"BR2-RED-M","m":"BR2","c":"احمر","s":"M","min":15,"open":184},{"id":"BR2-RED-L","m":"BR2","c":"احمر","s":"L","min":15,"open":70},{"id":"BR2-RED-XL","m":"BR2","c":"احمر","s":"XL","min":15,"open":163},{"id":"BR2-RED-2XL","m":"BR2","c":"احمر","s":"2XL","min":15,"open":109},{"id":"BR2-RED-3XL","m":"BR2","c":"احمر","s":"3XL","min":15,"open":81},{"id":"BR2-RED-4XL","m":"BR2","c":"احمر","s":"4XL","min":15,"open":100},{"id":"BR2-BEG-S","m":"BR2","c":"بيج","s":"S","min":15,"open":39},{"id":"BR2-BEG-M","m":"BR2","c":"بيج","s":"M","min":15,"open":95},{"id":"BR2-BEG-L","m":"BR2","c":"بيج","s":"L","min":15,"open":122},{"id":"BR2-BEG-XL","m":"BR2","c":"بيج","s":"XL","min":15,"open":148},{"id":"BR2-BEG-2XL","m":"BR2","c":"بيج","s":"2XL","min":15,"open":153},{"id":"BR2-BEG-3XL","m":"BR2","c":"بيج","s":"3XL","min":15,"open":83},{"id":"BR2-BEG-4XL","m":"BR2","c":"بيج","s":"4XL","min":15,"open":117},{"id":"BR2-GRY-S","m":"BR2","c":"رمادي","s":"S","min":15,"open":163},{"id":"BR2-GRY-M","m":"BR2","c":"رمادي","s":"M","min":15,"open":57},{"id":"BR2-GRY-L","m":"BR2","c":"رمادي","s":"L","min":15,"open":89},{"id":"BR2-GRY-XL","m":"BR2","c":"رمادي","s":"XL","min":15,"open":20},{"id":"BR2-GRY-2XL","m":"BR2","c":"رمادي","s":"2XL","min":15,"open":165},{"id":"BR2-GRY-3XL","m":"BR2","c":"رمادي","s":"3XL","min":15,"open":134},{"id":"BR2-GRY-4XL","m":"BR2","c":"رمادي","s":"4XL","min":15,"open":72},{"id":"SH1-BLK-S","m":"SH1","c":"اسود","s":"S","min":15,"open":228},{"id":"SH1-WHT-S","m":"SH1","c":"ابيض","s":"S","min":15,"open":180},{"id":"SH1-RED-S","m":"SH1","c":"احمر","s":"S","min":15,"open":21},{"id":"SH1-BEG-S","m":"SH1","c":"بيج","s":"S","min":15,"open":65},{"id":"SH1-GRY-S","m":"SH1","c":"رمادي","s":"S","min":15,"open":168},{"id":"SH1-BLK-M","m":"SH1","c":"اسود","s":"M","min":15,"open":232},{"id":"SH1-WHT-M","m":"SH1","c":"ابيض","s":"M","min":15,"open":200},{"id":"SH1-RED-M","m":"SH1","c":"احمر","s":"M","min":15,"open":69},{"id":"SH1-BEG-M","m":"SH1","c":"بيج","s":"M","min":15,"open":63},{"id":"SH1-GRY-M","m":"SH1","c":"رمادي","s":"M","min":15,"open":241},{"id":"SH1-BLK-L","m":"SH1","c":"اسود","s":"L","min":15,"open":187},{"id":"SH1-WHT-L","m":"SH1","c":"ابيض","s":"L","min":15,"open":164},{"id":"SH1-RED-L","m":"SH1","c":"احمر","s":"L","min":15,"open":81},{"id":"SH1-BEG-L","m":"SH1","c":"بيج","s":"L","min":15,"open":79},{"id":"SH1-GRY-L","m":"SH1","c":"رمادي","s":"L","min":15,"open":103},{"id":"SH1-BLK-XL","m":"SH1","c":"اسود","s":"XL","min":15,"open":240},{"id":"SH1-WHT-XL","m":"SH1","c":"ابيض","s":"XL","min":15,"open":122},{"id":"SH1-RED-XL","m":"SH1","c":"احمر","s":"XL","min":15,"open":93},{"id":"SH1-BEG-XL","m":"SH1","c":"بيج","s":"XL","min":15,"open":201},{"id":"SH1-GRY-XL","m":"SH1","c":"رمادي","s":"XL","min":15,"open":178},{"id":"SH1-BLK-2XL","m":"SH1","c":"اسود","s":"2XL","min":15,"open":308},{"id":"SH1-WHT-2XL","m":"SH1","c":"ابيض","s":"2XL","min":15,"open":180},{"id":"SH1-RED-2XL","m":"SH1","c":"احمر","s":"2XL","min":15,"open":115},{"id":"SH1-BEG-2XL","m":"SH1","c":"بيج","s":"2XL","min":15,"open":225},{"id":"SH1-GRY-2XL","m":"SH1","c":"رمادي","s":"2XL","min":15,"open":195},{"id":"SH1-BLK-3XL","m":"SH1","c":"اسود","s":"3XL","min":15,"open":282},{"id":"SH1-WHT-3XL","m":"SH1","c":"ابيض","s":"3XL","min":15,"open":271},{"id":"SH1-RED-3XL","m":"SH1","c":"احمر","s":"3XL","min":15,"open":16},{"id":"SH1-BEG-3XL","m":"SH1","c":"بيج","s":"3XL","min":15,"open":185},{"id":"SH1-GRY-3XL","m":"SH1","c":"رمادي","s":"3XL","min":15,"open":206},{"id":"SH1-BLK-4XL","m":"SH1","c":"اسود","s":"4XL","min":15,"open":240},{"id":"SH1-WHT-4XL","m":"SH1","c":"ابيض","s":"4XL","min":15,"open":205},{"id":"SH1-RED-4XL","m":"SH1","c":"احمر","s":"4XL","min":15,"open":48},{"id":"SH1-BEG-4XL","m":"SH1","c":"بيج","s":"4XL","min":15,"open":168},{"id":"SH1-GRY-4XL","m":"SH1","c":"رمادي","s":"4XL","min":15,"open":173},{"id":"BR1-BLK-S","m":"BR1","c":"اسود","s":"S","min":30,"open":240},{"id":"BR1-WHT-S","m":"BR1","c":"ابيض","s":"S","min":30,"open":115},{"id":"BR1-RED-S","m":"BR1","c":"احمر","s":"S","min":30,"open":97},{"id":"BR1-GRY-S","m":"BR1","c":"رمادي","s":"S","min":30,"open":117},{"id":"BR1-BEG-S","m":"BR1","c":"بيج","s":"S","min":30,"open":83},{"id":"BR1-BLK-M","m":"BR1","c":"اسود","s":"M","min":30,"open":214},{"id":"BR1-RED-M","m":"BR1","c":"احمر","s":"M","min":30,"open":93},{"id":"BR1-WHT-M","m":"BR1","c":"ابيض","s":"M","min":30,"open":153},{"id":"BR1-GRY-M","m":"BR1","c":"رمادي","s":"M","min":30,"open":133},{"id":"BR1-BEG-M","m":"BR1","c":"بيج","s":"M","min":30,"open":90},{"id":"BR1-BLK-L","m":"BR1","c":"اسود","s":"L","min":30,"open":320},{"id":"BR1-RED-L","m":"BR1","c":"احمر","s":"L","min":30,"open":165},{"id":"BR1-WHT-L","m":"BR1","c":"ابيض","s":"L","min":30,"open":171},{"id":"BR1-GRY-L","m":"BR1","c":"رمادي","s":"L","min":30,"open":179},{"id":"BR1-BEG-L","m":"BR1","c":"بيج","s":"L","min":30,"open":50},{"id":"BR1-BLK-XL","m":"BR1","c":"اسود","s":"XL","min":30,"open":359},{"id":"BR1-WHT-XL","m":"BR1","c":"ابيض","s":"XL","min":30,"open":203},{"id":"BR1-RED-XL","m":"BR1","c":"احمر","s":"XL","min":30,"open":53},{"id":"BR1-GRY-XL","m":"BR1","c":"رمادي","s":"XL","min":30,"open":175},{"id":"BR1-BEG-XL","m":"BR1","c":"بيج","s":"XL","min":30,"open":124},{"id":"BR1-BLK-2XL","m":"BR1","c":"اسود","s":"2XL","min":30,"open":309},{"id":"BR1-RED-2XL","m":"BR1","c":"احمر","s":"2XL","min":30,"open":232},{"id":"BR1-WHT-2XL","m":"BR1","c":"ابيض","s":"2XL","min":30,"open":160},{"id":"BR1-GRY-2XL","m":"BR1","c":"رمادي","s":"2XL","min":30,"open":190},{"id":"BR1-BEG-2XL","m":"BR1","c":"بيج","s":"2XL","min":30,"open":150},{"id":"BR1-BLK-3XL","m":"BR1","c":"اسود","s":"3XL","min":30,"open":195},{"id":"BR1-RED-3XL","m":"BR1","c":"احمر","s":"3XL","min":30,"open":86},{"id":"BR1-WHT-3XL","m":"BR1","c":"ابيض","s":"3XL","min":30,"open":171},{"id":"BR1-GRY-3XL","m":"BR1","c":"رمادي","s":"3XL","min":30,"open":201},{"id":"BR1-BEG-3XL","m":"BR1","c":"بيج","s":"3XL","min":30,"open":142},{"id":"BR1-BLK-4XL","m":"BR1","c":"اسود","s":"4XL","min":30,"open":197},{"id":"BR1-RED-4XL","m":"BR1","c":"احمر","s":"4XL","min":30,"open":78},{"id":"BR1-WHT-4XL","m":"BR1","c":"ابيض","s":"4XL","min":30,"open":186},{"id":"BR1-GRY-4XL","m":"BR1","c":"رمادي","s":"4XL","min":30,"open":151},{"id":"BR1-BEG-4XL","m":"BR1","c":"بيج","s":"4XL","min":30,"open":121},{"id":"A12-OLV-S","m":"A12","c":"زيتى","s":"S","min":0,"open":0},{"id":"A12-OLV-M","m":"A12","c":"زيتى","s":"M","min":0,"open":0},{"id":"A12-OLV-L","m":"A12","c":"زيتى","s":"L","min":0,"open":0},{"id":"A12-OLV-XL","m":"A12","c":"زيتى","s":"XL","min":0,"open":0},{"id":"A12-OLV-2XL","m":"A12","c":"زيتى","s":"2XL","min":0,"open":0},{"id":"A12-OLV-3XL","m":"A12","c":"زيتى","s":"3XL","min":0,"open":0},{"id":"A12-OLV-4XL","m":"A12","c":"زيتى","s":"4XL","min":0,"open":0},{"id":"A11-PNK-S","m":"A11","c":"بينك","s":"S","min":0,"open":0},{"id":"A11-PNK-M","m":"A11","c":"بينك","s":"M","min":0,"open":0},{"id":"A11-PNK-L","m":"A11","c":"بينك","s":"L","min":0,"open":0},{"id":"A11-PNK-XL","m":"A11","c":"بينك","s":"XL","min":0,"open":0},{"id":"A11-PNK-2XL","m":"A11","c":"بينك","s":"2XL","min":0,"open":0},{"id":"A11-PNK-3XL","m":"A11","c":"بينك","s":"3XL","min":0,"open":0},{"id":"A11-PNK-4XL","m":"A11","c":"بينك","s":"4XL","min":0,"open":0},{"id":"A9-SAL-S","m":"A9","c":"سيمون","s":"S","min":0,"open":1},{"id":"A9-SAL-M","m":"A9","c":"سيمون","s":"M","min":0,"open":1},{"id":"A9-SAL-L","m":"A9","c":"سيمون","s":"L","min":0,"open":0},{"id":"A9-SAL-XL","m":"A9","c":"سيمون","s":"XL","min":0,"open":1},{"id":"A9-SAL-2XL","m":"A9","c":"سيمون","s":"2XL","min":0,"open":0},{"id":"A9-SAL-3XL","m":"A9","c":"سيمون","s":"3XL","min":0,"open":0},{"id":"A9-SAL-4XL","m":"A9","c":"سيمون","s":"4XL","min":0,"open":0},{"id":"A8-ROS-S","m":"A8","c":"روز","s":"S","min":0,"open":0},{"id":"A8-ROS-M","m":"A8","c":"روز","s":"M","min":0,"open":0},{"id":"A8-ROS-L","m":"A8","c":"روز","s":"L","min":0,"open":0},{"id":"A8-ROS-XL","m":"A8","c":"روز","s":"XL","min":0,"open":0},{"id":"A8-ROS-2XL","m":"A8","c":"روز","s":"2XL","min":0,"open":0},{"id":"A8-ROS-3XL","m":"A8","c":"روز","s":"3XL","min":0,"open":0},{"id":"A8-ROS-4XL","m":"A8","c":"روز","s":"4XL","min":0,"open":0},{"id":"A7-RBK-S","m":"A7","c":"احمر تطعيم اسود","s":"S","min":0,"open":0},{"id":"A7-RBK-M","m":"A7","c":"احمر تطعيم اسود","s":"M","min":0,"open":0},{"id":"A7-RBK-L","m":"A7","c":"احمر تطعيم اسود","s":"L","min":0,"open":0},{"id":"A7-RBK-XL","m":"A7","c":"احمر تطعيم اسود","s":"XL","min":0,"open":0},{"id":"A7-RBK-2XL","m":"A7","c":"احمر تطعيم اسود","s":"2XL","min":0,"open":0},{"id":"A7-RBK-3XL","m":"A7","c":"احمر تطعيم اسود","s":"3XL","min":0,"open":0},{"id":"A7-RBK-4XL","m":"A7","c":"احمر تطعيم اسود","s":"4XL","min":0,"open":0},{"id":"D3-BLK-S","m":"D3","c":"اسود","s":"S","min":0,"open":0},{"id":"D3-BLK-M","m":"D3","c":"اسود","s":"M","min":0,"open":0},{"id":"D3-BLK-L","m":"D3","c":"اسود","s":"L","min":0,"open":0},{"id":"D3-BLK-XL","m":"D3","c":"اسود","s":"XL","min":0,"open":0},{"id":"D3-BLK-2XL","m":"D3","c":"اسود","s":"2XL","min":0,"open":0},{"id":"D3-BLK-3XL","m":"D3","c":"اسود","s":"3XL","min":0,"open":0},{"id":"D3-OLV-S","m":"D3","c":"زيتى","s":"S","min":0,"open":0},{"id":"D3-OLV-M","m":"D3","c":"زيتى","s":"M","min":0,"open":0},{"id":"D3-OLV-L","m":"D3","c":"زيتى","s":"L","min":0,"open":0},{"id":"D3-OLV-XL","m":"D3","c":"زيتى","s":"XL","min":0,"open":0},{"id":"D3-OLV-2XL","m":"D3","c":"زيتى","s":"2XL","min":0,"open":0},{"id":"D3-OLV-3XL","m":"D3","c":"زيتى","s":"3XL","min":0,"open":0},{"id":"D3-ORG-S","m":"D3","c":"برتقالي","s":"S","min":0,"open":0},{"id":"D3-ORG-M","m":"D3","c":"برتقالي","s":"M","min":0,"open":0},{"id":"D3-ORG-L","m":"D3","c":"برتقالي","s":"L","min":0,"open":0},{"id":"D3-ORG-XL","m":"D3","c":"برتقالي","s":"XL","min":0,"open":0},{"id":"D3-ORG-2XL","m":"D3","c":"برتقالي","s":"2XL","min":0,"open":0},{"id":"D3-ORG-3XL","m":"D3","c":"برتقالي","s":"3XL","min":0,"open":0},{"id":"D3-WHT-S","m":"D3","c":"ابيض","s":"S","min":0,"open":0},{"id":"D3-WHT-M","m":"D3","c":"ابيض","s":"M","min":0,"open":0},{"id":"D3-WHT-L","m":"D3","c":"ابيض","s":"L","min":0,"open":0},{"id":"D3-WHT-XL","m":"D3","c":"ابيض","s":"XL","min":0,"open":0},{"id":"D3-WHT-2XL","m":"D3","c":"ابيض","s":"2XL","min":0,"open":0},{"id":"D3-WHT-3XL","m":"D3","c":"ابيض","s":"3XL","min":0,"open":0},{"id":"D3-RED-S","m":"D3","c":"احمر","s":"S","min":0,"open":0},{"id":"D3-RED-M","m":"D3","c":"احمر","s":"M","min":0,"open":0},{"id":"D3-RED-L","m":"D3","c":"احمر","s":"L","min":0,"open":0},{"id":"D3-RED-XL","m":"D3","c":"احمر","s":"XL","min":0,"open":0},{"id":"D3-RED-2XL","m":"D3","c":"احمر","s":"2XL","min":0,"open":0},{"id":"D3-RED-3XL","m":"D3","c":"احمر","s":"3XL","min":0,"open":0},{"id":"D3-FUC-S","m":"D3","c":"فوشيا","s":"S","min":0,"open":0},{"id":"D3-FUC-M","m":"D3","c":"فوشيا","s":"M","min":0,"open":0},{"id":"D3-FUC-L","m":"D3","c":"فوشيا","s":"L","min":0,"open":0},{"id":"D3-FUC-XL","m":"D3","c":"فوشيا","s":"XL","min":0,"open":0},{"id":"D3-FUC-2XL","m":"D3","c":"فوشيا","s":"2XL","min":0,"open":0},{"id":"D3-FUC-3XL","m":"D3","c":"فوشيا","s":"3XL","min":0,"open":0},{"id":"S1-WHT-S","m":"S1","c":"ابيض","s":"S","min":0,"open":0},{"id":"S1-WHT-M","m":"S1","c":"ابيض","s":"M","min":0,"open":0},{"id":"S1-WHT-L","m":"S1","c":"ابيض","s":"L","min":0,"open":0},{"id":"S1-WHT-XL","m":"S1","c":"ابيض","s":"XL","min":0,"open":0},{"id":"S1-WHT-2XL","m":"S1","c":"ابيض","s":"2XL","min":0,"open":0},{"id":"S1-BLK-S","m":"S1","c":"اسود","s":"S","min":0,"open":0},{"id":"S1-BLK-M","m":"S1","c":"اسود","s":"M","min":0,"open":0},{"id":"S1-BLK-L","m":"S1","c":"اسود","s":"L","min":0,"open":0},{"id":"S1-BLK-XL","m":"S1","c":"اسود","s":"XL","min":0,"open":0},{"id":"S1-BLK-2XL","m":"S1","c":"اسود","s":"2XL","min":0,"open":0},{"id":"S1-NVY-S","m":"S1","c":"كحلي","s":"S","min":0,"open":0},{"id":"S1-NVY-M","m":"S1","c":"كحلي","s":"M","min":0,"open":0},{"id":"S1-NVY-L","m":"S1","c":"كحلي","s":"L","min":0,"open":0},{"id":"S1-NVY-XL","m":"S1","c":"كحلي","s":"XL","min":0,"open":0},{"id":"S1-NVY-2XL","m":"S1","c":"كحلي","s":"2XL","min":0,"open":0},{"id":"S1-RED-S","m":"S1","c":"احمر","s":"S","min":0,"open":0},{"id":"S1-RED-M","m":"S1","c":"احمر","s":"M","min":0,"open":0},{"id":"S1-RED-L","m":"S1","c":"احمر","s":"L","min":0,"open":0},{"id":"S1-RED-XL","m":"S1","c":"احمر","s":"XL","min":0,"open":0},{"id":"S1-RED-2XL","m":"S1","c":"احمر","s":"2XL","min":0,"open":0}],"alias":{"FC-BR2":"BR2","FC-PAN5":"PAN5","Women A5":"A5","FC-PAN4":"PAN4","FC-SH1":"SH1","FC-SH2":"SH2","FC-BR1":"BR1","FC-BR4":"BR4","FC-PAN3":"PAN3","FC-PAN1":"PAN1","FC-PAN2":"PAN2","FC-BR3":"BR3"},"pickups":[{"no":1,"label":"بيك أب 1","orders":[{"ref":"ed4298","wb":23793622,"type":"جديد","gov":"الغربية","total":1040,"lines":["BR2-BLK-L","BR2-RED-L","PAN5-BLK-L","PAN5-RED-L"]},{"ref":"fd8523","wb":23793621,"type":"جديد","gov":"أسوان","total":1798,"lines":["A5-BLK-4XL","BR2-RED-4XL","BR2-BLK-4XL","BR2-GRY-4XL","PAN4-RED-4XL","PAN4-BLK-4XL","PAN4-GRY-4XL"]},{"ref":"ht8415","wb":23793620,"type":"جديد","gov":"القاهرة","total":1750,"lines":["SH1-WHT-2XL","SH1-RED-2XL","SH1-BLK-2XL","SH1-BEG-2XL","SH1-GRY-2XL","SH2-WHT-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-WHT-2XL","BR1-RED-2XL","BR1-BLK-2XL","BR1-BEG-2XL","BR1-GRY-2XL","BR4-GRY-2XL","PAN4-GRY-2XL"]},{"ref":"kf2181","wb":23793618,"type":"جديد","gov":"الأقصر","total":1750,"lines":["BR2-WHT-4XL","BR2-RED-4XL","BR2-BLK-4XL","BR2-BEG-4XL","BR2-GRY-4XL","PAN3-WHT-4XL","PAN3-RED-4XL","PAN3-BLK-4XL","PAN3-BEG-4XL","PAN3-GRY-4XL","SH2-RED-4XL","SH2-BLK-4XL","SH2-ORG-4XL","SH2-BEG-4XL","SH2-GRY-4XL","BR1-RED-4XL","SH1-RED-4XL"]},{"ref":"ob8975","wb":23793617,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"wm4159","wb":23793616,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-M","BR2-RED-M","BR2-BLK-M","BR2-BEG-M","BR2-GRY-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-BEG-M","PAN3-GRY-M","SH2-RED-M","SH2-BLK-M","SH2-ORG-M","SH2-BEG-M","SH2-GRY-M","BR1-RED-M","SH1-RED-M"]},{"ref":"nq9480","wb":23793615,"type":"جديد","gov":"الأسكندرية","total":780,"lines":["PAN4-GRY-L","PAN4-RED-L","PAN3-BLK-L","BR2-RED-L","BR2-BLK-L","BR2-GRY-L"]},{"ref":"kd4037","wb":23793614,"type":"جديد","gov":"الشرقية","total":1750,"lines":["BR2-WHT-4XL","BR2-RED-4XL","BR2-BLK-4XL","BR2-BEG-4XL","BR2-GRY-4XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-4XL","SH1-RED-2XL"]},{"ref":"qh9700","wb":23793613,"type":"جديد","gov":"الجيزة","total":2597,"lines":["SH1-BLK-4XL","SH1-RED-4XL","SH1-GRY-4XL","SH1-WHT-4XL","SH1-BEG-4XL","BR2-GRY-4XL","BR2-BLK-4XL","BR2-RED-4XL","BR2-WHT-4XL","BR2-BEG-4XL","PAN4-RED-4XL","PAN4-WHT-4XL","PAN4-BLK-4XL","PAN4-GRY-4XL","PAN4-BEG-4XL"]},{"ref":"no6583","wb":23793612,"type":"جديد","gov":"الأسكندرية","total":1750,"lines":["BR2-WHT-S","BR2-RED-S","BR2-BLK-S","BR2-BEG-S","BR2-GRY-S","PAN3-WHT-S","PAN3-RED-S","PAN3-BLK-S","PAN3-BEG-S","PAN3-GRY-S","SH2-RED-S","SH2-BLK-S","SH2-ORG-S","SH2-BEG-S","SH2-GRY-S","BR1-RED-S","SH1-RED-S"]},{"ref":"xv8172","wb":23793611,"type":"جديد","gov":"الدقهلية","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"zj5170","wb":23793610,"type":"جديد","gov":"القليوبية","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"nm4536","wb":23793609,"type":"جديد","gov":"القاهرة","total":1249,"lines":["BR2-BLK-XL","BR2-WHT-XL","BR2-RED-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-BLK-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL","PAN1-WHT-XL"]},{"ref":"ew6717","wb":23793608,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"lf7632","wb":23793607,"type":"جديد","gov":"الجيزة","total":1079,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"xu8642","wb":23793606,"type":"جديد","gov":"جنوب سيناء","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"mt4198","wb":23793605,"type":"جديد","gov":"القاهرة","total":1500,"lines":["SH2-BEG-M","SH2-BEG-M","SH2-WHT-M","SH2-WHT-M","SH2-GRY-M","SH2-GRY-M"]},{"ref":"vk7682","wb":23793604,"type":"جديد","gov":"القاهرة","total":480,"lines":["BR2-RED-M"]},{"ref":"hp1506","wb":23793603,"type":"جديد","gov":"الجيزة","total":1079,"lines":["BR2-BLK-XL","BR2-WHT-XL","BR2-RED-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-BLK-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL"]},{"ref":"ki3978","wb":23793602,"type":"جديد","gov":"القاهرة","total":1899,"lines":["PAN5-BEG-L","PAN5-WHT-L","PAN5-BLK-L","PAN5-RED-L","PAN5-GRY-L","BR1-RED-L","BR1-GRY-L","BR1-BLK-L","BR1-WHT-L","BR1-BEG-L"]},{"ref":"wy5149","wb":23793601,"type":"جديد","gov":"الجيزة","total":779,"lines":["BR2-RED-XL","BR2-BLK-XL","BR2-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-WHT-XL"]},{"ref":"mm2393","wb":23793600,"type":"جديد","gov":"دمياط","total":779,"lines":["BR2-RED-2XL","BR2-GRY-2XL","BR2-BEG-2XL","PAN3-RED-2XL","PAN3-GRY-2XL","PAN3-BEG-2XL"]},{"ref":"jb1950","wb":23793599,"type":"جديد","gov":"الجيزة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"ob3138","wb":23793598,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-M","BR2-WHT-M","BR2-RED-M","BR2-BEG-M","BR2-GRY-M","PAN3-BLK-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BEG-M","PAN3-GRY-M"]},{"ref":"at2017","wb":23793597,"type":"جديد","gov":"مطروح","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"eu2037","wb":23793596,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"uq7408","wb":23793595,"type":"جديد","gov":"دمياط","total":1080,"lines":["PAN3-BLK-XL","PAN3-BLK-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL","BR2-GRY-L","BR2-BLK-L","BR2-BLK-L","BR2-RED-L","BR2-BEG-L"]},{"ref":"yj1139","wb":23793594,"type":"جديد","gov":"كفر الشيخ","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"hh1675","wb":23793593,"type":"جديد","gov":"الجيزة","total":979,"lines":["SH1-BLK-2XL","SH1-RED-2XL","SH1-GRY-2XL","SH1-WHT-2XL","SH1-BEG-2XL"]},{"ref":"ka3278","wb":23793592,"type":"جديد","gov":"القاهرة","total":779,"lines":["BR2-RED-L","BR2-BLK-L","BR2-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-WHT-L"]},{"ref":"hi2132","wb":23793591,"type":"جديد","gov":"البحر الأحمر","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"ne8983","wb":23793590,"type":"جديد","gov":"الأسكندرية","total":1280,"lines":["PAN3-WHT-3XL","SH2-WHT-4XL","SH2-WHT-4XL","SH2-WHT-4XL"]},{"ref":"gv6956","wb":23793589,"type":"جديد","gov":"القاهرة","total":1079,"lines":["SH2-BLK-L","SH2-WHT-L","SH2-RED-L","SH2-BEG-L","SH2-GRY-L","SH2-ORG-L"]},{"ref":"ub6319","wb":23793588,"type":"جديد","gov":"الشرقية","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"my6542","wb":23793587,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"kr4451","wb":23793586,"type":"جديد","gov":"الأسكندرية","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"sy5200","wb":23793585,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"jo2737","wb":23793583,"type":"استبدال","gov":"الغربية","total":1125,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-BLK-2XL","SH2-RED-2XL","SH2-BEG-2XL","SH2-GRY-2XL","SH2-ORG-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"ed2009","wb":23793582,"type":"جديد","gov":"المنيا","total":889,"lines":["SH1-BLK-L","SH1-RED-L","SH1-GRY-L","SH1-WHT-L","SH1-BEG-L"]},{"ref":"rx7575","wb":23793581,"type":"جديد","gov":"الغربية","total":674,"lines":["BR2-RED-M","BR2-BLK-M","BR2-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-WHT-M"]},{"ref":"bh5020","wb":23793579,"type":"جديد","gov":"سوهاج","total":1488,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L","SH2-BLK-L","SH2-RED-L","SH2-BEG-L","SH2-GRY-L","SH2-ORG-L","BR1-RED-L","SH1-RED-L"]},{"ref":"do7576","wb":23793577,"type":"جديد","gov":"البحيرة","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"dq3171","wb":23793576,"type":"جديد","gov":"الجيزة","total":1749,"lines":["SH2-RED-XL","SH2-BLK-XL","SH2-GRY-XL","BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"ng8185","wb":23793575,"type":"جديد","gov":"أسيوط","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"so5178","wb":23793574,"type":"جديد","gov":"الجيزة","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"oq7066","wb":23793573,"type":"جديد","gov":"القاهرة","total":1920,"lines":["SH1-GRY-M","PAN5-WHT-M","PAN3-GRY-M","PAN2-BLK-M","PAN1-BLK-M","BR4-BLK-M","PAN4-BLK-M","BR3-BLK-M","SH1-BLK-M","SH2-ORG-M"]},{"ref":"so5879","wb":23793572,"type":"جديد","gov":"كفر الشيخ","total":1898,"lines":["BR2-BLK-4XL","BR2-WHT-4XL","BR2-RED-4XL","BR2-BEG-4XL","BR2-GRY-4XL","PAN3-BLK-4XL","PAN3-WHT-4XL","PAN3-RED-4XL","PAN3-BEG-4XL","PAN3-GRY-4XL","SH1-BLK-4XL","SH1-RED-4XL","SH1-GRY-4XL","SH1-WHT-4XL","SH1-BEG-4XL"]},{"ref":"qw8606","wb":23793571,"type":"جديد","gov":"السويس","total":1079,"lines":["BR2-BLK-S","BR2-WHT-S","BR2-RED-S","BR2-BEG-S","BR2-GRY-S","PAN3-BLK-S","PAN3-WHT-S","PAN3-RED-S","PAN3-BEG-S","PAN3-GRY-S"]}]},{"no":2,"label":"بيك أب 2","orders":[{"ref":"dd6421","wb":23807141,"type":"جديد","gov":"الجيزة","total":1750,"lines":["SH1-WHT-3XL","SH1-RED-3XL","SH1-BLK-3XL","SH1-BEG-3XL","SH1-GRY-3XL","SH2-WHT-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-WHT-3XL","BR1-RED-3XL","BR1-BLK-3XL","BR1-BEG-3XL","BR1-GRY-3XL","BR4-GRY-3XL","PAN4-GRY-3XL"]},{"ref":"xa8857","wb":23807140,"type":"جديد","gov":"المنوفية","total":675,"lines":["PAN3-BEG-3XL","PAN3-WHT-3XL","PAN4-RED-2XL","PAN4-BLK-2XL","PAN4-GRY-2XL"]},{"ref":"lf9728","wb":23807139,"type":"جديد","gov":"بور سعيد","total":674,"lines":["PAN2-BLK-L","PAN2-WHT-L","PAN2-RED-L","PAN2-BEG-L","PAN2-GRY-L"]},{"ref":"tq5572","wb":23807138,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"ok3718","wb":23807137,"type":"استبدال","gov":"الجيزة","total":190,"lines":["BR4-RED-XL","BR4-GRY-XL"]},{"ref":"uq2381","wb":23807136,"type":"جديد","gov":"المنوفية","total":1750,"lines":["PAN5-BEG-3XL","PAN5-GRY-3XL","PAN3-BLK-3XL","PAN3-RED-3XL","PAN3-WHT-3XL","BR2-BLK-2XL","BR2-RED-2XL","BR2-WHT-2XL","BR3-GRY-XL","BR3-BEG-XL","BR1-RED-XL","SH2-BLK-2XL","SH2-GRY-2XL","SH2-RED-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH1-RED-3XL"]},{"ref":"ji1773","wb":23807135,"type":"جديد","gov":"الدقهلية","total":1750,"lines":["SH1-WHT-3XL","SH1-RED-3XL","SH1-BLK-3XL","SH1-BEG-3XL","SH1-GRY-3XL","SH2-WHT-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-WHT-3XL","BR1-RED-3XL","BR1-BLK-3XL","BR1-BEG-3XL","BR1-GRY-3XL","BR4-GRY-3XL","PAN4-GRY-3XL"]},{"ref":"ge7027","wb":23807134,"type":"جديد","gov":"الأسكندرية","total":1155,"lines":["PAN1-BLK-M","PAN4-BLK-M","BR1-BLK-M","BR2-BLK-M","PAN3-BLK-M"]},{"ref":"ui3175","wb":23807133,"type":"جديد","gov":"كفر الشيخ","total":600,"lines":["SH1-RED-L","SH1-GRY-L","SH1-WHT-L","SH1-BEG-L"]},{"ref":"vd8513","wb":23807132,"type":"جديد","gov":"الأسكندرية","total":1750,"lines":["PAN3-RED-L","PAN3-WHT-L","PAN3-BLK-L","PAN3-GRY-L","PAN3-BEG-L","BR2-GRY-S","BR2-BLK-S","BR2-RED-S","BR2-WHT-S","BR2-BEG-S","BR1-RED-S","SH2-BLK-L","SH2-GRY-L","SH2-RED-L","SH2-ORG-L","SH2-BEG-L","SH1-RED-L"]},{"ref":"fk9211","wb":23807131,"type":"جديد","gov":"السويس","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"vp8698","wb":23807130,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-XL","BR2-WHT-XL","BR2-RED-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-BLK-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL"]},{"ref":"fv4091","wb":23807129,"type":"جديد","gov":"القاهرة","total":560,"lines":["BR2-BLK-S","SH2-BLK-S"]},{"ref":"nw6099","wb":23807128,"type":"جديد","gov":"القليوبية","total":1750,"lines":["BR2-WHT-M","BR2-RED-M","BR2-BLK-M","BR2-BEG-M","BR2-GRY-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-BEG-M","PAN3-GRY-M","SH2-RED-M","SH2-BLK-M","SH2-ORG-M","SH2-BEG-M","SH2-GRY-M","BR1-RED-M","SH1-RED-M"]},{"ref":"hp7687","wb":23807127,"type":"جديد","gov":"الجيزة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"db7683","wb":23807126,"type":"جديد","gov":"القليوبية","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]},{"ref":"tj6152","wb":23807125,"type":"جديد","gov":"الدقهلية","total":1079,"lines":["BR2-BLK-S","BR2-WHT-S","BR2-RED-S","BR2-BEG-S","BR2-GRY-S","PAN3-BLK-S","PAN3-WHT-S","PAN3-RED-S","PAN3-BEG-S","PAN3-GRY-S"]},{"ref":"fr6754","wb":23807124,"type":"جديد","gov":"كفر الشيخ","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"dg8582","wb":23807123,"type":"جديد","gov":"القاهرة","total":779,"lines":["PAN5-BLK-L","PAN5-WHT-L","PAN5-RED-L","PAN5-BEG-L","PAN5-GRY-L"]},{"ref":"wn4551","wb":23807122,"type":"جديد","gov":"الشرقية","total":1750,"lines":["PAN3-BLK-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-BLK-XL","SH2-GRY-XL","SH2-RED-XL","SH2-BEG-XL","SH2-ORG-XL","BR2-BLK-XL","BR2-WHT-XL","BR2-RED-XL","BR2-BEG-XL","BR2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"xb4443","wb":23807121,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"pk5593","wb":23807120,"type":"جديد","gov":"القاهرة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"ur5780","wb":23807119,"type":"جديد","gov":"الدقهلية","total":1750,"lines":["BR2-WHT-L","BR2-RED-L","BR2-BLK-L","BR2-BEG-L","BR2-GRY-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BLK-L","PAN3-BEG-L","PAN3-GRY-L","SH2-RED-L","SH2-BLK-L","SH2-ORG-L","SH2-BEG-L","SH2-GRY-L","BR1-RED-L","SH1-RED-L"]},{"ref":"xy8110","wb":23807118,"type":"جديد","gov":"الغربية","total":1079,"lines":["SH2-BLK-3XL","SH2-WHT-3XL","SH2-RED-3XL","SH2-BEG-3XL","SH2-GRY-3XL","SH2-ORG-3XL"]},{"ref":"fn8061","wb":23807117,"type":"جديد","gov":"الوادي الجديد","total":1550,"lines":["SH2-RED-XL","SH2-BLK-XL","SH2-GRY-XL","PAN5-RED-XL","PAN5-BLK-XL","BR4-RED-M","BR4-BLK-M"]},{"ref":"sc7206","wb":23807116,"type":"جديد","gov":"الجيزة","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"dy2199","wb":23807115,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"be4907","wb":23807114,"type":"جديد","gov":"الجيزة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"ce3134","wb":23807113,"type":"جديد","gov":"البحيرة","total":1079,"lines":["BR2-BLK-L","BR2-WHT-L","BR2-RED-L","BR2-BEG-L","BR2-GRY-L","PAN3-BLK-L","PAN3-WHT-L","PAN3-RED-L","PAN3-BEG-L","PAN3-GRY-L"]},{"ref":"vn5882","wb":23807112,"type":"جديد","gov":"الأسكندرية","total":829,"lines":["BR3-BLK-XL","BR1-GRY-XL","PAN2-WHT-XL","PAN2-RED-XL","PAN2-BLK-XL","PAN2-BEG-XL","PAN2-GRY-XL"]},{"ref":"nf2160","wb":23807111,"type":"جديد","gov":"السويس","total":1079,"lines":["BR2-BLK-M","BR2-WHT-M","BR2-RED-M","BR2-BEG-M","BR2-GRY-M","PAN3-BLK-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BEG-M","PAN3-GRY-M"]},{"ref":"ii6514","wb":23807110,"type":"جديد","gov":"القليوبية","total":1750,"lines":["BR2-WHT-M","BR2-RED-M","BR2-BLK-M","BR2-BEG-M","BR2-GRY-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-BEG-M","PAN3-GRY-M","SH2-RED-M","SH2-BLK-M","SH2-ORG-M","SH2-BEG-M","SH2-GRY-M","BR1-RED-M","SH1-RED-M"]},{"ref":"wl6201","wb":23807109,"type":"جديد","gov":"الإسماعيلية","total":955,"lines":["PAN5-RED-S","PAN5-RED-S","PAN5-RED-S","PAN5-RED-S","PAN5-RED-S"]},{"ref":"aw3490","wb":23807108,"type":"جديد","gov":"الأسكندرية","total":1079,"lines":["BR2-BLK-2XL","BR2-WHT-2XL","BR2-RED-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"jq2169","wb":23807107,"type":"جديد","gov":"القاهرة","total":845,"lines":["PAN1-RED-3XL","PAN2-GRY-3XL","BR2-BLK-2XL"]},{"ref":"ja4125","wb":23807106,"type":"جديد","gov":"الأسكندرية","total":830,"lines":["SH2-BEG-3XL","SH2-BLK-3XL","SH2-GRY-3XL"]},{"ref":"xn8154","wb":23807105,"type":"جديد","gov":"القاهرة","total":1499,"lines":["PAN1-BLK-2XL","PAN1-WHT-2XL","PAN1-RED-2XL","PAN1-BEG-2XL","PAN1-GRY-2XL","PAN2-BLK-2XL","PAN2-WHT-2XL","PAN2-RED-2XL","PAN2-BEG-2XL","PAN2-GRY-2XL","PAN3-BLK-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL"]},{"ref":"we6641","wb":23807104,"type":"جديد","gov":"المنيا","total":1079,"lines":["SH2-RED-S","SH2-WHT-S","SH2-BLK-S","SH2-GRY-S","SH2-BEG-S"]},{"ref":"em4271","wb":23807103,"type":"جديد","gov":"القليوبية","total":1488,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"vg8538","wb":23807102,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-XL","BR2-RED-XL","BR2-BLK-XL","BR2-BEG-XL","BR2-GRY-XL","PAN3-WHT-XL","PAN3-RED-XL","PAN3-BLK-XL","PAN3-BEG-XL","PAN3-GRY-XL","SH2-RED-XL","SH2-BLK-XL","SH2-ORG-XL","SH2-BEG-XL","SH2-GRY-XL","BR1-RED-XL","SH1-RED-XL"]},{"ref":"sb4580","wb":23807101,"type":"جديد","gov":"الجيزة","total":779,"lines":["BR2-RED-L","BR2-GRY-L","BR2-BLK-L","PAN3-RED-L","PAN3-GRY-L","PAN3-BLK-L"]},{"ref":"zf7528","wb":23807100,"type":"جديد","gov":"الأسكندرية","total":1750,"lines":["BR2-WHT-3XL","BR2-RED-3XL","BR2-BLK-3XL","BR2-BEG-3XL","BR2-GRY-3XL","PAN3-WHT-3XL","PAN3-RED-3XL","PAN3-BLK-3XL","PAN3-BEG-3XL","PAN3-GRY-3XL","SH2-RED-3XL","SH2-BLK-3XL","SH2-ORG-3XL","SH2-BEG-3XL","SH2-GRY-3XL","BR1-RED-3XL","SH1-RED-3XL"]},{"ref":"ei1079","wb":23807099,"type":"جديد","gov":"القاهرة","total":1750,"lines":["BR2-WHT-M","BR2-RED-M","BR2-BLK-M","BR2-BEG-M","BR2-GRY-M","PAN3-WHT-M","PAN3-RED-M","PAN3-BLK-M","PAN3-BEG-M","PAN3-GRY-M","SH2-RED-M","SH2-BLK-M","SH2-ORG-M","SH2-BEG-M","SH2-GRY-M","BR1-RED-M","SH1-RED-M"]},{"ref":"ds5098","wb":23807098,"type":"جديد","gov":"الجيزة","total":1750,"lines":["BR2-WHT-2XL","BR2-RED-2XL","BR2-BLK-2XL","BR2-BEG-2XL","BR2-GRY-2XL","PAN3-WHT-2XL","PAN3-RED-2XL","PAN3-BLK-2XL","PAN3-BEG-2XL","PAN3-GRY-2XL","SH2-RED-2XL","SH2-BLK-2XL","SH2-ORG-2XL","SH2-BEG-2XL","SH2-GRY-2XL","BR1-RED-2XL","SH1-RED-2XL"]}]}],"cleaning":["حذف PAN6 (باندل 5 ألوان) من الأصناف والرصيد الافتتاحي: 50 قطعة مستبعدة لحد ما يتحدد محتواه","توحيد كود PAN4 (كان فيه مسافة زيادة)","تصحيح \"مطزرات\" إلى \"مطرزات\" في A1 إلى A6","ربط Women A5 ← A5 وFC-xxx ← xxx كـ Alias لفيندور","تحويل التاريخ من نص (29\\10\\2026) إلى تاريخ حقيقي 2026-10-29","كل الرصيد الافتتاحي اتحسب Ready","بيانات العملاء (الاسم/الموبايل/العنوان) لم تُستورد"]};
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const N=n=>'<span class="n">'+fmt(n)+'</span>';
+const pct=(a,b)=>'<span class="n">'+(b?Math.round(a/b*100):0)+'%</span>';
+
+/* ---------- master data ---------- */
+const SKU=new Map(D.skus.map(k=>[k.id,k])),MODEL=new Map(D.models.map(m=>[m.code,m]));
+const IDX={};D.skus.forEach(k=>IDX[k.m+'|'+k.c+'|'+k.s]=k.id);
+const SIZES=D.sizes,szi=s=>SIZES.indexOf(s);
+const mkey=c=>{const m=/^([A-Z]+)(\d+)$/.exec(c);return m?m[1]+String(m[2]).padStart(3,'0'):c};
+const MORDER=D.models.map(m=>m.code).sort((a,b)=>mkey(a)<mkey(b)?-1:1);
+const mIdx=Object.fromEntries(MORDER.map((c,i)=>[c,i]));
+const skuSort=(a,b)=>{const x=SKU.get(a),y=SKU.get(b);return(mIdx[x.m]-mIdx[y.m])||(MODEL.get(x.m).colors.indexOf(x.c)-MODEL.get(y.m).colors.indexOf(y.c))||(szi(x.s)-szi(y.s))};
+const lineOf=m=>/^PAN/.test(m)?'بانتي':/^BR/.test(m)?'برا':/^SH/.test(m)?'شورت':'موديلات تانية';
+const LINE_ORDER=['بانتي','برا','شورت','موديلات تانية'];
+const HEX={'اسود':'#1e1b24','ابيض':'#ffffff','احمر':'#d9262e','بيج':'#ead9be','رمادي':'#bdbcc4','برتقالي':'#f07a2b','زيتى':'#6f7a3c','فوشيا':'#c2317a','اصفر':'#f2c230','مينت جرين':'#8fd3b6','بيبي بلو':'#a9cbe8','كحلي':'#1f2a5a','بينك':'#f4b6c8','سيمون':'#f3a28c','روز':'#e58fa8','احمر تطعيم اسود':'#a3262c'};
+const sw=c=>'<i class="sw" style="background:'+(HEX[c]||'#cfc2ec')+'"></i>';
+const skuName=(s,withModel=true)=>{const k=SKU.get(s);return k?(withModel?k.m+' · ':'')+k.c+' · '+k.s:s};
+const mName=c=>{const m=MODEL.get(c);return m?c+' · '+m.name:c};
+
+/* ---------- locations (Odoo-style) ---------- */
+const INTERNAL=['READY','DIRTY','FACTORY','SCRAP','LOST'];
+const LOC={READY:'جاهز للبيع',DIRTY:'هالك نظافة',FACTORY:'عند المصنع',SCRAP:'هالك نهائي',LOST:'مفقود',EXT_OPEN:'رصيد افتتاحي',EXT_FACTORY:'المصنع',EXT_CH:'القناة / العميل',EXT_SHOP:'المحل',EXT_ADJ:'تسوية جرد',EXT_OFF:'شطب نهائي'};
+const LOCEN={READY:'WH/Stock',DIRTY:'WH/Cleaning',FACTORY:'Transit/Factory',SCRAP:'Virtual/Scrap',LOST:'Virtual/Inventory loss'};
+const LCOL={READY:'var(--c-ready)',DIRTY:'var(--c-dirty)',FACTORY:'var(--c-factory)',SCRAP:'var(--c-scrap)',LOST:'var(--c-lost)'};
+const LDESC={READY:'تقدر تبيعه',DIRTY:'بيتغسل ويرجع',FACTORY:'لسه راجع من المصنع',SCRAP:'مفيش علاج',LOST:'ضايع، مستني تسوية'};
+const CHAN=[{id:'VENDOOR',name:'Vendoor · فيندور',ok:true},{id:'NOON',name:'Noon · نون',ok:false},{id:'AMAZON',name:'Amazon · أمازون',ok:false}];
+const chanName=id=>(CHAN.find(c=>c.id===id)||{name:id}).name;
+
+/* ---------- operation types ---------- */
+const OT={
+  RCV:{ar:'استلام توريد',en:'Receipts',grp:'دخول',pre:'RCV',d:'قطع جت من المصنع بورقة موقّعة',ic:'in'},
+  RTN:{ar:'مرتجعات العملاء',en:'Customer Returns',grp:'دخول',pre:'RTN',d:'اللي رجع من القنوات: جاهز أو هالك، والناقص بيتسجل مفقود',ic:'back'},
+  SCN:{ar:'أوردرات اتسكانت',en:'Delivery Orders',grp:'خروج',pre:'SCN',d:'الخروج الفعلي من ملف السكان',ic:'scan'},
+  SHP:{ar:'توريد للمحل',en:'Shop Transfer',grp:'خروج',pre:'SHP',d:'قطع للمحل بورقة موقّعة',ic:'shop'},
+  CLN:{ar:'تصنيف حالة',en:'Status Change',grp:'داخلي',pre:'CLN',d:'قطعة بقت هالك نظافة أو هالك نهائي',ic:'swap'},
+  FSD:{ar:'إرسال للمصنع',en:'Factory Send',grp:'داخلي',pre:'FSD',d:'غسيل (هيرجع) أو هالك للتسليم',ic:'out'},
+  FRC:{ar:'استلام من المصنع',en:'Factory Receipt',grp:'داخلي',pre:'FRC',d:'المغسول اللي رجع، وفيه المرفوض',ic:'in'},
+  CNT:{ar:'جرد',en:'Inventory Adjustment',grp:'رقابة',pre:'CNT',d:'عدّ فعلي ومقارنة بالسيستم',ic:'count'},
+  LOS:{ar:'معالجة المفقود',en:'Loss Resolution',grp:'رقابة',pre:'LOS',d:'لقيناه ولا نشطبه',ic:'search'},
+  OPN:{ar:'رصيد افتتاحي',en:'Opening Balance',grp:'',pre:'OPN',d:'',ic:'in'}
+};
+const OPS_LIST=['RCV','RTN','SCN','SHP','CLN','FSD','FRC','CNT','LOS'];
+
+/* ---------- supplies ---------- */
+const SUP=[
+  {id:'FLY',ar:'فلاير الشحن',unit:'قطعة',rule:'واحد لكل أوردر. عليه البوليصة'},
+  {id:'PKS',ar:'تغليف فيميني S',unit:'قطعة',rule:'أوردرات صغيرة'},
+  {id:'PKM',ar:'تغليف فيميني M',unit:'قطعة',rule:'أوردرات متوسطة'},
+  {id:'PKL',ar:'تغليف فيميني L',unit:'قطعة',rule:'أوردرات كبيرة'},
+  {id:'CUP',ar:'كاسات البرا',unit:'كاسة',rule:'كاستين لكل قطعة BR1. الكيس 24 كاسة'}
+];
+
+/* ---------- state ---------- */
+const KEY='femini-stock-v3';
+let S,_bal=null,_ctx=null,_t=null;
+function seed(){
+  const t0=Date.parse(D.asOf+'T10:00:00+02:00'),moves=[];let mid=1;
+  D.skus.forEach(k=>{if(k.open>0)moves.push({id:mid++,t:t0,date:D.asOf,sku:k.id,q:k.open,from:'EXT_OPEN',to:'READY',type:'OPN',doc:'OPN-1',by:'النظام',note:'رصيد افتتاحي من جرد 29-10'})});
+  const pickups=[],orders=[];
+  D.pickups.forEach((p,i)=>{const id='P'+(i+1);pickups.push({id,label:p.label,date:D.today,channel:'VENDOOR',src:'ملف فيندور 2-11-2026'});
+    p.orders.forEach(o=>orders.push({ref:o.ref,wb:o.wb,type:o.type,gov:o.gov,total:o.total,lines:o.lines.slice(),pk:id,st:'open',sc:null,bad:[]}))});
+  const t=Date.parse(D.asOf+'T11:00:00+02:00');
+  return {v:3,moves,mid,docs:[],did:1,seq:{},pickups,orders,emps:[],actor:'مصعب',date:D.today,
+    sup:{log:[['FLY',2000],['PKS',600],['PKM',600],['PKL',300],['CUP',960]].map(x=>({t,date:D.asOf,item:x[0],q:x[1],why:'رصيد افتتاحي تجريبي. عدّله بجرد',doc:null}))},
+    st:{lookback:14,cover:14,excess:60,target:30,packS:2,packM:5,cupBR1:2,flyPer:1},costs:{},alias:{}};
+}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;return}}}catch(e){}S=seed()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function dirty(){_bal=null;_ctx=null;clearTimeout(_t);_t=setTimeout(save,250)}
+function bal(){if(_bal)return _bal;const b={};for(const m of S.moves){const o=b[m.sku]||(b[m.sku]={});o[m.from]=(o[m.from]||0)-m.q;o[m.to]=(o[m.to]||0)+m.q}return _bal=b}
+const g=(s,l)=>(bal()[s]||{})[l]||0;
+const total=(s)=>INTERNAL.reduce((a,l)=>a+g(s,l),0);
+const locSum=l=>D.skus.reduce((a,k)=>a+g(k.id,l),0);
+const mSum=(m,l)=>D.skus.reduce((a,k)=>a+(k.m===m?g(k.id,l):0),0);
+function post(list,doc,note){S.moves.push(...list.map(m=>({id:S.mid++,t:Date.now(),date:doc.date,sku:m.sku,q:m.q,from:m.from,to:m.to,type:doc.type,doc:doc.no||doc.id,by:S.actor,note:m.note||note||''})));dirty()}
+const dayDiff=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+const addDays=(d,n)=>new Date(Date.parse(d)+n*864e5).toISOString().slice(0,10);
+
+/* ---------- analysis ---------- */
+function ctx(){
+  if(_ctx)return _ctx;
+  const pkIdx=Object.fromEntries(S.pickups.map((p,i)=>[p.id,i])),pkD=Object.fromEntries(S.pickups.map(p=>[p.id,p.date]));
+  const open=S.orders.filter(o=>o.st==='open').sort((a,b)=>pkIdx[a.pk]-pkIdx[b.pk]);
+  const demand={},blocked={},rem={},R=s=>(s in rem)?rem[s]:(rem[s]=g(s,'READY'));
+  open.forEach(o=>{
+    const need={};o.lines.forEach(s=>need[s]=(need[s]||0)+1);
+    Object.keys(need).forEach(s=>demand[s]=(demand[s]||0)+need[s]);
+    const miss=Object.keys(need).filter(s=>R(s)<need[s]);
+    if(miss.length)blocked[o.ref]=miss.map(s=>[s,need[s]-Math.max(0,R(s))]);else Object.keys(need).forEach(s=>rem[s]-=need[s]);
+  });
+  const end=S.date,from=addDays(end,-(S.st.lookback-1)),dset={},vel={},hm={},hs={},hc={},hg={};
+  let pcs=0;const combos={};
+  S.orders.forEach(o=>{
+    if(o.st==='cx')return;const d=pkD[o.pk];if(d>end||d<from)return;dset[d]=1;
+    o.lines.forEach(s=>{const k=SKU.get(s);vel[s]=(vel[s]||0)+1;hm[k.m]=(hm[k.m]||0)+1;hs[k.s]=(hs[k.s]||0)+1;hc[k.c]=(hc[k.c]||0)+1;pcs++});
+    if(o.gov)hg[o.gov]=(hg[o.gov]||0)+1;
+    if(o.lines.length>=2){const sig=o.lines.map(s=>{const k=SKU.get(s);return k.m+'|'+k.c}).sort().join(' + ');(combos[sig]||(combos[sig]={n:0,lines:o.lines.slice(),ex:o.ref})).n++}
+  });
+  const days=Object.keys(dset).sort(),span=days.length?Math.max(1,Math.min(S.st.lookback,dayDiff(days[0],end)+1)):1;
+  Object.keys(vel).forEach(s=>vel[s]/=span);
+  const abc={};let tot=0,cum=0;Object.keys(hm).forEach(m=>tot+=hm[m]);
+  Object.keys(hm).sort((a,b)=>hm[b]-hm[a]).forEach(m=>{abc[m]=cum/(tot||1)<.8?'A':cum/(tot||1)<.95?'B':'C';cum+=hm[m]});
+  return _ctx={open,demand,blocked,vel,velOK:days.length>=3,days:days.length,span,hm,hs,hc,hg,abc,pcs,combos};
+}
+function info(s){
+  const C=ctx(),k=SKU.get(s),R=g(s,'READY'),dm=C.demand[s]||0,v=C.vel[s]||0;
+  const th=C.velOK?Math.ceil(v*S.st.cover):(k.min||0),after=R-dm;
+  let cls='';if(dm>R||(C.velOK&&v>0&&R===0))cls='c';else if(th>0&&after<th)cls='w';
+  return {R,dm,v,th,after,cls,cov:v>0?R/v:null};
+}
+function lowList(){
+  const out=[];D.skus.forEach(k=>{const i=info(k.id);if(i.cls&&(mSum(k.m,'READY')>0||i.dm>0))out.push([k.id,i])});return out;
+}
+
+/* ---------- supplies ---------- */
+const supBal=id=>S.sup.log.reduce((a,e)=>a+(e.item===id?e.q:0),0);
+function supUse(id,days=7){const to=S.date,from=addDays(to,-(days-1));let u=0;S.sup.log.forEach(e=>{if(e.item===id&&e.q<0&&e.date>=from&&e.date<=to)u-=e.q});return u/days}
+const supCover=id=>{const u=supUse(id);return u>0?supBal(id)/u:null};
+function packOf(n){return n<=S.st.packS?'PKS':n<=S.st.packM?'PKM':'PKL'}
+function consumption(o){
+  const l=[['FLY',-S.st.flyPer],[packOf(o.lines.length),-1]],cups=o.lines.filter(s=>SKU.get(s).m==='BR1').length*S.st.cupBR1;
+  if(cups)l.push(['CUP',-cups]);return l;
+}
+
+/* ---------- order import / scan parsing ---------- */
+const COLS={ref:'كود الاوردر العشوائي',wb:'بوليصة الشحن',ty:'حالة الاوردر الجزئية',gov:'المحافظة',total:'المبلغ توتال بالشحن للاوردر',items:'المنتجات المطلوبة في الاوردر'};
+const LINE_RE=/^(.*?) \( (.*?) \)-(.*)-(.*)-(\d+)$/;
+function alias(code){return S.alias[code]||D.alias[code]||(/^FC-/.test(code)&&MODEL.has(code.slice(3))?code.slice(3):(MODEL.has(code)?code:null))}
+function importRows(rows,channel,pkId){
+  const H=rows[0].map(x=>String(x).trim()),ix={};for(const k in COLS)ix[k]=H.indexOf(COLS[k]);
+  if(ix.ref<0||ix.items<0)throw new Error('الأعمدة المطلوبة مش موجودة (كود الاوردر / المنتجات). الملف لازم يكون بتنسيق فيندور.');
+  const have={};S.orders.forEach(o=>have[o.ref]=1);const orders=[],dups=[],unk={};
+  rows.slice(1).forEach(r=>{
+    const ref=String(r[ix.ref]||'').trim();if(!ref)return;if(have[ref]){dups.push(ref);return}
+    const o={ref,wb:r[ix.wb],type:String(r[ix.ty]).indexOf('استبدال')>=0?'استبدال':'جديد',gov:r[ix.gov],total:r[ix.total],lines:[],pk:pkId,st:'open',sc:null,bad:[]};
+    String(r[ix.items]).split(', ').forEach(it=>{
+      const m=LINE_RE.exec(it.trim());if(!m){o.bad.push([it,'','',1]);return}
+      const code=m[1],size=m[3].trim(),color=m[4].trim(),q=+m[5],mc=alias(code),id=mc&&IDX[mc+'|'+color+'|'+size];
+      if(id){for(let i=0;i<q;i++)o.lines.push(id)}else{o.bad.push([code,size,color,q]);if(!mc)unk[code]=1}
+    });
+    orders.push(o);have[ref]=1;
+  });
+  return {orders,dups,unk:Object.keys(unk)};
+}
+function parseCSVText(t){const rows=[];let r=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}else if(c==='"')q=true;else if(c===','){r.push(f);f=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;r.push(f);f='';rows.push(r);r=[]}else f+=c}if(f!==''||r.length){r.push(f);rows.push(r)}return rows.filter(x=>x.some(y=>String(y).trim()!==''))}
+function parseScan(rows){
+  const re=/codecontent|^code$|content|الكود|^كود/;let hi=-1,H;
+  for(let i=0;i<Math.min(rows.length,6);i++){H=rows[i].map(x=>String(x).trim().toLowerCase());if(H.some(h=>re.test(h))){hi=i;break}}
+  if(hi<0)throw new Error('مش لاقي عمود الكود (CODECONTENT). الملف لازم يكون تصدير QRbot أو فيه عمود بكود الأوردر.');
+  const ic=H.findIndex(h=>re.test(h)),idt=H.findIndex(h=>/^date|time|وقت|تاريخ/.test(h)),inm=H.findIndex(h=>/^name$|employee|موظف|^الاسم/.test(h)),out=[];
+  rows.slice(hi+1).forEach(r=>{const c=String(r[ic]==null?'':r[ic]).trim();if(c)out.push({code:c,t:idt>=0?String(r[idt]||'').slice(0,19):'',name:inm>=0?String(r[inm]||'').trim():''})});
+  return out;
+}
+function matchScans(scans){
+  const idx={};S.orders.forEach(o=>{if(o.st==='cx')return;idx[String(o.ref).toLowerCase()]=o;if(o.wb)idx[String(o.wb)]=o});
+  const seen={},matched=[],dups=[],already=[],unk=[],bad=[];
+  scans.forEach(s=>{
+    const k=s.code.toLowerCase();if(seen[k]){dups.push(s.code);return}seen[k]=1;
+    const o=idx[k];if(!o){unk.push(s.code);return}
+    if(o.st==='done'){already.push({ref:o.ref,by:o.sc&&o.sc.by});return}
+    if(o.bad&&o.bad.length){bad.push(o.ref);return}
+    if(!matched.some(m=>m.ref===o.ref))matched.push({ref:o.ref,t:s.t});
+  });
+  return {scans:scans.length,matched,dups,already,unk,bad};
+}
+const ordPieces=refs=>{let n=0;refs.forEach(r=>{const o=S.orders.find(x=>x.ref===r.ref||x.ref===r);if(o)n+=o.lines.length});return n};
+const orderByRef=ref=>S.orders.find(o=>o.ref===ref);
+
+
+/* ---------- icons ---------- */
+const IP={today:'<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 8h6V4h-6z"/>',orders:'<path d="M3 7l9-4 9 4-9 4zM3 7v10l9 4 9-4V7M12 11v10"/>',stock:'<path d="M12 3l8 4.5-8 4.5-8-4.5zM4 12l8 4.5 8-4.5M4 16.5l8 4.5 8-4.5"/>',ops:'<path d="M7 7h13l-4-4M17 17H4l4 4"/>',supplies:'<path d="M5 8h14l-1 12H6zM9 8a3 3 0 016 0"/>',insights:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',ledger:'<path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3"/>',config:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',
+ in:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',out:'<path d="M12 15V3M7 8l5-5 5 5M4 20h16"/>',back:'<path d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3"/>',scan:'<path d="M4 8V5h3M17 4h3v3M20 16v3h-3M7 20H4v-3M8 8v8M12 8v8M16 8v8"/>',shop:'<path d="M4 9l1-5h14l1 5M4 9v11h16V9M9 20v-6h6v6"/>',swap:'<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>',count:'<path d="M9 11l2 2 4-4M5 4h14v16H5z"/>',search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>'};
+const ic=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(IP[n]||'')+'</svg>';
+
+/* ---------- documents ---------- */
+const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'matrix'},opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'plan'};
+const PH={};
+const logE=m=>({t:Date.now(),by:S.actor,m});
+const srcLoc=(d)=>d.type==='CLN'?d.hdr.from:d.type==='FSD'?(d.hdr.kind==='wash'?'DIRTY':'SCRAP'):d.type==='FRC'?'FACTORY':d.type==='LOS'?'LOST':d.type==='SHP'?'READY':null;
+function newDoc(type,pre){
+  pre=pre||{};
+  const d={id:'d'+(S.did++),type,status:'draft',no:null,date:S.date,by:S.actor,hdr:{},lines:[],log:[logE('اتفتحت مسودة')]};
+  if(type==='RCV')d.hdr={ref:'',declared:''};
+  if(type==='RTN')d.hdr={channel:'VENDOOR',codes:'',counted:false,unk:[]};
+  if(type==='SHP')d.hdr={note:''};
+  if(type==='CLN')d.hdr={from:'READY',to:'DIRTY',reason:''};
+  if(type==='FSD')d.hdr={kind:'wash'};
+  if(type==='CNT')d.hdr={state:'READY',models:[],snap:{},cnt:{},reveal:false,ack:false,started:false};
+  if(pre.sku)addLine(d,pre.sku,pre.q||1);
+  if(pre.hdr)Object.assign(d.hdr,pre.hdr);
+  S.docs.push(d);UI.doc=d.id;UI.msg=null;dirty();return d;
+}
+function addLine(d,sku,q){
+  q=Math.max(1,+q||1);const l=d.lines.find(x=>x.sku===sku);
+  if(l){if(d.type==='RTN')l.exp+=q;else l.q+=q;return}
+  d.lines.push(d.type==='RTN'?{sku,exp:q,r:'',d:'',x:''}:d.type==='FRC'?{sku,q,rej:0}:d.type==='LOS'?{sku,q,res:'FOUND'}:{sku,q});
+}
+const num=v=>Math.max(0,Math.floor(+v||0));
+function scnLines(d){const a={};d.hdr.refs.forEach(r=>{const o=orderByRef(r);if(o)o.lines.forEach(s=>a[s]=(a[s]||0)+1)});return Object.keys(a).sort(skuSort).map(s=>({sku:s,q:a[s]}))}
+function build(d){
+  const mv=[],checks=[],warn=[];
+  const add=(sku,q,from,to,note)=>{if(q>0)mv.push({sku,q,from,to,note})};
+  const chk=(ok,t)=>checks.push({ok:!!ok,t});
+  const H=d.hdr,L=d.lines;
+  if(d.type==='RCV'){
+    L.forEach(l=>add(l.sku,num(l.q),'EXT_FACTORY','READY','استلام من المصنع'+(H.ref?' · إذن '+H.ref:'')));
+    const tot=L.reduce((a,l)=>a+num(l.q),0);
+    chk(tot>0,'فيه أصناف مضافة');chk(PH[d.id]||d.photo,'صورة الورقة الموقّعة مرفوعة');
+    chk(H.declared!==''&&H.declared!=null,'إجمالي القطع المكتوب في الورقة متسجّل');
+    if(H.declared!==''&&H.declared!=null)chk(+H.declared===tot,'المكتوب في الورقة ('+fmt(+H.declared)+') = المضاف ('+fmt(tot)+')');
+  }else if(d.type==='SHP'){
+    L.forEach(l=>add(l.sku,num(l.q),'READY','EXT_SHOP','توريد للمحل'+(H.note?' · '+H.note:'')));
+    chk(L.length>0,'فيه أصناف مضافة');chk(PH[d.id]||d.photo,'صورة الورقة الموقّعة مرفوعة');
+  }else if(d.type==='CLN'){
+    L.forEach(l=>add(l.sku,num(l.q),H.from,H.to,'من '+LOC[H.from]+' إلى '+LOC[H.to]+(H.reason?' · '+H.reason:'')));
+    chk(L.length>0,'فيه أصناف مضافة');
+  }else if(d.type==='FSD'){
+    L.forEach(l=>H.kind==='wash'?add(l.sku,num(l.q),'DIRTY','FACTORY','غسيل مجاني'):add(l.sku,num(l.q),'SCRAP','EXT_FACTORY','هالك اتسلّم للمصنع'));
+    chk(L.length>0,'فيه أصناف مضافة');
+  }else if(d.type==='FRC'){
+    L.forEach(l=>{add(l.sku,num(l.q),'FACTORY','READY','رجع مغسول');add(l.sku,num(l.rej),'FACTORY','SCRAP','مرفوض بعد الغسيل')});
+    chk(L.length>0,'فيه أصناف مضافة');
+  }else if(d.type==='LOS'){
+    L.forEach(l=>l.res==='FOUND'?add(l.sku,num(l.q),'LOST','READY','لقيناه'):add(l.sku,num(l.q),'LOST','EXT_OFF','تسوية: شطب المفقود'));
+    chk(L.length>0,'فيه أصناف مضافة');
+  }else if(d.type==='RTN'){
+    let lostN=0,over=0;
+    L.forEach(l=>{const r=num(l.r),dd=num(l.d),x=num(l.x),got=r+dd+x,exp=num(l.exp);
+      add(l.sku,r,'EXT_CH','READY','مرتجع سليم');add(l.sku,dd,'EXT_CH','DIRTY','مرتجع محتاج نظافة');add(l.sku,x,'EXT_CH','SCRAP','مرتجع هالك نهائي');
+      if(got<exp){add(l.sku,exp-got,'EXT_CH','LOST','ناقص من المرتجع');lostN+=exp-got}
+      if(got>exp){over+=got-exp;warn.push(skuName(l.sku)+': استلمت أكتر من المتوقع بـ '+(got-exp)+' (هتتسجل زيادة)')}});
+    chk(L.length>0,'فيه أصناف متوقعة');chk(H.counted,'خلّصت عدّ كل الأصناف');
+    if(lostN)warn.push('الناقص '+fmt(lostN)+' قطعة هيتسجل مفقود ومربوط بالقناة');
+  }else if(d.type==='SCN'){
+    scnLines(d).forEach(l=>add(l.sku,l.q,'READY','EXT_CH','سكان: '+H.emp));
+    chk(H.refs.length>0,'فيه أوردرات متسكّنة');chk((H.emp||'').trim(),'اسم الموظف متسجّل');
+    scnLines(d).forEach(l=>{if(g(l.sku,'READY')<l.q)warn.push(skuName(l.sku)+': الرصيد '+g(l.sku,'READY')+' والمسكّن '+l.q+'. هيبقى بالسالب، راجع الجرد')});
+  }else if(d.type==='CNT'){
+    const keys=Object.keys(H.cnt).filter(s=>H.cnt[s]!==''&&H.cnt[s]!=null);
+    let conflict=0;
+    keys.forEach(s=>{const now=g(s,H.state),c=num(H.cnt[s]),diff=c-now;if(now!==(H.snap[s]!=null?H.snap[s]:now))conflict++;
+      if(diff>0)add(s,diff,'EXT_ADJ',H.state,'زيادة جرد');else if(diff<0)add(s,-diff,H.state,'EXT_ADJ','عجز جرد')});
+    chk(keys.length>0,'فيه أصناف اتعدّت');chk(H.reveal,'كشفت الفروق وراجعتها');
+    if(conflict){chk(H.ack,conflict+' صنف الرصيد اتغيّر من وقت بداية الجرد. وافقت إن الفرق يتحسب على الرصيد الحالي');}
+  }
+  const err=[];
+  if(d.type!=='SCN'){
+    const sim={};
+    mv.forEach(m=>{if(INTERNAL.indexOf(m.from)<0)return;const k=m.sku+'|'+m.from,cur=(k in sim)?sim[k]:g(m.sku,m.from);
+      if(cur<m.q)err.push(skuName(m.sku)+': المتاح في '+LOC[m.from]+' هو '+cur+' والمطلوب '+m.q);sim[k]=cur-m.q;
+      if(INTERNAL.indexOf(m.to)>=0){const k2=m.sku+'|'+m.to;sim[k2]=((k2 in sim)?sim[k2]:g(m.sku,m.to))+m.q}});
+  }
+  return {mv,checks,warn,err,ok:checks.every(c=>c.ok)&&!err.length&&mv.length>0};
+}
+function effects(mv){
+  const by={};
+  mv.forEach(m=>{const o=by[m.sku]||(by[m.sku]={});if(INTERNAL.indexOf(m.from)>=0)o[m.from]=(o[m.from]||0)-m.q;if(INTERNAL.indexOf(m.to)>=0)o[m.to]=(o[m.to]||0)+m.q});
+  return Object.keys(by).sort(skuSort).map(s=>({sku:s,ch:Object.keys(by[s]).filter(l=>by[s][l]!==0).map(l=>({l,now:g(s,l),after:g(s,l)+by[s][l]}))}));
+}
+function confirmDoc(d){
+  const r=build(d);if(!r.ok)return false;
+  d.no=OT[d.type].pre+'-'+String(S.seq[d.type]=(S.seq[d.type]||0)+1).padStart(4,'0');
+  d.status='done';d.confirmedAt=Date.now();d.nMoves=r.mv.length;
+  post(r.mv,d);
+  if(d.type==='SCN'){
+    d.hdr.refs.forEach(ref=>{const o=orderByRef(ref);if(!o)return;o.st='done';o.sc={by:d.hdr.emp.trim(),at:Date.now(),date:d.date,doc:d.no,t:(d.hdr.times||{})[ref]||''};
+      consumption(o).forEach(c=>S.sup.log.push({t:Date.now(),date:d.date,item:c[0],q:c[1],why:'سكان '+ref,doc:d.no}))});
+    const e=d.hdr.emp.trim();if(e&&S.emps.indexOf(e)<0)S.emps.push(e);
+  }
+  d.log.push(logE('اتأكدت وسجّلت '+r.mv.length+' حركة'));dirty();return true;
+}
+function reverseDoc(d){
+  if(d.status!=='done')return {ok:false,err:['العملية مش مؤكدة']};
+  const orig=S.moves.filter(m=>m.doc===d.no&&m.type===d.type);
+  const rev=orig.map(m=>({sku:m.sku,q:m.q,from:m.to,to:m.from,note:'عكس '+d.no}));
+  if(d.type!=='SCN'){
+    const sim={},err=[];rev.forEach(m=>{if(INTERNAL.indexOf(m.from)<0)return;const k=m.sku+'|'+m.from,cur=(k in sim)?sim[k]:g(m.sku,m.from);if(cur<m.q)err.push(skuName(m.sku)+': مش موجود في '+LOC[m.from]+' ('+cur+')');sim[k]=cur-m.q});
+    if(err.length)return {ok:false,err};
+  }
+  post(rev,{type:d.type,date:S.date,no:d.no+' (عكس)',id:d.id});
+  d.status='reversed';d.log.push(logE('اتعكست'));
+  if(d.type==='SCN'){
+    S.orders.forEach(o=>{if(o.sc&&o.sc.doc===d.no){o.st='open';o.sc=null}});
+    S.sup.log.filter(e=>e.doc===d.no).forEach(e=>S.sup.log.push({t:Date.now(),date:S.date,item:e.item,q:-e.q,why:'عكس '+d.no,doc:d.no+' (عكس)'}));
+  }
+  dirty();return {ok:true};
+}
+function makeScn(matched,emp,src,times){
+  const d=newDoc('SCN');d.hdr={emp:emp,src:src,refs:matched.map(m=>m.ref),times:Object.fromEntries(matched.map(m=>[m.ref,m.t||'']))};
+  return d;
+}
+
+
+/* ---------- shared view helpers ---------- */
+const pill=(k,t,tip)=>'<span class="pill '+k+'"'+(tip?' data-tip="'+esc(tip)+'"':'')+'>'+t+'</span>';
+const hbar=(label,v,max,right,cls,tip)=>'<div class="hb"'+(tip?' data-tip="'+esc(tip)+'"':'')+'><span class="nm">'+label+'</span><div class="tr"><i class="'+(cls||'')+'" style="width:'+(max?Math.max(2,v/max*100).toFixed(1):0)+'%"></i></div><span class="v">'+right+'</span></div>';
+const top=(title,sub,tools)=>'<div class="top"><div><h1>'+title+'</h1>'+(sub?'<p class="sub">'+sub+'</p>':'')+'</div><div class="tools">'+(tools||'')+'</div></div>';
+const timeOf=ms=>new Date(ms).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Africa/Cairo'});
+const kpi=(l,v,s,k)=>'<div class="kpi '+(k||'')+'"><small>'+l+'</small><b>'+v+'</b>'+(s?'<em>'+s+'</em>':'')+'</div>';
+const stp=(i,v,f)=>'<span class="stp"><button type="button" data-a="ls" data-i="'+i+'" data-f="'+f+'" data-d="-1" aria-label="أقل">−</button><input type="number" min="0" value="'+v+'" data-c="ln" data-i="'+i+'" data-f="'+f+'" aria-label="الكمية"><button type="button" data-a="ls" data-i="'+i+'" data-f="'+f+'" data-d="1" aria-label="أكتر">+</button></span>';
+
+function actions(){
+  const C=ctx(),a=[],neg=D.skus.filter(k=>g(k.id,'READY')<0),bl=Object.keys(C.blocked).length,wait=C.open.length-bl;
+  if(neg.length)a.push({sev:'crit',t:'رصيد بالسالب في '+neg.length+' صنف',d:'اتسكان أكتر من الرصيد. اعمل جرد للأصناف دي وصحّح الرصيد.',go:['stock',()=>{UI.s.view='table';UI.s.flt='neg';UI.s.q=''}],b:'افتح الأصناف'});
+  if(bl){const pcs=C.open.filter(o=>C.blocked[o.ref]).reduce((x,o)=>x+o.lines.length,0);a.push({sev:'crit',t:bl+' أوردر هيقف بسبب الرصيد ('+fmt(pcs)+' قطعة)',d:'قطعة ناقصة واحدة في الأوردر بتوقفه كله. شوف الأصناف اللي بتعطّل أكتر.',go:['orders',()=>{UI.o.f='blocked';UI.o.tab='list'}],b:'شوف الأوردرات'})}
+  if(wait>0)a.push({sev:'warn',t:wait+' أوردر لسه ما اتسكانش',d:'اتطلبوا في البيك أب وفاضل يتسجلوا بالسكان. الرصيد لسه ما اتخصمش.',go:['orders',()=>{UI.o.f='wait';UI.o.tab='list'}],b:'شوف المستنيين'});
+  const low=lowList().filter(x=>x[1].cls==='w');if(low.length)a.push({sev:'warn',t:low.length+' صنف قرب يخلص',d:C.velOK?'أقل من '+S.st.cover+' يوم سحب':'أقل من الحد الأدنى القديم (لسه معندناش تاريخ كفاية).',go:['insights',()=>{UI.ins='plan'}],b:'اقتراح التصنيع'});
+  const dirtyN=locSum('DIRTY');if(dirtyN>0)a.push({sev:'info',t:fmt(dirtyN)+' قطعة هالك نظافة',d:'ابعتهم للمصنع للغسيل المجاني.',go:['ops',()=>{newDoc('FSD')}],b:'إرسال للمصنع'});
+  const lostN=locSum('LOST');if(lostN>0)a.push({sev:'warn',t:fmt(lostN)+' قطعة مفقودة مستنية تسوية',d:'لقيناهم ولا هنشطبهم؟',go:['ops',()=>{newDoc('LOS')}],b:'عالج المفقود'});
+  const dr=S.docs.filter(d=>d.status==='draft').length;if(dr)a.push({sev:'info',t:dr+' عملية مسودة',d:'لسه ما اتأكدتش ومش مأثّرة على الرصيد.',go:['ops',()=>{UI.opF='draft';UI.doc=null}],b:'كمّلها'});
+  const sl=SUP.filter(s=>{const c=supCover(s.id);return supBal(s.id)<=0||(c!=null&&c<7)});if(sl.length)a.push({sev:'warn',t:'مستلزمات قربت تخلص: '+sl.map(s=>s.ar).join('، '),d:'احسب من آخر 7 أيام سكان.',go:['supplies',()=>{}],b:'المستلزمات'});
+  return a;
+}
+
+/* ---------- TODAY ---------- */
+function vToday(){
+  const C=ctx(),date=S.date,pks=S.pickups.filter(p=>p.date===date),ids=pks.map(p=>p.id);
+  const os=S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx'),done=os.filter(o=>o.st==='done'),open=os.filter(o=>o.st==='open'),blk=open.filter(o=>C.blocked[o.ref]);
+  const pc=a=>a.reduce((x,o)=>x+o.lines.length,0),A=actions();
+  const emp={};S.orders.forEach(o=>{if(o.st==='done'&&o.sc&&o.sc.date===date){const e=emp[o.sc.by]||(emp[o.sc.by]={o:0,p:0,a:o.sc.at,b:o.sc.at});e.o++;e.p+=o.lines.length;e.a=Math.min(e.a,o.sc.at);e.b=Math.max(e.b,o.sc.at)}});
+  const tools='<label class="f" style="grid-auto-flow:column;align-items:center;gap:8px">يوم العمل <input type="date" id="wd" value="'+date+'" data-c="wd"></label><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
+  let h=top('النهارده','الطلب من القنوات، اللي خرج فعلًا، واللي واقف.',tools);
+  h+='<div class="stack">';
+  h+='<section class="card lift"><h2>تدفق اليوم <span class="hint">البيك أب هو المطلوب. الخصم من المخزون بيحصل بالسكان بس.</span></h2>';
+  if(!os.length)h+='<div class="empty">مفيش بيك أب في اليوم ده. ارفع ملف البيك أب أو غيّر يوم العمل.</div>';
+  else{
+    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('المطلوب (بيك أب)',N(os.length),fmt(pc(os))+' قطعة')+kpi('اتسكّن (خرج فعلًا)',N(done.length),fmt(pc(done))+' قطعة · '+pct(done.length,os.length),'good')+kpi('لسه ما اتسكانش',N(open.length-blk.length),fmt(pc(open.filter(o=>!C.blocked[o.ref])))+' قطعة',open.length-blk.length?'warn':'')+kpi('هيقف بالمخزون',N(blk.length),fmt(pc(blk))+' قطعة',blk.length?'crit':'')+'</div>';
+    const w=x=>(x/os.length*100).toFixed(2)+'%';
+    h+='<div class="flow" role="img" aria-label="اتسكّن '+done.length+' من '+os.length+'"><i class="a" style="width:'+w(done.length)+'"></i><i class="b" style="width:'+w(open.length-blk.length)+'"></i><i class="c" style="width:'+w(blk.length)+'"></i></div>';
+    h+='<div class="legend" style="margin-top:8px"><span><i class="dot" style="background:var(--c-ready)"></i>اتسكّن</span><span><i class="dot" style="background:var(--line2)"></i>مستني السكان</span><span><i class="dot" style="background:var(--c-scrap)"></i>هيقف بالمخزون</span></div>';
+    h+='<div style="margin-top:14px;display:grid;gap:4px">'+pks.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
+      return '<button class="btn ghost" style="justify-content:space-between;display:flex;width:100%;color:var(--ink)" data-a="gopk" data-id="'+p.id+'"><span><b>'+esc(p.label)+'</b> <span class="muted">· '+esc(chanName(p.channel))+'</span></span><span class="n">'+pd+' / '+po.length+'</span></button>'}).join('')+'</div>';
+  }
+  h+='</section>';
+  h+='<div class="grid split"><section class="card"><h2>محتاج تدخّل <span class="hint">'+(A.length?A.length+' حاجة':'')+'</span></h2>';
+  h+=A.length?'<div class="queue">'+A.map((a,i)=>'<div class="q '+a.sev+'"><div class="ic">'+(a.sev==='info'?'i':'!')+'</div><div><b>'+a.t+'</b><span>'+a.d+'</span></div><button class="btn sm" data-a="act" data-i="'+i+'">'+a.b+'</button></div>').join('')+'</div>':'<div class="msg good">كل حاجة تمام. مفيش حاجة محتاجة تدخّل دلوقتي.</div>';
+  h+='</section><div class="stack">';
+  h+='<section class="card"><h2>المخزون حسب الحالة</h2>'+stateBar()+'</section>';
+  h+='<section class="card"><h2>الفريق النهارده</h2>'+(Object.keys(emp).length?'<div class="tw"><table class="t-sm"><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">من - إلى</th></tr></thead><tbody>'+Object.keys(emp).sort((a,b)=>emp[b].o-emp[a].o).map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(emp[k].o)+'</td><td class="num">'+N(emp[k].p)+'</td><td class="num mono">'+timeOf(emp[k].a)+' - '+timeOf(emp[k].b)+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:8px;font-size:12px">الوقت هو وقت تسجيل الملف، مش وقت التغليف.</p>':'<div class="empty">لسه محدش سجّل سكان النهارده.</div>')+'</section>';
+  h+='</div></div></div>';
+  return h;
+}
+function stateBar(){
+  const t={};INTERNAL.forEach(l=>t[l]=locSum(l));const sum=INTERNAL.reduce((a,l)=>a+Math.max(0,t[l]),0)||1;
+  return '<div class="stk">'+INTERNAL.filter(l=>t[l]>0).map(l=>'<i style="width:'+(t[l]/sum*100).toFixed(2)+'%;background:'+LCOL[l]+'" data-tip="'+LOC[l]+': '+fmt(t[l])+'"></i>').join('')+'</div>'+
+    '<div style="display:grid;gap:6px;margin-top:12px">'+INTERNAL.map(l=>'<div class="row sp"><span><i class="dot" style="background:'+LCOL[l]+'"></i> '+LOC[l]+' <span class="muted" style="font-size:12px">· '+LDESC[l]+'</span></span><b class="n">'+fmt(t[l])+'</b></div>').join('')+'</div>';
+}
+
+/* ---------- ORDERS ---------- */
+function ordPill(o){
+  const C=ctx();
+  if(o.st==='cx')return pill('','ملغي');
+  if(o.st==='done')return pill('good','اتسكّن · '+esc(o.sc.by),'سجّله '+o.sc.by+' الساعة '+timeOf(o.sc.at)+(o.sc.doc?' · '+o.sc.doc:''));
+  if(o.bad&&o.bad.length)return pill('warn','كود غير مربوط');
+  const b=C.blocked[o.ref];
+  if(b)return pill('crit','هيقف · ناقص '+esc(skuName(b[0][0],false))+(b.length>1?' +'+(b.length-1):''),b.map(x=>skuName(x[0])+' ناقص '+x[1]).join('\n'));
+  return pill('info','مستني السكان');
+}
+function ordFilter(){
+  const C=ctx(),f=UI.o.f,q=UI.o.q.trim().toLowerCase();
+  return S.orders.filter(o=>{
+    if(UI.o.pk&&o.pk!==UI.o.pk)return false;
+    if(f==='wait'&&!(o.st==='open'&&!C.blocked[o.ref]))return false;
+    if(f==='blocked'&&!(o.st==='open'&&C.blocked[o.ref]))return false;
+    if(f==='done'&&o.st!=='done')return false;
+    if(f==='bad'&&!(o.bad&&o.bad.length))return false;
+    if(q&&String(o.ref).toLowerCase().indexOf(q)<0&&String(o.wb).indexOf(q)<0&&String(o.gov||'').indexOf(q)<0)return false;
+    return true;
+  });
+}
+function ordRows(list){
+  return list.slice(0,UI.o.n).map(o=>'<tr data-a="order" data-ref="'+esc(o.ref)+'"><td data-nodrill><input type="checkbox" data-c="sel" data-ref="'+esc(o.ref)+'" '+(UI.sel[o.ref]?'checked':'')+(o.st!=='open'?' disabled':'')+' aria-label="تحديد"></td><td class="mono">'+esc(o.ref)+'</td><td class="mono muted">'+esc(o.wb)+'</td><td>'+(o.type==='استبدال'?pill('lost','استبدال'):'جديد')+'</td><td>'+esc(o.gov||'')+'</td><td class="num">'+N(o.lines.length)+'</td><td>'+ordPill(o)+'</td></tr>').join('');
+}
+function vOrders(){
+  const C=ctx(),all=S.orders.filter(o=>o.st!=='cx'),cnt={all:all.length,wait:all.filter(o=>o.st==='open'&&!C.blocked[o.ref]).length,blocked:all.filter(o=>o.st==='open'&&C.blocked[o.ref]).length,done:all.filter(o=>o.st==='done').length};
+  const bad=all.filter(o=>o.bad&&o.bad.length).length;
+  const tools='<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
+  let h=top('الأوردرات','البيك أب = المطلوب. السكان = اللي خرج فعلًا. الفرق بينهم هو الأوردرات الواقفة.',tools);
+  h+='<div class="tabs" role="tablist"><button role="tab" aria-selected="'+(UI.o.tab==='list')+'" data-a="otab" data-v="list">الأوردرات</button><button role="tab" aria-selected="'+(UI.o.tab==='pick')+'" data-a="otab" data-v="pick">قائمة التجهيز</button></div>';
+  if(UI.o.tab==='pick')return h+vPick();
+  h+='<div class="grid g3" style="margin-bottom:14px">'+S.pickups.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
+    return '<button class="card flat" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid '+(UI.o.pk===p.id?'var(--accent)':'var(--line)')+';border-radius:14px;padding:14px;display:grid;gap:8px" data-a="gopk" data-id="'+p.id+'"><span class="row sp"><b>'+esc(p.label)+'</b><span class="muted" style="font-size:12px">'+esc(p.date)+'</span></span><span class="muted" style="font-size:12px">'+esc(chanName(p.channel))+'</span><span class="flow" style="height:8px"><i class="a" style="width:'+(po.length?pd/po.length*100:0)+'%"></i></span><span class="row sp"><span class="n">'+pd+' / '+po.length+' اتسكّن</span><span class="muted">'+fmt(po.reduce((x,o)=>x+o.lines.length,0))+' قطعة</span></span></button>'}).join('')+'</div>';
+  const F=[['all','الكل'],['wait','مستني السكان'],['blocked','هيقف'],['done','اتسكّن']];
+  h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.o.f===f[0])+'" data-a="of" data-v="'+f[0]+'">'+f[1]+' <span class="n">'+cnt[f[0]]+'</span></button>').join('')+(bad?'<button class="chip" aria-pressed="'+(UI.o.f==='bad')+'" data-a="of" data-v="bad">كود غير مربوط <span class="n">'+bad+'</span></button>':'')+'</div><input type="search" id="oq" placeholder="ابحث بكود الأوردر أو البوليصة أو المحافظة" value="'+esc(UI.o.q)+'" data-c="oq" style="flex:1;min-width:200px;max-width:380px">'+(UI.o.pk?'<button class="btn sm ghost" data-a="gopk" data-id="">شيل فلتر البيك أب</button>':'')+'</div>';
+  const list=ordFilter(),selN=Object.keys(UI.sel).filter(k=>UI.sel[k]).length;
+  if(selN)h+='<div class="msg row sp" style="margin-bottom:12px"><span>اخترت <b>'+selN+'</b> أوردر</span><span class="row"><button class="btn sm" data-a="selclear">إلغاء الاختيار</button><button class="btn sm pri" data-a="manual">سجّلهم كمسكّنين</button></span></div>';
+  h+='<div class="tw"><table><thead><tr><th style="width:36px"></th><th>كود الأوردر</th><th>البوليصة</th><th>النوع</th><th>المحافظة</th><th class="num">قطع</th><th>الحالة</th></tr></thead><tbody id="ordrows">'+(list.length?ordRows(list):'<tr><td colspan="7" class="empty">مفيش أوردرات بالفلتر ده.</td></tr>')+'</tbody></table></div>';
+  if(list.length>UI.o.n)h+='<div style="text-align:center;margin-top:12px"><button class="btn" data-a="omore">عرض المزيد ('+fmt(list.length-UI.o.n)+' متبقي)</button></div>';
+  return h;
+}
+function vPick(){
+  const C=ctx(),rows=Object.keys(C.demand).sort(skuSort);
+  if(!rows.length)return '<div class="card"><div class="empty">مفيش أوردرات مفتوحة. كل اللي اتطلب اتسكّن.</div></div>';
+  const tot=rows.reduce((a,s)=>a+C.demand[s],0),short=rows.filter(s=>C.demand[s]>g(s,'READY'));
+  let h='<div class="kpis" style="margin-bottom:14px">'+kpi('أصناف مطلوبة',N(rows.length),'')+kpi('قطع مطلوبة (لسه)',N(tot),'')+kpi('أصناف ناقصة',N(short.length),'الطلب أكبر من الجاهز',short.length?'crit':'good')+'</div>';
+  h+='<p class="muted" style="margin-bottom:10px">القطع اللي لسه ما اتسكانتش، مجمّعة بالصنف. ده اللي يتجهّز من الرف.</p><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">مطلوب</th><th class="num">جاهز</th><th class="num">الفرق</th></tr></thead><tbody>'+
+   rows.map(s=>{const R=g(s,'READY'),d=C.demand[s],k=SKU.get(s);return '<tr data-a="sku" data-sku="'+s+'"><td>'+sw(k.c)+' <b class="mono">'+k.m+'</b> '+esc(k.c)+' · '+k.s+'</td><td class="num">'+N(d)+'</td><td class="num">'+N(R)+'</td><td class="num">'+(R>=d?'<span class="muted">'+N(R-d)+' فاضل</span>':pill('crit','ناقص '+(d-Math.max(0,R))))+'</td></tr>'}).join('')+'</tbody></table></div>';
+  return h;
+}
+
+/* ---------- sheets ---------- */
+function sheetHTML(){
+  const s=UI.sheet;if(!s)return '';
+  let title='',body='';
+  if(s.kind==='upload'){
+    title=s.t==='scan'?'رفع ملف السكان':'رفع بيك أب';
+    body='<div class="seg" role="group"><button type="button" aria-pressed="'+(s.t==='pickup')+'" data-a="uptype" data-v="pickup">بيك أب (المطلوب)</button><button type="button" aria-pressed="'+(s.t==='scan')+'" data-a="uptype" data-v="scan">سكان (الخارج فعلًا)</button></div>';
+    if(!s.manual){
+      body+='<div class="drop" id="dropz" tabindex="0" role="button" data-a="pickfile"><b>'+(s.fname?esc(s.fname):'اسحب الملف هنا أو اضغط للاختيار')+'</b><span class="muted">'+(s.t==='scan'?'تصدير QRbot (CSV) أو أي ملف فيه عمود كود الأوردر':'ملف Excel من فيندور (أعمدة: كود الاوردر العشوائي، المنتجات المطلوبة...)')+'</span></div>';
+      if(s.t==='pickup')body+='<div class="grid g2"><label class="f">القناة<select data-c="upch" id="upch">'+CHAN.map(c=>'<option value="'+c.id+'" '+(s.channel===c.id?'selected':'')+'>'+c.name+(c.ok?'':' (التنسيق مش متاح لسه)')+'</option>').join('')+'</select></label><label class="f">تاريخ البيك أب<input type="date" id="updt" value="'+s.date+'" data-c="updt"></label></div>';
+    }else body+='<div class="msg">تسجيل يدوي لأوردرات اخترتها من القائمة، من غير ملف.</div>';
+    if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
+    if(s.t==='scan'&&s.res){
+      const r=s.res,pcs=r.matched.reduce((a,m)=>a+(orderByRef(m.ref)||{lines:[]}).lines.length,0);
+      body+='<label class="f">اسم الموظف (اللي سكان)<input id="upemp" list="emps" value="'+esc(s.emp||'')+'" data-c="upemp" placeholder="مثلًا: عبدالله"></label><datalist id="emps">'+S.emps.map(e=>'<option value="'+esc(e)+'">').join('')+'</datalist>';
+      body+='<div class="kpis">'+kpi('سكان في الملف',N(r.scans),'')+kpi('أوردر جديد',N(r.matched.length),fmt(pcs)+' قطعة هتتخصم','good')+kpi('اتسجّل قبل كده',N(r.already.length),'',r.already.length?'warn':'')+kpi('كود غير معروف',N(r.unk.length),'',r.unk.length?'crit':'')+'</div>';
+      if(r.dups.length)body+='<div class="msg warn">'+r.dups.length+' سكان مكرر في نفس الملف اتخطّى.</div>';
+      if(r.already.length)body+='<div class="msg warn">'+r.already.length+' أوردر اتسجّل قبل كده'+(r.already[0].by?' (مثلًا بواسطة '+esc(r.already[0].by)+')':'')+' ومش هيتخصم تاني.</div>';
+      if(r.unk.length)body+='<div class="msg crit">أكواد مش موجودة في أي بيك أب: <span class="mono">'+r.unk.slice(0,12).map(esc).join('، ')+'</span>'+(r.unk.length>12?' ...':'')+'<br>ارفع البيك أب بتاعها الأول.</div>';
+      if(r.bad.length)body+='<div class="msg warn">'+r.bad.length+' أوردر فيه صنف مش مربوط بالكتالوج. اربطه الأول.</div>';
+      const neg=scanNeg(r.matched);
+      if(neg.length)body+='<div class="msg warn"><b>الرصيد مش كفاية لـ '+neg.length+' صنف</b>، بس السكان مش هيتمنع. هيبقى بالسالب ويظهر في "محتاج تدخّل":<ul>'+neg.slice(0,6).map(x=>'<li>'+esc(skuName(x[0]))+': رصيد '+x[1]+' والمسكّن '+x[2]+'</li>').join('')+'</ul></div>';
+      body+='<button class="btn pri" data-a="scansave" '+((r.matched.length&&(s.emp||'').trim())?'':'disabled')+'>تأكيد وخصم '+fmt(pcs)+' قطعة من المخزون</button>';
+    }
+    if(s.t==='pickup'&&s.res){
+      const r=s.res,pcs=r.orders.reduce((a,o)=>a+o.lines.length,0),bad=r.orders.filter(o=>o.bad.length).length;
+      body+='<div class="kpis">'+kpi('أوردر جديد',N(r.orders.length),fmt(pcs)+' قطعة','good')+kpi('مكرر (موجود)',N(r.dups.length),'',r.dups.length?'warn':'')+kpi('أصناف مش مربوطة',N(bad),'',bad?'crit':'')+'</div>';
+      if(r.unk.length)body+='<div class="msg warn">أكواد موديل مش معروفة: <span class="mono">'+r.unk.map(esc).join('، ')+'</span>. الأوردرات دي هتتعلّم "كود غير مربوط" لحد ما تتربط.</div>';
+      body+='<div class="msg">البيك أب مش بيخصم من المخزون. بيتحسب كطلب بس لحد ما الأوردرات تتسكان. بيانات العملاء ما بتتحفظش.</div>';
+      body+='<button class="btn pri" data-a="pksave" '+(r.orders.length?'':'disabled')+'>استيراد '+r.orders.length+' أوردر</button>';
+    }
+  }else if(s.kind==='order'){
+    const o=orderByRef(s.ref);if(!o)return '';title='أوردر '+o.ref;const C=ctx(),cnt={};o.lines.forEach(x=>cnt[x]=(cnt[x]||0)+1);
+    body='<div class="row">'+ordPill(o)+'<span class="muted">'+esc(chanName((S.pickups.find(p=>p.id===o.pk)||{}).channel))+' · '+esc((S.pickups.find(p=>p.id===o.pk)||{}).label)+'</span></div>';
+    body+='<div class="grid g2"><div class="kpi"><small>البوليصة</small><b style="font-size:18px">'+esc(o.wb)+'</b></div><div class="kpi"><small>المحافظة / النوع</small><b style="font-size:18px;font-family:var(--f-ar)">'+esc(o.gov||'')+' · '+esc(o.type)+'</b></div></div>';
+    body+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">في الأوردر</th><th class="num">جاهز دلوقتي</th></tr></thead><tbody>'+Object.keys(cnt).sort(skuSort).map(x=>{const R=g(x,'READY');return '<tr><td>'+sw(SKU.get(x).c)+' '+esc(skuName(x))+'</td><td class="num">'+N(cnt[x])+'</td><td class="num">'+(R<cnt[x]&&o.st==='open'?pill('crit',R):N(R))+'</td></tr>'}).join('')+'</tbody></table></div>';
+    if(o.bad&&o.bad.length)body+='<div class="msg warn">أصناف مش مربوطة: '+o.bad.map(b=>esc(b[0]+' '+b[2]+' '+b[1])).join('، ')+'</div>';
+    if(o.st==='done')body+='<div class="msg good">اتسكّن بواسطة '+esc(o.sc.by)+' يوم '+esc(o.sc.date)+' الساعة '+timeOf(o.sc.at)+' · '+esc(o.sc.doc)+'</div>';
+    if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (ملغي من القناة)</button></div>';
+    if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
+  }else if(s.kind==='sku'){
+    const k=SKU.get(s.sku),i=info(s.sku);title=skuName(s.sku);
+    body='<div class="muted">'+esc(MODEL.get(k.m).name)+'</div>';
+    body+='<div class="kpis">'+kpi('جاهز للبيع',N(i.R),'',i.R<0?'crit':'')+kpi('مطلوب (مفتوح)',N(i.dm),i.dm>i.R?'أكتر من الجاهز':'',i.dm>i.R?'crit':'')+kpi('سرعة السحب',i.v?'<span class="n">'+i.v.toFixed(1)+'</span>':'—','قطعة / يوم')+kpi('يغطّي',i.cov!=null?'<span class="n">'+Math.floor(i.cov)+'</span>':'—','يوم')+'</div>';
+    body+='<div class="tw"><table class="t-sm"><tbody>'+INTERNAL.map(l=>'<tr><td><i class="dot" style="background:'+LCOL[l]+'"></i> '+LOC[l]+' <span class="muted" style="font-size:12px">'+LDESC[l]+'</span></td><td class="num">'+N(g(s.sku,l))+'</td></tr>').join('')+'<tr><td><b>الإجمالي في ملكنا</b></td><td class="num"><b>'+N(total(s.sku))+'</b></td></tr></tbody></table></div>';
+    body+='<div class="chips"><button class="btn sm" data-a="skuop" data-t="CLN" data-sku="'+s.sku+'">نقل لهالك نظافة</button><button class="btn sm" data-a="skuop" data-t="RCV" data-sku="'+s.sku+'">استلام</button><button class="btn sm" data-a="skuop" data-t="CNT" data-sku="'+s.sku+'">جرد الصنف</button></div>';
+    const mv=S.moves.filter(m=>m.sku===s.sku).slice(-10).reverse();
+    body+='<h3 style="font-size:15px">آخر الحركات</h3>'+(mv.length?'<div class="tw"><table class="t-sm"><tbody>'+mv.map(m=>'<tr><td class="mono muted">'+esc(m.date)+'</td><td>'+esc(m.note||OT[m.type]&&OT[m.type].ar||m.type)+'<div class="muted" style="font-size:12px">من '+esc(LOC[m.from])+' إلى '+esc(LOC[m.to])+'</div></td><td class="num mono">'+m.q+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">مفيش حركات.</div>');
+  }
+  return '<div class="scrim" data-a="closesheet"></div><aside class="sheet" role="dialog" aria-label="'+esc(title)+'"><header><h2>'+esc(title)+'</h2><button class="btn sm ghost x" data-a="closesheet" aria-label="إغلاق">إغلاق ✕</button></header><div class="body">'+body+'</div></aside>';
+}
+function scanNeg(matched){
+  const a={};matched.forEach(m=>{const o=orderByRef(m.ref);if(o)o.lines.forEach(s=>a[s]=(a[s]||0)+1)});
+  return Object.keys(a).filter(s=>g(s,'READY')<a[s]).map(s=>[s,g(s,'READY'),a[s]]);
+}
+
+
+/* ---------- STOCK ---------- */
+function vStock(){
+  const s=UI.s,m=MODEL.get(s.m)||MODEL.get(MORDER[0]);
+  const tools='<div class="seg"><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">حسب الموديل</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
+  let h=top('المخزون','كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.',tools);
+  h+='<div class="chips" style="margin-bottom:14px">'+INTERNAL.map(l=>'<button class="chip" aria-pressed="'+(s.state===l)+'" data-a="sstate" data-v="'+l+'"><i class="dot" style="background:'+LCOL[l]+'"></i>'+LOC[l]+' <span class="n">'+fmt(locSum(l))+'</span></button>').join('')+'</div>';
+  if(s.view==='table'){
+    h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+[['all','الكل'],['low','قرب يخلص'],['neg','بالسالب'],['dem','عليه طلب مفتوح']].map(f=>'<button class="chip" aria-pressed="'+((s.flt||'all')===f[0])+'" data-a="sflt" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><input type="search" id="sq" placeholder="ابحث: BR2 احمر L" value="'+esc(s.q)+'" data-c="sq" style="flex:1;min-width:200px;max-width:340px"></div><div id="stres">'+stockTable()+'</div>';
+    return h;
+  }
+  const groups={};MORDER.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
+  h+='<div class="wh"><nav class="card flat mlist" aria-label="الموديلات">'+LINE_ORDER.filter(l=>groups[l]).map(l=>'<div class="mgrp">'+l+'</div>'+groups[l].map(c=>{const r=mSum(c,'READY'),low=D.skus.some(k=>k.m===c&&info(k.id).cls==='c');
+    return '<button class="mi" aria-current="'+(c===s.m)+'" data-a="smodel" data-m="'+c+'"><b>'+c+'</b><small>'+esc(MODEL.get(c).name)+'</small><span class="n">'+(low?'<i class="dot" style="background:var(--c-scrap)"></i> ':'')+fmt(s.state==='READY'?r:mSum(c,s.state))+'</span></button>'}).join('')).join('')+'</nav>';
+  h+='<section class="card"><div class="row sp" style="margin-bottom:12px"><div><h2 style="margin:0">'+esc(mName(m.code))+'</h2><span class="muted">'+LOC[s.state]+': <b class="n">'+fmt(mSum(m.code,s.state))+'</b> قطعة · طلب مفتوح <span class="n">'+fmt(D.skus.reduce((a,k)=>a+(k.m===m.code?(ctx().demand[k.id]||0):0),0))+'</span></span></div>'+pill('',ctx().abc[m.code]?'فئة '+ctx().abc[m.code]+' (حسب السحب)':'مفيش سحب')+'</div>';
+  h+='<div class="tw" style="padding:8px"><table class="mx"><thead><tr><th></th>'+m.sizes.map(z=>'<th>'+z+'</th>').join('')+'<th>إجمالي</th></tr></thead><tbody>';
+  m.colors.forEach(c=>{
+    h+='<tr><td class="cl">'+sw(c)+' '+esc(c)+'</td>';let rs=0;
+    m.sizes.forEach(z=>{const id=IDX[m.code+'|'+c+'|'+z];if(!id){h+='<td></td>';return}
+      const i=info(id),v=g(id,s.state);rs+=v;const cls=s.state==='READY'?(v<0?'c':i.cls):(v===0?'z':'');
+      const tip=INTERNAL.filter(l=>g(id,l)).map(l=>LOC[l]+' '+g(id,l)).join(' · ')+(i.dm?'\nطلب مفتوح '+i.dm:'')+(i.cov!=null?'\nيغطّي '+Math.floor(i.cov)+' يوم':'');
+      h+='<td><button class="cell '+(v===0&&!cls?'z':cls)+'" data-a="sku" data-sku="'+id+'" data-tip="'+esc(tip||'مفيش رصيد')+'" aria-label="'+esc(skuName(id))+': '+v+'">'+v+(s.state==='READY'&&i.dm?'<small>طلب '+i.dm+'</small>':'')+(s.state==='READY'&&g(id,'DIRTY')>0?'<i class="dy"></i>':'')+'</button></td>';});
+    h+='<td class="num"><b class="n">'+fmt(rs)+'</b></td></tr>';
+  });
+  h+='</tbody></table></div><div class="legend" style="margin-top:10px"><span><i class="dot" style="background:var(--crit)"></i>الطلب أكبر من الجاهز</span><span><i class="dot" style="background:var(--warn)"></i>قرب يخلص</span><span><i class="dot" style="background:var(--c-dirty)"></i>فيه هالك نظافة</span></div></section></div>';
+  return h;
+}
+function stockTable(){
+  const s=UI.s,q=s.q.trim().toLowerCase().split(/\s+/).filter(Boolean),f=s.flt||'all',C=ctx();
+  let rows=D.skus.filter(k=>{
+    const i=info(k.id);if(f==='low'&&!i.cls)return false;if(f==='neg'&&g(k.id,'READY')>=0)return false;if(f==='dem'&&!i.dm)return false;
+    if(q.length){const hay=(k.id+' '+k.c+' '+k.s+' '+MODEL.get(k.m).name).toLowerCase();if(!q.every(w=>hay.indexOf(w)>=0))return false}
+    return true;
+  }).map(k=>k.id);
+  rows.sort((a,b)=>{const x=info(a),y=info(b),rx=x.cls==='c'?0:x.cls==='w'?1:2,ry=y.cls==='c'?0:y.cls==='w'?1:2;return rx-ry||skuSort(a,b)});
+  const tot=rows.length;rows=rows.slice(0,200);
+  if(!rows.length)return '<div class="card"><div class="empty">مفيش أصناف بالفلتر ده.</div></div>';
+  return '<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">جاهز</th><th class="num">هالك نظافة</th><th class="num">عند المصنع</th><th class="num">مفقود</th><th class="num">طلب مفتوح</th><th class="num">يغطّي (يوم)</th><th></th></tr></thead><tbody>'+rows.map(id=>{const i=info(id),k=SKU.get(id);
+    return '<tr data-a="sku" data-sku="'+id+'"><td>'+sw(k.c)+' <b class="mono">'+k.m+'</b> '+esc(k.c)+' · '+k.s+'</td><td class="num">'+N(i.R)+'</td><td class="num">'+N(g(id,'DIRTY'))+'</td><td class="num">'+N(g(id,'FACTORY'))+'</td><td class="num">'+N(g(id,'LOST'))+'</td><td class="num">'+N(i.dm)+'</td><td class="num">'+(i.cov!=null?'<span class="n">'+Math.floor(i.cov)+'</span>':'—')+'</td><td>'+(i.R<0?pill('crit','بالسالب'):i.cls==='c'?pill('crit','هيخلص'):i.cls==='w'?pill('warn','قرب'):'')+'</td></tr>'}).join('')+'</tbody></table></div>'+(tot>200?'<p class="muted" style="margin-top:8px">أول 200 من '+fmt(tot)+'. ضيّق البحث.</p>':'');
+}
+
+/* ---------- OPERATIONS ---------- */
+function vOps(){
+  const d=S.docs.find(x=>x.id===UI.doc);if(d)return vDoc(d);
+  let h=top('العمليات','كل حاجة بتغيّر المخزون بتتسجل هنا. اختار اللي عملته.','');
+  ['دخول','خروج','داخلي','رقابة'].forEach(g_=>{
+    h+='<div class="gh">'+g_+'</div><div class="opgrid" style="margin-bottom:12px">'+OPS_LIST.filter(t=>OT[t].grp===g_).map(t=>'<button class="op" data-a="newop" data-t="'+t+'"><span class="ic">'+ic(OT[t].ic)+'</span><b>'+OT[t].ar+'</b><small>'+OT[t].d+'</small><em>'+OT[t].en+'</em></button>').join('')+'</div>';
+  });
+  const F=[['all','الكل'],['draft','مسودة'],['done','مؤكدة'],['reversed','معكوسة']],docs=S.docs.filter(x=>UI.opF==='all'||x.status===UI.opF).slice().reverse();
+  h+='<div class="row sp" style="margin:20px 0 10px"><h2 style="font-size:17px">آخر العمليات</h2><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.opF===f[0])+'" data-a="opf" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div></div>';
+  h+=docs.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>العملية</th><th>التاريخ</th><th class="num">حركات</th><th>اتعملت بواسطة</th><th>الحالة</th></tr></thead><tbody>'+docs.slice(0,60).map(x=>'<tr data-a="opendoc" data-id="'+x.id+'"><td class="mono">'+(x.no||'مسودة')+'</td><td>'+OT[x.type].ar+' <span class="muted" style="font-size:12px">'+OT[x.type].en+'</span></td><td class="mono">'+x.date+'</td><td class="num">'+N(x.nMoves||0)+'</td><td>'+esc(x.hdr.emp||x.by)+'</td><td>'+(x.status==='done'?pill('good','مؤكدة'):x.status==='draft'?pill('warn','مسودة'):pill('','معكوسة'))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش عمليات. ابدأ من الكروت اللي فوق. الرصيد الافتتاحي ظاهر في سجل الحركات.</div></div>';
+  return h;
+}
+function picker(d){
+  const m=UI.pk.m,mm=MODEL.get(m);
+  const src=srcLoc(d);
+  return '<div class="picker"><label class="f">الموديل<select id="pkm" data-c="pkm">'+MORDER.map(c=>'<option value="'+c+'" '+(c===m?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+'</option>').join('')+'</select></label><label class="f">اللون<select id="pkc">'+mm.colors.map(c=>'<option>'+esc(c)+'</option>').join('')+'</select></label><label class="f">المقاس<select id="pks">'+mm.sizes.map(c=>'<option>'+c+'</option>').join('')+'</select></label><label class="f">الكمية<span class="stp"><button type="button" data-a="pq" data-d="-1">−</button><input type="number" id="pkq" min="1" value="1"><button type="button" data-a="pq" data-d="1">+</button></span></label><button class="btn pri" data-a="addline" style="align-self:flex-end">إضافة</button></div><div class="muted" id="pkhint" style="font-size:12px;margin-top:6px">'+pkHint(src)+'</div>';
+}
+function pkHint(src){
+  const m=UI.pk.m,mm=MODEL.get(m),c=(($('#pkc')||{}).value)||mm.colors[0],z=(($('#pks')||{}).value)||mm.sizes[0],id=IDX[m+'|'+c+'|'+z];
+  return id?(src?'المتاح في '+LOC[src]+': <b class="n">'+g(id,src)+'</b>':'جاهز حاليًا: <b class="n">'+g(id,'READY')+'</b>'):'';
+}
+function lineTable(d){
+  if(!d.lines.length)return '<div class="empty">لسه مفيش أصناف. اختار الموديل واللون والمقاس وأضف.</div>';
+  const ro=d.status!=='draft',src=srcLoc(d);
+  let head='',row=null;
+  if(d.type==='RTN'){head='<th>الصنف</th><th class="num">متوقع</th><th class="num">رجع سليم</th><th class="num">هالك نظافة</th><th class="num">هالك نهائي</th><th class="num">ناقص</th><th></th>';
+    row=(l,i)=>{const got=num(l.r)+num(l.d)+num(l.x),sh=num(l.exp)-got;return '<td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(l.exp)+'</td>'+['r','d','x'].map(f=>'<td class="num"><input type="number" min="0" value="'+l[f]+'" data-c="ln" data-i="'+i+'" data-f="'+f+'" '+(ro?'disabled':'')+'></td>').join('')+'<td class="num" data-sync="sh'+i+'">'+(sh>0?pill('crit',sh):sh<0?pill('warn','+'+(-sh)):'<span class="muted">0</span>')+'</td>'}}
+  else if(d.type==='FRC'){head='<th>الصنف</th><th class="num">عند المصنع</th><th class="num">رجع سليم</th><th class="num">مرفوض</th><th></th>';row=(l,i)=>'<td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(g(l.sku,'FACTORY'))+'</td><td class="num">'+(ro?N(l.q):stp(i,l.q,'q'))+'</td><td class="num"><input type="number" min="0" value="'+l.rej+'" data-c="ln" data-i="'+i+'" data-f="rej" '+(ro?'disabled':'')+'></td>'}
+  else if(d.type==='LOS'){head='<th>الصنف</th><th class="num">مفقود</th><th class="num">الكمية</th><th>القرار</th><th></th>';row=(l,i)=>'<td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(g(l.sku,'LOST'))+'</td><td class="num">'+(ro?N(l.q):stp(i,l.q,'q'))+'</td><td><select data-c="lres" data-i="'+i+'" '+(ro?'disabled':'')+'><option value="FOUND" '+(l.res==='FOUND'?'selected':'')+'>لقيناه (يرجع جاهز)</option><option value="OFF" '+(l.res==='OFF'?'selected':'')+'>شطب نهائي</option></select></td>'}
+  else{head='<th>الصنف</th>'+(src?'<th class="num">المتاح في '+LOC[src]+'</th>':'')+'<th class="num">الكمية</th><th></th>';row=(l,i)=>'<td>'+esc(skuName(l.sku))+'</td>'+(src?'<td class="num">'+N(g(l.sku,src))+'</td>':'')+'<td class="num">'+(ro?N(l.q):stp(i,l.q,'q'))+'</td>'}
+  return '<div class="tw"><table class="t-sm"><thead><tr>'+head+'</tr></thead><tbody>'+d.lines.map((l,i)=>'<tr>'+row(l,i)+'<td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="حذف">حذف</button>')+'</td></tr>').join('')+'</tbody></table></div>';
+}
+function cntGrid(d){
+  const H=d.hdr;
+  if(!H.started)return '<div class="msg">اختار الموديلات اللي هتتجرد وبعدين اضغط "ابدأ الجرد". الرصيد الحالي مخفي عنك عشان العدّ يبقى أمين.</div>';
+  return H.models.map(c=>{const m=MODEL.get(c);return '<div style="margin-top:14px"><h3 style="font-size:15px;margin-bottom:6px">'+esc(mName(c))+'</h3><div class="tw" style="padding:6px"><table class="mx"><thead><tr><th></th>'+m.sizes.map(z=>'<th>'+z+'</th>').join('')+'</tr></thead><tbody>'+m.colors.map(col=>'<tr><td class="cl">'+sw(col)+' '+esc(col)+'</td>'+m.sizes.map(z=>{const id=IDX[c+'|'+col+'|'+z];if(!id)return '<td></td>';const v=H.cnt[id],now=g(id,H.state),diff=(v===''||v==null)?null:num(v)-now;
+    return '<td style="text-align:center"><input type="number" min="0" value="'+(v==null?'':v)+'" data-c="cnt" data-sku="'+id+'" style="width:64px" '+(d.status!=='draft'?'disabled':'')+'>'+(H.reveal&&diff!=null?'<div style="font:500 11px var(--f-mono);color:'+(diff===0?'var(--muted)':diff<0?'var(--crit)':'var(--good)')+'">'+(diff===0?'مطابق':(diff>0?'+':'')+diff)+' <span class="muted">(سيستم '+now+')</span></div>':'')+'</td>'}).join('')+'</tr>').join('')+'</tbody></table></div></div>'}).join('');
+}
+function vDoc(d){
+  const T=OT[d.type],H=d.hdr,draft=d.status==='draft',r=draft?build(d):null;
+  let h='<div class="row" style="margin-bottom:6px"><button class="btn sm ghost" data-a="backops">← كل العمليات</button></div>';
+  h+=top(T.ar+' <span class="pill" style="font-size:12px;vertical-align:middle">'+T.en+'</span>',d.no?'رقم <span class="mono">'+d.no+'</span> · '+d.date:'مسودة. مفيش حاجة اتغيّرت في المخزون لسه.','<span>'+(d.status==='done'?pill('good','مؤكدة'):d.status==='reversed'?pill('','معكوسة'):pill('warn','مسودة'))+'</span>');
+  h+='<div class="grid split2"><div class="stack"><section class="card">';
+  // header fields
+  h+='<h2>البيانات</h2><div class="grid g2">';
+  h+='<label class="f">التاريخ<input type="date" value="'+d.date+'" data-c="hdate" '+(draft?'':'disabled')+'></label>';
+  const dis=draft?'':'disabled';
+  if(d.type==='RCV')h+='<label class="f">رقم الإذن / الورقة<input value="'+esc(H.ref)+'" data-c="h" data-f="ref" '+dis+'></label><label class="f">إجمالي القطع المكتوب في الورقة<input type="number" min="0" value="'+esc(H.declared)+'" data-c="h" data-f="declared" '+dis+'></label>';
+  if(d.type==='SHP')h+='<label class="f">ملاحظة<input value="'+esc(H.note)+'" data-c="h" data-f="note" '+dis+'></label>';
+  if(d.type==='CLN')h+='<label class="f">من حالة<select data-c="clnfrom" '+dis+'><option value="READY" '+(H.from==='READY'?'selected':'')+'>جاهز للبيع</option><option value="DIRTY" '+(H.from==='DIRTY'?'selected':'')+'>هالك نظافة</option></select></label><label class="f">إلى حالة<select data-c="h" data-f="to" '+dis+'>'+(H.from==='READY'?'<option value="DIRTY" '+(H.to==='DIRTY'?'selected':'')+'>هالك نظافة (ينفع يتغسل)</option>':'')+'<option value="SCRAP" '+(H.to==='SCRAP'?'selected':'')+'>هالك نهائي (مفيش علاج)</option></select></label><label class="f" style="grid-column:1/-1">السبب (اختياري)<input value="'+esc(H.reason)+'" data-c="h" data-f="reason" placeholder="مثلًا: بقعة، خيط مقطوع" '+dis+'></label>';
+  if(d.type==='FSD')h+='<label class="f" style="grid-column:1/-1">نوع الإرسال<select data-c="fsdkind" '+dis+'><option value="wash" '+(H.kind==='wash'?'selected':'')+'>غسيل مجاني (من هالك نظافة، وهيرجع)</option><option value="waste" '+(H.kind==='waste'?'selected':'')+'>تسليم هالك للمصنع (من هالك نهائي، وبيخرج)</option></select></label>';
+  if(d.type==='RTN')h+='<label class="f">القناة<select data-c="h" data-f="channel" '+dis+'>'+CHAN.map(c=>'<option value="'+c.id+'" '+(H.channel===c.id?'selected':'')+'>'+c.name+'</option>').join('')+'</select></label>';
+  if(d.type==='CNT')h+='<label class="f">الحالة اللي بتتعدّ<select data-c="cntstate" '+(draft&&!H.started?'':'disabled')+'>'+['READY','DIRTY'].map(l=>'<option value="'+l+'" '+(H.state===l?'selected':'')+'>'+LOC[l]+'</option>').join('')+'</select></label>';
+  if(d.type==='SCN')h+='<div class="kpi"><small>الموظف</small><b style="font-size:18px;font-family:var(--f-ar)">'+esc(H.emp)+'</b></div><div class="kpi"><small>المصدر</small><b style="font-size:15px;font-family:var(--f-ar)">'+esc(H.src)+'</b></div>';
+  h+='</div>';
+  if(draft&&(d.type==='RCV'||d.type==='SHP'))h+='<div style="margin-top:12px"><label class="f">صورة الورقة الموقّعة من الطرفين<input type="file" accept="image/*" data-c="photo"></label>'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="الورقة" style="margin-top:8px;max-height:140px;border-radius:10px;border:1px solid var(--line)">':'')+'</div>';
+  h+='</section>';
+  if(d.type==='RTN'&&draft)h+='<section class="card"><h2>المتوقع رجوعه</h2><label class="f">أكواد الأوردرات المرتجعة (لو الشيت فيه أكواد)<textarea data-c="rtncodes" placeholder="كود في كل سطر">'+esc(H.codes)+'</textarea></label><div class="row" style="margin-top:8px"><button class="btn sm" data-a="rtnfill">املا المتوقع من الأكواد</button><span class="muted" style="font-size:12px">بيدوّر في الأوردرات اللي اتسكانت بس. أو ضيف الأصناف يدويًا تحت.</span></div>'+(H.unk&&H.unk.length?'<div class="msg warn" style="margin-top:8px">أكواد مش متسكّنة أو مش موجودة: <span class="mono">'+H.unk.slice(0,10).map(esc).join('، ')+'</span></div>':'')+'</section>';
+  if(d.type==='CNT'){
+    h+='<section class="card"><h2>الجرد</h2>';
+    if(draft&&!H.started){h+='<div class="chips" style="margin-bottom:10px">'+MORDER.map(c=>'<button class="chip" aria-pressed="'+(H.models.indexOf(c)>=0)+'" data-a="cntm" data-m="'+c+'">'+c+'</button>').join('')+'</div><button class="btn pri" data-a="cntstart" '+(H.models.length?'':'disabled')+'>ابدأ الجرد ('+H.models.length+' موديل)</button>'}
+    h+=cntGrid(d)+'</section>';
+  }else if(d.type==='SCN'){
+    const refs=H.refs;h+='<section class="card"><h2>الأوردرات ('+refs.length+')</h2><div class="tw"><table class="t-sm"><thead><tr><th>الكود</th><th class="num">قطع</th><th>الحالة</th></tr></thead><tbody>'+refs.map(rf=>{const o=orderByRef(rf);return '<tr data-a="order" data-ref="'+esc(rf)+'"><td class="mono">'+esc(rf)+'</td><td class="num">'+N(o?o.lines.length:0)+'</td><td>'+(o?ordPill(o):'')+'</td></tr>'}).join('')+'</tbody></table></div></section>';
+    h+='<section class="card"><h2>الخارج حسب الصنف</h2>'+lineTable({lines:scnLines(d),status:'done',type:'SCN',hdr:H,id:d.id})+'</section>';
+  }else{
+    h+='<section class="card"><h2>الأصناف</h2>'+(draft?picker(d)+'<div style="height:12px"></div>':'')+lineTable(d)+'</section>';
+  }
+  h+='</div><aside class="sum">';
+  if(draft){
+    const eff=effects(r.mv);
+    h+='<section class="card lift"><h2>قبل ما تأكّد</h2><div class="chk">'+r.checks.map(c=>'<div class="'+(c.ok?'ok':'no')+'"><span>'+c.t+'</span></div>').join('')+'</div>';
+    if(r.err.length)h+='<div class="msg crit" style="margin-top:12px"><b>مش هينفع:</b><ul>'+r.err.slice(0,6).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul></div>';
+    if(r.warn.length)h+='<div class="msg warn" style="margin-top:12px"><ul style="margin:0">'+r.warn.slice(0,5).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul></div>';
+    if(d.type==='RTN')h+='<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" data-c="rtncounted" '+(H.counted?'checked':'')+'> خلّصت عدّ كل الأصناف</label>';
+    if(d.type==='CNT'&&H.started){h+='<div class="row" style="margin-top:12px"><button class="btn sm" data-a="cntreveal">اكشف الفروق</button>';
+      if(H.reveal&&r.checks.some(c=>!c.ok&&/اتغيّر/.test(c.t)))h+='<label class="row" style="gap:8px"><input type="checkbox" data-c="cntack" '+(H.ack?'checked':'')+'> موافق</label>';h+='</div>'}
+    h+='<div style="margin-top:14px" class="row"><button class="btn pri" data-a="confirm" '+(r.ok?'':'disabled')+'>تأكيد وتسجيل '+fmt(r.mv.reduce((a,m)=>a+m.q,0))+' قطعة</button><button class="btn danger sm" data-a="deldoc">حذف المسودة</button></div></section>';
+    h+='<section class="card"><h2>اللي هيتغيّر <span class="hint">'+eff.length+' صنف</span></h2>'+(eff.length?'<div class="eff">'+eff.slice(0,40).map(e=>'<div class="e"><div class="t"><span>'+esc(skuName(e.sku))+'</span></div>'+e.ch.map(c=>'<div class="chg">'+LOC[c.l]+': دلوقتي <b>'+c.now+'</b> · هيبقى <b>'+c.after+'</b></div>').join('')+'</div>').join('')+'</div>':'<div class="empty">هيظهر هنا أثر العملية على كل صنف قبل التأكيد.</div>')+'</section>';
+  }else{
+    h+='<section class="card"><h2>الحالة</h2>'+(d.status==='done'?'<div class="msg good">اتأكدت وسجّلت '+d.nMoves+' حركة.</div>':'<div class="msg">العملية اتعكست.</div>')+(d.status==='done'?'<div style="margin-top:12px"><button class="btn danger sm" data-a="reverse">عكس العملية</button><div class="muted" style="font-size:12px;margin-top:6px">بتسجّل حركة عكسية. السجل الأصلي بيفضل زي ما هو.</div></div>':'')+(UI.msg?'<div class="msg crit" style="margin-top:12px">'+UI.msg+'</div>':'')+'</section>';
+    h+='<section class="card"><h2>السجل</h2><div class="queue">'+d.log.slice().reverse().map(l=>'<div class="muted" style="font-size:13px"><span class="mono">'+timeOf(l.t)+'</span> · '+esc(l.by)+': '+esc(l.m)+'</div>').join('')+'</div></section>';
+  }
+  return h+'</aside></div>';
+}
+
+/* ---------- SUPPLIES ---------- */
+function vSupplies(){
+  let h=top('المستلزمات','فلاير الشحن والتغليف والكاسات. بتتخصم أوتوماتيك مع كل أوردر بيتسكان.','');
+  h+='<div class="msg" style="margin-bottom:14px">القواعد الحالية: فلاير لكل أوردر، تغليف <b>S</b> لحد '+S.st.packS+' قطع و<b>M</b> لحد '+S.st.packM+' و<b>L</b> أكتر، وكاستين لكل BR1. قاعدة اختيار حجم التغليف افتراضية لحد ما تتأكد. عدّلها من الإعدادات.</div>';
+  h+='<div class="grid g3">'+SUP.map(s=>{const b=supBal(s.id),u=supUse(s.id),c=supCover(s.id),k=b<=0?'crit':(c!=null&&c<7)?'warn':'good';
+    return '<section class="card"><div class="row sp"><h2 style="margin:0">'+s.ar+'</h2>'+pill(k,b<=0?'خلص':c!=null&&c<7?'قرب يخلص':'تمام')+'</div><div class="kpi" style="border:0;padding:12px 0 4px"><b class="'+k+'" style="color:var(--'+(k==='good'?'ink':k)+')">'+N(b)+'</b><em>'+s.unit+(s.id==='CUP'?' ('+Math.floor(b/24)+' كيس)':'')+'</em></div><div class="muted" style="font-size:12px;margin-bottom:10px">'+s.rule+'<br>الاستهلاك: <span class="n">'+(u?u.toFixed(1):'0')+'</span> / يوم (آخر 7 أيام) · يكفي '+(c!=null?'<span class="n">'+Math.floor(c)+'</span> يوم':'—')+'</div><div class="row"><input type="number" min="0" id="su-'+s.id+'" placeholder="'+(s.id==='CUP'?'عدد الكيس':'الكمية')+'" style="width:96px"><button class="btn sm" data-a="suprcv" data-id="'+s.id+'">استلام</button><button class="btn sm" data-a="supcnt" data-id="'+s.id+'">جرد</button></div></section>'}).join('')+'</div>';
+  const lg=S.sup.log.slice(-25).reverse();
+  h+='<h2 style="font-size:17px;margin:22px 0 10px">آخر الحركات</h2><div class="tw"><table class="t-sm"><thead><tr><th>التاريخ</th><th>الصنف</th><th class="num">الكمية</th><th>السبب</th></tr></thead><tbody>'+lg.map(e=>'<tr><td class="mono">'+e.date+'</td><td>'+esc((SUP.find(s=>s.id===e.item)||{}).ar)+'</td><td class="num mono" style="color:var(--'+(e.q<0?'crit':'good')+')">'+(e.q>0?'+':'')+e.q+'</td><td class="muted">'+esc(e.why)+'</td></tr>').join('')+'</tbody></table></div>';
+  return h;
+}
+
+
+/* ---------- INSIGHTS ---------- */
+function planRows(){
+  const C=ctx(),rows=[];
+  lowList().forEach(x=>{const id=x[0],i=x[1],k=SKU.get(id),pend=g(id,'FACTORY'),have=i.R-i.dm+pend,target=C.velOK?Math.ceil(i.v*S.st.target):Math.max((k.min||0)*2,i.dm),q=Math.max(0,target-have);if(q>0)rows.push({id,q,i,pend})});
+  return rows;
+}
+function vInsights(){
+  const C=ctx(),T=[['plan','اقتراح التصنيع'],['demand','الطلب'],['kits','الباندلز'],['team','الفريق'],['health','صحة المخزون']];
+  let h=top('التحليلات','قرارات مبنية على الطلب الفعلي: إيه نصنّع، إيه بيتباع، مين شغال.','');
+  h+='<div class="tabs" role="tablist">'+T.map(t=>'<button role="tab" aria-selected="'+(UI.ins===t[0])+'" data-a="instab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
+  if(!C.velOK)h+='<div class="msg warn" style="margin-bottom:14px">عندنا '+C.days+' يوم بيانات بس. سرعة السحب مش مضمونة قبل 3 أيام، فالتنبيهات مبنية على الحد الأدنى القديم.</div>';
+  if(UI.ins==='plan'){
+    const rows=planRows(),by={};rows.forEach(r=>{(by[SKU.get(r.id).m]||(by[SKU.get(r.id).m]=[])).push(r)});
+    const ms=Object.keys(by).sort((a,b)=>by[b].reduce((x,r)=>x+r.q,0)-by[a].reduce((x,r)=>x+r.q,0)),tot=rows.reduce((a,r)=>a+r.q,0);
+    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('أصناف محتاجة تصنيع',N(rows.length),'')+kpi('إجمالي مقترح',N(tot),'قطعة')+kpi('الهدف',N(S.st.target),'يوم تغطية')+'</div>';
+    if(!rows.length)return h+'<div class="card"><div class="empty">مفيش أصناف تحت الحد حاليًا.</div></div>';
+    h+='<div class="row sp" style="margin-bottom:10px"><p class="muted">المقترح = اللي يوصّل كل صنف لـ '+S.st.target+' يوم سحب، بعد خصم الطلب المفتوح وإضافة اللي راجع من المصنع. ده اقتراح، مش أمر تصنيع.</p><button class="btn" data-a="copyplan">نسخ للمصنع</button></div>';
+    h+='<div class="grid g2">'+ms.map(m=>'<section class="card"><h2>'+esc(mName(m))+' <span class="hint"><span class="n">'+fmt(by[m].reduce((a,r)=>a+r.q,0))+'</span> قطعة</span></h2><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">جاهز</th><th class="num">طلب</th><th class="num">يتصنّع</th></tr></thead><tbody>'+by[m].sort((a,b)=>skuSort(a.id,b.id)).map(r=>'<tr data-a="sku" data-sku="'+r.id+'"><td>'+sw(SKU.get(r.id).c)+' '+esc(SKU.get(r.id).c)+' · '+SKU.get(r.id).s+'</td><td class="num">'+N(r.i.R)+'</td><td class="num">'+N(r.i.dm)+'</td><td class="num"><b>'+N(r.q)+'</b></td></tr>').join('')+'</tbody></table></div></section>').join('')+'</div>';
+  }else if(UI.ins==='demand'){
+    const top_=(o,n)=>Object.keys(o).sort((a,b)=>o[b]-o[a]).slice(0,n);
+    const bars=(o,n,lab)=>{const ks=top_(o,n),mx=o[ks[0]]||1;return ks.map(k=>hbar(lab?lab(k):esc(k),o[k],mx,fmt(o[k])+'')).join('')};
+    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('قطع مطلوبة في الفترة',N(C.pcs),C.days+' يوم بيانات')+kpi('موديلات بتتسحب',N(Object.keys(C.hm).length),'')+'</div>';
+    h+='<div class="grid g2"><section class="card"><h2>الموديلات <span class="hint">فئة A هي أول 80% من الطلب</span></h2>'+bars(C.hm,12,m=>'<b class="mono">'+m+'</b> <span class="pill" style="padding:0 6px">'+C.abc[m]+'</span>')+'</section><section class="card"><h2>المقاسات</h2>'+Object.keys(C.hs).sort((a,b)=>szi(a)-szi(b)).map(z=>hbar(z,C.hs[z],Math.max(...Object.values(C.hs)),fmt(C.hs[z]))).join('')+'</section><section class="card"><h2>الألوان</h2>'+bars(C.hc,10,c=>sw(c)+' '+esc(c))+'</section><section class="card"><h2>المحافظات</h2>'+bars(C.hg,10)+'</section></div>';
+  }else if(UI.ins==='kits'){
+    const cs=Object.keys(C.combos).map(k=>Object.assign({k},C.combos[k])).filter(c=>c.n>=2).sort((a,b)=>b.n-a.n).slice(0,12);
+    h+='<p class="muted" style="margin-bottom:12px">تركيبات اتطلبت مع بعض 2 مرة أو أكتر (نفس الموديلات والألوان). لو اتكررت 3 مرات أو أكتر تبقى مرشّحة تتعرّف كباندل.</p>';
+    h+=cs.length?'<div class="tw"><table><thead><tr><th>التركيبة</th><th class="num">اتطلبت</th><th class="num">تكفي (حسب مقاسات أول أوردر)</th></tr></thead><tbody>'+cs.map(c=>{const need={};c.lines.forEach(s=>need[s]=(need[s]||0)+1);const cap=Math.min(...Object.keys(need).map(s=>Math.floor(Math.max(0,g(s,'READY'))/need[s])));
+      return '<tr data-a="order" data-ref="'+esc(c.ex)+'"><td>'+c.k.split(' + ').map(x=>{const p=x.split('|');return '<span class="pill">'+p[0]+' '+esc(p[1])+'</span>'}).join(' ')+'</td><td class="num">'+N(c.n)+'</td><td class="num">'+(cap===0?pill('crit','0'):N(cap))+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">مفيش تركيبات متكررة لسه.</div></div>';
+    const ex=C.open.filter(o=>C.blocked[o.ref]),bv={};ex.forEach(o=>C.blocked[o.ref].forEach(x=>bv[x[0]]=(bv[x[0]]||0)+1));
+    const ks=Object.keys(bv).sort((a,b)=>bv[b]-bv[a]).slice(0,10);
+    if(ks.length)h+='<section class="card" style="margin-top:16px"><h2>أصناف بتوقّف أكتر أوردرات <span class="hint">اللي المصنع محتاجه الأول</span></h2>'+ks.map(s=>hbar(esc(skuName(s)),bv[s],bv[ks[0]],bv[s]+' أوردر','c')).join('')+'</section>';
+  }else if(UI.ins==='team'){
+    const e={};S.orders.forEach(o=>{if(o.st==='done'&&o.sc){const x=e[o.sc.by]||(e[o.sc.by]={o:0,p:0,days:{},a:o.sc.at,b:o.sc.at});x.o++;x.p+=o.lines.length;x.days[o.sc.date]=1;x.a=Math.min(x.a,o.sc.at);x.b=Math.max(x.b,o.sc.at)}});
+    const ks=Object.keys(e).sort((a,b)=>e[b].o-e[a].o);
+    h+=ks.length?'<div class="tw"><table><thead><tr><th>الموظف</th><th class="num">أوردرات</th><th class="num">قطع</th><th class="num">أيام شغل</th><th class="num">متوسط أوردر / يوم</th></tr></thead><tbody>'+ks.map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+N(e[k].o)+'</td><td class="num">'+N(e[k].p)+'</td><td class="num">'+N(Object.keys(e[k].days).length)+'</td><td class="num">'+N(e[k].o/Object.keys(e[k].days).length)+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:10px">ده عدد الأوردرات المسجّلة بالسكان. وقت السكان هو وقت رفع الملف مش وقت التغليف، فمتقيّمش بيه السرعة.</p>':'<div class="card"><div class="empty">لسه مفيش أوردرات اتسكانت.</div></div>';
+  }else{
+    const neg=D.skus.filter(k=>g(k.id,'READY')<0),drift=D.skus.filter(k=>{const b=bal()[k.id]||{};return Object.values(b).reduce((a,v)=>a+v,0)!==0});
+    const dead=D.skus.filter(k=>g(k.id,'READY')>0&&!C.vel[k.id]);const exc=C.velOK?D.skus.filter(k=>{const i=info(k.id);return i.cov!=null&&i.cov>S.st.excess}):[];
+    let val=0,hasCost=false;D.skus.forEach(k=>{const c=+((S.costs[k.m]||{}).cost);if(c){hasCost=true;val+=c*total(k.id)}});
+    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('مجموع كل الحركات',drift.length?N(drift.length)+' خطأ':'صفر','لازم يساوي صفر لكل صنف',drift.length?'crit':'good')+kpi('أصناف بالسالب',N(neg.length),'',neg.length?'crit':'good')+kpi('أصناف راكدة',N(dead.length),'عليها رصيد ومن غير سحب في الفترة',dead.length?'warn':'')+(exc.length||C.velOK?kpi('زيادة عن اللازم',N(exc.length),'تغطية أكتر من '+S.st.excess+' يوم',''):'')+(hasCost?kpi('قيمة المخزون',N(val),'جنيه (حسب التكلفة المسجّلة)'):kpi('قيمة المخزون','—','سجّل التكلفة في الإعدادات'))+'</div>';
+    h+='<section class="card"><h2>الأصناف الراكدة <span class="hint">أكبر 12 رصيدًا</span></h2>'+(dead.length?'<div class="tw"><table class="t-sm"><tbody>'+dead.sort((a,b)=>g(b.id,'READY')-g(a.id,'READY')).slice(0,12).map(k=>'<tr data-a="sku" data-sku="'+k.id+'"><td>'+sw(k.c)+' '+esc(skuName(k.id))+'</td><td class="num">'+N(g(k.id,'READY'))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">مفيش.</div>')+'</section>';
+  }
+  return h;
+}
+
+/* ---------- LEDGER ---------- */
+function vLedger(){
+  const L=UI.led;let h=top('سجل الحركات','كل حركة اتسجلت. مفيش حاجة بتتعدّل أو بتتمسح، والتصحيح بحركة عكسية.','');
+  h+='<div class="tabs" role="tablist"><button role="tab" aria-selected="'+(L.tab==='moves')+'" data-a="ltab" data-v="moves">الحركات</button><button role="tab" aria-selected="'+(L.tab==='audit')+'" data-a="ltab" data-v="audit">مين عمل إيه</button></div>';
+  if(L.tab==='audit'){
+    const ev=[];S.docs.forEach(d=>d.log.forEach(l=>ev.push({t:l.t,by:l.by,m:OT[d.type].ar+' '+(d.no||'مسودة')+': '+l.m})));
+    S.orders.forEach(o=>{if(o.sc)ev.push({t:o.sc.at,by:o.sc.by,m:'سكان أوردر '+o.ref})});
+    ev.sort((a,b)=>b.t-a.t);
+    return h+(ev.length?'<div class="tw"><table class="t-sm"><thead><tr><th>الوقت</th><th>الموظف</th><th>الإجراء</th></tr></thead><tbody>'+ev.slice(0,150).map(e=>'<tr><td class="mono muted">'+new Date(e.t).toLocaleString('en-GB',{timeZone:'Africa/Cairo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</td><td>'+esc(e.by)+'</td><td>'+esc(e.m)+'</td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش إجراءات.</div></div>');
+  }
+  h+='<div class="row" style="margin-bottom:12px"><input type="search" id="lq" placeholder="ابحث بالصنف: BR2 احمر" value="'+esc(L.q)+'" data-c="lq" style="min-width:200px;max-width:320px;flex:1"><select data-c="ltype"><option value="">كل الأنواع</option>'+Object.keys(OT).map(t=>'<option value="'+t+'" '+(L.type===t?'selected':'')+'>'+OT[t].ar+'</option>').join('')+'</select></div><div id="ledres">'+ledRows()+'</div>';
+  return h;
+}
+function ledRows(){
+  const L=UI.led,q=L.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const rows=S.moves.filter(m=>{if(L.type&&m.type!==L.type)return false;if(q.length){const hay=(m.sku+' '+SKU.get(m.sku).c+' '+m.doc).toLowerCase();if(!q.every(w=>hay.indexOf(w)>=0))return false}return true});
+  const shown=rows.slice(-L.n).reverse();
+  return '<div class="tw"><table class="t-sm"><thead><tr><th>التاريخ</th><th>المستند</th><th>الصنف</th><th class="num">كمية</th><th>من</th><th>إلى</th><th>ملاحظة</th></tr></thead><tbody>'+shown.map(m=>'<tr><td class="mono">'+esc(m.date)+'</td><td class="mono">'+esc(m.doc)+'</td><td>'+esc(skuName(m.sku))+'</td><td class="num mono">'+m.q+'</td><td>'+esc(LOC[m.from])+'</td><td>'+esc(LOC[m.to])+'</td><td class="muted">'+esc(m.note||'')+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="margin-top:8px">'+fmt(rows.length)+' حركة'+(rows.length>L.n?' (آخر '+L.n+')':'')+'</p>';
+}
+
+/* ---------- CONFIG ---------- */
+function vConfig(){
+  const stf=(f,l,u)=>'<label class="f">'+l+'<span class="row" style="gap:6px"><input type="number" min="0" value="'+S.st[f]+'" data-c="st" data-f="'+f+'">'+(u?'<span class="muted">'+u+'</span>':'')+'</span></label>';
+  let h=top('الإعدادات','حدود التنبيه وقواعد المستلزمات والتكلفة.','');
+  h+='<div class="grid g2"><section class="card"><h2>التنبيهات</h2><div class="grid g2">'+stf('lookback','فترة حساب السحب','يوم')+stf('cover','نبّهني لما التغطية أقل من','يوم')+stf('target','هدف التصنيع','يوم تغطية')+stf('excess','زيادة عن اللازم بعد','يوم')+'</div></section>';
+  h+='<section class="card"><h2>قواعد المستلزمات</h2><div class="grid g2">'+stf('flyPer','فلاير لكل أوردر','')+stf('cupBR1','كاسات لكل قطعة BR1','')+stf('packS','تغليف S لحد','قطع في الأوردر')+stf('packM','تغليف M لحد','قطع في الأوردر')+'</div><p class="muted" style="margin-top:8px;font-size:12px">قاعدة حجم التغليف افتراضية. عدّلها لما تتأكد.</p></section>';
+  h+='<section class="card"><h2>المستخدمين</h2><label class="f">اسم المستخدم الحالي (يظهر في السجل)<input value="'+esc(S.actor)+'" data-c="actor"></label><p class="muted" style="margin-top:8px;font-size:12px">السيستم مفتوح للكل في فترة التجربة. الصلاحيات هتتفصل بعدين على مستويين بس.</p></section>';
+  h+='<section class="card"><h2>البيانات</h2><p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. ده نموذج تجريبي.</p>'+(UI.confirmReset?'<div class="msg crit">هتمسح كل العمليات والسكان وترجع للبيانات الأصلية. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="reset2">أيوه، امسح</button><button class="btn sm" data-a="reset">لأ</button></div></div>':'<button class="btn danger" data-a="reset">رجوع للبيانات الأصلية</button>')+'</section></div>';
+  h+='<section class="card" style="margin-top:16px"><h2>التكلفة وسعر البيع <span class="hint">اختياري. بتحسب قيمة المخزون</span></h2><div class="tw" style="max-height:340px;overflow:auto"><table class="t-sm"><thead><tr><th>الموديل</th><th class="num">تكلفة القطعة (ج)</th><th class="num">سعر البيع (ج)</th><th class="num">هامش</th></tr></thead><tbody>'+MORDER.map(m=>{const c=S.costs[m]||{},mg=(+c.cost&&+c.price)?Math.round((c.price-c.cost)/c.price*100)+'%':'—';return '<tr><td><b class="mono">'+m+'</b> <span class="muted">'+esc(MODEL.get(m).name)+'</span></td><td class="num"><input type="number" min="0" value="'+(c.cost||'')+'" data-c="cost" data-m="'+m+'" data-f="cost"></td><td class="num"><input type="number" min="0" value="'+(c.price||'')+'" data-c="cost" data-m="'+m+'" data-f="price"></td><td class="num">'+mg+'</td></tr>'}).join('')+'</tbody></table></div></section>';
+  return h;
+}
+
+
+/* ---------- shell & render ---------- */
+const NAV=[['today','النهارده'],['orders','الأوردرات'],['stock','المخزون'],['ops','العمليات'],['supplies','المستلزمات'],['insights','التحليلات'],['ledger','السجل'],['config','الإعدادات']];
+const VIEWS={today:vToday,orders:vOrders,stock:vStock,ops:vOps,supplies:vSupplies,insights:vInsights,ledger:vLedger,config:vConfig};
+let theme='system';
+function applyTheme(){const r=document.documentElement;if(theme==='system')r.removeAttribute('data-theme');else r.setAttribute('data-theme',theme)}
+function curDoc(){return S.docs.find(d=>d.id===UI.doc)}
+function badges(){
+  const C=ctx(),b={};
+  const A=actions();b.today=A.filter(a=>a.sev==='crit').length||'';
+  b.orders=Object.keys(C.blocked).length||'';
+  b.stock=D.skus.filter(k=>g(k.id,'READY')<0).length||'';
+  b.ops=S.docs.filter(d=>d.status==='draft').length||'';
+  return b;
+}
+function render(){
+  const b=badges();
+  const rail='<nav class="rail" aria-label="التنقل"><div class="brand"><i>F</i><div><b>Fémini</b><small>Stock · مخزن</small></div></div>'+NAV.map(n=>'<button class="nav" data-a="go" data-t="'+n[0]+'" '+(UI.tab===n[0]?'aria-current="page"':'')+'>'+ic(n[0])+'<span>'+n[1]+'</span>'+(b[n[0]]?'<span class="bd">'+b[n[0]]+'</span>':'')+'</button>').join('')+'<div class="sp"></div><div class="foot"><button class="tbtn" data-a="theme">◐ المظهر: '+({system:'تلقائي',light:'فاتح',dark:'داكن'})[theme]+'</button><span>'+esc(S.actor)+' · نسخة تجريبية</span></div></nav>';
+  $('#app').innerHTML='<div class="shell">'+rail+'<main class="main" id="main">'+(VIEWS[UI.tab]||vToday)()+'</main></div>'+sheetHTML();
+  document.title='Fémini Stock';
+}
+function partial(){
+  const d=curDoc();if(!d||UI.tab!=='ops'){render();return}
+  const t=document.createElement('div');t.innerHTML=vDoc(d);
+  const ns=t.querySelector('.sum'),os=$('.sum');if(ns&&os&&os.innerHTML!==ns.innerHTML)os.innerHTML=ns.innerHTML;
+  $$('[data-sync]',t).forEach(n=>{const o=$('[data-sync="'+n.dataset.sync+'"]');if(o&&o.innerHTML!==n.innerHTML)o.innerHTML=n.innerHTML});
+}
+function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;t.setAttribute('role','status');document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
+function go(tab,fn){UI.sheet=null;if(tab!=='ops'||fn)UI.doc=null;if(fn)fn();UI.tab=tab;render();if(location.hash.slice(1)!==tab)location.hash=tab;window.scrollTo(0,0)}
+function copy(text,ok){
+  const fb=()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(ok)}catch(e){toast('انسخ يدويًا')}ta.remove()};
+  try{navigator.clipboard.writeText(text).then(()=>toast(ok),fb)}catch(e){fb()}
+}
+
+/* ---------- file handling ---------- */
+function handleFile(file){
+  const s=UI.sheet;if(!s||s.kind!=='upload'){UI.sheet=s={kind:'upload',t:'pickup',channel:'VENDOOR',date:S.date,emp:S.emps[S.emps.length-1]||'',res:null,err:''}}
+  const isCsv=/\.csv$/i.test(file.name);
+  if(!window.XLSX&&!(s.t==='scan'&&isCsv)){s.err='مكتبة قراءة Excel ما اتحملتش. اتأكد من الاتصال وجرّب تاني، أو ارفع ملف CSV للسكان.';render();return}
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      s.fname=file.name;s.err='';
+      if(s.t==='scan'){
+        let rows;if(isCsv)rows=parseCSVText(new TextDecoder('utf-8').decode(fr.result));else{const wb=XLSX.read(fr.result,{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''})}
+        const sc=parseScan(rows),nm=sc.filter(x=>x.name)[0];if(!s.emp&&nm)s.emp=nm.name;s.res=matchScans(sc);
+      }else{
+        const wb=XLSX.read(fr.result,{type:'array'});s.rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});s.res=importRows(s.rows,s.channel,'__new__');
+      }
+    }catch(e){s.res=null;s.err=String(e.message||e)}
+    render();
+  };
+  fr.onerror=()=>{s.err='مقدرتش أقرأ الملف';render()};
+  fr.readAsArrayBuffer(file);
+}
+
+/* ---------- actions ---------- */
+const ACT={
+  go:el=>go(el.dataset.t),
+  act:el=>{const a=actions()[+el.dataset.i];if(a)go(a.go[0],a.go[1])},
+  theme:()=>{theme=theme==='system'?'dark':theme==='dark'?'light':'system';try{localStorage.setItem(KEY+'-theme',theme)}catch(e){}applyTheme();render()},
+  upload:el=>{UI.sheet={kind:'upload',t:el.dataset.t,channel:'VENDOOR',date:S.date,emp:S.emps[S.emps.length-1]||'',res:null,err:''};render()},
+  uptype:el=>{const s=UI.sheet;s.t=el.dataset.v;s.res=null;s.err='';s.fname='';s.manual=false;render()},
+  pickfile:()=>$('#upfile').click(),
+  closesheet:()=>{UI.sheet=null;render()},
+  pksave:()=>{
+    const s=UI.sheet,r=s.res;if(!r||!r.orders.length)return;
+    const n=S.pickups.reduce((a,p)=>Math.max(a,+p.id.slice(1)||0),0)+1,id='P'+n;
+    S.pickups.push({id,label:'بيك أب '+n,date:s.date,channel:s.channel,src:s.fname});
+    r.orders.forEach(o=>{o.pk=id;S.orders.push(o)});S.date=s.date;dirty();
+    UI.sheet=null;UI.o.pk=id;UI.o.f='all';toast('اتستورد '+r.orders.length+' أوردر. لسه ما اتخصمش حاجة.');go('orders');
+  },
+  scansave:()=>{
+    const s=UI.sheet,r=s.res;if(!r||!r.matched.length||!(s.emp||'').trim())return;
+    const d=makeScn(r.matched,s.emp.trim(),s.manual?'تسجيل يدوي':s.fname);d.date=S.date;
+    if(!confirmDoc(d)){toast('مقدرتش أسجّل. راجع العملية');UI.sheet=null;go('ops',()=>{UI.doc=d.id});return}
+    UI.sheet=null;UI.sel={};const neg=D.skus.filter(k=>g(k.id,'READY')<0).length;
+    toast('اتسجّل '+r.matched.length+' أوردر وخرجوا من المخزون'+(neg?'. تنبيه: '+neg+' صنف بالسالب':''));go('orders',()=>{UI.o.f='done'});
+  },
+  gopk:el=>go('orders',()=>{UI.o.pk=el.dataset.id;UI.o.f='all';UI.o.tab='list';UI.o.n=60}),
+  otab:el=>{UI.o.tab=el.dataset.v;render()},
+  of:el=>{UI.o.f=el.dataset.v;UI.o.n=60;render()},
+  omore:()=>{UI.o.n+=60;render()},
+  order:el=>{UI.sheet={kind:'order',ref:el.dataset.ref};render()},
+  sku:el=>{UI.sheet={kind:'sku',sku:el.dataset.sku};render()},
+  selclear:()=>{UI.sel={};render()},
+  manual:()=>{
+    const refs=Object.keys(UI.sel).filter(k=>UI.sel[k]&&orderByRef(k)&&orderByRef(k).st==='open');
+    UI.sheet={kind:'upload',t:'scan',manual:true,channel:'VENDOOR',date:S.date,emp:S.emps[S.emps.length-1]||'',err:'',
+      res:{scans:refs.length,matched:refs.map(r=>({ref:r,t:''})),dups:[],already:[],unk:[],bad:refs.filter(r=>(orderByRef(r).bad||[]).length)}};
+    render();
+  },
+  cxorder:el=>{const o=orderByRef(el.dataset.ref);if(o){o.st='cx';dirty();UI.sheet=null;toast('اتلغى الأوردر. مش هيتحسب كطلب.');render()}},
+  uncx:el=>{const o=orderByRef(el.dataset.ref);if(o){o.st='open';dirty();UI.sheet=null;render()}},
+  smodel:el=>{UI.s.m=el.dataset.m;render()},
+  sstate:el=>{UI.s.state=el.dataset.v;render()},
+  sview:el=>{UI.s.view=el.dataset.v;render()},
+  sflt:el=>{UI.s.flt=el.dataset.v;render()},
+  skuop:el=>{
+    const t=el.dataset.t,sku=el.dataset.sku,k=SKU.get(sku);UI.sheet=null;
+    const pre=t==='CNT'?{hdr:{models:[k.m]}}:{sku};
+    go('ops',()=>{newDoc(t,pre)});
+  },
+  newop:el=>{const t=el.dataset.t;if(t==='SCN'){ACT.upload({dataset:{t:'scan'}});return}newDoc(t);render()},
+  opf:el=>{UI.opF=el.dataset.v;render()},
+  opendoc:el=>{UI.doc=el.dataset.id;UI.msg=null;render()},
+  backops:()=>{const d=curDoc();if(d&&d.status==='draft'&&!d.lines.length&&d.type!=='CNT'&&d.type!=='SCN'){S.docs=S.docs.filter(x=>x!==d);dirty()}UI.doc=null;render()},
+  deldoc:()=>{const d=curDoc();S.docs=S.docs.filter(x=>x!==d);UI.doc=null;dirty();toast('اتحذفت المسودة');render()},
+  confirm:()=>{const d=curDoc();if(confirmDoc(d)){toast('اتأكدت '+d.no);render()}else toast('مش قادر أأكّد. شوف البنود الحمرا')},
+  reverse:()=>{const d=curDoc(),r=reverseDoc(d);UI.msg=r.ok?null:'<b>مش هينفع تتعكس:</b><ul>'+r.err.slice(0,5).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul>';if(r.ok)toast('اتعكست العملية');render()},
+  pq:el=>{const i=$('#pkq');i.value=Math.max(1,(+i.value||1)+(+el.dataset.d))},
+  addline:()=>{
+    const d=curDoc(),m=$('#pkm').value,id=IDX[m+'|'+$('#pkc').value+'|'+$('#pks').value];if(!id)return;
+    addLine(d,id,+$('#pkq').value);dirty();render();
+  },
+  rmline:el=>{const d=curDoc();d.lines.splice(+el.dataset.i,1);dirty();render()},
+  ls:el=>{const d=curDoc(),l=d.lines[+el.dataset.i],f=el.dataset.f;l[f]=Math.max(0,num(l[f])+(+el.dataset.d));dirty();render()},
+  cntm:el=>{const d=curDoc(),m=el.dataset.m,a=d.hdr.models,i=a.indexOf(m);if(i>=0)a.splice(i,1);else a.push(m);dirty();render()},
+  cntstart:()=>{const d=curDoc(),H=d.hdr;H.started=true;H.snap={};H.cnt={};D.skus.forEach(k=>{if(H.models.indexOf(k.m)>=0){H.snap[k.id]=g(k.id,H.state);H.cnt[k.id]=''}});d.log.push(logE('بدأ الجرد لـ '+H.models.length+' موديل'));dirty();render()},
+  cntreveal:()=>{const d=curDoc();d.hdr.reveal=true;dirty();render()},
+  rtnfill:()=>{
+    const d=curDoc(),codes=d.hdr.codes.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean),unk=[];
+    codes.forEach(c=>{const o=S.orders.find(x=>x.ref.toLowerCase()===c.toLowerCase()||String(x.wb)===c);if(!o||o.st!=='done'){unk.push(c);return}o.lines.forEach(s=>addLine(d,s,1))});
+    d.hdr.unk=unk;dirty();render();
+  },
+  suprcv:el=>{
+    const id=el.dataset.id,i=$('#su-'+id),v=Math.floor(+i.value||0);if(v<=0){toast('اكتب كمية');return}
+    const q=id==='CUP'?v*24:v;S.sup.log.push({t:Date.now(),date:S.date,item:id,q,why:id==='CUP'?'استلام '+v+' كيس':'استلام',doc:null});dirty();toast('اتسجّل الاستلام');render();
+  },
+  supcnt:el=>{
+    const id=el.dataset.id,i=$('#su-'+id),raw=i.value;if(raw===''){toast('اكتب الكمية اللي عدّيتها');return}
+    const c=Math.floor(+raw||0),cur=supBal(id),diff=c-(id==='CUP'?cur:cur);const v=id==='CUP'?c:c;
+    S.sup.log.push({t:Date.now(),date:S.date,item:id,q:v-cur,why:'جرد: العدّ الفعلي '+v,doc:null});dirty();toast('اتعدّل الرصيد بالجرد');render();
+  },
+  instab:el=>{UI.ins=el.dataset.v;render()},
+  ltab:el=>{UI.led.tab=el.dataset.v;render()},
+  copyplan:()=>{
+    const rows=planRows().sort((a,b)=>skuSort(a.id,b.id));
+    copy('اقتراح تصنيع Fémini · '+S.date+'\n'+rows.map(r=>skuName(r.id)+' : '+r.q).join('\n')+'\nالإجمالي: '+rows.reduce((a,r)=>a+r.q,0),'اتنسخ اقتراح التصنيع');
+  },
+  reset:()=>{UI.confirmReset=!UI.confirmReset;render()},
+  reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
+};
+const CHG={
+  wd:el=>{if(el.value){S.date=el.value;dirty();render()}},
+  sel:el=>{UI.sel[el.dataset.ref]=el.checked;render()},
+  upch:el=>{const s=UI.sheet;s.channel=el.value;if(s.rows){try{s.res=importRows(s.rows,s.channel,'__new__');s.err=''}catch(e){s.err=String(e.message||e)}}render()},
+  updt:el=>{UI.sheet.date=el.value},
+  hdate:el=>{const d=curDoc();d.date=el.value;dirty()},
+  h:el=>{const d=curDoc();if(String(d.hdr[el.dataset.f])===el.value){return}d.hdr[el.dataset.f]=el.value;dirty();if(['to'].indexOf(el.dataset.f)>=0)render();else partial()},
+  clnfrom:el=>{const d=curDoc();d.hdr.from=el.value;d.hdr.to=el.value==='DIRTY'?'SCRAP':'DIRTY';dirty();render()},
+  fsdkind:el=>{const d=curDoc();d.hdr.kind=el.value;dirty();render()},
+  pkm:el=>{UI.pk.m=el.value;const mm=MODEL.get(el.value);$('#pkc').innerHTML=mm.colors.map(c=>'<option>'+esc(c)+'</option>').join('');$('#pks').innerHTML=mm.sizes.map(c=>'<option>'+c+'</option>').join('');$('#pkhint').innerHTML=pkHint(srcLoc(curDoc()))},
+  ln:el=>{const d=curDoc(),l=d.lines[+el.dataset.i],v=num(el.value);if(l[el.dataset.f]===v)return;l[el.dataset.f]=v;dirty();partial()},
+  lres:el=>{const d=curDoc();d.lines[+el.dataset.i].res=el.value;dirty();partial()},
+  cnt:el=>{const d=curDoc(),v=el.value===''?'':num(el.value);if(d.hdr.cnt[el.dataset.sku]===v)return;d.hdr.cnt[el.dataset.sku]=v;dirty();if(d.hdr.reveal)render();else partial()},
+  cntstate:el=>{curDoc().hdr.state=el.value;dirty()},
+  cntack:el=>{curDoc().hdr.ack=el.checked;dirty();partial()},
+  rtncounted:el=>{curDoc().hdr.counted=el.checked;dirty();partial()},
+  rtncodes:el=>{curDoc().hdr.codes=el.value;dirty()},
+  photo:el=>{const d=curDoc(),f=el.files&&el.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{PH[d.id]=fr.result;d.photo={name:f.name,size:f.size};dirty();render()};fr.readAsDataURL(f)},
+  st:el=>{S.st[el.dataset.f]=Math.max(0,+el.value||0);dirty();toast('اتحفظ')},
+  cost:el=>{const c=S.costs[el.dataset.m]||(S.costs[el.dataset.m]={});c[el.dataset.f]=+el.value||0;dirty();render()},
+  actor:el=>{S.actor=el.value.trim()||'مصعب';dirty()},
+  ltype:el=>{UI.led.type=el.value;render()}
+};
+const INP={
+  h:el=>{const d=curDoc();d.hdr[el.dataset.f]=el.value;dirty();partial()},
+  ln:el=>{const d=curDoc(),l=d.lines[+el.dataset.i];l[el.dataset.f]=num(el.value);dirty();partial()},
+  cnt:el=>{const d=curDoc();if(d.hdr.reveal)return;d.hdr.cnt[el.dataset.sku]=el.value===''?'':num(el.value);dirty();partial()},
+  oq:el=>{UI.o.q=el.value;UI.o.n=60;const l=ordFilter();$('#ordrows').innerHTML=l.length?ordRows(l):'<tr><td colspan="7" class="empty">مفيش أوردرات بالفلتر ده.</td></tr>'},
+  sq:el=>{UI.s.q=el.value;$('#stres').innerHTML=stockTable()},
+  lq:el=>{UI.led.q=el.value;$('#ledres').innerHTML=ledRows()},
+  upemp:el=>{const s=UI.sheet;s.emp=el.value;const b=$('[data-a=scansave]');if(b&&s.res)b.disabled=!(s.res.matched.length&&el.value.trim())}
+};
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]');if(!el)return;
+  if(el.tagName==='TR'&&e.target.closest('input,[data-nodrill]'))return;
+  if(ACT[el.dataset.a])ACT[el.dataset.a](el,e);
+});
+document.addEventListener('change',e=>{const el=e.target.closest('[data-c]');if(el&&CHG[el.dataset.c])CHG[el.dataset.c](el)});
+document.addEventListener('input',e=>{const el=e.target.closest('[data-c]');if(el&&INP[el.dataset.c])INP[el.dataset.c](el)});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&UI.sheet){UI.sheet=null;render();return}
+  if((e.key==='Enter'||e.key===' ')&&e.target.id==='dropz'){e.preventDefault();$('#upfile').click()}
+});
+document.addEventListener('dragover',e=>{const z=e.target.closest&&e.target.closest('#dropz');if(z){e.preventDefault();z.classList.add('on')}});
+document.addEventListener('dragleave',e=>{const z=e.target.closest&&e.target.closest('#dropz');if(z)z.classList.remove('on')});
+document.addEventListener('drop',e=>{const z=e.target.closest&&e.target.closest('#dropz');if(!z)return;e.preventDefault();const f=e.dataTransfer&&e.dataTransfer.files[0];if(f)handleFile(f)});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS[h]&&h!==UI.tab){UI.tab=h;UI.sheet=null;render()}});
+/* tooltip */
+const tip=document.createElement('div');tip.id='tip';tip.hidden=true;document.body.appendChild(tip);
+document.addEventListener('mouseover',e=>{
+  const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){tip.hidden=true;return}
+  tip.style.whiteSpace='pre-line';tip.textContent=t.getAttribute('data-tip');tip.hidden=false;
+  const r=t.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight,x=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8);let y=r.top-h-8;if(y<8)y=r.bottom+8;tip.style.left=x+'px';tip.style.top=y+'px';
+});
+window.addEventListener('scroll',()=>{tip.hidden=true},{passive:true});
+
+/* ---------- boot ---------- */
+load();
+try{theme=localStorage.getItem(KEY+'-theme')||'system'}catch(e){}
+applyTheme();
+const fi=document.createElement('input');fi.type='file';fi.id='upfile';fi.accept='.xlsx,.xls,.csv';fi.hidden=true;document.body.appendChild(fi);
+fi.addEventListener('change',()=>{const f=fi.files&&fi.files[0];fi.value='';if(f)handleFile(f)});
+const h0=(location.hash||'').slice(1);if(VIEWS[h0])UI.tab=h0;
+document.documentElement.lang='ar';document.documentElement.dir='rtl';
+render();
+window.__F={S:()=>S,UI,go,ctx,g,dirty,render};
+})();
+
+</script>
