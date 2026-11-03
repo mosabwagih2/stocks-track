@@ -7,7 +7,7 @@ import { repo } from '@/data';
 import { qty } from '@/domain/ledger';
 
 const NAV = [
-  { to: '/', label: 'النهارده', icon: LayoutGrid, end: true },
+  { to: '/', label: 'اليوم', icon: LayoutGrid, end: true },
   { to: '/stock', label: 'المخزون', icon: Boxes },
   { to: '/supplies', label: 'المستلزمات', icon: ShoppingBag },
   { to: '/operations', label: 'العمليات', icon: ClipboardList },
@@ -33,7 +33,7 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="grid min-h-screen md:grid-cols-[224px_minmax(0,1fr)]">
       <nav aria-label="التنقل" className="fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-line2 bg-rail px-1.5 pt-1.5 pb-safe md:sticky md:inset-auto md:top-0 md:h-screen md:flex-col md:gap-1 md:overflow-y-auto md:border-0 md:p-3">
         <div className="mb-3 hidden items-center gap-2.5 px-2.5 pt-2 md:flex">
-          <i className="grid size-8 place-items-center rounded-[10px] bg-linear-to-br from-[#9a7fe0] to-[#5e4394] font-semibold text-white not-italic">F</i>
+          <i className="grid size-8 place-items-center rounded-[10px] bg-on-rail font-semibold text-rail not-italic">F</i>
           <div className="text-on-rail"><b className="text-xl font-semibold">Fémini</b><small className="block text-[11px] leading-tight text-rail-mute">Stock · مخزن</small></div>
         </div>
         {NAV.map(({ to, label, icon: Icon, ...rest }) => (

@@ -15,8 +15,8 @@ import type { Loc, Sku } from '@/domain/types';
 
 const SW: Record<string, string> = { اسود: '#1e1b24', ابيض: '#ffffff', احمر: '#d9262e', بيج: '#ead9be', رمادي: '#bdbcc4', برتقالي: '#f07a2b', زيتى: '#6f7a3c', فوشيا: '#c2317a', اصفر: '#f2c230', 'مينت جرين': '#8fd3b6', 'بيبي بلو': '#a9cbe8', كحلي: '#1f2a5a', بينك: '#f4b6c8', سيمون: '#f3a28c', روز: '#e58fa8', 'احمر تطعيم اسود': '#a3262c' };
 const Swatch = ({ c }: { c: string }) => <i className="inline-block size-3 rounded-full border border-line2 align-[-1px]" style={{ background: SW[c] ?? '#cfc2ec' }} />;
-const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : 'موديلات تانية');
-const LINES = ['بانتي', 'برا', 'شورت', 'موديلات تانية'];
+const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : 'موديلات أخرى');
+const LINES = ['بانتي', 'برا', 'شورت', 'موديلات أخرى'];
 
 function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc; onCell: (s: Sku) => void }) {
   const skus = d.snap.skus.filter((s) => s.model === model);
@@ -39,7 +39,7 @@ function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc
                   return (
                     <td key={z}>
                       <button type="button" onClick={() => onCell(s)} aria-label={`${skuLabel(d.skuMap, s.id)}: ${v}`}
-                        title={`${LOCS.filter((l) => qty(d.snap.balances, s.id, l)).map((l) => `${LOC_AR[l]} ${qty(d.snap.balances, s.id, l)}`).join(' · ') || 'مفيش رصيد'}${info.demand ? `\nطلب مفتوح ${info.demand}` : ''}`}
+                        title={`${LOCS.filter((l) => qty(d.snap.balances, s.id, l)).map((l) => `${LOC_AR[l]} ${qty(d.snap.balances, s.id, l)}`).join(' · ') || 'لا يوجد رصيد'}${info.demand ? `\nطلب مفتوح ${info.demand}` : ''}`}
                         className={cn('relative grid h-11 min-w-14 place-items-center rounded-[10px] border border-transparent font-mono text-[15px] font-medium hover:border-accent',
                           lvl === 'crit' ? 'bg-crit-bg text-crit border-crit-line' : lvl === 'warn' ? 'bg-warn-bg text-warn border-warn-line' : v === 0 ? 'bg-grid text-muted' : 'bg-lav')}>
                         {v}
@@ -72,20 +72,20 @@ function SkuSheet({ d, sku, onClose }: { d: Derived; sku: Sku; onClose: () => vo
       </div>
       <TableWrap><table className="text-sm"><tbody>
         {LOCS.map((l) => <tr key={l}><td className={td}><Dot className={LOC_COLOR[l]} /> {LOC_AR[l]} <span className="text-xs text-muted">{LOC_HINT[l]}</span></td><td className={td + ' font-mono'}>{fmt(qty(b, sku.id, l))}</td></tr>)}
-        <tr><td className={td}><b>الإجمالي في ملكنا</b></td><td className={td + ' font-mono font-semibold'}>{fmt(totalOwned(b, sku.id))}</td></tr>
+        <tr><td className={td}><b>إجمالي الكمية المملوكة</b></td><td className={td + ' font-mono font-semibold'}>{fmt(totalOwned(b, sku.id))}</td></tr>
       </tbody></table></TableWrap>
-      <Card title="نقل بين الحالات" hint="مثلًا: جاهز ← هالك نظافة">
+      <Card title="النقل بين الحالات" hint="مثال: من جاهز إلى هالك نظافة">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Field label="من"><select value={from} onChange={(e) => setFrom(e.target.value as Loc)}>{LOCS.map((l) => <option key={l} value={l}>{LOC_AR[l]}</option>)}</select></Field>
           <Field label="إلى"><select value={to} onChange={(e) => setTo(e.target.value as Loc)}>{LOCS.filter((l) => l !== from).map((l) => <option key={l} value={l}>{LOC_AR[l]}</option>)}</select></Field>
           <Field label="الكمية"><input type="number" min={1} value={q} onChange={(e) => setQ(Math.max(1, Math.floor(+e.target.value || 1)))} /></Field>
           <Field label="السبب"><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="بقعة..." /></Field>
         </div>
-        <p className="mt-2 text-sm">الرصيد دلوقتي <b className="font-mono">{have}</b> · هيبقى <b className="font-mono">{have - q}</b> {q > have && <Pill tone="crit">مفيش كفاية</Pill>}</p>
-        <div className="mt-3"><Button variant="primary" disabled={from === to || q > have || q < 1} onClick={async () => { const r = await act(() => repo.moveState({ lines: [{ sku: sku.id, qty: q }], from, to, reason }), (x) => `اتسجّلت ${x.doc}`); if (r) onClose(); }}>تأكيد النقل</Button></div>
+        <p className="mt-2 text-sm">الرصيد الحالي <b className="font-mono">{have}</b> · سيصبح <b className="font-mono">{have - q}</b> {q > have && <Pill tone="crit">الكمية غير كافية</Pill>}</p>
+        <div className="mt-3"><Button variant="primary" disabled={from === to || q > have || q < 1} onClick={async () => { const r = await act(() => repo.moveState({ lines: [{ sku: sku.id, qty: q }], from, to, reason }), (x) => `تم تسجيل ${x.doc}`); if (r) onClose(); }}>تأكيد النقل</Button></div>
       </Card>
       <h3 className="font-display font-semibold">آخر الحركات</h3>
-      {moves.length ? <TableWrap><table className="text-sm"><tbody>{moves.map((m) => <tr key={m.id}><td className={td + ' font-mono text-muted'}>{m.date}</td><td className={td}>{m.note || m.type}<div className="text-xs text-muted">من {LOC_AR[m.from]} إلى {LOC_AR[m.to]}</div></td><td className={td + ' font-mono'}>{m.qty}</td></tr>)}</tbody></table></TableWrap> : <Empty>مفيش حركات.</Empty>}
+      {moves.length ? <TableWrap><table className="text-sm"><tbody>{moves.map((m) => <tr key={m.id}><td className={td + ' font-mono text-muted'}>{m.date}</td><td className={td}>{m.note || m.type}<div className="text-xs text-muted">من {LOC_AR[m.from]} إلى {LOC_AR[m.to]}</div></td><td className={td + ' font-mono'}>{m.qty}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا توجد حركات.</Empty>}
     </Sheet>
   );
 }
@@ -115,12 +115,12 @@ export default function Stock() {
   const head = (c: string) => (
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
       <div><h2 className="font-display text-base font-semibold">{mName(c)}</h2><span className="text-muted">{LOC_AR[loc]}: <b className="font-mono">{fmt(modelSum(c, loc))}</b> قطعة · طلب مفتوح <span className="font-mono">{fmt(modelDemand(c))}</span></span></div>
-      <Pill>{d.pull[c] ? `سُحب ${fmt(d.pull[c])} قطعة` : 'مفيش سحب'}</Pill>
+      <Pill>{d.pull[c] ? `المسحوب ${fmt(d.pull[c])} قطعة` : 'لا يوجد سحب'}</Pill>
     </div>
   );
   return (
     <>
-      <PageHead title="المخزون" sub="كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.">
+      <PageHead title="المخزون" sub="كل صنف (موديل × لون × مقاس) وحالته. اضغط على أي خانة لعرض تفاصيلها.">
         <Seg value={view} onChange={setView} options={[['all', 'كل الموديلات'], ['one', 'موديل واحد'], ['table', 'كل الأصناف']]} label="العرض" />
       </PageHead>
       <div className="mb-3 flex flex-wrap gap-1.5">
@@ -129,8 +129,8 @@ export default function Stock() {
       {view === 'table' ? (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            {([['all', 'الكل'], ['low', 'قرب يخلص'], ['neg', 'بالسالب'], ['dem', 'عليه طلب مفتوح']] as const).map(([v, l]) => <Chip key={v} pressed={flt === v} onClick={() => setFlt(v)}>{l}</Chip>)}
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث: BR2 احمر L" className="min-w-52 max-w-xs flex-1" aria-label="بحث" />
+            {([['all', 'الكل'], ['low', 'على وشك النفاد'], ['neg', 'سالب'], ['dem', 'عليه طلب مفتوح']] as const).map(([v, l]) => <Chip key={v} pressed={flt === v} onClick={() => setFlt(v)}>{l}</Chip>)}
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث: BR2 احمر L" className="min-w-52 max-w-xs flex-1" aria-label="بحث" />
           </div>
           <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'جاهز', 'هالك نظافة', 'عند المصنع', 'مفقود', 'طلب مفتوح', 'يغطّي (يوم)', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{rows.slice(0, 200).map((s) => { const c = cellInfo(s, d.snap.balances, d.demand, d.velocity, d.velocityOK, 14); return (
@@ -138,16 +138,16 @@ export default function Stock() {
                 <td className={td}><Swatch c={s.color} /> <b className="font-mono">{s.model}</b> {s.color} · {s.size}</td><td className={td + ' font-mono'}>{fmt(c.ready)}</td>
                 <td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'DIRTY')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'FACTORY')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'LOST')}</td>
                 <td className={td + ' font-mono'}>{c.demand}</td><td className={td + ' font-mono'}>{c.cover != null ? Math.floor(c.cover) : '—'}</td>
-                <td className={td}>{c.ready < 0 ? <Pill tone="crit">بالسالب</Pill> : c.level === 'crit' ? <Pill tone="crit">هيخلص</Pill> : c.level === 'warn' ? <Pill tone="warn">قرب</Pill> : null}</td></tr>); })}
-              {!rows.length && <tr><td colSpan={8}><Empty>مفيش أصناف بالفلتر ده.</Empty></td></tr>}</tbody></table></TableWrap>
-          {rows.length > 200 && <p className="mt-2 text-muted">أول 200 من {fmt(rows.length)}. ضيّق البحث.</p>}
+                <td className={td}>{c.ready < 0 ? <Pill tone="crit">سالب</Pill> : c.level === 'crit' ? <Pill tone="crit">سينفد</Pill> : c.level === 'warn' ? <Pill tone="warn">منخفض</Pill> : null}</td></tr>); })}
+              {!rows.length && <tr><td colSpan={8}><Empty>لا توجد أصناف مطابقة للفلتر.</Empty></td></tr>}</tbody></table></TableWrap>
+          {rows.length > 200 && <p className="mt-2 text-muted">أول 200 من {fmt(rows.length)}. ضيّق نطاق البحث.</p>}
         </>
       ) : (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             {view === 'all' && ['all', ...LINES].map((l) => <Chip key={l} pressed={line === l} onClick={() => setLine(l)}>{l === 'all' ? 'كل الموديلات' : l}</Chip>)}
-            <Seg value={sort} onChange={setSort} options={[['pull', 'الأكتر سحبًا'], ['alpha', 'أبجدي']]} label="الترتيب" />
-            {view === 'one' && <Button size="sm" onClick={() => setList((x) => !x)}>{list ? 'إخفاء قايمة الموديلات' : 'إظهار قايمة الموديلات'}</Button>}
+            <Seg value={sort} onChange={setSort} options={[['pull', 'الأكثر سحبًا'], ['alpha', 'أبجدي']]} label="الترتيب" />
+            {view === 'one' && <Button size="sm" onClick={() => setList((x) => !x)}>{list ? 'إخفاء قائمة الموديلات' : 'إظهار قائمة الموديلات'}</Button>}
           </div>
           {view === 'all' ? (
             <div className="grid gap-4">{shown.map((c) => <Card key={c}>{head(c)}<Matrix d={d} model={c} loc={loc} onCell={setSku} /></Card>)}</div>
@@ -167,11 +167,11 @@ export default function Stock() {
               <Card>{head(model)}<Matrix d={d} model={model} loc={loc} onCell={setSku} /></Card>
             </div>
           )}
-          <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-crit" />الطلب أكبر من الجاهز</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-warn" />قرب يخلص</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-dirty" />فيه هالك نظافة</span></div>
+          <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-crit" />الطلب أكبر من الجاهز</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-warn" />على وشك النفاد</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-dirty" />يوجد هالك نظافة</span></div>
         </>
       )}
       {sku && <SkuSheet d={d} sku={sku} onClose={() => setSku(null)} />}
-      <Alert className="mt-6">إضافة وتعديل الموديلات والأصناف (الكتالوج) بتتم دلوقتي من جداول <span className="font-mono">models / skus</span> في Supabase، وشاشتها جاية في الخطوة الجاية.</Alert>
+      <Alert className="mt-6">تتم إضافة وتعديل الموديلات والأصناف (الكتالوج) حاليًا من جداول <span className="font-mono">models / skus</span> في Supabase، وستتوفر شاشتها في الخطوة التالية.</Alert>
     </>
   );
 }

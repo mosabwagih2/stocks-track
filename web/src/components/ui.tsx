@@ -20,8 +20,8 @@ export function Button({ variant = 'default', size = 'md', className, ...p }: Bt
       type="button"
       {...p}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl border font-medium whitespace-nowrap transition active:scale-[.98] disabled:opacity-45 disabled:pointer-events-none',
-        size === 'md' ? 'px-3.5 py-2' : 'px-2.5 py-1 text-[13px] rounded-lg',
+        'inline-flex items-center justify-center gap-2 rounded-lg border font-medium whitespace-nowrap transition active:scale-[.98] disabled:opacity-45 disabled:pointer-events-none',
+        size === 'md' ? 'px-3.5 py-2' : 'px-2.5 py-1 text-[13px]',
         variant === 'primary' && 'bg-accent border-accent text-on-accent hover:brightness-110',
         variant === 'default' && 'bg-surface border-line2 hover:border-accent',
         variant === 'ghost' && 'border-transparent bg-transparent text-accent hover:bg-lav',
@@ -34,7 +34,7 @@ export function Button({ variant = 'default', size = 'md', className, ...p }: Bt
 
 export function Card({ title, hint, children, className, action }: { title?: ReactNode; hint?: ReactNode; children: ReactNode; className?: string; action?: ReactNode }) {
   return (
-    <section className={cn('rounded-2xl border border-line bg-surface p-4 min-w-0', className)}>
+    <section className={cn('rounded-xl border border-line bg-surface p-4 min-w-0', className)}>
       {(title || action) && (
         <div className="mb-3 flex items-center gap-2">
           <h2 className="font-display text-base font-semibold">{title}</h2>
@@ -55,7 +55,7 @@ export function Kpi({ label, value, sub, tone, onClick }: { label: string; value
       {sub && <em className="not-italic text-xs text-muted">{sub}</em>}
     </>
   );
-  const cls = 'grid gap-0.5 rounded-2xl border border-line bg-surface px-4 py-3 text-start';
+  const cls = 'grid gap-0.5 rounded-xl border border-line bg-surface px-4 py-3 text-start';
   return onClick ? <button type="button" onClick={onClick} className={cn(cls, 'hover:border-accent cursor-pointer w-full')}>{body}</button> : <div className={cls}>{body}</div>;
 }
 

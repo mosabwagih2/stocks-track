@@ -8,23 +8,23 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Fémini lavender brand. Semantic status colors stay separate from the accent. */
+/* Neutral theme (zinc scale). Semantic status colors stay separate from the accent. */
 :root {
-  --page: #fcf9fe; --surface: #ffffff; --lav: #f5f1fd; --ink: #302568; --accent: #5e4394; --on-accent: #ffffff;
-  --muted: #5a5178; --line: #e3dcf3; --line2: #cfc2ec; --grid: #ece6f7; --rail: #302568; --on-rail: #f1ecfb; --rail-mute: #b9aedd;
-  --crit: #a8231a; --crit-bg: #fbe7e5; --crit-line: #efc3be; --warn: #8a4a07; --warn-bg: #fcf0dc; --warn-line: #efd3a6;
-  --good: #0c6b43; --good-bg: #e4f3ea; --good-line: #b9dfc9; --info: #1f528f; --info-bg: #e0ebfa; --info-line: #b9d0ee; --lost: #74278a; --lost-bg: #f2e1f7;
-  --ready: #2f9e75; --dirty: #d89a2b; --scrap: #cf4a52; --factory: #4a86d6; --lostc: #a05bb8;
-  --shadow: 0 1px 2px rgba(48,37,104,.06), 0 8px 24px -12px rgba(48,37,104,.18);
+  --page: #fafafa; --surface: #ffffff; --lav: #f4f4f5; --ink: #18181b; --accent: #18181b; --on-accent: #fafafa;
+  --muted: #71717a; --line: #e4e4e7; --line2: #d4d4d8; --grid: #f4f4f5; --rail: #18181b; --on-rail: #fafafa; --rail-mute: #a1a1aa;
+  --crit: #b42318; --crit-bg: #fef3f2; --crit-line: #fecdca; --warn: #93370d; --warn-bg: #fffaeb; --warn-line: #fedf89;
+  --good: #067647; --good-bg: #ecfdf3; --good-line: #abefc6; --info: #175cd3; --info-bg: #eff8ff; --info-line: #b2ddff; --lost: #6941c6; --lost-bg: #f4f3ff;
+  --ready: #2f9e75; --dirty: #d89a2b; --scrap: #cf4a52; --factory: #4a86d6; --lostc: #7c6bb5;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 18px -10px rgba(0,0,0,.12);
   color-scheme: light;
 }
 .dark {
-  --page: #14111f; --surface: #1c1830; --lav: #252040; --ink: #ece8fa; --accent: #b9a4f0; --on-accent: #14111f;
-  --muted: #aaa2c6; --line: #2f2950; --line2: #463e6c; --grid: #2c2649; --rail: #0f0c1a; --on-rail: #ece8fa; --rail-mute: #9d94c2;
-  --crit: #ff8d94; --crit-bg: #3a1a1e; --crit-line: #6b2c33; --warn: #f0b960; --warn-bg: #35280f; --warn-line: #6b4f1c;
-  --good: #5fd0a0; --good-bg: #12302a; --good-line: #246650; --info: #8db8f5; --info-bg: #14283f; --info-line: #274d7a; --lost: #d9a0ea; --lost-bg: #2f1a39;
-  --ready: #3fb589; --dirty: #e3a93f; --scrap: #e0606a; --factory: #5f98e6; --lostc: #b873cf;
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  --page: #09090b; --surface: #18181b; --lav: #27272a; --ink: #fafafa; --accent: #fafafa; --on-accent: #18181b;
+  --muted: #a1a1aa; --line: #27272a; --line2: #3f3f46; --grid: #27272a; --rail: #09090b; --on-rail: #fafafa; --rail-mute: #a1a1aa;
+  --crit: #fda29b; --crit-bg: #3b1410; --crit-line: #7a271a; --warn: #fec84b; --warn-bg: #32230a; --warn-line: #7a4a07;
+  --good: #75e0a7; --good-bg: #0b2a1c; --good-line: #085d3a; --info: #84caff; --info-bg: #0f2540; --info-line: #1849a9; --lost: #bdb4fe; --lost-bg: #1f1a3d;
+  --ready: #3fb589; --dirty: #e3a93f; --scrap: #e0606a; --factory: #5f98e6; --lostc: #a89bdc;
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 6px 18px -10px rgba(0,0,0,.7);
   color-scheme: dark;
 }
 

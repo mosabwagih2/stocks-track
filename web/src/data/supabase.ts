@@ -28,18 +28,18 @@ const mapOrder = (r: Row): Order => ({
 export function friendlyError(e: unknown): string {
   const m = String((e as { message?: string })?.message ?? e);
   const map: [RegExp, string][] = [
-    [/employee name is required/, 'اكتب اسم الموظف'],
-    [/none of the orders is open/, 'مفيش أوردرات مفتوحة في اللي اخترته (اتشحنت قبل كده؟)'],
-    [/photo of the signed paper is required/, 'لازم تصوّر الورقة الموقّعة'],
-    [/photo of the crossed-out waybill is required/, 'لازم تصوّر البوليصة المشطوبة'],
-    [/declared total (\d+) does not match lines total (\d+)/, 'المكتوب في الورقة مش بيساوي المضاف'],
-    [/date must be within the last 3 days/, 'التاريخ لازم يكون ضمن آخر 3 أيام'],
-    [/not enough in/, 'الكمية مش متاحة في الحالة دي'],
-    [/no order with this code/, 'مفيش أوردر بالكود ده'],
-    [/order is already cancelled/, 'الأوردر اتلغى قبل كده'],
-    [/cannot issue/, 'مينفعش تصرف أكتر من الرصيد'],
+    [/employee name is required/, 'أدخل اسم الموظف'],
+    [/none of the orders is open/, 'لا توجد أوردرات مفتوحة ضمن المحدد (ربما شُحنت مسبقًا)'],
+    [/photo of the signed paper is required/, 'يجب إرفاق صورة الورقة الموقّعة'],
+    [/photo of the crossed-out waybill is required/, 'يجب إرفاق صورة البوليصة المشطوبة'],
+    [/declared total (\d+) does not match lines total (\d+)/, 'الإجمالي المكتوب في الورقة لا يساوي المضاف'],
+    [/date must be within the last 3 days/, 'يجب أن يكون التاريخ ضمن آخر 3 أيام'],
+    [/not enough in/, 'الكمية غير متاحة في هذه الحالة'],
+    [/no order with this code/, 'لا يوجد أوردر بهذا الكود'],
+    [/order is already cancelled/, 'الأوردر ملغى مسبقًا'],
+    [/cannot issue/, 'لا يمكن صرف كمية أكبر من الرصيد'],
     [/count equals the balance/, 'العدد مطابق للرصيد'],
-    [/already reversed/, 'العملية اتعكست قبل كده'],
+    [/already reversed/, 'تم عكس العملية مسبقًا'],
   ];
   for (const [re, ar] of map) if (re.test(m)) return ar;
   return m;
@@ -56,7 +56,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     const blob = await shrinkImage(file);
     const path = `${prefix}/${cairoToday()}-${crypto.randomUUID()}.jpg`;
     const { error } = await sb.storage.from('documents').upload(path, blob, { contentType: 'image/jpeg' });
-    if (error) throw new Error('فشل رفع الصورة: ' + error.message);
+    if (error) throw new Error('تعذّر رفع الصورة: ' + error.message);
     return path;
   };
 

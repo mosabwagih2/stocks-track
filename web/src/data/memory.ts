@@ -68,8 +68,8 @@ export function createMemoryRepo(): Repo {
       save(); return { pickup: id, imported: n, duplicates: d };
     },
     async shipOrders({ refs, employee, source }): Promise<ShipResult> {
-      const emp = employee.trim(); if (!emp) fail('اكتب اسم الموظف');
-      const os = S.orders.filter((o) => refs.includes(o.ref) && o.status === 'open'); if (!os.length) fail('مفيش أوردرات مفتوحة في اللي اخترته');
+      const emp = employee.trim(); if (!emp) fail('أدخل اسم الموظف');
+      const os = S.orders.filter((o) => refs.includes(o.ref) && o.status === 'open'); if (!os.length) fail('لا توجد أوردرات مفتوحة ضمن المحدد');
       const doc = docNo('SCN'); const a = agg(os.flatMap((o) => o.lines));
       post(Object.keys(a).map((sku) => ({ date: cairoToday(), sku, qty: a[sku], from: 'READY' as const, to: 'EXT_CH' as const, type: 'SCN', doc, by: emp, note: `سكان: ${emp} (${source})` })));
       const sup: Record<string, number> = {};
@@ -79,8 +79,8 @@ export function createMemoryRepo(): Repo {
       save(); return { doc, shipped: os.length, pieces: os.reduce((x, o) => x + o.lines.length, 0), negative };
     },
     async reverseShipment(doc) {
-      const rev = `${doc} (عكس)`; if (S.moves.some((m) => m.doc === rev)) fail('العملية اتعكست قبل كده');
-      const orig = S.moves.filter((m) => m.doc === doc && m.type === 'SCN'); if (!orig.length) fail('مستند مش معروف');
+      const rev = `${doc} (عكس)`; if (S.moves.some((m) => m.doc === rev)) fail('تم عكس العملية مسبقًا');
+      const orig = S.moves.filter((m) => m.doc === doc && m.type === 'SCN'); if (!orig.length) fail('مستند غير معروف');
       post(orig.map((m) => ({ date: cairoToday(), sku: m.sku, qty: m.qty, from: m.to, to: m.from, type: 'SCN', doc: rev, by: ACTOR, note: `عكس ${doc}` })));
       for (const o of S.orders) if (o.shipDoc === doc) { o.status = 'open'; o.shippedBy = null; o.shippedAt = null; o.shipDoc = null; }
       for (const e of S.log.filter((x) => x.doc === doc && x.kind === 'auto' && !x.reversed)) { supPush(e.item, -e.qty, 'rev', `reverse ${doc}`, rev); e.reversed = true; }
@@ -88,22 +88,22 @@ export function createMemoryRepo(): Repo {
     },
     async receiveStock({ lines, date, ref, declared, photo }) {
       const total = lines.reduce((a, l) => a + l.qty, 0);
-      if (total <= 0) fail('مفيش قطع'); if (declared !== total) fail(`المكتوب في الورقة (${declared}) مش بيساوي المضاف (${total})`);
-      const today = cairoToday(); if (date > today || date < addDays(today, -3)) fail('التاريخ لازم يكون ضمن آخر 3 أيام');
+      if (total <= 0) fail('لا توجد قطع'); if (declared !== total) fail(`المكتوب في الورقة (${declared}) لا يساوي المضاف (${total})`);
+      const today = cairoToday(); if (date > today || date < addDays(today, -3)) fail('يجب أن يكون التاريخ ضمن آخر 3 أيام');
       const no = docNo('RCV'); const path = `documents/${no}.jpg`; await putPhoto(path, await shrinkImage(photo));
       post(lines.filter((l) => l.qty > 0).map((l) => ({ date, sku: l.sku, qty: l.qty, from: 'EXT_FACTORY' as const, to: 'READY' as const, type: 'RCV', doc: no, by: ACTOR, note: `استلام ${ref}` })));
       S.docs.push({ no, type: 'RCV', date, by: ACTOR, status: 'done', hdr: { ref, declared }, lines, attachment: path }); save(); return { doc: no, pieces: total };
     },
     async moveState({ lines, from, to, reason }) {
-      if (from === to) fail('نفس الحالة'); const b = bal();
-      for (const l of lines) if (qty(b, l.sku, from) < l.qty) fail(`المتاح ${qty(b, l.sku, from)} بس`);
+      if (from === to) fail('الحالتان متطابقتان'); const b = bal();
+      for (const l of lines) if (qty(b, l.sku, from) < l.qty) fail(`المتاح ${qty(b, l.sku, from)} فقط`);
       const no = docNo('MOV'); const pcs = lines.reduce((a, l) => a + l.qty, 0);
       post(lines.filter((l) => l.qty > 0).map((l) => ({ date: cairoToday(), sku: l.sku, qty: l.qty, from, to, type: 'MOV', doc: no, by: ACTOR, note: reason })));
       S.docs.push({ no, type: 'MOV', date: cairoToday(), by: ACTOR, status: 'done', hdr: { from, to, reason }, lines }); save(); return { doc: no, pieces: pcs };
     },
     async cancelOrder({ code, reason, returnStock, photo }) {
-      const o = findByCode(S.orders, code); if (!o) fail('مفيش أوردر بالكود ده'); const ord = o as Order;
-      if (ord.status === 'cancelled') fail('الأوردر اتلغى قبل كده');
+      const o = findByCode(S.orders, code); if (!o) fail('لا يوجد أوردر بهذا الكود'); const ord = o as Order;
+      if (ord.status === 'cancelled') fail('الأوردر ملغى مسبقًا');
       const was = ord.status as 'open' | 'shipped'; const path = `documents/cancel-${ord.ref}.jpg`; await putPhoto(path, await shrinkImage(photo));
       let doc: string | null = null;
       if (was === 'shipped' && returnStock) {
@@ -115,18 +115,18 @@ export function createMemoryRepo(): Repo {
       ord.status = 'cancelled'; ord.cancel = cancel; save(); return { ref: ord.ref, returned: cancel.returned };
     },
     async restoreOrder(ref) {
-      const o = S.orders.find((x) => x.ref === ref && x.status === 'cancelled'); if (!o) return fail('الأوردر مش ملغي');
+      const o = S.orders.find((x) => x.ref === ref && x.status === 'cancelled'); if (!o) return fail('الأوردر غير ملغى');
       o.status = o.cancel?.was === 'shipped' && !o.cancel.returned ? 'shipped' : 'open'; o.cancel = null; save();
     },
     async supplyMove({ item, kind, qty: q, why }) {
       const bal0 = supBal(item); let delta = 0;
-      if (kind === 'rcv') { if (q <= 0) fail('الكمية لازم أكبر من صفر'); delta = q; }
-      else if (kind === 'issue') { if (q <= 0) fail('الكمية لازم أكبر من صفر'); if (q > bal0) fail(`مينفعش تصرف ${q} والرصيد ${bal0}`); delta = -q; }
-      else { if (q < 0) fail('العدد مينفعش سالب'); delta = q - bal0; if (delta === 0) fail('العدد مطابق للرصيد'); }
+      if (kind === 'rcv') { if (q <= 0) fail('يجب أن تكون الكمية أكبر من صفر'); delta = q; }
+      else if (kind === 'issue') { if (q <= 0) fail('يجب أن تكون الكمية أكبر من صفر'); if (q > bal0) fail(`لا يمكن صرف ${q} والرصيد ${bal0}`); delta = -q; }
+      else { if (q < 0) fail('لا يمكن أن يكون العدد سالبًا'); delta = q - bal0; if (delta === 0) fail('العدد مطابق للرصيد'); }
       const e = supPush(item, delta, kind, why); save(); return { id: e.id, delta, balance: bal0 + delta };
     },
     async undoSupplyMove(id) {
-      const e = S.log.find((x) => x.id === id && ['rcv', 'issue', 'count', 'open'].includes(x.kind) && !x.reversed); if (!e) return fail('مفيش حاجة تتراجع');
+      const e = S.log.find((x) => x.id === id && ['rcv', 'issue', 'count', 'open'].includes(x.kind) && !x.reversed); if (!e) return fail('لا يوجد ما يمكن التراجع عنه');
       supPush(e.item, -e.qty, 'rev', `تراجع عن: ${e.why}`); e.reversed = true; save();
     },
     async photoUrl(path) { const b = await getPhoto(path); return b ? URL.createObjectURL(b) : null; },

@@ -50,7 +50,7 @@ export default function Orders() {
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d || !counts) return <Spinner />;
   const setF = (v: Filter) => { const p = new URLSearchParams(sp); if (v === 'all') p.delete('f'); else p.set('f', v); setSp(p, { replace: true }); setN(PAGE); };
-  const chips: [Filter, string][] = [['all', 'الكل'], ['wait', 'مستني الشحن'], ['blocked', 'هيقف'], ['done', 'اتشحن']];
+  const chips: [Filter, string][] = [['all', 'الكل'], ['wait', 'بانتظار الشحن'], ['blocked', 'متوقف'], ['done', 'مشحون']];
   const pick = (() => {
     const m: Record<string, number> = {}; for (const o of d.open) for (const s of o.lines) m[s] = (m[s] ?? 0) + 1;
     return Object.keys(m).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })).map((s) => ({ sku: s, need: m[s], ready: qty(d.snap.balances, s, 'READY') }));
@@ -60,18 +60,18 @@ export default function Orders() {
 
   return (
     <>
-      <PageHead title="الأوردرات" sub="البيك أب = المطلوب. الشحن (بالسكان) = اللي خرج فعلًا. الفرق بينهم هو الأوردرات الواقفة.">
+      <PageHead title="الأوردرات" sub="البيك أب = الطلب. الشحن (بالسكان) = ما خرج فعلًا. الفرق بينهما هو الأوردرات المتوقفة.">
         <Button variant="danger" onClick={() => setCancel('')}><XCircle className="size-4" /> إلغاء أوردر</Button>
         <Button onClick={() => setUpload('pickup')}><Upload className="size-4" /> رفع بيك أب</Button>
         <Button variant="primary" onClick={() => setUpload('scan')}><Upload className="size-4" /> رفع ملف السكان</Button>
       </PageHead>
       <Tabs value={tab} onChange={setTab} tabs={[['list', 'الأوردرات'], ['pick', 'قائمة التجهيز']]} />
       {tab === 'pick' ? (
-        !pick.length ? <Card><Empty>مفيش أوردرات مفتوحة. كل اللي اتطلب اتشحن.</Empty></Card> : (
+        !pick.length ? <Card><Empty>لا توجد أوردرات مفتوحة. تم شحن كل ما طُلب.</Empty></Card> : (
           <>
-            <div className="mb-3 grid grid-cols-3 gap-3"><Kpi label="أصناف مطلوبة" value={pick.length} /><Kpi label="قطع مطلوبة (لسه)" value={fmt(pick.reduce((a, x) => a + x.need, 0))} /><Kpi label="أصناف ناقصة" value={pick.filter((x) => x.ready < x.need).length} tone={pick.some((x) => x.ready < x.need) ? 'crit' : 'good'} /></div>
+            <div className="mb-3 grid grid-cols-3 gap-3"><Kpi label="أصناف مطلوبة" value={pick.length} /><Kpi label="قطع مطلوبة (لم تُشحن)" value={fmt(pick.reduce((a, x) => a + x.need, 0))} /><Kpi label="أصناف ناقصة" value={pick.filter((x) => x.ready < x.need).length} tone={pick.some((x) => x.ready < x.need) ? 'crit' : 'good'} /></div>
             <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>مطلوب</th><th className={th}>جاهز</th><th className={th}>الفرق</th></tr></thead>
-              <tbody>{pick.map((x) => <tr key={x.sku}><td className={td}>{skuLabel(d.skuMap, x.sku)}</td><td className={td + ' font-mono'}>{x.need}</td><td className={td + ' font-mono'}>{fmt(x.ready)}</td><td className={td}>{x.ready >= x.need ? <span className="font-mono text-muted">{fmt(x.ready - x.need)} فاضل</span> : <Pill tone="crit">ناقص {x.need - Math.max(0, x.ready)}</Pill>}</td></tr>)}</tbody></table></TableWrap>
+              <tbody>{pick.map((x) => <tr key={x.sku}><td className={td}>{skuLabel(d.skuMap, x.sku)}</td><td className={td + ' font-mono'}>{x.need}</td><td className={td + ' font-mono'}>{fmt(x.ready)}</td><td className={td}>{x.ready >= x.need ? <span className="font-mono text-muted">{fmt(x.ready - x.need)} متبقي</span> : <Pill tone="crit">ناقص {x.need - Math.max(0, x.ready)}</Pill>}</td></tr>)}</tbody></table></TableWrap>
           </>
         )
       ) : (
@@ -85,7 +85,7 @@ export default function Orders() {
                   <span className="flex justify-between"><b>{p.label}</b><span className="text-xs text-muted">{p.date}</span></span>
                   <span className="text-xs text-muted">{channelName(p.channel)}</span>
                   <span className="h-2 overflow-hidden rounded-full bg-grid"><i className="block h-full bg-ready" style={{ width: `${po.length ? (done / po.length) * 100 : 0}%` }} /></span>
-                  <span className="flex justify-between"><span><span className="num">{done}</span> من <span className="num">{po.length}</span> اتشحن</span><span className="text-muted">{fmt(po.reduce((a, o) => a + o.lines.length, 0))} قطعة</span></span>
+                  <span className="flex justify-between"><span><span className="num">{done}</span> من <span className="num">{po.length}</span> مشحون</span><span className="text-muted">{fmt(po.reduce((a, o) => a + o.lines.length, 0))} قطعة</span></span>
                 </button>
               );
             })}
@@ -94,11 +94,11 @@ export default function Orders() {
             {chips.map(([v, l]) => <Chip key={v} pressed={f === v} onClick={() => setF(v)}>{l} <span className="font-mono text-xs opacity-75">{counts[v as 'all']}</span></Chip>)}
             {counts.cx > 0 && <Chip pressed={f === 'cx'} onClick={() => setF('cx')}>ملغي <span className="font-mono text-xs opacity-75">{counts.cx}</span></Chip>}
             {counts.bad > 0 && <Chip pressed={f === 'bad'} onClick={() => setF('bad')}>كود غير مربوط <span className="font-mono text-xs opacity-75">{counts.bad}</span></Chip>}
-            <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setN(PAGE); }} placeholder="ابحث بكود الأوردر أو البوليصة أو المحافظة" className="min-w-52 max-w-sm flex-1" aria-label="بحث" />
+            <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setN(PAGE); }} placeholder="بحث بكود الأوردر أو البوليصة أو المحافظة" className="min-w-52 max-w-sm flex-1" aria-label="بحث" />
           </div>
           {selOpen.length > 0 && (
-            <Alert className="mb-3 flex flex-wrap items-center justify-between gap-2"><span>اخترت <b>{selOpen.length}</b> أوردر</span>
-              <span className="flex gap-2"><Button size="sm" onClick={() => setSel(new Set())}>إلغاء الاختيار</Button><Button size="sm" variant="primary" onClick={() => setManual(selOpen)}>سجّلهم كأوردرات اتشحنت</Button></span></Alert>
+            <Alert className="mb-3 flex flex-wrap items-center justify-between gap-2"><span>تم تحديد <b>{selOpen.length}</b> أوردر</span>
+              <span className="flex gap-2"><Button size="sm" onClick={() => setSel(new Set())}>إلغاء الاختيار</Button><Button size="sm" variant="primary" onClick={() => setManual(selOpen)}>سجّلها كأوردرات شُحنت</Button></span></Alert>
           )}
           <TableWrap>
             <table className="text-sm"><thead><tr><th className={th + ' w-9'} /><th className={th}>كود الأوردر</th><th className={th}>البوليصة</th><th className={th}>النوع</th><th className={th}>المحافظة</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
@@ -110,7 +110,7 @@ export default function Orders() {
                     <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}><OrderPill o={o} d={d} /></td>
                   </tr>
                 ))}
-                {!list.length && <tr><td colSpan={7}><Empty>مفيش أوردرات بالفلتر ده.</Empty></td></tr>}
+                {!list.length && <tr><td colSpan={7}><Empty>لا توجد أوردرات مطابقة للفلتر.</Empty></td></tr>}
               </tbody>
             </table>
           </TableWrap>

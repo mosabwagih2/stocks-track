@@ -10,12 +10,12 @@ import { useEffect, useState } from 'react';
 import { repo } from '@/data';
 
 export function OrderPill({ o, d }: { o: Order; d: Derived }) {
-  if (o.status === 'cancelled') return <Pill tone="lost" title={o.cancel ? `اتلغى ${o.cancel.at.slice(0, 10)} بواسطة ${o.cancel.by}` : ''}>ملغي</Pill>;
-  if (o.status === 'shipped') return <Pill tone="good" title={o.shippedAt ? `${o.shippedBy} · ${timeCairo(o.shippedAt)}` : ''}>اتشحن · {o.shippedBy}</Pill>;
+  if (o.status === 'cancelled') return <Pill tone="lost" title={o.cancel ? `أُلغي ${o.cancel.at.slice(0, 10)} بواسطة ${o.cancel.by}` : ''}>ملغي</Pill>;
+  if (o.status === 'shipped') return <Pill tone="good" title={o.shippedAt ? `${o.shippedBy} · ${timeCairo(o.shippedAt)}` : ''}>تم شحن · {o.shippedBy}</Pill>;
   if (o.unmapped.length) return <Pill tone="warn">كود غير مربوط</Pill>;
   const b = d.blocked.get(o.ref);
-  if (b) return <Pill tone="crit" title={b.map((x) => `${skuLabel(d.skuMap, x.sku)} ناقص ${x.short}`).join('\n')}>هيقف · ناقص {skuLabel(d.skuMap, b[0].sku, false)}{b.length > 1 ? ` +${b.length - 1}` : ''}</Pill>;
-  return <Pill tone="info">مستني الشحن</Pill>;
+  if (b) return <Pill tone="crit" title={b.map((x) => `${skuLabel(d.skuMap, x.sku)} ناقص ${x.short}`).join('\n')}>متوقف · ناقص {skuLabel(d.skuMap, b[0].sku, false)}{b.length > 1 ? ` +${b.length - 1}` : ''}</Pill>;
+  return <Pill tone="info">بانتظار الشحن</Pill>;
 }
 
 export function StockByState({ d }: { d: Derived }) {
@@ -38,7 +38,7 @@ export function Photo({ path, className }: { path?: string | null; className?: s
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => { let alive = true; if (path) repo.photoUrl(path).then((u) => alive && setUrl(u)); return () => { alive = false; }; }, [path]);
   if (!path) return null;
-  return url ? <img src={url} alt="" className={className} /> : <div className="grid aspect-[4/3] place-items-center rounded-xl border border-dashed border-line2 text-xs text-muted">الصورة مش متاحة</div>;
+  return url ? <img src={url} alt="" className={className} /> : <div className="grid aspect-[4/3] place-items-center rounded-xl border border-dashed border-line2 text-xs text-muted">الصورة غير متاحة</div>;
 }
 
 export function PhotoInput({ file, onChange, label }: { file: File | null; onChange: (f: File | null) => void; label: string }) {
@@ -53,6 +53,6 @@ export function PhotoInput({ file, onChange, label }: { file: File | null; onCha
 }
 
 export function ErrorBox({ error }: { error: unknown }) {
-  return <Alert tone="crit">مقدرتش أحمّل البيانات: {String((error as Error)?.message ?? error)}</Alert>;
+  return <Alert tone="crit">تعذّر تحميل البيانات: {String((error as Error)?.message ?? error)}</Alert>;
 }
 export { Button };

@@ -26,7 +26,7 @@ export function parseScan(rows: string[][]): ScanRow[] {
     head = rows[i].map((x) => String(x).trim().toLowerCase());
     if (head.some((h) => codeRe.test(h))) { hi = i; break; }
   }
-  if (hi < 0) throw new Error('مش لاقي عمود الكود (CODECONTENT). الملف لازم يكون تصدير QRbot أو فيه عمود بكود الأوردر.');
+  if (hi < 0) throw new Error('لم يتم العثور على عمود الكود (CODECONTENT). يجب أن يكون الملف تصدير QRbot أو يحتوي على عمود بكود الأوردر.');
   const ic = head.findIndex((h) => codeRe.test(h));
   const it = head.findIndex((h) => /^date|time|وقت|تاريخ/.test(h));
   const inm = head.findIndex((h) => /^name$|employee|موظف|^الاسم/.test(h));

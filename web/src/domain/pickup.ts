@@ -10,7 +10,7 @@ const LINE_RE = /^(.*?) \( (.*?) \)-(.*)-(.*)-(\d+)$/;
 export function parsePickupRows(rows: unknown[][], skus: Sku[], existing: Set<string>, alias: Record<string, string> = {}): { orders: ParsedOrder[]; duplicates: string[]; unknownModels: string[] } {
   const head = (rows[0] ?? []).map((x) => String(x).trim());
   const ix = { ref: head.indexOf(COLS.ref), wb: head.indexOf(COLS.wb), ty: head.indexOf(COLS.ty), gov: head.indexOf(COLS.gov), total: head.indexOf(COLS.total), items: head.indexOf(COLS.items) };
-  if (ix.ref < 0 || ix.items < 0) throw new Error('الأعمدة المطلوبة مش موجودة (كود الاوردر / المنتجات). الملف لازم يكون بتنسيق فيندور.');
+  if (ix.ref < 0 || ix.items < 0) throw new Error('الأعمدة المطلوبة غير موجودة (كود الاوردر / المنتجات). يجب أن يكون الملف بتنسيق فيندور.');
   const models = new Set(skus.map((s) => s.model));
   const idx = new Map(skus.map((s) => [`${s.model}|${s.color}|${s.size}`, s.id]));
   const toModel = (code: string): string | null => alias[code] ?? (/^FC-/.test(code) && models.has(code.slice(3)) ? code.slice(3) : models.has(code) ? code : code === 'Women A5' ? 'A5' : null);

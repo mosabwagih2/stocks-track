@@ -14,14 +14,14 @@ export default function Settings() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="الاتصال">
           {repo.mode === 'supabase'
-            ? <Alert tone="good">متصل بـ Supabase. كل التعديلات بتتسجّل في قاعدة البيانات من خلال دوال محمية، والسجل مش بيتعدّل.</Alert>
-            : <Alert tone="warn">نسخة تجريبية: البيانات متخزنة في المتصفح ده بس. لتوصيل Supabase ضيف <span className="font-mono">VITE_SUPABASE_URL</span> و<span className="font-mono">VITE_SUPABASE_ANON_KEY</span> (شوف web/README.md).</Alert>}
+            ? <Alert tone="good">متصل بـ Supabase. تُسجَّل جميع التعديلات في قاعدة البيانات عبر دوال محمية، ولا يمكن تعديل السجل.</Alert>
+            : <Alert tone="warn">نسخة تجريبية: البيانات محفوظة في هذا المتصفح فقط. للاتصال بـ Supabase أضف <span className="font-mono">VITE_SUPABASE_URL</span> و<span className="font-mono">VITE_SUPABASE_ANON_KEY</span> (راجع web/README.md).</Alert>}
         </Card>
         {repo.resetDemo && (
           <Card title="البيانات التجريبية">
-            <p className="mb-3 text-muted">بيمسح كل العمليات والشحن والصور ويرجّع للبيانات الأصلية (الرصيد الافتتاحي وبيك أب 2-11).</p>
-            {confirm ? <Alert tone="crit">هتمسح كل حاجة. متأكد؟<div className="mt-2 flex gap-2"><Button variant="danger" size="sm" onClick={async () => { await repo.resetDemo!(); await qc.invalidateQueries({ queryKey: SNAP_KEY }); setConfirm(false); toast('رجعنا للبيانات الأصلية'); }}>أيوه، امسح</Button><Button size="sm" onClick={() => setConfirm(false)}>لأ</Button></div></Alert>
-              : <Button variant="danger" onClick={() => setConfirm(true)}>رجوع للبيانات الأصلية</Button>}
+            <p className="mb-3 text-muted">يحذف جميع العمليات والشحن والصور ويعيد البيانات الأصلية (الرصيد الافتتاحي وبيك أب 2-11).</p>
+            {confirm ? <Alert tone="crit">سيتم حذف كل شيء. هل أنت متأكد؟<div className="mt-2 flex gap-2"><Button variant="danger" size="sm" onClick={async () => { await repo.resetDemo!(); await qc.invalidateQueries({ queryKey: SNAP_KEY }); setConfirm(false); toast('تمت استعادة البيانات الأصلية'); }}>نعم، احذف</Button><Button size="sm" onClick={() => setConfirm(false)}>لا</Button></div></Alert>
+              : <Button variant="danger" onClick={() => setConfirm(true)}>استعادة البيانات الأصلية</Button>}
           </Card>
         )}
       </div>

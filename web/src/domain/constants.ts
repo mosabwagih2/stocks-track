@@ -6,7 +6,7 @@ export const LOC_AR: Record<string, string> = {
   EXT_OPEN: 'رصيد افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'القناة / العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'تسوية جرد', EXT_OFF: 'شطب نهائي',
 };
 export const LOC_HINT: Record<Loc, string> = {
-  READY: 'تقدر تبيعه', DIRTY: 'بيتغسل ويرجع', FACTORY: 'لسه راجع من المصنع', SCRAP: 'مفيش علاج', LOST: 'ضايع، مستني تسوية',
+  READY: 'قابل للبيع', DIRTY: 'يُغسل ثم يعود', FACTORY: 'في الطريق من المصنع', SCRAP: 'لا يمكن إصلاحه', LOST: 'مفقود، بانتظار التسوية',
 };
 export const LOC_COLOR: Record<Loc, string> = {
   READY: 'bg-ready', DIRTY: 'bg-dirty', FACTORY: 'bg-factory', SCRAP: 'bg-scrap', LOST: 'bg-lost',
