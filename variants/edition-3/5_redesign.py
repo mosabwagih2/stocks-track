@@ -226,5 +226,31 @@ css4=r"""<style>
 i=s.index('<div id="app"></div>')
 s=s[:i]+css4+s[i:]
 
+# ================= STOCK HEAT MAP =================
+rep("  if(s.view==='list'){return stockList()}","  if(s.view==='list'){return stockList()}\n  if(s.view==='heat'){return stockHeat()}")
+rep("""<button aria-pressed="'+(s.view==='list')+'" data-a="sview" data-v="list">قائمة</button>""","""<button aria-pressed="'+(s.view==='list')+'" data-a="sview" data-v="list">قائمة</button><button aria-pressed="'+(s.view==='heat')+'" data-a="sview" data-v="heat">خريطة</button>""")
+rep("  more:()=>{UI.sheet={kind:'more'};render()},","  more:()=>{UI.sheet={kind:'more'};render()},\n  hmode:el=>{UI.s.hm=el.dataset.v;render()},\n  hcell:el=>{UI.sheet={kind:'hcell',m:el.dataset.m,z:el.dataset.z};render()},")
+rep("  }else if(s.kind==='more'){","  }else if(s.kind==='hcell'){\n    const r=heatSheet(s.m,s.z);title=r.title;body=r.body;\n  }else if(s.kind==='more'){")
+csh=r"""<style>
+.heat{width:100%;border-collapse:separate;border-spacing:3px}
+.heat th{font-size:12px;color:var(--muted);font-weight:600;text-align:center;padding:4px 0}
+.heat td{padding:0;text-align:center}
+.heat tr.hg td{text-align:start;padding:10px 6px 2px;font-size:12px;color:var(--muted);letter-spacing:.04em}
+.heat td.hm{text-align:start;white-space:nowrap;padding-inline-end:8px;width:1%}
+.heat td.ht{white-space:nowrap;padding-inline-start:6px}.heat td.ht small.bad{display:block;color:var(--crit);font-size:10.5px}
+.heat tr.hf td{border-top:1px solid var(--line);padding-top:6px}
+.hc{all:unset;box-sizing:border-box;cursor:pointer;display:grid;place-content:center;gap:0;width:100%;min-width:52px;height:50px;border-radius:10px;border:1px solid transparent;background:color-mix(in srgb,var(--hcc) calc(var(--t)*100%),var(--surface));font-family:var(--f-mono);position:relative}
+.hc.out{--hcc:var(--c-scrap)}.hc.low{--hcc:var(--c-dirty)}.hc.ok{--hcc:var(--c-ready)}.hc.excess{--hcc:var(--c-factory)}.hc.none{--hcc:var(--line2)}
+.hc b{font-size:15px;font-weight:600;line-height:1.1}
+.hc small{font:500 10px var(--f-ar);opacity:.75;line-height:1.1}
+.hc.none{background:transparent;color:var(--line2)}.hc.out{color:#4a0d14}.hc.low{color:#4a2e05}
+:root.dark .hc.out,:root[data-theme=dark] .hc.out{color:#fff}
+.hc:hover{border-color:var(--ink)}.hc:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (max-width:820px){.hc{min-width:0;height:44px}.hc b{font-size:12px;letter-spacing:-.03em}.hc small{display:none}.heat td.hm .th{display:none}.heat{border-spacing:2px}.heat th:last-child,.heat td.ht:last-child{display:none}.heat .bad .w{display:none}.heat .bad{font-size:10px}.heat{table-layout:fixed}.heat th:first-child,.heat td.hm{width:62px}.heat td.hm b{overflow:hidden;text-overflow:ellipsis}.heat td.hm{padding-inline-end:4px;font-size:12px}.tw:has(>table.heat){padding:4px}}
+</style>
+"""
+i=s.index('<div id="app"></div>')
+s=s[:i]+csh+s[i:]
+
 (T/'base_v2.html').write_text(s,encoding='utf-8')
 print('5 ok')

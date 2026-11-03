@@ -32,3 +32,54 @@ function stockList(){
   });
   return h+'</tbody></table></div>'+matrixLegend;
 }
+/* ---------- v2: stock heat map (model x size): available, short, enough, surplus at a glance ---------- */
+const HC={out:'var(--c-scrap)',low:'var(--c-dirty)',ok:'var(--c-ready)',excess:'var(--c-factory)'};
+function heatCells(){
+  const C=ctx(),E=skuStats().m,PR=planRows(),needBy={},cell={};
+  PR.forEach(r=>{const k=SKU.get(r.id),key=k.m+'|'+k.s;needBy[key]=(needBy[key]||0)+r.q});
+  D.skus.forEach(k=>{const key=k.m+'|'+k.s,c=cell[key]||(cell[key]={m:k.m,s:k.s,R:0,dm:0,fac:0,rop:0,rd:0,n:0,P:0});const e=E[k.id]||{rd:0,rop:0};
+    c.R+=g(k.id,'READY');c.P+=g(k.id,UI.s.state);c.dm+=C.demand[k.id]||0;c.fac+=g(k.id,'FACTORY');c.rop+=e.rop;c.rd+=e.rd;c.n++});
+  Object.keys(cell).forEach(key=>{const c=cell[key],dem=c.rd>0||c.dm>0,pos=c.R-c.dm+c.fac;c.need=needBy[key]||0;c.cover=c.rd>0?Math.max(0,c.R-c.dm)/c.rd/7:null;
+    c.surplus=Math.max(0,c.R-Math.ceil(c.rd*S.st.excess));c.dead=c.rd===0&&c.dm===0&&c.R>0;
+    if(!dem&&c.R<=0&&c.fac<=0){c.st='none';c.t=0}
+    else if(dem&&c.R-c.dm<=0){c.st='out';c.t=.8}
+    else if(dem&&pos<=c.rop){c.st='low';c.t=Math.max(.35,Math.min(.85,.35+.5*(1-(c.rop>0?pos/c.rop:0))))}
+    else if(c.dead||(c.rd>0&&c.surplus>0&&(c.R-c.dm)/c.rd>S.st.excess)){c.st='excess';const ratio=c.rd>0?(c.R-c.dm)/c.rd/S.st.excess:3;c.t=c.dead?.13:Math.max(.2,Math.min(.5,.2+.1*(Math.min(4,ratio)-1)))}
+    else{c.st='ok';c.t=.3}});
+  const mxP=Math.max(1,...Object.keys(cell).map(k=>cell[k].P));if(UI.s.state!=='READY')Object.keys(cell).forEach(k=>{const c=cell[k];c.st=c.P>0?'ok':'none';c.t=c.P>0?Math.min(.6,.1+c.P/mxP*.5):0});
+  return cell;
+}
+function stockHeat(){
+  const s=UI.s,sq=stockQ(),mode=s.hm||'avail',cell=heatCells(),R=rateData(),by={};R.rows.forEach(r=>by[r.m]=r);
+  const SZ=D.sizes,ms=MORDER.filter(c=>!sq||modelHit(c,sq)),groups={};ms.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
+  const cnt={out:0,low:0,ok:0,excess:0};ms.forEach(m=>SZ.forEach(z=>{const c=cell[m+'|'+z];if(c&&cnt[c.st]!=null)cnt[c.st]++}));
+  const col={};SZ.forEach(z=>{col[z]={P:0,bad:0};ms.forEach(m=>{const c=cell[m+'|'+z];if(!c)return;col[z].P+=c.P;if(c.st==='out'||c.st==='low')col[z].bad++})});
+  let h=strip([si('ناقص (خلصان وعليه طلب)',N(cnt.out),'خانة',cnt.out?'crit':'good'),si('تحت نقطة الطلب',N(cnt.low),'خانة',cnt.low?'warn':'good'),si('تمام',N(cnt.ok),'خانة','good'),si('زيادة عن اللازم',N(cnt.excess),'خانة (فوق '+S.st.excess+' يوم تغطية أو راكد)')]);
+  h+='<div class="row sp" style="margin:2px 0 10px"><div class="seg" role="group" aria-label="المعروض في الخانة"><button aria-pressed="'+(mode==='avail')+'" data-a="hmode" data-v="avail">المتاح</button><button aria-pressed="'+(mode==='cover')+'" data-a="hmode" data-v="cover">التغطية (أسبوع)</button><button aria-pressed="'+(mode==='need')+'" data-a="hmode" data-v="need">المطلوب تصنيعه</button></div>'
+   +'<div class="legend"><span><i class="dot" style="background:'+HC.out+'"></i>ناقص</span><span><i class="dot" style="background:'+HC.low+'"></i>تحت نقطة الطلب</span><span><i class="dot" style="background:'+HC.ok+'"></i>تمام</span><span><i class="dot" style="background:'+HC.excess+'"></i>زيادة / راكد</span></div></div>';
+  if(!ms.length)return h+'<div class="card"><div class="empty">مفيش نتيجة.</div></div>';
+  h+='<div class="tw"><table class="heat"><thead><tr><th></th>'+SZ.map(z=>'<th>'+z+'</th>').join('')+'<th>إجمالي</th></tr></thead><tbody>';
+  LINE_ORDER.filter(l=>groups[l]).forEach(l=>{
+    h+='<tr class="hg"><td colspan="'+(SZ.length+2)+'"><b>'+esc(l)+'</b></td></tr>';
+    groups[l].forEach(m=>{const mt=by[m]?by[m].k:'';
+      h+='<tr><td class="hm">'+thumb(m,26)+' <b class="mono">'+m+'</b></td>';
+      SZ.forEach(z=>{const c=cell[m+'|'+z];if(!c){h+='<td class="hx"></td>';return}
+        let main,sub='',cls=c.st;
+        if(mode==='avail'){main=c.st==='none'&&!c.P?'·':(innerWidth<=820&&c.P>=1000?(c.P/1000).toFixed(1).replace('.0','')+'k':fmt(c.P));sub=s.state!=='READY'?'':c.st==='out'?(c.need?'ناقص '+fmt(c.need):'خلصان'):c.st==='low'?'ناقص '+fmt(c.need):c.st==='excess'?(c.dead?'راكد':'زيادة '+fmt(c.surplus)):''}
+        else if(mode==='cover'){main=c.cover==null?'—':(c.cover>=99?'99+':c.cover.toFixed(1));sub=fmt(c.R)}
+        else{main=c.need?fmt(c.need):'·';sub=c.st==='out'?'خلصان':c.st==='low'?'قرب':''}
+        h+='<td><button type="button" class="hc '+cls+'" style="--t:'+c.t+'" data-a="hcell" data-m="'+m+'" data-z="'+z+'" aria-label="'+esc(mName(m)+' · '+z+': '+fmt(c.P)+' قطعة')+'"><b>'+main+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</button></td>'});
+      h+='<td class="ht"><b class="n">'+fmt(mSum(m,s.state))+'</b></td></tr>'});
+  });
+  h+='<tr class="hf"><td class="hm"><b>إجمالي المقاس</b></td>'+SZ.map(z=>'<td class="ht"><b class="n">'+fmt(col[z].P)+'</b>'+(col[z].bad?'<small class="bad"><span class="w">ناقص في </span>'+col[z].bad+'</small>':'')+'</td>').join('')+'<td class="ht"><b class="n">'+fmt(SZ.reduce((a,z)=>a+col[z].P,0))+'</b></td></tr></tbody></table></div>';
+  h+='<p class="muted" style="margin:8px 0 0;font-size:12px">اللون هو الحالة، وشدته بتدل على الحدّة. الخانة بتجمع كل ألوان الموديل في المقاس ده. اضغط على أي خانة تشوف الألوان.</p>';
+  return h;
+}
+function heatSheet(m,z){
+  const E=skuStats().m,C=ctx(),ks=D.skus.filter(k=>k.m===m&&k.s===z),PR=planRows(),nb={};PR.forEach(r=>nb[r.id]=r.q);
+  const rows=ks.map(k=>{const e=E[k.id]||{rd:0,rop:0},i=info(k.id),R=g(k.id,'READY'),pos=R-i.dm+g(k.id,'FACTORY'),dem=e.rd>0||i.dm>0;
+    const st=!dem&&R<=0?'none':dem&&R-i.dm<=0?'out':dem&&pos<=e.rop?'low':(e.rd===0&&R>0)||(e.rd>0&&(R-i.dm)/e.rd>S.st.excess)?'excess':'ok';
+    return {k,R,dm:i.dm,fac:g(k.id,'FACTORY'),rate:e.rd*7,cover:e.rd>0?Math.max(0,R-i.dm)/e.rd/7:null,need:nb[k.id]||0,st}});
+  const L={out:'ناقص',low:'تحت نقطة الطلب',ok:'تمام',excess:'زيادة / راكد',none:'—'};
+  return {title:mName(m)+' · مقاس '+z,body:'<div class="tw"><table class="t-sm"><thead><tr><th>اللون</th><th class="num">متاح</th><th class="num">طلب مفتوح</th><th class="num">عند المصنع</th><th class="num">سحب/أسبوع</th><th class="num">تغطية</th><th class="num">يتصنّع</th><th>الحالة</th></tr></thead><tbody>'+rows.map(r=>'<tr data-a="sku" data-sku="'+r.k.id+'"><td>'+sw(r.k.c)+' '+esc(r.k.c)+'</td><td class="num"><b class="n">'+fmt(r.R)+'</b></td><td class="num">'+N(r.dm)+'</td><td class="num">'+N(r.fac)+'</td><td class="num">'+(r.rate>0?'<span class="n">'+r.rate.toFixed(1)+'</span>':'<span class="muted">—</span>')+'</td><td class="num">'+(r.cover==null?'<span class="muted">—</span>':'<span class="n">'+(r.cover>=99?'99+':r.cover.toFixed(1))+'</span>')+'</td><td class="num">'+(r.need?'<span class="pill warn">'+fmt(r.need)+'</span>':'<span class="muted">0</span>')+'</td><td>'+(r.st==='none'?'':'<i class="sd '+(r.st==='out'?'crit':r.st==='low'?'warn':r.st==='excess'?'info':'good')+'"></i><span class="sdt">'+L[r.st]+'</span>')+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="font-size:12px">اضغط على أي لون يفتح تفاصيل الصنف.</p>'};
+}

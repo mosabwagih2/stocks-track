@@ -61,7 +61,7 @@ const fs=require('fs');
   // 8 CLN to dirty then FSD
   await p.click('[data-a=newop][data-t=CLN]');await p.selectOption('#pkm','PAN1');await p.fill('#pkq','3');await p.click('[data-a=addline]');
   await p.click('[data-a=confirm]');await p.waitForTimeout(200);
-  const dirtyN=await p.evaluate(()=>__F.D?0:__F.S().moves.filter(m=>m.to==='DIRTY').reduce((a,m)=>a+m.q,0));ok('3 moved to cleaning',dirtyN===3);
+  const dirtyN=await p.evaluate(()=>__F.S().moves.filter(m=>m.to==='DIRTY').reduce((a,m)=>a+m.q,0));ok('3 moved to cleaning',dirtyN===3);
   // 9 too many
   await p.click('[data-a=backops]');await p.click('[data-a=newop][data-t=CLN]');await p.selectOption('#pkm','A2');await p.fill('#pkq','5');await p.click('[data-a=addline]');
   t=await txt();ok('insufficient stock blocked',/المتاح في جاهز للبيع/.test(t)&&await p.isDisabled('[data-a=confirm]'));
