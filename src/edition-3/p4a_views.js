@@ -151,6 +151,8 @@ function sheetHTML(){
     if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
   }else if(s.kind==='sup'||s.kind==='supnew'){
     const r=supSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='catedit'){
+    const r=catEditSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='modelrm'){
     const r=modelRmSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='skuadd'){

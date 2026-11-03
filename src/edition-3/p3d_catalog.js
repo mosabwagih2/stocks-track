@@ -3,7 +3,7 @@
 function ensureCat(s){
   const c=s.cat||(s.cat={});
   ['skus','models','colors','sizes'].forEach(k=>{if(!c[k])c[k]=[]});
-  if(!c.ext)c.ext={};if(!c.arch)c.arch={};
+  if(!c.ext)c.ext={};if(!c.arch)c.arch={};if(!c.names)c.names={};
 }
 function rebuildCatalog(){
   const C=S.cat;
@@ -11,6 +11,7 @@ function rebuildCatalog(){
   D.colors=D0.colors.concat(C.colors);
   const cl=m=>({code:m.code,name:m.name,colors:m.colors.slice(),sizes:m.sizes.slice()});
   const models=D0.models.map(cl).concat(C.models.map(cl));
+  models.forEach(m=>{if(C.names[m.code])m.name=C.names[m.code]});
   models.forEach(m=>{const e=C.ext[m.code];if(e){(e.colors||[]).forEach(c=>{if(m.colors.indexOf(c)<0)m.colors.push(c)});(e.sizes||[]).forEach(z=>{if(m.sizes.indexOf(z)<0)m.sizes.push(z)})}});
   const all=D0.skus.concat(C.skus);
   SKU.clear();all.forEach(k=>SKU.set(k.id,k));
@@ -35,7 +36,7 @@ function colorCode(ar){
   let n=S.cat.colors.length+1,code='X'+n;const used=new Set(D0.colors.concat(S.cat.colors).map(c=>c.code));while(used.has(code))code='X'+(++n);
   S.cat.colors.push({code,ar});return code;
 }
-function skuAddInit(m){return {kind:'skuadd',m:m||MORDER[0]||'__new',newCode:'',newName:'',colors:[],sizes:[],cc:[],cs:[],newColor:'',newSize:'',min:'',err:''}}
+function skuAddInit(m,only){return {kind:'skuadd',only:!!only,m:m||MORDER[0]||'__new',newCode:'',newName:'',colors:[],sizes:[],cc:[],cs:[],newColor:'',newSize:'',min:'',err:''}}
 function skuCombos(s){
   const out=[];if(!s.colors.length||!s.sizes.length)return {all:out,fresh:0,exist:0,rest:0};
   let fresh=0,exist=0,rest=0;
@@ -49,7 +50,7 @@ function skuCombos(s){
 }
 function skuAddSheet(s){
   const isNew=s.m==='__new',cols=knownColors().concat(s.cc.filter(c=>knownColors().indexOf(c)<0)),szs=SIZES.concat(s.cs.filter(z=>SIZES.indexOf(z)<0));
-  let body='<label class="f">الموديل<select data-c="skum">'+MORDER.map(c=>'<option value="'+c+'" '+(s.m===c?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+'</option>').join('')+'<option value="__new" '+(isNew?'selected':'')+'>+ موديل جديد</option></select></label>';
+  let body=s.only?'':'<label class="f">الموديل<select data-c="skum">'+MORDER.map(c=>'<option value="'+c+'" '+(s.m===c?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+'</option>').join('')+'<option value="__new" '+(isNew?'selected':'')+'>+ موديل جديد</option></select></label>';
   if(isNew)body+='<div class="grid g2"><label class="f">كود الموديل<input value="'+esc(s.newCode)+'" data-c="skuf" data-f="newCode" placeholder="مثلًا PAN6" style="direction:ltr;text-align:start"></label><label class="f">النوع / الاسم<input value="'+esc(s.newName)+'" data-c="skuf" data-f="newName" list="mnames" placeholder="بانتي"></label></div><datalist id="mnames">'+[...new Set(D0.models.map(m=>m.name))].map(n=>'<option value="'+esc(n)+'">').join('')+'</datalist>';
   body+='<div><div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:500">الألوان</div><div class="chips">'+cols.map(c=>'<button type="button" class="chip" aria-pressed="'+(s.colors.indexOf(c)>=0)+'" data-a="skuc" data-v="'+esc(c)+'">'+sw(c)+' '+esc(c)+'</button>').join('')+'</div><div class="row" style="margin-top:8px"><input id="nc" placeholder="لون جديد" value="'+esc(s.newColor)+'" data-c="skuf" data-f="newColor" style="max-width:180px"><button type="button" class="btn sm" data-a="skuaddc">+ أضف اللون</button></div></div>';
   body+='<div><div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:500">المقاسات</div><div class="chips">'+szs.map(z=>'<button type="button" class="chip" aria-pressed="'+(s.sizes.indexOf(z)>=0)+'" data-a="skus" data-v="'+esc(z)+'">'+esc(z)+'</button>').join('')+'</div><div class="row" style="margin-top:8px"><input id="ns" placeholder="مقاس جديد (مثلًا 5XL)" value="'+esc(s.newSize)+'" data-c="skuf" data-f="newSize" style="max-width:180px;direction:ltr"><button type="button" class="btn sm" data-a="skuaddz">+ أضف المقاس</button></div></div>';
@@ -58,7 +59,7 @@ function skuAddSheet(s){
   body+='<div class="msg '+(cb.fresh?'':'warn')+'">'+(!s.colors.length||!s.sizes.length?'اختار لون ومقاس على الأقل.':'هيتضاف <b>'+cb.fresh+'</b> صنف جديد'+(cb.rest?' (و'+cb.rest+' هيترجّعوا من المؤرشفة)':'')+(cb.exist?' · '+cb.exist+' موجودين بالفعل وهيتخطّوا':'')+'.')+'</div>';
   if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
   body+='<button class="btn pri" data-a="skusave" '+((cb.fresh+cb.rest)?'':'disabled')+'>إضافة '+(cb.fresh+cb.rest)+' صنف</button><p class="muted" style="font-size:12px">الصنف بيتضاف برصيد صفر. سجّل الرصيد من "العمليات ← استلام توريد".</p>';
-  return {title:'إضافة صنف',body};
+  return {title:s.only?'موديل جديد':'إضافة صنف',body};
 }
 function skuRemoveBlock(s){
   const dm=ctx().demand[s.sku]||0,tt=total(s.sku),k=SKU.get(s.sku);
@@ -84,4 +85,39 @@ function modelRmSheet(s){
     body+=s.rm?'<div class="msg crit">هتشيل الموديل <b>'+esc(s.m)+'</b> بكل أصنافه ('+b.n+') من المخزون والمصفوفة وقوايم الاختيار. الحركات القديمة بتفضل في السجل، وتقدر ترجّعه من "كل الأصناف ← مؤرشف". متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="modelarch2">أيوه، شيل الموديل</button><button class="btn sm" data-a="modelarch">لأ</button></div></div>':'<p class="muted">رصيده صفر وملوش طلب مفتوح، فتقدر تشيله. بيتخبّى من المخزون والاختيار في العمليات، ومش بيتمسح من السجل.</p><button class="btn danger" data-a="modelarch">إزالة الموديل '+esc(s.m)+'</button>';
   }
   return {title:'إزالة موديل',body};
+}
+
+/* ---------- catalog editor (the single "تعديل" button) ---------- */
+function catEditInit(m){
+  m=(m&&MODEL.has(m)&&MORDER.indexOf(m)>=0)?m:(MORDER[0]||'');const mm=MODEL.get(m),w={};
+  mm.colors.forEach(c=>mm.sizes.forEach(z=>{if(IDX[m+'|'+c+'|'+z])w[c+'|'+z]=true}));
+  return {kind:'catedit',m,w,nc:[],ns:[],name:mm.name,newC:'',newS:'',err:''};
+}
+function catCells(s){
+  const mm=MODEL.get(s.m),colors=mm.colors.concat(s.nc.filter(c=>mm.colors.indexOf(c)<0)),sizes=mm.sizes.concat(s.ns.filter(z=>mm.sizes.indexOf(z)<0)).sort((a,b)=>szi(a)-szi(b));
+  return {colors,sizes};
+}
+function catDiff(s){
+  const {colors,sizes}=catCells(s);let add=0,rm=0,lock=0;
+  colors.forEach(c=>sizes.forEach(z=>{const id=IDX[s.m+'|'+c+'|'+z],want=!!s.w[c+'|'+z];
+    if(id){const busy=total(id)||(ctx().demand[id]||0);if(!want&&!busy)rm++;if(busy)lock++}else if(want)add++}));
+  return {add,rm,lock,name:String(s.name).trim()!==MODEL.get(s.m).name};
+}
+function catSum(d){return (d.add||d.rm||d.name)?('التعديلات: '+(d.add?'<b>+'+d.add+'</b> صنف جديد · ':'')+(d.rm?'<b>-'+d.rm+'</b> صنف هيتشال · ':'')+(d.name?'تغيير الاسم · ':'')).replace(/ · $/,''):'لسه مفيش تعديلات.'}
+function catSumUpdate(s){const d=catDiff(s),e=$('#catsum'),b=$('[data-a=catsave]');if(e)e.innerHTML=catSum(d);if(b)b.disabled=!(d.add||d.rm||d.name)}
+function catEditSheet(s){
+  const mm=MODEL.get(s.m);if(!mm)return {title:'تعديل',body:'<div class="empty">مفيش موديلات.</div>'};
+  const {colors,sizes}=catCells(s),d=catDiff(s);
+  let body='<label class="f">الموديل<select data-c="catm">'+MORDER.map(c=>'<option value="'+c+'" '+(c===s.m?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+'</option>').join('')+'</select></label>';
+  body+='<label class="f">النوع / الاسم<input value="'+esc(s.name)+'" data-c="catf" data-f="name"></label>';
+  body+='<div><div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:500">الأصناف (لون × مقاس). اضغط الخانة تضيف أو تشيل.</div><div class="tw" style="padding:8px"><table class="mx"><thead><tr><th></th>'+sizes.map(z=>'<th>'+esc(z)+'</th>').join('')+'</tr></thead><tbody>'+colors.map(c=>'<tr><td class="cl">'+sw(c)+' '+esc(c)+'</td>'+sizes.map(z=>{
+    const id=IDX[s.m+'|'+c+'|'+z],on=!!s.w[c+'|'+z],busy=id?(total(id)||(ctx().demand[id]||0)):0;
+    if(busy)return '<td><span class="cell tg lock" data-tip="مينفعش يتشال: رصيد '+total(id)+' · طلب '+(ctx().demand[id]||0)+'">'+fmt(total(id))+'<small>محجوز</small></span></td>';
+    return '<td><button type="button" class="cell tg '+(on?(id?'on':'new'):(id?'del':'off'))+'" data-a="catcell" data-k="'+esc(c+'|'+z)+'" aria-pressed="'+on+'" aria-label="'+esc(c+' '+z)+'">'+(on?(id?'✓':'+'):(id?'−':''))+'<small>'+(on?(id?'موجود':'جديد'):(id?'هيتشال':''))+'</small></button></td>'}).join('')+'</tr>').join('')+'</tbody></table></div></div>';
+  body+='<div class="grid g2"><div><div class="row"><input id="catnc" list="catcl" placeholder="لون جديد" value="'+esc(s.newC)+'" data-c="catf" data-f="newC" style="max-width:150px"><button type="button" class="btn sm" data-a="cataddc">+ لون</button></div><datalist id="catcl">'+knownColors().filter(c=>colors.indexOf(c)<0).map(c=>'<option value="'+esc(c)+'">').join('')+'</datalist></div><div><div class="row"><input id="catns" list="catsl" placeholder="مقاس جديد" value="'+esc(s.newS)+'" data-c="catf" data-f="newS" style="max-width:130px;direction:ltr"><button type="button" class="btn sm" data-a="cataddz">+ مقاس</button></div><datalist id="catsl">'+SIZES.filter(z=>sizes.indexOf(z)<0).map(z=>'<option value="'+esc(z)+'">').join('')+'</datalist></div></div>';
+  body+='<div class="legend"><span><i class="dot" style="background:var(--good)"></i>موجود</span><span><i class="dot" style="background:var(--accent)"></i>جديد</span><span><i class="dot" style="background:var(--crit)"></i>هيتشال</span><span>محجوز = عليه رصيد أو طلب</span></div>';
+  body+='<div class="msg" id="catsum">'+catSum(d)+'</div>';
+  if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
+  body+='<div class="row"><button class="btn pri" data-a="catsave" '+((d.add||d.rm||d.name)?'':'disabled')+'>حفظ التعديلات</button><button class="btn danger" data-a="catrm">إزالة الموديل بالكامل</button></div>';
+  return {title:'تعديل المخزون',body};
 }

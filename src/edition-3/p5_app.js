@@ -102,7 +102,26 @@ const ACT={
   sline:el=>{UI.s.line=el.dataset.v;render()},
   slist:()=>{UI.s.list=UI.s.list===false;try{localStorage.setItem(KEY+'-list',UI.s.list)}catch(e){}render()},
   sflt:el=>{UI.s.flt=el.dataset.v;render()},
-  skuadd:el=>{UI.sheet=skuAddInit(el.dataset.m||(UI.s.view==='matrix'?UI.s.m:''));render()},
+  skuadd:el=>{UI.sheet=skuAddInit(el.dataset.m||(UI.s.view==='matrix'?UI.s.m:''),!!el.dataset.only);render()},
+  catedit:()=>{UI.sheet=catEditInit(UI.s.view==='matrix'?UI.s.m:(MORDER.indexOf(UI.s.m)>=0?UI.s.m:MORDER[0]));render()},
+  catcell:el=>{const k=el.dataset.k;UI.sheet.w[k]=!UI.sheet.w[k];UI.sheet.err='';render()},
+  cataddc:()=>{const s=UI.sheet,v=String(s.newC||'').trim();if(!v)return;const mm=MODEL.get(s.m);if(mm.colors.indexOf(v)<0&&s.nc.indexOf(v)<0)s.nc.push(v);catCells(s).sizes.forEach(z=>{if(!IDX[s.m+'|'+v+'|'+z])s.w[v+'|'+z]=true});s.newC='';render()},
+  cataddz:()=>{const s=UI.sheet,v=String(s.newS||'').trim().toUpperCase();if(!v)return;const mm=MODEL.get(s.m);if(mm.sizes.indexOf(v)<0&&s.ns.indexOf(v)<0)s.ns.push(v);catCells(s).colors.forEach(c=>{if(!IDX[s.m+'|'+c+'|'+v])s.w[c+'|'+v]=true});s.newS='';render()},
+  catrm:()=>{const m=UI.sheet.m;UI.sheet={kind:'modelrm',m,rm:false};render()},
+  catsave:()=>{
+    const s=UI.sheet,{colors,sizes}=catCells(s),C=S.cat,m=s.m;let add=0,rm=0;
+    sizes.forEach(z=>{if(SIZES.indexOf(z)<0&&C.sizes.indexOf(z)<0)C.sizes.push(z)});
+    const e=C.ext[m]||(C.ext[m]={colors:[],sizes:[]});
+    colors.forEach(c=>{const code=colorCode(c);sizes.forEach(z=>{
+      const id=m+'-'+code+'-'+z,cur=IDX[m+'|'+c+'|'+z],want=!!s.w[c+'|'+z];
+      if(cur){if(!want&&!(total(cur)||(ctx().demand[cur]||0))){C.arch[cur]=true;rm++}return}
+      if(!want)return;
+      if(e.colors.indexOf(c)<0)e.colors.push(c);if(e.sizes.indexOf(z)<0)e.sizes.push(z);
+      if(SKU.has(id)){if(C.arch[id]){delete C.arch[id];add++}}else{C.skus.push({id,m,c,s:z,min:0,open:0});add++}
+    })});
+    const nm=String(s.name).trim();if(nm&&nm!==MODEL.get(m).name)C.names[m]=nm;
+    dirty();rebuildCatalog();UI.sheet=null;toast('اتحفظ التعديل'+(add?' · +'+add:'')+(rm?' · -'+rm:''));render();
+  },
   skuc:el=>{const a=UI.sheet.colors,i=a.indexOf(el.dataset.v);if(i>=0)a.splice(i,1);else a.push(el.dataset.v);UI.sheet.err='';render()},
   skus:el=>{const a=UI.sheet.sizes,i=a.indexOf(el.dataset.v);if(i>=0)a.splice(i,1);else a.push(el.dataset.v);UI.sheet.err='';render()},
   skuaddc:()=>{const s=UI.sheet,v=String(s.newColor||'').trim();if(!v)return;if(s.cc.indexOf(v)<0&&knownColors().indexOf(v)<0)s.cc.push(v);if(s.colors.indexOf(v)<0)s.colors.push(v);s.newColor='';render()},
@@ -244,6 +263,8 @@ const CHG={
   cost:el=>{const c=S.costs[el.dataset.m]||(S.costs[el.dataset.m]={});c[el.dataset.f]=+el.value||0;dirty();render()},
   actor:el=>{S.actor=el.value.trim()||'مصعب';dirty()},
   smsel:el=>{UI.s.m=el.value;render()},
+  catm:el=>{UI.sheet=catEditInit(el.value);render()},
+  catf:el=>{const s=UI.sheet;if(s){s[el.dataset.f]=el.value;if(el.dataset.f==='name')catSumUpdate(s)}},
   skum:el=>{const s=UI.sheet;s.m=el.value;s.err='';render()},
   skuf:el=>{const s=UI.sheet;if(s)s[el.dataset.f]=el.value},
   supf:el=>{const s=UI.sheet;if(!s||!s.f)return;s.f[el.dataset.f]=el.value;if(s.err)s.err=''},
@@ -252,6 +273,7 @@ const CHG={
   ltype:el=>{UI.led.type=el.value;render()}
 };
 const INP={
+  catf:el=>{const s=UI.sheet;if(!s)return;s[el.dataset.f]=el.value;if(el.dataset.f==='name')catSumUpdate(s)},
   supq:el=>{const s=UI.sheet;s.qty=el.value;const p=$('#supprev');if(p)p.innerHTML=supPreviewHTML(s);const b=$('#supgo');if(b)b.disabled=!supMove(s).ok},
   supnote:el=>{UI.sheet.note=el.value},
   supf:el=>{const s=UI.sheet;if(s&&s.f)s.f[el.dataset.f]=el.value},

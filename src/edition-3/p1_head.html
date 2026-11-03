@@ -177,6 +177,13 @@ button.kpi:hover{border-color:var(--accent)}
 .mx .cl{padding:0 8px 0 4px;white-space:nowrap;font-weight:500;text-align:start}
 .cell{all:unset;box-sizing:border-box;cursor:pointer;display:grid;place-items:center;min-width:58px;height:46px;border-radius:10px;background:var(--lav);font:500 15px var(--f-mono);position:relative;border:1px solid transparent}
 .cell:hover{border-color:var(--accent)}
+.cell.tg{font-size:16px;cursor:pointer}
+.cell.tg small{position:absolute;bottom:2px;inset-inline:0;text-align:center;font:400 9px var(--f-ar);line-height:1}
+.cell.tg.on{background:var(--good-bg);color:var(--good);border-color:var(--good-line)}
+.cell.tg.new{background:var(--info-bg);color:var(--info);border-color:var(--info-line)}
+.cell.tg.del{background:var(--crit-bg);color:var(--crit);border-color:var(--crit-line)}
+.cell.tg.off{background:var(--grid);color:var(--muted);opacity:.75}
+.cell.tg.lock{background:var(--lav);color:var(--muted);cursor:not-allowed;font-size:14px}
 .cell.z{color:var(--muted);background:var(--grid)}
 .cell.w{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
 .cell.c{background:var(--crit-bg);color:var(--crit);border-color:var(--crit-line)}
