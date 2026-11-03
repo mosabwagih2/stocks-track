@@ -108,8 +108,10 @@ const ACT={
       res:{scans:refs.length,matched:refs.map(r=>({ref:r,t:''})),dups:[],already:[],unk:[],bad:refs.filter(r=>(orderByRef(r).bad||[]).length)}};
     render();
   },
-  cxorder:el=>{const o=orderByRef(el.dataset.ref);if(o){o.st='cx';dirty();UI.sheet=null;toast('اتلغى الأوردر. مش هيتحسب كطلب.');render()}},
-  uncx:el=>{const o=orderByRef(el.dataset.ref);if(o){o.st='open';dirty();UI.sheet=null;render()}},
+  cxorder:el=>{UI.sheet=cxInit(el.dataset.ref);render()},
+  cxopen:()=>{UI.sheet=cxInit('');render();setTimeout(()=>{const i=$('#cxcode');if(i)i.focus()},60)},
+  cxgo:()=>{const s=UI.sheet,o=cxFind(s.code),n=o?o.lines.length:0,ref=o?o.ref:'';if(cxApply(s)){UI.sheet=null;toast('اتلغى الأوردر '+ref+' ونزل من الأوردرات');render()}else{s.err='مقدرتش ألغي. اتأكد من الكود والصورة';render()}},
+  uncx:el=>{const o=orderByRef(el.dataset.ref);if(o){cxRestore(o);UI.sheet=null;toast('اترجّع الأوردر '+o.ref);render()}},
   smodel:el=>{UI.s.m=el.dataset.m;render()},
   sstate:el=>{UI.s.state=el.dataset.v;render()},
   sview:el=>{UI.s.view=el.dataset.v;render()},
@@ -258,6 +260,9 @@ const ACT={
   reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);ensureCat(S);rebuildCatalog();phClear();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
 };
 const CHG={
+  cxphoto:el=>{const s=UI.sheet,f=el.files&&el.files[0];if(!s||!f)return;phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})},
+  cxreason:el=>{UI.sheet.reason=el.value},
+  cxret:el=>{UI.sheet.ret=el.checked},
   wd:el=>{if(!el.value)return;UI.vd=el.value>=S.date?null:el.value;render()},
   sel:el=>{UI.sel[el.dataset.ref]=el.checked;render()},
   upch:el=>{const s=UI.sheet;s.channel=el.value;if(s.rows){try{s.res=importRows(s.rows,s.channel,'__new__');s.err=''}catch(e){s.err=String(e.message||e)}}render()},
@@ -291,6 +296,7 @@ const CHG={
   ltype:el=>{UI.led.type=el.value;render()}
 };
 const INP={
+  cxcode:el=>{const s=UI.sheet;s.code=el.value;const p=$('#cxprev');if(p)p.innerHTML=cxPreviewHTML(s);const o=cxFind(s.code),b=$('#cxgo');if(b)b.disabled=!(o&&o.st!=='cx'&&s.photo)},
   catf:el=>{const s=UI.sheet;if(!s)return;s[el.dataset.f]=el.value;if(el.dataset.f==='name')catSumUpdate(s)},
   supq:el=>{const s=UI.sheet;s.qty=el.value;const p=$('#supprev');if(p)p.innerHTML=supPreviewHTML(s);const b=$('#supgo');if(b)b.disabled=!supMove(s).ok},
   supnote:el=>{UI.sheet.note=el.value},

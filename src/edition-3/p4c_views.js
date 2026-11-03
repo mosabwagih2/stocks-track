@@ -11,7 +11,7 @@ function vLedger(){
   h+='<div class="tabs" role="tablist"><button role="tab" aria-selected="'+(L.tab==='moves')+'" data-a="ltab" data-v="moves">الحركات</button><button role="tab" aria-selected="'+(L.tab==='audit')+'" data-a="ltab" data-v="audit">مين عمل إيه</button></div>';
   if(L.tab==='audit'){
     const ev=[];S.docs.forEach(d=>d.log.forEach(l=>ev.push({t:l.t,by:l.by,m:OT[d.type].ar+' '+(d.no||'مسودة')+': '+l.m})));
-    S.orders.forEach(o=>{if(o.sc)ev.push({t:o.sc.at,by:o.sc.by,m:'سكان أوردر '+o.ref})});
+    S.orders.forEach(o=>{if(o.sc)ev.push({t:o.sc.at,by:o.sc.by,m:'شحن أوردر '+o.ref});if(o.cx)ev.push({t:o.cx.at,by:o.cx.by,m:'إلغاء أوردر '+o.ref+(o.cx.reason?': '+o.cx.reason:'')})});
     ev.sort((a,b)=>b.t-a.t);
     return h+(ev.length?'<div class="tw"><table class="t-sm"><thead><tr><th>الوقت</th><th>الموظف</th><th>الإجراء</th></tr></thead><tbody>'+ev.slice(0,150).map(e=>'<tr><td class="mono muted">'+new Date(e.t).toLocaleString('en-GB',{timeZone:'Africa/Cairo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</td><td>'+esc(e.by)+'</td><td>'+esc(e.m)+'</td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش إجراءات.</div></div>');
   }

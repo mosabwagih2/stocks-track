@@ -40,13 +40,17 @@ function flowSheet(w){
 
 /* ---------- FILES page ---------- */
 function vFiles(){
-  const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات']];
+  const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات']];
   let h=top('الملفات','كل اللي اترفع أو اتسجّل: ملفات البيك أب والسكان وصور الورق الموقّع. من هنا تعدّلها أو تحذفها أو تلاقي مكانها.','');
   h+='<div class="msg" style="margin-bottom:14px"><b>فين بتتحفظ ملفاتي؟</b><br>ملف Excel أو CSV نفسه مش بيتخزّن. السيستم بيقراه وبيحفظ البيانات اللي طلعت منه (الأوردرات والكميات) واسم الملف كمرجع. صور الورق الموقّع بتتحفظ في المتصفح ده بس. تقدر تعدّل كل حاجة من الجداول اللي تحت.</div>';
   h+='<div class="tabs" role="tablist">'+T.map(t=>'<button role="tab" aria-selected="'+(UI.fl===t[0])+'" data-a="fltab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
   if(UI.fl==='sc'){
     const ds=S.docs.filter(d=>d.type==='SCN').slice().reverse();
     return h+(ds.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>الموظف</th><th>الملف</th><th>التاريخ</th><th class="num">أوردرات</th><th class="num">قطع</th><th>الحالة</th><th></th></tr></thead><tbody>'+ds.map(d=>{const pc=d.hdr.refs.reduce((a,r)=>a+((orderByRef(r)||{lines:[]}).lines.length),0);return '<tr><td class="mono">'+(d.no||'—')+'</td><td>'+esc(d.hdr.emp)+'</td><td class="muted">'+esc(d.hdr.src||'')+'</td><td class="mono">'+d.date+'</td><td class="num">'+N(d.hdr.refs.length)+'</td><td class="num">'+N(pc)+'</td><td>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</td><td><button class="btn sm" data-a="scedit" data-id="'+d.id+'">'+(d.status==='done'?'تعديل':'فتح')+'</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش ملفات سكان. ارفع ملف من صفحة الأوردرات.</div></div>');
+  }
+  if(UI.fl==='cx'){
+    const os=S.orders.filter(o=>o.st==='cx'&&o.cx).sort((a,b)=>b.cx.at-a.cx.at);
+    return h+'<div class="row" style="margin-bottom:12px"><button class="btn danger" data-a="cxopen">+ إلغاء أوردر</button></div>'+(os.length?'<div class="grid g3">'+os.map(o=>{const u=PH[cxKey(o.ref)];return '<div class="card flat" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px">'+(u?'<img src="'+u+'" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;border:1px solid var(--line)">':'<span class="empty" style="aspect-ratio:4/3;display:grid;place-items:center;border:1px dashed var(--line2);border-radius:10px">الصورة مش محفوظة</span>')+'<span class="row sp"><b class="mono">'+esc(o.ref)+'</b>'+pill('lost','ملغي')+'</span><span class="muted" style="font-size:12px">شحن '+esc(o.wb)+' · '+o.lines.length+' قطعة · '+esc(o.cx.date)+' · '+esc(o.cx.by)+(o.cx.reason?'<br>'+esc(o.cx.reason):'')+(o.cx.returned?'<br>رجعت للمخزون ('+esc(o.cx.doc)+')':'')+'</span><div class="row"><button class="btn sm" data-a="order" data-ref="'+esc(o.ref)+'">تفاصيل</button><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّع الأوردر</button></div></div>'}).join('')+'</div>':'<div class="card"><div class="empty">مفيش أوردرات ملغية.</div></div>');
   }
   if(UI.fl==='ph'){
     const ds=S.docs.filter(d=>d.type==='RCV'||d.type==='SHP').slice().reverse();

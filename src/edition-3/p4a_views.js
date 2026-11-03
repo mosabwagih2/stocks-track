@@ -59,7 +59,7 @@ function stateBar(){
 /* ---------- ORDERS ---------- */
 function ordPill(o){
   const C=ctx();
-  if(o.st==='cx')return pill('','ملغي');
+  if(o.st==='cx')return pill('lost','ملغي',o.cx?('اتلغى '+o.cx.date+' بواسطة '+o.cx.by+(o.cx.reason?'\n'+o.cx.reason:'')):'');
   if(o.st==='done')return pill('good','اتشحن · '+esc(o.sc.by),'سجّله '+o.sc.by+' الساعة '+timeOf(o.sc.at)+(o.sc.doc?' · '+o.sc.doc:''));
   if(o.bad&&o.bad.length)return pill('warn','كود غير مربوط');
   const b=C.blocked[o.ref];
@@ -70,6 +70,7 @@ function ordFilter(){
   const C=ctx(),f=UI.o.f,q=UI.o.q.trim().toLowerCase();
   return S.orders.filter(o=>{
     if(UI.o.pk&&o.pk!==UI.o.pk)return false;
+    if(f==='cx'){if(o.st!=='cx')return false}else if(o.st==='cx')return false;
     if(f==='wait'&&!(o.st==='open'&&!C.blocked[o.ref]))return false;
     if(f==='blocked'&&!(o.st==='open'&&C.blocked[o.ref]))return false;
     if(f==='done'&&o.st!=='done')return false;
@@ -82,16 +83,16 @@ function ordRows(list){
   return list.slice(0,UI.o.n).map(o=>'<tr data-a="order" data-ref="'+esc(o.ref)+'"><td data-nodrill><input type="checkbox" data-c="sel" data-ref="'+esc(o.ref)+'" '+(UI.sel[o.ref]?'checked':'')+(o.st!=='open'?' disabled':'')+' aria-label="تحديد"></td><td class="mono">'+esc(o.ref)+'</td><td class="mono muted">'+esc(o.wb)+'</td><td>'+(o.type==='استبدال'?pill('lost','استبدال'):'جديد')+'</td><td>'+esc(o.gov||'')+'</td><td class="num">'+N(o.lines.length)+'</td><td>'+ordPill(o)+'</td></tr>').join('');
 }
 function vOrders(){
-  const C=ctx(),all=S.orders.filter(o=>o.st!=='cx'),cnt={all:all.length,wait:all.filter(o=>o.st==='open'&&!C.blocked[o.ref]).length,blocked:all.filter(o=>o.st==='open'&&C.blocked[o.ref]).length,done:all.filter(o=>o.st==='done').length};
+  const C=ctx(),all=S.orders.filter(o=>o.st!=='cx'),cxN=S.orders.length-all.length,cnt={all:all.length,wait:all.filter(o=>o.st==='open'&&!C.blocked[o.ref]).length,blocked:all.filter(o=>o.st==='open'&&C.blocked[o.ref]).length,done:all.filter(o=>o.st==='done').length};
   const bad=all.filter(o=>o.bad&&o.bad.length).length;
-  const tools='<button class="btn ghost" data-a="go" data-t="files">الملفات</button><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
+  const tools='<button class="btn ghost" data-a="go" data-t="files">الملفات</button><button class="btn danger" data-a="cxopen">إلغاء أوردر</button><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
   let h=top('الأوردرات','البيك أب = المطلوب. الشحن (بالسكان) = اللي خرج فعلًا. الفرق بينهم هو الأوردرات الواقفة.',tools);
   h+='<div class="tabs" role="tablist"><button role="tab" aria-selected="'+(UI.o.tab==='list')+'" data-a="otab" data-v="list">الأوردرات</button><button role="tab" aria-selected="'+(UI.o.tab==='pick')+'" data-a="otab" data-v="pick">قائمة التجهيز</button></div>';
   if(UI.o.tab==='pick')return h+vPick();
   h+='<div class="grid g3" style="margin-bottom:14px">'+S.pickups.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
     return '<button class="card flat" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid '+(UI.o.pk===p.id?'var(--accent)':'var(--line)')+';border-radius:14px;padding:14px;display:grid;gap:8px" data-a="gopk" data-id="'+p.id+'"><span class="row sp"><b>'+esc(p.label)+'</b><span class="muted" style="font-size:12px">'+esc(p.date)+'</span></span><span class="muted" style="font-size:12px">'+esc(chanName(p.channel))+'</span><span class="flow" style="height:8px"><i class="a" style="width:'+(po.length?pd/po.length*100:0)+'%"></i></span><span class="row sp"><span class="n">'+pd+' / '+po.length+' اتشحن</span><span class="muted">'+fmt(po.reduce((x,o)=>x+o.lines.length,0))+' قطعة</span></span></button>'}).join('')+'</div>';
   const F=[['all','الكل'],['wait','مستني الشحن'],['blocked','هيقف'],['done','اتشحن']];
-  h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.o.f===f[0])+'" data-a="of" data-v="'+f[0]+'">'+f[1]+' <span class="n">'+cnt[f[0]]+'</span></button>').join('')+(bad?'<button class="chip" aria-pressed="'+(UI.o.f==='bad')+'" data-a="of" data-v="bad">كود غير مربوط <span class="n">'+bad+'</span></button>':'')+'</div><input type="search" id="oq" placeholder="ابحث بكود الأوردر أو البوليصة أو المحافظة" value="'+esc(UI.o.q)+'" data-c="oq" style="flex:1;min-width:200px;max-width:380px">'+(UI.o.pk?'<button class="btn sm ghost" data-a="gopk" data-id="">شيل فلتر البيك أب</button>':'')+'</div>';
+  h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.o.f===f[0])+'" data-a="of" data-v="'+f[0]+'">'+f[1]+' <span class="n">'+cnt[f[0]]+'</span></button>').join('')+(cxN?'<button class="chip" aria-pressed="'+(UI.o.f==='cx')+'" data-a="of" data-v="cx">ملغي <span class="n">'+cxN+'</span></button>':'')+(bad?'<button class="chip" aria-pressed="'+(UI.o.f==='bad')+'" data-a="of" data-v="bad">كود غير مربوط <span class="n">'+bad+'</span></button>':'')+'</div><input type="search" id="oq" placeholder="ابحث بكود الأوردر أو البوليصة أو المحافظة" value="'+esc(UI.o.q)+'" data-c="oq" style="flex:1;min-width:200px;max-width:380px">'+(UI.o.pk?'<button class="btn sm ghost" data-a="gopk" data-id="">شيل فلتر البيك أب</button>':'')+'</div>';
   const list=ordFilter(),selN=Object.keys(UI.sel).filter(k=>UI.sel[k]).length;
   if(selN)h+='<div class="msg row sp" style="margin-bottom:12px"><span>اخترت <b>'+selN+'</b> أوردر</span><span class="row"><button class="btn sm" data-a="selclear">إلغاء الاختيار</button><button class="btn sm pri" data-a="manual">سجّلهم كأوردرات اتشحنت</button></span></div>';
   h+='<div class="tw"><table><thead><tr><th style="width:36px"></th><th>كود الأوردر</th><th>البوليصة</th><th>النوع</th><th>المحافظة</th><th class="num">قطع</th><th>الحالة</th></tr></thead><tbody id="ordrows">'+(list.length?ordRows(list):'<tr><td colspan="7" class="empty">مفيش أوردرات بالفلتر ده.</td></tr>')+'</tbody></table></div>';
@@ -147,10 +148,13 @@ function sheetHTML(){
     body+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">في الأوردر</th><th class="num">جاهز دلوقتي</th></tr></thead><tbody>'+Object.keys(cnt).sort(skuSort).map(x=>{const R=g(x,'READY');return '<tr><td>'+thumb(SKU.get(x).m,26)+' '+sw(SKU.get(x).c)+' '+esc(skuName(x))+'</td><td class="num">'+N(cnt[x])+'</td><td class="num">'+(R<cnt[x]&&o.st==='open'?pill('crit',R):N(R))+'</td></tr>'}).join('')+'</tbody></table></div>';
     if(o.bad&&o.bad.length)body+='<div class="msg warn">أصناف مش مربوطة: '+o.bad.map(b=>esc(b[0]+' '+b[2]+' '+b[1])).join('، ')+'</div>';
     if(o.st==='done')body+='<div class="msg good">اتشحن بواسطة '+esc(o.sc.by)+' يوم '+esc(o.sc.date)+' الساعة '+timeOf(o.sc.at)+' · '+esc(o.sc.doc)+'</div>';
-    if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (ملغي من القناة)</button></div>';
-    if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
+    if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (بصورة البوليصة)</button></div>';
+    if(o.st==='done')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">طلب إلغاء بعد الشحن</button></div>';
+    if(o.st==='cx'){const c=o.cx||{};body+='<div class="msg warn">اتلغى '+esc(c.date||'')+(c.by?' بواسطة '+esc(c.by):'')+(c.reason?' · '+esc(c.reason):'')+(c.returned?'<br>القطع رجعت للمخزون ('+esc(c.doc)+')':(c.was==='done'?'<br>كان اتشحن، والقطع ما رجعتش للمخزون.':''))+'</div>'+(PH[cxKey(o.ref)]?'<img src="'+PH[cxKey(o.ref)]+'" alt="صورة البوليصة" style="width:100%;border-radius:10px;border:1px solid var(--line)">':'')+'<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّع الأوردر</button></div>'}
   }else if(s.kind==='sup'||s.kind==='supnew'){
     const r=supSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='cancel'){
+    const r=cxSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='catedit'){
     const r=catEditSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='modelrm'){

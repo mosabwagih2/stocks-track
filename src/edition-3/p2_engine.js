@@ -47,6 +47,7 @@ const OT={
   FRC:{ar:'استلام من المصنع',en:'Factory Receipt',grp:'داخلي',pre:'FRC',d:'المغسول اللي رجع، وفيه المرفوض',ic:'in'},
   CNT:{ar:'جرد',en:'Inventory Adjustment',grp:'رقابة',pre:'CNT',d:'عدّ فعلي ومقارنة بالسيستم',ic:'count'},
   LOS:{ar:'معالجة المفقود',en:'Loss Resolution',grp:'رقابة',pre:'LOS',d:'لقيناه ولا نشطبه',ic:'search'},
+  CXL:{ar:'إلغاء أوردر',en:'Order Cancellation',grp:'',pre:'CXL',d:'',ic:'back'},
   OPN:{ar:'رصيد افتتاحي',en:'Opening Balance',grp:'',pre:'OPN',d:'',ic:'in'}
 };
 const OPS_LIST=['RCV','RTN','SCN','SHP','CLN','FSD','FRC','CNT','LOS'];

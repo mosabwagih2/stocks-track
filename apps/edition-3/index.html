@@ -329,6 +329,7 @@ const OT={
   FRC:{ar:'استلام من المصنع',en:'Factory Receipt',grp:'داخلي',pre:'FRC',d:'المغسول اللي رجع، وفيه المرفوض',ic:'in'},
   CNT:{ar:'جرد',en:'Inventory Adjustment',grp:'رقابة',pre:'CNT',d:'عدّ فعلي ومقارنة بالسيستم',ic:'count'},
   LOS:{ar:'معالجة المفقود',en:'Loss Resolution',grp:'رقابة',pre:'LOS',d:'لقيناه ولا نشطبه',ic:'search'},
+  CXL:{ar:'إلغاء أوردر',en:'Order Cancellation',grp:'',pre:'CXL',d:'',ic:'back'},
   OPN:{ar:'رصيد افتتاحي',en:'Opening Balance',grp:'',pre:'OPN',d:'',ic:'in'}
 };
 const OPS_LIST=['RCV','RTN','SCN','SHP','CLN','FSD','FRC','CNT','LOS'];
@@ -766,13 +767,17 @@ function flowSheet(w){
 
 /* ---------- FILES page ---------- */
 function vFiles(){
-  const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات']];
+  const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات']];
   let h=top('الملفات','كل اللي اترفع أو اتسجّل: ملفات البيك أب والسكان وصور الورق الموقّع. من هنا تعدّلها أو تحذفها أو تلاقي مكانها.','');
   h+='<div class="msg" style="margin-bottom:14px"><b>فين بتتحفظ ملفاتي؟</b><br>ملف Excel أو CSV نفسه مش بيتخزّن. السيستم بيقراه وبيحفظ البيانات اللي طلعت منه (الأوردرات والكميات) واسم الملف كمرجع. صور الورق الموقّع بتتحفظ في المتصفح ده بس. تقدر تعدّل كل حاجة من الجداول اللي تحت.</div>';
   h+='<div class="tabs" role="tablist">'+T.map(t=>'<button role="tab" aria-selected="'+(UI.fl===t[0])+'" data-a="fltab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
   if(UI.fl==='sc'){
     const ds=S.docs.filter(d=>d.type==='SCN').slice().reverse();
     return h+(ds.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>الموظف</th><th>الملف</th><th>التاريخ</th><th class="num">أوردرات</th><th class="num">قطع</th><th>الحالة</th><th></th></tr></thead><tbody>'+ds.map(d=>{const pc=d.hdr.refs.reduce((a,r)=>a+((orderByRef(r)||{lines:[]}).lines.length),0);return '<tr><td class="mono">'+(d.no||'—')+'</td><td>'+esc(d.hdr.emp)+'</td><td class="muted">'+esc(d.hdr.src||'')+'</td><td class="mono">'+d.date+'</td><td class="num">'+N(d.hdr.refs.length)+'</td><td class="num">'+N(pc)+'</td><td>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</td><td><button class="btn sm" data-a="scedit" data-id="'+d.id+'">'+(d.status==='done'?'تعديل':'فتح')+'</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش ملفات سكان. ارفع ملف من صفحة الأوردرات.</div></div>');
+  }
+  if(UI.fl==='cx'){
+    const os=S.orders.filter(o=>o.st==='cx'&&o.cx).sort((a,b)=>b.cx.at-a.cx.at);
+    return h+'<div class="row" style="margin-bottom:12px"><button class="btn danger" data-a="cxopen">+ إلغاء أوردر</button></div>'+(os.length?'<div class="grid g3">'+os.map(o=>{const u=PH[cxKey(o.ref)];return '<div class="card flat" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px">'+(u?'<img src="'+u+'" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;border:1px solid var(--line)">':'<span class="empty" style="aspect-ratio:4/3;display:grid;place-items:center;border:1px dashed var(--line2);border-radius:10px">الصورة مش محفوظة</span>')+'<span class="row sp"><b class="mono">'+esc(o.ref)+'</b>'+pill('lost','ملغي')+'</span><span class="muted" style="font-size:12px">شحن '+esc(o.wb)+' · '+o.lines.length+' قطعة · '+esc(o.cx.date)+' · '+esc(o.cx.by)+(o.cx.reason?'<br>'+esc(o.cx.reason):'')+(o.cx.returned?'<br>رجعت للمخزون ('+esc(o.cx.doc)+')':'')+'</span><div class="row"><button class="btn sm" data-a="order" data-ref="'+esc(o.ref)+'">تفاصيل</button><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّع الأوردر</button></div></div>'}).join('')+'</div>':'<div class="card"><div class="empty">مفيش أوردرات ملغية.</div></div>');
   }
   if(UI.fl==='ph'){
     const ds=S.docs.filter(d=>d.type==='RCV'||d.type==='SHP').slice().reverse();
@@ -930,6 +935,50 @@ function catEditSheet(s){
 }
 
 
+/* ---------- order cancellation (waybill photo) ---------- */
+const cxKey=ref=>'cx_'+ref;
+function cxFind(code){
+  const c=String(code||'').trim().replace(/[#\s]/g,'').toLowerCase();if(!c)return null;
+  return S.orders.find(o=>String(o.ref).toLowerCase()===c||String(o.wb).replace(/\s/g,'')===c)||null;
+}
+function cxInit(code){return {kind:'cancel',code:code||'',reason:'',photo:null,pname:'',ret:true,err:''}}
+function cxPreviewHTML(s){
+  if(!String(s.code).trim())return '<div class="muted">اكتب كود الأوردر (زي mk3450) أو رقم الشحن (زي 23772996) من البوليصة.</div>';
+  const o=cxFind(s.code);if(!o)return '<div class="msg crit">مفيش أوردر بالكود ده. اتأكد من الكود المكتوب على البوليصة.</div>';
+  const pk=S.pickups.find(p=>p.id===o.pk)||{};
+  let h='<div class="card flat" style="background:var(--lav)"><div class="row sp"><b class="mono">'+esc(o.ref)+'</b>'+ordPill(o)+'</div><div class="muted" style="font-size:13px;margin-top:4px">شحن '+esc(o.wb)+' · '+esc(o.gov||'')+' · '+o.lines.length+' قطعة · '+esc(pk.label||'')+'</div></div>';
+  if(o.st==='cx')h+='<div class="msg warn">الأوردر ده اتلغى قبل كده'+(o.cx?' ('+esc(o.cx.date)+')':'')+'.</div>';
+  else if(o.st==='done')h+='<div class="msg warn">الأوردر ده <b>اتشحن بالفعل</b> واتخصم من المخزون.<label class="row" style="margin-top:8px;gap:8px"><input type="checkbox" data-c="cxret" '+(s.ret?'checked':'')+'> رجّع القطع ('+o.lines.length+') للمخزون جاهز</label></div>';
+  return h;
+}
+function cxSheet(s){
+  const o=cxFind(s.code),can=o&&o.st!=='cx'&&s.photo;
+  let body='<div class="msg">استخدمها لما يتطلب منك تلغي أوردر. سجّل كود البوليصة وصوّرها وهي متشطوبة، والأوردر هيتشال من الأوردرات ومن الطلب.</div>';
+  body+='<label class="f">كود الأوردر أو رقم الشحن<input id="cxcode" value="'+esc(s.code)+'" data-c="cxcode" placeholder="mk3450 أو 23772996" style="direction:ltr;text-align:start;font-family:var(--f-mono)" autocomplete="off"></label>';
+  body+='<div id="cxprev">'+cxPreviewHTML(s)+'</div>';
+  body+='<div><label class="f">صورة البوليصة (المشطوبة)<input type="file" accept="image/*" data-c="cxphoto"></label>'+(s.photo?'<img src="'+s.photo+'" alt="صورة البوليصة" style="margin-top:8px;max-width:100%;max-height:240px;border-radius:10px;border:1px solid var(--line)">':'')+'</div>';
+  body+='<label class="f">السبب (اختياري)<input id="cxreason" value="'+esc(s.reason)+'" data-c="cxreason" placeholder="مثلًا: العميل لغى من فيندور"></label>';
+  if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
+  body+='<button class="btn danger" id="cxgo" data-a="cxgo" '+(can?'':'disabled')+'>تأكيد إلغاء الأوردر</button><p class="muted" style="font-size:12px">مطلوب كود صحيح وصورة. الأوردر الملغي بيتحفظ في "الملفات ← الإلغاءات" وتقدر ترجّعه.</p>';
+  return {title:'إلغاء أوردر',body};
+}
+function cxApply(s){
+  const o=cxFind(s.code);if(!o||o.st==='cx'||!s.photo)return false;
+  const was=o.st,cx={at:Date.now(),date:S.date,by:S.actor,reason:String(s.reason||'').trim(),was,returned:false,doc:null};
+  if(was==='done'&&s.ret){
+    const n=(S.seq.CXL=(S.seq.CXL||0)+1),no='CXL-'+String(n).padStart(4,'0'),a={};
+    o.lines.forEach(k=>a[k]=(a[k]||0)+1);
+    post(Object.keys(a).sort(skuSort).map(k=>({sku:k,q:a[k],from:'EXT_CH',to:'READY',note:'إلغاء أوردر '+o.ref})),{type:'CXL',date:S.date,no,id:no});
+    consumption(o).forEach(c=>supPush(c[0],-c[1],'rev','إلغاء أوردر '+o.ref,no,S.date,{ofKind:'auto'}));
+    cx.returned=true;cx.doc=no;
+  }
+  o.st='cx';o.cx=cx;PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);dirty();return true;
+}
+function cxRestore(o){
+  const c=o.cx||{};o.st=(c.was==='done'&&!c.returned)?'done':'open';delete o.cx;dirty();
+}
+
+
 /* ---------- shared view helpers ---------- */
 const pill=(k,t,tip)=>'<span class="pill '+k+'"'+(tip?' data-tip="'+esc(tip)+'"':'')+'>'+t+'</span>';
 const hbar=(label,v,max,right,cls,tip)=>'<div class="hb"'+(tip?' data-tip="'+esc(tip)+'"':'')+'><span class="nm">'+label+'</span><div class="tr"><i class="'+(cls||'')+'" style="width:'+(max?Math.max(2,v/max*100).toFixed(1):0)+'%"></i></div><span class="v">'+right+'</span></div>';
@@ -990,7 +1039,7 @@ function stateBar(){
 /* ---------- ORDERS ---------- */
 function ordPill(o){
   const C=ctx();
-  if(o.st==='cx')return pill('','ملغي');
+  if(o.st==='cx')return pill('lost','ملغي',o.cx?('اتلغى '+o.cx.date+' بواسطة '+o.cx.by+(o.cx.reason?'\n'+o.cx.reason:'')):'');
   if(o.st==='done')return pill('good','اتشحن · '+esc(o.sc.by),'سجّله '+o.sc.by+' الساعة '+timeOf(o.sc.at)+(o.sc.doc?' · '+o.sc.doc:''));
   if(o.bad&&o.bad.length)return pill('warn','كود غير مربوط');
   const b=C.blocked[o.ref];
@@ -1001,6 +1050,7 @@ function ordFilter(){
   const C=ctx(),f=UI.o.f,q=UI.o.q.trim().toLowerCase();
   return S.orders.filter(o=>{
     if(UI.o.pk&&o.pk!==UI.o.pk)return false;
+    if(f==='cx'){if(o.st!=='cx')return false}else if(o.st==='cx')return false;
     if(f==='wait'&&!(o.st==='open'&&!C.blocked[o.ref]))return false;
     if(f==='blocked'&&!(o.st==='open'&&C.blocked[o.ref]))return false;
     if(f==='done'&&o.st!=='done')return false;
@@ -1013,16 +1063,16 @@ function ordRows(list){
   return list.slice(0,UI.o.n).map(o=>'<tr data-a="order" data-ref="'+esc(o.ref)+'"><td data-nodrill><input type="checkbox" data-c="sel" data-ref="'+esc(o.ref)+'" '+(UI.sel[o.ref]?'checked':'')+(o.st!=='open'?' disabled':'')+' aria-label="تحديد"></td><td class="mono">'+esc(o.ref)+'</td><td class="mono muted">'+esc(o.wb)+'</td><td>'+(o.type==='استبدال'?pill('lost','استبدال'):'جديد')+'</td><td>'+esc(o.gov||'')+'</td><td class="num">'+N(o.lines.length)+'</td><td>'+ordPill(o)+'</td></tr>').join('');
 }
 function vOrders(){
-  const C=ctx(),all=S.orders.filter(o=>o.st!=='cx'),cnt={all:all.length,wait:all.filter(o=>o.st==='open'&&!C.blocked[o.ref]).length,blocked:all.filter(o=>o.st==='open'&&C.blocked[o.ref]).length,done:all.filter(o=>o.st==='done').length};
+  const C=ctx(),all=S.orders.filter(o=>o.st!=='cx'),cxN=S.orders.length-all.length,cnt={all:all.length,wait:all.filter(o=>o.st==='open'&&!C.blocked[o.ref]).length,blocked:all.filter(o=>o.st==='open'&&C.blocked[o.ref]).length,done:all.filter(o=>o.st==='done').length};
   const bad=all.filter(o=>o.bad&&o.bad.length).length;
-  const tools='<button class="btn ghost" data-a="go" data-t="files">الملفات</button><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
+  const tools='<button class="btn ghost" data-a="go" data-t="files">الملفات</button><button class="btn danger" data-a="cxopen">إلغاء أوردر</button><button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
   let h=top('الأوردرات','البيك أب = المطلوب. الشحن (بالسكان) = اللي خرج فعلًا. الفرق بينهم هو الأوردرات الواقفة.',tools);
   h+='<div class="tabs" role="tablist"><button role="tab" aria-selected="'+(UI.o.tab==='list')+'" data-a="otab" data-v="list">الأوردرات</button><button role="tab" aria-selected="'+(UI.o.tab==='pick')+'" data-a="otab" data-v="pick">قائمة التجهيز</button></div>';
   if(UI.o.tab==='pick')return h+vPick();
   h+='<div class="grid g3" style="margin-bottom:14px">'+S.pickups.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
     return '<button class="card flat" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid '+(UI.o.pk===p.id?'var(--accent)':'var(--line)')+';border-radius:14px;padding:14px;display:grid;gap:8px" data-a="gopk" data-id="'+p.id+'"><span class="row sp"><b>'+esc(p.label)+'</b><span class="muted" style="font-size:12px">'+esc(p.date)+'</span></span><span class="muted" style="font-size:12px">'+esc(chanName(p.channel))+'</span><span class="flow" style="height:8px"><i class="a" style="width:'+(po.length?pd/po.length*100:0)+'%"></i></span><span class="row sp"><span class="n">'+pd+' / '+po.length+' اتشحن</span><span class="muted">'+fmt(po.reduce((x,o)=>x+o.lines.length,0))+' قطعة</span></span></button>'}).join('')+'</div>';
   const F=[['all','الكل'],['wait','مستني الشحن'],['blocked','هيقف'],['done','اتشحن']];
-  h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.o.f===f[0])+'" data-a="of" data-v="'+f[0]+'">'+f[1]+' <span class="n">'+cnt[f[0]]+'</span></button>').join('')+(bad?'<button class="chip" aria-pressed="'+(UI.o.f==='bad')+'" data-a="of" data-v="bad">كود غير مربوط <span class="n">'+bad+'</span></button>':'')+'</div><input type="search" id="oq" placeholder="ابحث بكود الأوردر أو البوليصة أو المحافظة" value="'+esc(UI.o.q)+'" data-c="oq" style="flex:1;min-width:200px;max-width:380px">'+(UI.o.pk?'<button class="btn sm ghost" data-a="gopk" data-id="">شيل فلتر البيك أب</button>':'')+'</div>';
+  h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.o.f===f[0])+'" data-a="of" data-v="'+f[0]+'">'+f[1]+' <span class="n">'+cnt[f[0]]+'</span></button>').join('')+(cxN?'<button class="chip" aria-pressed="'+(UI.o.f==='cx')+'" data-a="of" data-v="cx">ملغي <span class="n">'+cxN+'</span></button>':'')+(bad?'<button class="chip" aria-pressed="'+(UI.o.f==='bad')+'" data-a="of" data-v="bad">كود غير مربوط <span class="n">'+bad+'</span></button>':'')+'</div><input type="search" id="oq" placeholder="ابحث بكود الأوردر أو البوليصة أو المحافظة" value="'+esc(UI.o.q)+'" data-c="oq" style="flex:1;min-width:200px;max-width:380px">'+(UI.o.pk?'<button class="btn sm ghost" data-a="gopk" data-id="">شيل فلتر البيك أب</button>':'')+'</div>';
   const list=ordFilter(),selN=Object.keys(UI.sel).filter(k=>UI.sel[k]).length;
   if(selN)h+='<div class="msg row sp" style="margin-bottom:12px"><span>اخترت <b>'+selN+'</b> أوردر</span><span class="row"><button class="btn sm" data-a="selclear">إلغاء الاختيار</button><button class="btn sm pri" data-a="manual">سجّلهم كأوردرات اتشحنت</button></span></div>';
   h+='<div class="tw"><table><thead><tr><th style="width:36px"></th><th>كود الأوردر</th><th>البوليصة</th><th>النوع</th><th>المحافظة</th><th class="num">قطع</th><th>الحالة</th></tr></thead><tbody id="ordrows">'+(list.length?ordRows(list):'<tr><td colspan="7" class="empty">مفيش أوردرات بالفلتر ده.</td></tr>')+'</tbody></table></div>';
@@ -1078,10 +1128,13 @@ function sheetHTML(){
     body+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">في الأوردر</th><th class="num">جاهز دلوقتي</th></tr></thead><tbody>'+Object.keys(cnt).sort(skuSort).map(x=>{const R=g(x,'READY');return '<tr><td>'+thumb(SKU.get(x).m,26)+' '+sw(SKU.get(x).c)+' '+esc(skuName(x))+'</td><td class="num">'+N(cnt[x])+'</td><td class="num">'+(R<cnt[x]&&o.st==='open'?pill('crit',R):N(R))+'</td></tr>'}).join('')+'</tbody></table></div>';
     if(o.bad&&o.bad.length)body+='<div class="msg warn">أصناف مش مربوطة: '+o.bad.map(b=>esc(b[0]+' '+b[2]+' '+b[1])).join('، ')+'</div>';
     if(o.st==='done')body+='<div class="msg good">اتشحن بواسطة '+esc(o.sc.by)+' يوم '+esc(o.sc.date)+' الساعة '+timeOf(o.sc.at)+' · '+esc(o.sc.doc)+'</div>';
-    if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (ملغي من القناة)</button></div>';
-    if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
+    if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (بصورة البوليصة)</button></div>';
+    if(o.st==='done')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">طلب إلغاء بعد الشحن</button></div>';
+    if(o.st==='cx'){const c=o.cx||{};body+='<div class="msg warn">اتلغى '+esc(c.date||'')+(c.by?' بواسطة '+esc(c.by):'')+(c.reason?' · '+esc(c.reason):'')+(c.returned?'<br>القطع رجعت للمخزون ('+esc(c.doc)+')':(c.was==='done'?'<br>كان اتشحن، والقطع ما رجعتش للمخزون.':''))+'</div>'+(PH[cxKey(o.ref)]?'<img src="'+PH[cxKey(o.ref)]+'" alt="صورة البوليصة" style="width:100%;border-radius:10px;border:1px solid var(--line)">':'')+'<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّع الأوردر</button></div>'}
   }else if(s.kind==='sup'||s.kind==='supnew'){
     const r=supSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='cancel'){
+    const r=cxSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='catedit'){
     const r=catEditSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='modelrm'){
@@ -1277,7 +1330,7 @@ function vLedger(){
   h+='<div class="tabs" role="tablist"><button role="tab" aria-selected="'+(L.tab==='moves')+'" data-a="ltab" data-v="moves">الحركات</button><button role="tab" aria-selected="'+(L.tab==='audit')+'" data-a="ltab" data-v="audit">مين عمل إيه</button></div>';
   if(L.tab==='audit'){
     const ev=[];S.docs.forEach(d=>d.log.forEach(l=>ev.push({t:l.t,by:l.by,m:OT[d.type].ar+' '+(d.no||'مسودة')+': '+l.m})));
-    S.orders.forEach(o=>{if(o.sc)ev.push({t:o.sc.at,by:o.sc.by,m:'سكان أوردر '+o.ref})});
+    S.orders.forEach(o=>{if(o.sc)ev.push({t:o.sc.at,by:o.sc.by,m:'شحن أوردر '+o.ref});if(o.cx)ev.push({t:o.cx.at,by:o.cx.by,m:'إلغاء أوردر '+o.ref+(o.cx.reason?': '+o.cx.reason:'')})});
     ev.sort((a,b)=>b.t-a.t);
     return h+(ev.length?'<div class="tw"><table class="t-sm"><thead><tr><th>الوقت</th><th>الموظف</th><th>الإجراء</th></tr></thead><tbody>'+ev.slice(0,150).map(e=>'<tr><td class="mono muted">'+new Date(e.t).toLocaleString('en-GB',{timeZone:'Africa/Cairo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</td><td>'+esc(e.by)+'</td><td>'+esc(e.m)+'</td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش إجراءات.</div></div>');
   }
@@ -1545,8 +1598,10 @@ const ACT={
       res:{scans:refs.length,matched:refs.map(r=>({ref:r,t:''})),dups:[],already:[],unk:[],bad:refs.filter(r=>(orderByRef(r).bad||[]).length)}};
     render();
   },
-  cxorder:el=>{const o=orderByRef(el.dataset.ref);if(o){o.st='cx';dirty();UI.sheet=null;toast('اتلغى الأوردر. مش هيتحسب كطلب.');render()}},
-  uncx:el=>{const o=orderByRef(el.dataset.ref);if(o){o.st='open';dirty();UI.sheet=null;render()}},
+  cxorder:el=>{UI.sheet=cxInit(el.dataset.ref);render()},
+  cxopen:()=>{UI.sheet=cxInit('');render();setTimeout(()=>{const i=$('#cxcode');if(i)i.focus()},60)},
+  cxgo:()=>{const s=UI.sheet,o=cxFind(s.code),n=o?o.lines.length:0,ref=o?o.ref:'';if(cxApply(s)){UI.sheet=null;toast('اتلغى الأوردر '+ref+' ونزل من الأوردرات');render()}else{s.err='مقدرتش ألغي. اتأكد من الكود والصورة';render()}},
+  uncx:el=>{const o=orderByRef(el.dataset.ref);if(o){cxRestore(o);UI.sheet=null;toast('اترجّع الأوردر '+o.ref);render()}},
   smodel:el=>{UI.s.m=el.dataset.m;render()},
   sstate:el=>{UI.s.state=el.dataset.v;render()},
   sview:el=>{UI.s.view=el.dataset.v;render()},
@@ -1695,6 +1750,9 @@ const ACT={
   reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);ensureCat(S);rebuildCatalog();phClear();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
 };
 const CHG={
+  cxphoto:el=>{const s=UI.sheet,f=el.files&&el.files[0];if(!s||!f)return;phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})},
+  cxreason:el=>{UI.sheet.reason=el.value},
+  cxret:el=>{UI.sheet.ret=el.checked},
   wd:el=>{if(!el.value)return;UI.vd=el.value>=S.date?null:el.value;render()},
   sel:el=>{UI.sel[el.dataset.ref]=el.checked;render()},
   upch:el=>{const s=UI.sheet;s.channel=el.value;if(s.rows){try{s.res=importRows(s.rows,s.channel,'__new__');s.err=''}catch(e){s.err=String(e.message||e)}}render()},
@@ -1728,6 +1786,7 @@ const CHG={
   ltype:el=>{UI.led.type=el.value;render()}
 };
 const INP={
+  cxcode:el=>{const s=UI.sheet;s.code=el.value;const p=$('#cxprev');if(p)p.innerHTML=cxPreviewHTML(s);const o=cxFind(s.code),b=$('#cxgo');if(b)b.disabled=!(o&&o.st!=='cx'&&s.photo)},
   catf:el=>{const s=UI.sheet;if(!s)return;s[el.dataset.f]=el.value;if(el.dataset.f==='name')catSumUpdate(s)},
   supq:el=>{const s=UI.sheet;s.qty=el.value;const p=$('#supprev');if(p)p.innerHTML=supPreviewHTML(s);const b=$('#supgo');if(b)b.disabled=!supMove(s).ok},
   supnote:el=>{UI.sheet.note=el.value},
