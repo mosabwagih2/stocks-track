@@ -1089,7 +1089,7 @@ function vConfig(){
 
 
 /* ---------- shell & render ---------- */
-const NAV=[['today','النهارده'],['orders','الأوردرات'],['stock','المخزون'],['ops','العمليات'],['supplies','المستلزمات'],['insights','التحليلات'],['ledger','السجل'],['config','الإعدادات']];
+const NAV=[['today','النهارده'],['stock','المخزون'],['supplies','المستلزمات'],['ops','العمليات'],['insights','التحليلات'],['orders','الأوردرات'],['ledger','السجل'],['config','الإعدادات']];
 const VIEWS={today:vToday,orders:vOrders,stock:vStock,ops:vOps,supplies:vSupplies,insights:vInsights,ledger:vLedger,config:vConfig};
 let theme='system';
 function applyTheme(){const r=document.documentElement;if(theme==='system')r.removeAttribute('data-theme');else r.setAttribute('data-theme',theme)}
