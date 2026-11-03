@@ -232,25 +232,45 @@ rep("""<button aria-pressed="'+(s.view==='list')+'" data-a="sview" data-v="list"
 rep("  more:()=>{UI.sheet={kind:'more'};render()},","  more:()=>{UI.sheet={kind:'more'};render()},\n  hmode:el=>{UI.s.hm=el.dataset.v;render()},\n  hcell:el=>{UI.sheet={kind:'hcell',m:el.dataset.m,z:el.dataset.z};render()},")
 rep("  }else if(s.kind==='more'){","  }else if(s.kind==='hcell'){\n    const r=heatSheet(s.m,s.z);title=r.title;body=r.body;\n  }else if(s.kind==='more'){")
 csh=r"""<style>
-.heat{width:100%;border-collapse:separate;border-spacing:3px}
-.heat th{font-size:12px;color:var(--muted);font-weight:600;text-align:center;padding:4px 0}
-.heat td{padding:0;text-align:center}
-.heat tr.hg td{text-align:start;padding:10px 6px 2px;font-size:12px;color:var(--muted);letter-spacing:.04em}
-.heat td.hm{text-align:start;white-space:nowrap;padding-inline-end:8px;width:1%}
-.heat td.ht{white-space:nowrap;padding-inline-start:6px}.heat td.ht small.bad{display:block;color:var(--crit);font-size:10.5px}
-.heat tr.hf td{border-top:1px solid var(--line);padding-top:6px}
-.hc{all:unset;box-sizing:border-box;cursor:pointer;display:grid;place-content:center;gap:0;width:100%;min-width:52px;height:50px;border-radius:10px;border:1px solid transparent;background:color-mix(in srgb,var(--hcc) calc(var(--t)*100%),var(--surface));font-family:var(--f-mono);position:relative}
-.hc.out{--hcc:var(--c-scrap)}.hc.low{--hcc:var(--c-dirty)}.hc.ok{--hcc:var(--c-ready)}.hc.excess{--hcc:var(--c-factory)}.hc.none{--hcc:var(--line2)}
-.hc b{font-size:15px;font-weight:600;line-height:1.1}
-.hc small{font:500 10px var(--f-ar);opacity:.75;line-height:1.1}
-.hc.none{background:transparent;color:var(--line2)}.hc.out{color:#4a0d14}.hc.low{color:#4a2e05}
-:root.dark .hc.out,:root[data-theme=dark] .hc.out{color:#fff}
-.hc:hover{border-color:var(--ink)}.hc:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-@media (max-width:820px){.hc{min-width:0;height:44px}.hc b{font-size:12px;letter-spacing:-.03em}.hc small{display:none}.heat td.hm .th{display:none}.heat{border-spacing:2px}.heat th:last-child,.heat td.ht:last-child{display:none}.heat .bad .w{display:none}.heat .bad{font-size:10px}.heat{table-layout:fixed}.heat th:first-child,.heat td.hm{width:62px}.heat td.hm b{overflow:hidden;text-overflow:ellipsis}.heat td.hm{padding-inline-end:4px;font-size:12px}.tw:has(>table.heat){padding:4px}}
+.hms{width:100%}
+.hms td.hmc{position:relative;cursor:pointer;text-align:center;border-radius:6px;min-width:46px;padding:7px 4px;font:500 12px var(--f-mono)}
+.hms td.hmc:hover{outline:2px solid var(--ink);outline-offset:-2px}.hms td.hmc:focus-visible{outline:2px solid var(--accent)}
+.hms td.hmc.crit::after,.hms td.hmc.warn::after,.hms td.hmc.info::after{content:"";position:absolute;top:3px;inset-inline-end:3px;width:8px;height:8px;border-radius:9px;border:1.5px solid var(--surface)}
+.hms td.hmc.crit::after,.dot.hd.crit{background:var(--crit)}.hms td.hmc.warn::after,.dot.hd.warn{background:var(--warn)}.hms td.hmc.info::after,.dot.hd.info{background:var(--info)}
+.hms tr.hf td{padding-top:8px;text-align:center}
+.dot.hd{display:inline-block;width:9px;height:9px;border-radius:9px;margin-inline-end:5px}
+@media (max-width:820px){.hms{table-layout:fixed}.hms td.hmc{min-width:0;padding:7px 1px;font-size:11px}.hms th:first-child{width:58px}.hms th:last-child,.hms td:last-child{display:none}.tw:has(>table.hms){padding:4px;overflow-x:hidden!important}}
+/* expanded matrix in the stock list fills the row */
+.stkl tr.mopen .tw{padding:8px}.stkl tr.mopen .mx{width:100%;table-layout:fixed}.stkl tr.mopen .mx th:first-child,.stkl tr.mopen .mx td.cl{width:120px}.stkl tr.mopen .mx .cell{width:100%;min-width:0}
 </style>
 """
 i=s.index('<div id="app"></div>')
 s=s[:i]+csh+s[i:]
+
+
+# ================= DEMO DATA + TOUR =================
+rep('<button aria-pressed="\'+(s.view===\'list\')+\'" data-a="sview" data-v="list">قائمة</button><button aria-pressed="\'+(s.view===\'heat\')+\'" data-a="sview" data-v="heat">خريطة</button><button aria-pressed="\'+(s.view===\'all\')+\'" data-a="sview" data-v="all">مصفوفات</button>','<button aria-pressed="\'+(s.view===\'all\')+\'" data-a="sview" data-v="all">مصفوفات</button><button aria-pressed="\'+(s.view===\'heat\')+\'" data-a="sview" data-v="heat">خريطة</button><button aria-pressed="\'+(s.view===\'list\')+\'" data-a="sview" data-v="list">قائمة</button>')
+ins_before("function vStock(){",(H/'redesign_demo.js').read_text(encoding='utf-8')+"\n")
+rep("{id:'AMAZON',name:'Amazon · أمازون',ok:false}]","{id:'AMAZON',name:'Amazon · أمازون',ok:false},{id:'SHOPIFY',name:'Shopify · المتجر',ok:false},{id:'FACEBOOK',name:'Facebook · فيسبوك',ok:false}]")
+rep("['sys','المستخدمين والبيانات',['المستخدمين','البيانات']]]","['sys','المستخدمين والبيانات',['المستخدمين','البيانات']],['demo','داتا تجريبية وجولة',[]]]")
+rep("""+'</div><div class="stack" style="max-width:980px">'+tab[2].map(""","""+'</div><div class="stack" style="max-width:980px">'+(tab[0]==='demo'?vDemo():'')+tab[2].map(""")
+rep("  more:()=>{UI.sheet={kind:'more'};render()},","  more:()=>{UI.sheet={kind:'more'};render()},\n  demoask:()=>{UI.demoAsk=!UI.demoAsk;render()},\n  demoload:()=>demoLoad(),\n  demoreset:()=>{ACT.reset2();UI.tab='today';render()},\n  demotour:()=>{UI.cfgTab='demo';go('config')},\n  tourgo:el=>{const x=demoTour()[+el.dataset.i];if(x)go(x.go,x.pre)},")
+rep("  h+='<div class=\"stack\">';\n","  h+='<div class=\"stack\">'+demoBanner();\n") if False else None
+
+
+csd=r"""<style>
+.dm-pr{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.dm-pr>div{background:var(--lav);border-radius:12px;padding:12px 14px;display:grid;gap:4px}.dm-pr b{font-size:14px}.dm-pr span{font-size:12.5px;color:var(--muted);line-height:1.7}
+.dm-list{display:grid;gap:10px}.dm-it{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:start;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--surface)}
+.dm-n{width:30px;height:30px;border-radius:30px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font:600 13px var(--f-mono)}
+.dm-b h3{font-size:15px;margin:0 0 6px}.dm-b p{margin:0 0 6px;font-size:13px;line-height:1.8;color:var(--ink)}
+.dm-k{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:9px;background:var(--crit-bg);color:var(--crit);margin-inline-end:8px}.dm-k.ok{background:var(--good-bg);color:var(--good)}
+.dm-pf{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.dm-p{font-size:12px;background:var(--lav);border-radius:9px;padding:3px 10px;color:var(--muted)}.dm-p b{color:var(--ink);font-family:var(--f-mono);margin-inline-end:3px}
+.dm-bn{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+@media (max-width:820px){.dm-it{grid-template-columns:1fr}.dm-n{display:none}}
+</style>
+"""
+i=s.index('<div id="app"></div>')
+s=s[:i]+csd+s[i:]
 
 (T/'base_v2.html').write_text(s,encoding='utf-8')
 print('5 ok')
