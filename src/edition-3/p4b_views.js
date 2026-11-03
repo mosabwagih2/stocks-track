@@ -1,19 +1,7 @@
 
 /* ---------- STOCK ---------- */
-function vStock(){
-  const s=UI.s,m=MODEL.get(s.m)||MODEL.get(MORDER[0]);
-  const tools='<div class="seg"><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">حسب الموديل</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
-  let h=top('المخزون','كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.',tools);
-  h+='<div class="chips" style="margin-bottom:14px">'+INTERNAL.map(l=>'<button class="chip" aria-pressed="'+(s.state===l)+'" data-a="sstate" data-v="'+l+'"><i class="dot" style="background:'+LCOL[l]+'"></i>'+LOC[l]+' <span class="n">'+fmt(locSum(l))+'</span></button>').join('')+'</div>';
-  if(s.view==='table'){
-    h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+[['all','الكل'],['low','قرب يخلص'],['neg','بالسالب'],['dem','عليه طلب مفتوح']].map(f=>'<button class="chip" aria-pressed="'+((s.flt||'all')===f[0])+'" data-a="sflt" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><input type="search" id="sq" placeholder="ابحث: BR2 احمر L" value="'+esc(s.q)+'" data-c="sq" style="flex:1;min-width:200px;max-width:340px"></div><div id="stres">'+stockTable()+'</div>';
-    return h;
-  }
-  const groups={};MORDER.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
-  h+='<div class="wh"><nav class="card flat mlist" aria-label="الموديلات">'+LINE_ORDER.filter(l=>groups[l]).map(l=>'<div class="mgrp">'+l+'</div>'+groups[l].map(c=>{const r=mSum(c,'READY'),low=D.skus.some(k=>k.m===c&&info(k.id).cls==='c');
-    return '<button class="mi" aria-current="'+(c===s.m)+'" data-a="smodel" data-m="'+c+'"><b>'+c+'</b><small>'+esc(MODEL.get(c).name)+'</small><span class="n">'+(low?'<i class="dot" style="background:var(--c-scrap)"></i> ':'')+fmt(s.state==='READY'?r:mSum(c,s.state))+'</span></button>'}).join('')).join('')+'</nav>';
-  h+='<section class="card"><div class="row sp" style="margin-bottom:12px"><div><h2 style="margin:0">'+esc(mName(m.code))+'</h2><span class="muted">'+LOC[s.state]+': <b class="n">'+fmt(mSum(m.code,s.state))+'</b> قطعة · طلب مفتوح <span class="n">'+fmt(D.skus.reduce((a,k)=>a+(k.m===m.code?(ctx().demand[k.id]||0):0),0))+'</span></span></div>'+pill('',ctx().abc[m.code]?'فئة '+ctx().abc[m.code]+' (حسب السحب)':'مفيش سحب')+'</div>';
-  h+='<div class="tw" style="padding:8px"><table class="mx"><thead><tr><th></th>'+m.sizes.map(z=>'<th>'+z+'</th>').join('')+'<th>إجمالي</th></tr></thead><tbody>';
+function matrixHTML(m){
+  const s=UI.s;let h='<div class="tw" style="padding:8px"><table class="mx"><thead><tr><th></th>'+m.sizes.map(z=>'<th>'+z+'</th>').join('')+'<th>إجمالي</th></tr></thead><tbody>';
   m.colors.forEach(c=>{
     h+='<tr><td class="cl">'+sw(c)+' '+esc(c)+'</td>';let rs=0;
     m.sizes.forEach(z=>{const id=IDX[m.code+'|'+c+'|'+z];if(!id){h+='<td></td>';return}
@@ -22,7 +10,32 @@ function vStock(){
       h+='<td><button class="cell '+(v===0&&!cls?'z':cls)+'" data-a="sku" data-sku="'+id+'" data-tip="'+esc(tip||'مفيش رصيد')+'" aria-label="'+esc(skuName(id))+': '+v+'">'+v+(s.state==='READY'&&i.dm?'<small>طلب '+i.dm+'</small>':'')+(s.state==='READY'&&g(id,'DIRTY')>0?'<i class="dy"></i>':'')+'</button></td>';});
     h+='<td class="num"><b class="n">'+fmt(rs)+'</b></td></tr>';
   });
-  h+='</tbody></table></div><div class="legend" style="margin-top:10px"><span><i class="dot" style="background:var(--crit)"></i>الطلب أكبر من الجاهز</span><span><i class="dot" style="background:var(--warn)"></i>قرب يخلص</span><span><i class="dot" style="background:var(--c-dirty)"></i>فيه هالك نظافة</span></div></section></div>';
+  return h+'</tbody></table></div>';
+}
+const matrixLegend='<div class="legend" style="margin-top:10px"><span><i class="dot" style="background:var(--crit)"></i>الطلب أكبر من الجاهز</span><span><i class="dot" style="background:var(--warn)"></i>قرب يخلص</span><span><i class="dot" style="background:var(--c-dirty)"></i>فيه هالك نظافة</span></div>';
+function modelHead(m){return '<div class="row sp" style="margin-bottom:12px"><div><h2 style="margin:0">'+esc(mName(m.code))+'</h2><span class="muted">'+LOC[UI.s.state]+': <b class="n">'+fmt(mSum(m.code,UI.s.state))+'</b> قطعة · طلب مفتوح <span class="n">'+fmt(D.skus.reduce((a,k)=>a+(k.m===m.code?(ctx().demand[k.id]||0):0),0))+'</span></span></div>'+pill('',ctx().abc[m.code]?'فئة '+ctx().abc[m.code]+' (حسب السحب)':'مفيش سحب')+'</div>'}
+function vStock(){
+  const s=UI.s,m=MODEL.get(s.m)||MODEL.get(MORDER[0]);
+  const tools='<div class="seg"><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">موديل واحد</button><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">كل الموديلات</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
+  let h=top('المخزون','كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.',tools);
+  h+='<div class="chips" style="margin-bottom:14px">'+INTERNAL.map(l=>'<button class="chip" aria-pressed="'+(s.state===l)+'" data-a="sstate" data-v="'+l+'"><i class="dot" style="background:'+LCOL[l]+'"></i>'+LOC[l]+' <span class="n">'+fmt(locSum(l))+'</span></button>').join('')+'</div>';
+  if(s.view==='table'){
+    h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+[['all','الكل'],['low','قرب يخلص'],['neg','بالسالب'],['dem','عليه طلب مفتوح']].map(f=>'<button class="chip" aria-pressed="'+((s.flt||'all')===f[0])+'" data-a="sflt" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><input type="search" id="sq" placeholder="ابحث: BR2 احمر L" value="'+esc(s.q)+'" data-c="sq" style="flex:1;min-width:200px;max-width:340px"></div><div id="stres">'+stockTable()+'</div>';
+    return h;
+  }
+  const groups={};MORDER.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
+  if(s.view==='all'){
+    const L=s.line||'all',ms=MORDER.filter(c=>L==='all'||lineOf(c)===L);
+    h+='<div class="chips" style="margin-bottom:14px">'+[['all','كل الموديلات']].concat(LINE_ORDER.filter(l=>groups[l]).map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="sline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div>';
+    h+='<div class="stack">'+ms.map(c=>'<section class="card">'+modelHead(MODEL.get(c))+matrixHTML(MODEL.get(c))+'</section>').join('')+'</div>'+matrixLegend;
+    return h;
+  }
+  const showList=s.list!==false;
+  h+='<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="slist" aria-pressed="'+showList+'">'+(showList?'إخفاء قايمة الموديلات':'إظهار قايمة الموديلات')+'</button>'+(showList?'':'<select data-c="smsel" aria-label="الموديل">'+MORDER.map(c=>'<option value="'+c+'" '+(c===s.m?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+'</option>').join('')+'</select>')+'</div>';
+  h+='<div class="'+(showList?'wh':'')+'">';
+  if(showList)h+='<nav class="card flat mlist" aria-label="الموديلات">'+LINE_ORDER.filter(l=>groups[l]).map(l=>'<div class="mgrp">'+l+'</div>'+groups[l].map(c=>{const r=mSum(c,'READY'),low=D.skus.some(k=>k.m===c&&info(k.id).cls==='c');
+    return '<button class="mi" aria-current="'+(c===s.m)+'" data-a="smodel" data-m="'+c+'"><b>'+c+'</b><small>'+esc(MODEL.get(c).name)+'</small><span class="n">'+(low?'<i class="dot" style="background:var(--c-scrap)"></i> ':'')+fmt(s.state==='READY'?r:mSum(c,s.state))+'</span></button>'}).join('')).join('')+'</nav>';
+  h+='<section class="card">'+modelHead(m)+matrixHTML(m)+matrixLegend+'</section></div>';
   return h;
 }
 function stockTable(){

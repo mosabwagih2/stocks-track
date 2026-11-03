@@ -95,6 +95,8 @@ const ACT={
   smodel:el=>{UI.s.m=el.dataset.m;render()},
   sstate:el=>{UI.s.state=el.dataset.v;render()},
   sview:el=>{UI.s.view=el.dataset.v;render()},
+  sline:el=>{UI.s.line=el.dataset.v;render()},
+  slist:()=>{UI.s.list=UI.s.list===false;try{localStorage.setItem(KEY+'-list',UI.s.list)}catch(e){}render()},
   sflt:el=>{UI.s.flt=el.dataset.v;render()},
   skuop:el=>{
     const t=el.dataset.t,sku=el.dataset.sku,k=SKU.get(sku);UI.sheet=null;
@@ -162,6 +164,7 @@ const CHG={
   st:el=>{S.st[el.dataset.f]=Math.max(0,+el.value||0);dirty();toast('اتحفظ')},
   cost:el=>{const c=S.costs[el.dataset.m]||(S.costs[el.dataset.m]={});c[el.dataset.f]=+el.value||0;dirty();render()},
   actor:el=>{S.actor=el.value.trim()||'مصعب';dirty()},
+  smsel:el=>{UI.s.m=el.value;render()},
   ltype:el=>{UI.led.type=el.value;render()}
 };
 const INP={
@@ -200,6 +203,7 @@ window.addEventListener('scroll',()=>{tip.hidden=true},{passive:true});
 /* ---------- boot ---------- */
 load();
 try{theme=localStorage.getItem(KEY+'-theme')||'system'}catch(e){}
+try{if(localStorage.getItem(KEY+'-list')==='false')UI.s.list=false}catch(e){}
 applyTheme();
 const fi=document.createElement('input');fi.type='file';fi.id='upfile';fi.accept='.xlsx,.xls,.csv';fi.hidden=true;document.body.appendChild(fi);
 fi.addEventListener('change',()=>{const f=fi.files&&fi.files[0];fi.value='';if(f)handleFile(f)});
