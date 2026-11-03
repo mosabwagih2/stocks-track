@@ -16,10 +16,21 @@ const fs=require('fs'),path=require('path');
   await T();
   let hl=await p.evaluate(()=>({head:document.querySelector('.hhead').textContent,btn:(document.querySelector('.hmain .btn.pri')||{}).textContent,blk:Object.keys(__F.ctx().blocked).length}));
   ok('today: with nothing shipped and none blocked the next action is "upload the scan file"',hl.blk===0&&/مستنيين الشحن/.test(hl.head)&&/ملف السكان/.test(hl.btn||''),JSON.stringify(hl));
+  const red=()=>p.evaluate(()=>{const F=__F;F.UI.ins='dash';F.go('insights');const n=Object.keys(F.ctx().blocked).length,tab=document.querySelector('.tabs button[data-v=stuck]'),nav=document.querySelector('.rail .nav[data-t=insights] .bd');
+    return {n,tabName:tab.textContent.replace(/\d+|أوردر معطل|\s+/g,''),tabDot:tab.querySelector('.tbd')?+tab.querySelector('.tbd').textContent:null,navDot:nav?+nav.textContent:null}});
+  ok('the tab is called "المعطل" and the words "الواقف / واقف / هيقف" no longer appear on the page',await p.evaluate(()=>{const t=document.querySelector('#app').innerText;return !/الواقف|واقف|هيقف/.test(t)}));
+  const redNone=await red();
+  ok('nothing blocked: no red circle on the tab or on Analytics in the sidebar',redNone.n===0&&redNone.tabDot===null&&redNone.navDot===null,JSON.stringify(redNone));
   // make an order blocked: zero the stock of one of its SKUs
   await p.evaluate(()=>{const F=__F,S=F.S(),o=S.orders.find(x=>x.st==='open'&&!x.bad.length),sku=o.lines[0];S.moves.push({id:990001,t:Date.now(),date:S.date,sku,q:F.g(sku,'READY'),from:'READY',to:'EXT_ADJ',type:'CNT',doc:'T',by:'t',note:''});F.dirty()});
   await T();hl=await p.evaluate(()=>({head:document.querySelector('.hhead').textContent,btn:(document.querySelector('.hmain .btn.pri')||{}).textContent}));
-  ok('today: blocked orders take over the headline, with their EGP value and a "see what is blocked" button',/هيقف بالرصيد/.test(hl.head)&&/شوف الواقف/.test(hl.btn||''),JSON.stringify(hl));
+  ok('today: blocked orders take over the headline, with their EGP value and a "see what is blocked" button',/معطل بالرصيد/.test(hl.head)&&/شوف المعطل/.test(hl.btn||''),JSON.stringify(hl));
+  const redOn=await red();
+  ok('something blocked: a red circle with the exact count appears on the tab and on Analytics in the sidebar',redOn.n>0&&redOn.tabDot===redOn.n&&redOn.navDot===redOn.n&&redOn.tabName==='المعطل',JSON.stringify(redOn));
+  await p.evaluate(()=>{const F=__F,S=F.S(),i=S.moves.findIndex(m=>m.id===990001);window.__held=S.moves.splice(i,1)[0];F.dirty()});
+  const redOff=await red();
+  ok('fixed again: the red circle disappears',redOff.n===0&&redOff.tabDot===null&&redOff.navDot===null,JSON.stringify(redOff));
+  await p.evaluate(()=>{const F=__F;F.S().moves.push(window.__held);F.dirty()});
   // real scan of 20 orders, return one, cancel one (for the timeline)
   await p.evaluate(()=>{const F=__F,S=F.S(),C=F.ctx();const open=S.orders.filter(o=>o.st==='open'&&!o.bad.length&&!C.blocked[o.ref]).slice(0,20);const d=F.newDoc('SCN');d.hdr={emp:'مريم',src:'t',refs:open.map(o=>o.ref),times:{}};F.confirmDoc(d);
     const r=F.newDoc('RTN');r.hdr.codes=open[0].ref;F.ACT.rtnfill();r.hdr.counted=true;r.lines.forEach(l=>l.r=l.exp);F.confirmDoc(r);
@@ -49,7 +60,7 @@ const fs=require('fs'),path=require('path');
   // ===== ANALYTICS =====
   await p.evaluate(()=>{__F.UI.vd=null;__F.UI.ins='over';__F.UI.insP='all';__F.go('insights')});await p.waitForTimeout(150);
   const tabs=await p.locator('.tabs button').allInnerTexts();
-  ok('analytics: six tabs, one per question',JSON.stringify(tabs.map(x=>x.trim()))===JSON.stringify(['لوحة القيادة','الطلب','التصنيع','الواقف','صحة المخزون','الفريق']),JSON.stringify(tabs));
+  ok('analytics: six tabs, one per question',JSON.stringify(tabs.map(x=>x.trim()))===JSON.stringify(['لوحة القيادة','الطلب','التصنيع','المعطل','صحة المخزون','الفريق']),JSON.stringify(tabs));
   ok('analytics: an old link to "overview" lands on the dashboard',await p.evaluate(()=>__F.UI.ins==='dash'));
   await p.evaluate(()=>{__F.UI.ins='rate';__F.go('insights')});await p.waitForTimeout(100);ok('analytics: an old link to "rate" lands on manufacturing',await p.evaluate(()=>__F.UI.ins==='plan'));
   const per={};for(const t of ['dash','demand','plan','stuck','health','team']){per[t]=await p.evaluate(t=>{__F.UI.ins=t;__F.go('insights');const s=document.querySelector('.top .seg[aria-label="الفترة"]');return {seg:!!s&&!s.hidden,pill:/لقطة دلوقتي/.test(document.querySelector('.top').textContent)}},t);await p.waitForTimeout(60)}

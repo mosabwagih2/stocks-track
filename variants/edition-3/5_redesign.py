@@ -209,5 +209,22 @@ css3=r"""<style>
 i=s.index('<div id="app"></div>')
 s=s[:i]+css3+s[i:]
 
+# ================= "BLOCKED" IS CALLED "المعطل" + a red alert only when something is really blocked =================
+rep("""data-a="instab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')""","""data-a="instab" data-v="'+t[0]+'">'+t[1]+(t[0]==='stuck'&&Object.keys(C.blocked).length?'<span class="tbd" aria-hidden="true">'+Object.keys(C.blocked).length+'</span><span class="sr"> '+Object.keys(C.blocked).length+' أوردر معطل</span>':'')+'</button>').join('')""")
+rep("  b.ops=S.docs.filter(d=>d.status==='draft').length||'';","  b.ops=S.docs.filter(d=>d.status==='draft').length||'';\n  b.insights=Object.keys(C.blocked).length||'';")
+rep("n[0]==='stock'?'، '+b[n[0]]+' صنف بالسالب'","n[0]==='insights'?'، '+b[n[0]]+' أوردر معطل':n[0]==='stock'?'، '+b[n[0]]+' صنف بالسالب'")
+REPL=[("هيقف بالمخزون","معطل بالمخزون"),("هيقف بالرصيد","معطل بالرصيد"),("أوردر هيقف بسبب الرصيد","أوردر معطل بسبب الرصيد"),("أوردر هيقف","أوردر معطل"),
+ ("الأوردرات الواقفة","الأوردرات المعطلة"),("أوردرات واقفة","أوردرات معطلة"),("واقف بالرصيد","معطل بالرصيد"),("شوف الواقف","شوف المعطل"),("إيه واقف","إيه معطل"),
+ ("واللي واقف","واللي معطل"),("واقف منه","معطل منه"),("بيقف","بيتعطّل"),("بتوقّف أكتر أوردرات","بتعطّل أكتر أوردرات"),("بتوقفه كله","بتعطّله كله"),
+ ("هيقف","معطل"),("الواقف","المعطل"),("واقف","معطل")]
+for a_,b_ in REPL: s=s.replace(a_,b_)
+css4=r"""<style>
+.tbd{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--c-scrap);color:#fff;font:600 11px/1 var(--f-mono);margin-inline-start:7px;vertical-align:1px}
+@media (prefers-reduced-motion:no-preference){.tbd{animation:tbdPulse 2.2s ease-out infinite}@keyframes tbdPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c-scrap) 55%,transparent)}70%,100%{box-shadow:0 0 0 7px transparent}}}
+</style>
+"""
+i=s.index('<div id="app"></div>')
+s=s[:i]+css4+s[i:]
+
 (T/'base_v2.html').write_text(s,encoding='utf-8')
 print('5 ok')
