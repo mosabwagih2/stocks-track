@@ -17,7 +17,7 @@ function modelHead(m){return '<div class="row sp" style="margin-bottom:12px"><di
 function ordM(){const hm=ctx().hm;return UI.s.sort==='alpha'?MORDER.slice():MORDER.slice().sort((a,b)=>(hm[b]||0)-(hm[a]||0)||mIdx[a]-mIdx[b])}
 function vStock(){
   const s=UI.s,m=MODEL.get(s.m)||MODEL.get(MORDER[0]);
-  const tools='<div class="seg"><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">موديل واحد</button><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">كل الموديلات</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
+  const tools='<div class="seg"><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">كل الموديلات</button><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">موديل واحد</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
   let h=top('المخزون','كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.',tools);
   h+='<div class="chips" style="margin-bottom:14px">'+INTERNAL.map(l=>'<button class="chip" aria-pressed="'+(s.state===l)+'" data-a="sstate" data-v="'+l+'"><i class="dot" style="background:'+LCOL[l]+'"></i>'+LOC[l]+' <span class="n">'+fmt(locSum(l))+'</span></button>').join('')+'</div>';
   if(s.view==='table'){

@@ -5,7 +5,7 @@ const IP={today:'<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 8h6V4h-6z"
 const ic=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(IP[n]||'')+'</svg>';
 
 /* ---------- documents ---------- */
-const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'matrix'},opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'plan'};
+const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'all'},opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'plan'};
 const PH={};
 const logE=m=>({t:Date.now(),by:S.actor,m});
 const srcLoc=(d)=>d.type==='CLN'?d.hdr.from:d.type==='FSD'?(d.hdr.kind==='wash'?'DIRTY':'SCRAP'):d.type==='FRC'?'FACTORY':d.type==='LOS'?'LOST':d.type==='SHP'?'READY':null;
