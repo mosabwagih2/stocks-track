@@ -1,11 +1,11 @@
 
 /* ---------- icons ---------- */
-const IP={today:'<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 8h6V4h-6z"/>',orders:'<path d="M3 7l9-4 9 4-9 4zM3 7v10l9 4 9-4V7M12 11v10"/>',stock:'<path d="M12 3l8 4.5-8 4.5-8-4.5zM4 12l8 4.5 8-4.5M4 16.5l8 4.5 8-4.5"/>',ops:'<path d="M7 7h13l-4-4M17 17H4l4 4"/>',supplies:'<path d="M5 8h14l-1 12H6zM9 8a3 3 0 016 0"/>',insights:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',ledger:'<path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3"/>',config:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',
+const IP={files:'<path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/>',today:'<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 8h6V4h-6z"/>',orders:'<path d="M3 7l9-4 9 4-9 4zM3 7v10l9 4 9-4V7M12 11v10"/>',stock:'<path d="M12 3l8 4.5-8 4.5-8-4.5zM4 12l8 4.5 8-4.5M4 16.5l8 4.5 8-4.5"/>',ops:'<path d="M7 7h13l-4-4M17 17H4l4 4"/>',supplies:'<path d="M5 8h14l-1 12H6zM9 8a3 3 0 016 0"/>',insights:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',ledger:'<path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3"/>',config:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',
  in:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',out:'<path d="M12 15V3M7 8l5-5 5 5M4 20h16"/>',back:'<path d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3"/>',scan:'<path d="M4 8V5h3M17 4h3v3M20 16v3h-3M7 20H4v-3M8 8v8M12 8v8M16 8v8"/>',shop:'<path d="M4 9l1-5h14l1 5M4 9v11h16V9M9 20v-6h6v6"/>',swap:'<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>',count:'<path d="M9 11l2 2 4-4M5 4h14v16H5z"/>',search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>'};
 const ic=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(IP[n]||'')+'</svg>';
 
 /* ---------- documents ---------- */
-const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'all'},opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'plan'};
+const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'all'},fl:'pk',opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'moves',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'plan'};
 const PH={};
 const logE=m=>({t:Date.now(),by:S.actor,m});
 const srcLoc=(d)=>d.type==='CLN'?d.hdr.from:d.type==='FSD'?(d.hdr.kind==='wash'?'DIRTY':'SCRAP'):d.type==='FRC'?'FACTORY':d.type==='LOS'?'LOST':d.type==='SHP'?'READY':null;

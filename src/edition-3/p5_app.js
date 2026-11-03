@@ -1,7 +1,7 @@
 
 /* ---------- shell & render ---------- */
-const NAV=[['today','النهارده'],['stock','المخزون'],['supplies','المستلزمات'],['ops','العمليات'],['insights','التحليلات'],['orders','الأوردرات'],['ledger','السجل'],['config','الإعدادات']];
-const VIEWS={today:vToday,orders:vOrders,stock:vStock,ops:vOps,supplies:vSupplies,insights:vInsights,ledger:vLedger,config:vConfig};
+const NAV=[['today','النهارده'],['stock','المخزون'],['supplies','المستلزمات'],['ops','العمليات'],['insights','التحليلات'],['orders','الأوردرات'],['ledger','السجل'],['files','الملفات'],['config','الإعدادات']];
+const VIEWS={files:vFiles,today:vToday,orders:vOrders,stock:vStock,ops:vOps,supplies:vSupplies,insights:vInsights,ledger:vLedger,config:vConfig};
 let theme='system';
 function applyTheme(){const r=document.documentElement;if(theme==='system')r.removeAttribute('data-theme');else r.setAttribute('data-theme',theme)}
 function curDoc(){return S.docs.find(d=>d.id===UI.doc)}
@@ -130,7 +130,21 @@ const ACT={
     d.hdr.unk=unk;dirty();render();
   },
   supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
-  blkview:()=>{UI.sheet={kind:'blocked'};render()},
+  flow:el=>{UI.sheet={kind:'flow',w:el.dataset.w};render()},
+  blkview:()=>{UI.sheet={kind:'flow',w:'blocked'};render()},
+  fltab:el=>{UI.fl=el.dataset.v;render()},
+  opendoc2:el=>{const id=el.dataset.id;UI.sheet=null;go('ops',()=>{UI.doc=id})},
+  pkedit:el=>{const p=S.pickups.find(x=>x.id===el.dataset.id);UI.sheet={kind:'pkedit',id:p.id,f:{label:p.label,date:p.date,channel:p.channel},del:false,err:''};render()},
+  pksave2:()=>{const s=UI.sheet,p=S.pickups.find(x=>x.id===s.id),f=s.f;if(!String(f.label).trim()){s.err='اكتب اسم البيك أب';render();return}if(!/^\d{4}-\d{2}-\d{2}$/.test(f.date)){s.err='اختار تاريخ صحيح';render();return}p.label=String(f.label).trim();p.date=f.date;p.channel=f.channel;dirty();UI.sheet=null;toast('اتحفظ التعديل: '+p.label);render()},
+  pkdel:()=>{UI.sheet.del=!UI.sheet.del;render()},
+  pkdel2:()=>{const s=UI.sheet,p=S.pickups.find(x=>x.id===s.id);if(S.orders.some(o=>o.pk===p.id&&o.st==='done'))return;S.orders=S.orders.filter(o=>o.pk!==p.id);S.pickups=S.pickups.filter(x=>x!==p);UI.o.pk='';dirty();UI.sheet=null;toast('اتحذف '+p.label);render()},
+  of3:el=>go('orders',()=>{UI.o.pk=el.dataset.id;UI.o.f='all';UI.o.tab='list';UI.o.n=60}),
+  scedit:el=>{const d=S.docs.find(x=>x.id===el.dataset.id);UI.sheet={kind:'scedit',id:d.id,emp:d.hdr.emp,rev:false,err:''};render()},
+  scsave:()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===s.id),e=String(s.emp||'').trim();if(!e){s.err='اكتب اسم الموظف';render();return}
+    if(e!==d.hdr.emp){const old=d.hdr.emp;d.hdr.emp=e;S.orders.forEach(o=>{if(o.sc&&o.sc.doc===d.no)o.sc.by=e});if(S.emps.indexOf(e)<0)S.emps.push(e);d.log.push(logE('اتغيّر اسم الموظف من '+old+' إلى '+e));dirty()}
+    UI.sheet=null;toast('اتحفظ اسم الموظف');render()},
+  screv:()=>{UI.sheet.rev=!UI.sheet.rev;render()},
+  screv2:()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===s.id),r=reverseDoc(d);if(!r.ok){s.err=(r.err||[]).join('، ');s.rev=false;render();return}UI.sheet=null;toast('اتعكس الملف '+d.no);render()},
   of2:el=>go('orders',()=>{UI.o.f=el.dataset.v;UI.o.tab='list';UI.o.pk='';UI.o.n=60}),
   supedit:()=>{const s=UI.sheet;s.tab='edit';s.err='';s.arch=false;s.f=formOf(supItem(s.id));render()},
   supconf:el=>{const it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:'edit',act:'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:formOf(it),err:'',arch:false,undo:null};render()},
@@ -170,7 +184,7 @@ const ACT={
     copy('اقتراح تصنيع Fémini · '+S.date+'\n'+rows.map(r=>skuName(r.id)+' : '+r.q).join('\n')+'\nالإجمالي: '+rows.reduce((a,r)=>a+r.q,0),'اتنسخ اقتراح التصنيع');
   },
   reset:()=>{UI.confirmReset=!UI.confirmReset;render()},
-  reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
+  reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);phClear();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
 };
 const CHG={
   wd:el=>{if(el.value){S.date=el.value;dirty();render()}},
@@ -189,7 +203,9 @@ const CHG={
   cntack:el=>{curDoc().hdr.ack=el.checked;dirty();partial()},
   rtncounted:el=>{curDoc().hdr.counted=el.checked;dirty();partial()},
   rtncodes:el=>{curDoc().hdr.codes=el.value;dirty()},
-  photo:el=>{const d=curDoc(),f=el.files&&el.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{PH[d.id]=fr.result;d.photo={name:f.name,size:f.size};dirty();render()};fr.readAsDataURL(f)},
+  pkf:el=>{const s=UI.sheet;if(s&&s.f)s.f[el.dataset.f]=el.value;if(s&&s.err){s.err=''}},
+  scemp:el=>{UI.sheet.emp=el.value},
+  photo:el=>{const d=curDoc(),f=el.files&&el.files[0];if(!f)return;phFromFile(f,data=>{PH[d.id]=data;phPut(d.id,data);d.photo={name:f.name,size:f.size};if(d.status!=='draft')d.log.push(logE('اتغيّرت صورة الورقة'));dirty();render()})},
   st:el=>{S.st[el.dataset.f]=Math.max(0,+el.value||0);dirty();toast('اتحفظ')},
   cost:el=>{const c=S.costs[el.dataset.m]||(S.costs[el.dataset.m]={});c[el.dataset.f]=+el.value||0;dirty();render()},
   actor:el=>{S.actor=el.value.trim()||'مصعب';dirty()},
@@ -251,5 +267,6 @@ fi.addEventListener('change',()=>{const f=fi.files&&fi.files[0];fi.value='';if(f
 const h0=(location.hash||'').slice(1);if(VIEWS[h0])UI.tab=h0;
 document.documentElement.lang='ar';document.documentElement.dir='rtl';
 render();
+idbOpen().then(db=>{IDBH=db;return phLoad()}).then(()=>{if(Object.keys(PH).length)render()});
 window.__F={S:()=>S,UI,go,ctx,g,dirty,render};
 })();
