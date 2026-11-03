@@ -14,6 +14,7 @@ function matrixHTML(m){
 }
 const matrixLegend='<div class="legend" style="margin-top:10px"><span><i class="dot" style="background:var(--crit)"></i>الطلب أكبر من الجاهز</span><span><i class="dot" style="background:var(--warn)"></i>قرب يخلص</span><span><i class="dot" style="background:var(--c-dirty)"></i>فيه هالك نظافة</span></div>';
 function modelHead(m){return '<div class="row sp" style="margin-bottom:12px"><div><h2 style="margin:0">'+esc(mName(m.code))+'</h2><span class="muted">'+LOC[UI.s.state]+': <b class="n">'+fmt(mSum(m.code,UI.s.state))+'</b> قطعة · طلب مفتوح <span class="n">'+fmt(D.skus.reduce((a,k)=>a+(k.m===m.code?(ctx().demand[k.id]||0):0),0))+'</span></span></div>'+pill('',ctx().abc[m.code]?'فئة '+ctx().abc[m.code]+' (حسب السحب)':'مفيش سحب')+'</div>'}
+function ordM(){const hm=ctx().hm;return UI.s.sort==='alpha'?MORDER.slice():MORDER.slice().sort((a,b)=>(hm[b]||0)-(hm[a]||0)||mIdx[a]-mIdx[b])}
 function vStock(){
   const s=UI.s,m=MODEL.get(s.m)||MODEL.get(MORDER[0]);
   const tools='<div class="seg"><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">موديل واحد</button><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">كل الموديلات</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
@@ -23,15 +24,16 @@ function vStock(){
     h+='<div class="row" style="margin-bottom:12px"><div class="chips">'+[['all','الكل'],['low','قرب يخلص'],['neg','بالسالب'],['dem','عليه طلب مفتوح']].map(f=>'<button class="chip" aria-pressed="'+((s.flt||'all')===f[0])+'" data-a="sflt" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><input type="search" id="sq" placeholder="ابحث: BR2 احمر L" value="'+esc(s.q)+'" data-c="sq" style="flex:1;min-width:200px;max-width:340px"></div><div id="stres">'+stockTable()+'</div>';
     return h;
   }
-  const groups={};MORDER.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
+  const groups={},OM=ordM();OM.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
+  const sortBtn='<div class="seg" role="group" aria-label="الترتيب"><button aria-pressed="'+(s.sort!=='alpha')+'" data-a="ssort" data-v="pull">الأكتر سحبًا</button><button aria-pressed="'+(s.sort==='alpha')+'" data-a="ssort" data-v="alpha">أبجدي</button></div>';
   if(s.view==='all'){
-    const L=s.line||'all',ms=MORDER.filter(c=>L==='all'||lineOf(c)===L);
-    h+='<div class="chips" style="margin-bottom:14px">'+[['all','كل الموديلات']].concat(LINE_ORDER.filter(l=>groups[l]).map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="sline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div>';
+    const L=s.line||'all',ms=OM.filter(c=>L==='all'||lineOf(c)===L);
+    h+='<div class="row" style="margin-bottom:14px"><div class="chips">'+[['all','كل الموديلات']].concat(LINE_ORDER.filter(l=>groups[l]).map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="sline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div>'+sortBtn+'</div>';
     h+='<div class="stack">'+ms.map(c=>'<section class="card">'+modelHead(MODEL.get(c))+matrixHTML(MODEL.get(c))+'</section>').join('')+'</div>'+matrixLegend;
     return h;
   }
   const showList=s.list!==false;
-  h+='<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="slist" aria-pressed="'+showList+'">'+(showList?'إخفاء قايمة الموديلات':'إظهار قايمة الموديلات')+'</button>'+(showList?'':'<select data-c="smsel" aria-label="الموديل">'+MORDER.map(c=>'<option value="'+c+'" '+(c===s.m?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+'</option>').join('')+'</select>')+'</div>';
+  h+='<div class="row" style="margin-bottom:12px">'+sortBtn+'<button class="btn sm" data-a="slist" aria-pressed="'+showList+'">'+(showList?'إخفاء قايمة الموديلات':'إظهار قايمة الموديلات')+'</button>'+(showList?'':'<select data-c="smsel" aria-label="الموديل">'+OM.map(c=>'<option value="'+c+'" '+(c===s.m?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+(ctx().hm[c]?' ('+ctx().hm[c]+' قطعة مطلوبة)':'')+'</option>').join('')+'</select>')+'</div>';
   h+='<div class="'+(showList?'wh':'')+'">';
   if(showList)h+='<nav class="card flat mlist" aria-label="الموديلات">'+LINE_ORDER.filter(l=>groups[l]).map(l=>'<div class="mgrp">'+l+'</div>'+groups[l].map(c=>{const r=mSum(c,'READY'),low=D.skus.some(k=>k.m===c&&info(k.id).cls==='c');
     return '<button class="mi" aria-current="'+(c===s.m)+'" data-a="smodel" data-m="'+c+'"><b>'+c+'</b><small>'+esc(MODEL.get(c).name)+'</small><span class="n">'+(low?'<i class="dot" style="background:var(--c-scrap)"></i> ':'')+fmt(s.state==='READY'?r:mSum(c,s.state))+'</span></button>'}).join('')).join('')+'</nav>';

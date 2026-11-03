@@ -95,6 +95,7 @@ const ACT={
   smodel:el=>{UI.s.m=el.dataset.m;render()},
   sstate:el=>{UI.s.state=el.dataset.v;render()},
   sview:el=>{UI.s.view=el.dataset.v;render()},
+  ssort:el=>{UI.s.sort=el.dataset.v;render()},
   sline:el=>{UI.s.line=el.dataset.v;render()},
   slist:()=>{UI.s.list=UI.s.list===false;try{localStorage.setItem(KEY+'-list',UI.s.list)}catch(e){}render()},
   sflt:el=>{UI.s.flt=el.dataset.v;render()},
