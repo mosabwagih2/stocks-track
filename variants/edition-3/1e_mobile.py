@@ -9,7 +9,7 @@ def rep(a,b):
 # ---- bottom bar: 5 main tabs + "More" ----
 rep("const NAV=[","const SEC={supplies:1,insights:1,ledger:1,files:1,config:1};\nconst NAV=[")
 rep("""'<button class="nav" data-a="go" data-t="'+n[0]+'" '""","""'<button class="nav'+(SEC[n[0]]?' sec':'')+'" data-a="go" data-t="'+n[0]+'" '""")
-rep("""</button>').join('')+'<div class="sp"></div>""","""</button>').join('')+'<button class="nav more" data-a="more" '+(SEC[UI.tab]?'aria-current="page"':'')+' aria-label="المزيد"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg><span>المزيد</span>'+(Object.keys(SEC).reduce((a,k)=>a+(b[k]||0),0)?'<span class="bd">'+Object.keys(SEC).reduce((a,k)=>a+(b[k]||0),0)+'</span>':'')+'</button><div class="sp"></div>""")
+rep("""</button>').join('')+'<div class="sp"></div>""","""</button>').join('')+'<button class="nav more" data-a="more" '+(SEC[UI.tab]?'aria-current="page"':'')+' aria-label="المزيد"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg><span>المزيد</span>'+(Object.keys(SEC).reduce((a,k)=>a+(b[k]||0),0)?'<span class="bd" aria-hidden="true"><span class="bn">'+Object.keys(SEC).reduce((a,k)=>a+(b[k]||0),0)+'</span></span>':'')+'</button><div class="sp"></div>""")
 rep("  }else if(s.kind==='state'){","""  }else if(s.kind==='more'){
     const bd=badges();title='المزيد';
     body='<div class="opgrid" style="grid-template-columns:1fr 1fr">'+NAV.filter(n=>SEC[n[0]]).map(n=>'<button class="op mini" data-a="go" data-t="'+n[0]+'"><span class="ic">'+ic(n[0])+'</span><b>'+n[1]+(bd[n[0]]?' <span class="pill crit" style="margin-inline-start:4px">'+bd[n[0]]+'</span>':'')+'</b></button>').join('')+'</div><button class="btn" data-a="theme">◐ المظهر: '+({system:'تلقائي',light:'فاتح',dark:'داكن'})[theme]+'</button><p class="muted" style="font-size:12px">'+esc(S.actor)+' · نسخة تجريبية</p>';
@@ -34,16 +34,21 @@ rep("<aside class=\"sheet\" role=\"dialog\"","<aside class=\"sheet'+(s.kind==='m
 rep("""'المخزون','كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.',""","""'المخزون','<span class="hm">كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.</span>',""")
 rep("""data-a="ssort" data-v="alpha">أبجدي</button></div>';""","""data-a="ssort" data-v="alpha">أبجدي</button></div><button type="button" class="sortbtn" data-a="ssort" data-v="'+(s.sort==='alpha'?'pull':'alpha')+'" aria-label="تغيير الترتيب">⇅ '+(s.sort==='alpha'?'أبجدي':'الأكتر سحبًا')+'</button>';""")
 
+# ---- nav badges: severity colors, dot on phones ----
+rep("""(b[n[0]]?'<span class="bd">'+b[n[0]]+'</span>':'')""","""(b[n[0]]?'<span class="bd'+(n[0]==='ops'?' warn':'')+'" aria-hidden="true"><span class="bn">'+b[n[0]]+'</span></span><span class="sr">'+(n[0]==='today'?'، '+b[n[0]]+' تنبيه حرج':n[0]==='orders'?'، '+b[n[0]]+' أوردر هيقف':n[0]==='stock'?'، '+b[n[0]]+' صنف بالسالب':'، '+b[n[0]]+' مسودة')+'</span>':'')""")
+
 css=r"""<style>
 /* Phone layout (<=820px). Desktop is untouched. */
 .nav.more{display:none}
 .sortbtn{display:none}
+.nav .bd.warn{background:#e3a93f;color:#2b2150}
 @media (max-width:820px){
   body{font-size:15px}
   .nav.sec{display:none}
   .nav.more{display:flex}
   .nav{flex:1 1 0;min-width:0;padding:7px 4px}
-  .nav .bd{inset-inline-end:calc(50% - 30px);top:1px;font-size:10px;padding:3px 6px}
+  .nav .bd{position:absolute;margin:0;top:5px;inset-inline-end:auto;right:calc(50% - 21px);width:10px;height:10px;padding:0;border-radius:99px;box-sizing:content-box;border:2px solid var(--rail);font-size:0}
+  .nav .bd .bn{display:none}
   .main{padding-top:16px;padding-bottom:112px}
   .top{gap:10px;margin-bottom:14px}
   .top h1{font-size:22px}
