@@ -27,7 +27,7 @@ const fs=require('fs'),path=require('path');
   await p.click('.sheet .op[data-t=insights]');await p.waitForTimeout(150);
   ok('phone: More -> Analytics navigates and closes the sheet',(await p.evaluate(()=>__F.UI.tab))==='insights'&&!(await p.locator('.sheet').count()));
   ok('phone: More is highlighted while on a secondary page',await p.evaluate(()=>document.querySelector('.nav.more').getAttribute('aria-current')==='page'));
-  await p.evaluate(()=>__F.go('stock'));await p.waitForTimeout(150);
+  await p.evaluate(()=>{__F.UI.s.view='all';__F.go('stock')});await p.waitForTimeout(150);
   const mx=await p.evaluate(()=>[...document.querySelectorAll('.tw')].filter(t=>t.querySelector('.mx')).slice(0,6).map(t=>t.scrollWidth<=t.clientWidth+1));
   ok('phone: stock matrix shows all sizes without sideways scroll (first 6 models)',mx.length>0&&mx.every(Boolean),JSON.stringify(mx));
   const cells=await p.evaluate(()=>[...document.querySelectorAll('.mx .cell')].slice(0,40).map(c=>{const r=c.getBoundingClientRect();return [r.width,r.height]}));

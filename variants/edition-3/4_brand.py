@@ -1,7 +1,7 @@
 import base64,re
-import pathlib
+import pathlib,os
 H=pathlib.Path(__file__).parent
-body=(H/'.work'/'base.html').read_text(encoding='utf-8')
+body=(H/'.work'/os.environ.get('BASE','base.html')).read_text(encoding='utf-8')
 A=str(H/'assets')+'/'
 b64=lambda f:base64.b64encode(open(A+f,'rb').read()).decode()
 import base64 as _b
@@ -12,7 +12,7 @@ mark='data:image/png;base64,'+b64('femini-mark.png')
 old='<div class="brand"><i>F</i><div><b>Fémini</b><small>Stock · مخزن</small></div></div>'
 assert body.count(old)==1
 body=body.replace(old,'<div class="brand"><img class="bm" src="'+bust+'" alt=""><div class="bt"><img class="bw" src="'+word+'" alt="Fémini"><small>Stock · مخزن</small></div></div>')
-body=body.replace('<title>Fémini Stock</title>','<title>Fémini Stock Brand</title>',1)
+body=body.replace('<title>Fémini Stock</title>','<title>'+os.environ.get('TITLE','Fémini Stock Brand')+'</title>',1)
 
 L="""--page:#faf9fd;--surface:#ffffff;--lav:#f3f0f9;--ink:#1f1738;--accent:#43316f;--on-accent:#ffffff;--muted:#655e80;
   --line:#e5e0f0;--line2:#d3cbe6;--grid:#eeeaf6;--rail:#2b2150;--on-rail:#f1edfb;--rail-mute:#b9afdc;--shadow:0 1px 2px rgba(43,33,80,.07),0 10px 26px -14px rgba(43,33,80,.25);
@@ -47,5 +47,5 @@ tog_css=(H/"tog.html").read_text(encoding="utf-8")
 i=body.index('<div id="app"></div>')
 body=body[:i]+tog_css+body[i:]
 
-(H.parent.parent/'apps'/'edition-3-brand'/'index.html').write_text(body,encoding='utf-8')
+_o=H.parent.parent/'apps'/os.environ.get('OUTDIR','edition-3-brand');_o.mkdir(exist_ok=True);(_o/'index.html').write_text(body,encoding='utf-8')
 print(len(body))

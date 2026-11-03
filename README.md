@@ -61,3 +61,7 @@ See the brief for everything else (open questions: bundles, cups, lead times, ch
 `tests/edition3_search_test.js` covers the stock search bar (all views, matching rules, focus, clear, phone).
 `tests/edition3_dashboard_test.js` checks every dashboard number against an independent calculation on a 100-day synthetic history (periods, previous-period comparison, ledger replay for stock level, top 10, blocked value, costs, live scan/return).
 `tests/edition3_motion_test.js` checks the motion behaviour, reduced motion and drag-to-dismiss (21 checks).
+
+### Redesign copy (`apps/edition-3-brand-v2`)
+
+Built by `variants/edition-3/5_redesign.py` (with `redesign_stock.js` and `redesign_rest.js`) from the same base, so logic and data are identical. It only changes how data is organised: stock as a grouped list with the matrix on demand, orders grouped by pickup with value, the ledger as a document feed by day, supplies as a table with operations grouped, settings in sections, operations as a launcher with pinned drafts. `tests/edition3_v2_test.js` checks every figure against the raw data (31 checks).

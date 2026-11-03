@@ -3,3 +3,4 @@
 set -e
 cd "$(dirname "$0")"
 python3 1_state.py && python3 1b_rates.py && python3 1c_tweaks.py && python3 2_returns_sheet.py && python3 1d_integrity.py && python3 1e_mobile.py && python3 1f_search.py && python3 1g_dashboard.py && python3 1h_motion.py && python3 3_toggle.py && python3 4_brand.py
+python3 5_redesign.py && BASE=base_v2.html OUTDIR=edition-3-brand-v2 TITLE="Fémini Stock Brand 2" python3 4_brand.py

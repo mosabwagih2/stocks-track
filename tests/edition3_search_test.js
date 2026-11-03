@@ -8,7 +8,7 @@ const fs=require('fs'),path=require('path');
   let pass=0,fail=0;const ok=(l,c,x)=>{console.log((c?'PASS ':'FAIL ')+l+(c||!x?'':'  -> '+x));c?pass++:fail++};
   const open=async(o)=>{const ctx=await b.newContext(o);const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
     await p.addInitScript(()=>{const RD=Date;window.__fixed=new RD('2026-11-02T10:00:00+02:00').getTime();class FD extends RD{constructor(...a){a.length?super(...a):super(window.__fixed)}static now(){return window.__fixed}};window.Date=FD});
-    await p.goto('file://'+wrap);await p.waitForSelector('.shell');await p.evaluate(()=>__F.go('stock'));await p.waitForTimeout(250);return {p,errs}};
+    await p.goto('file://'+wrap);await p.waitForSelector('.shell');await p.evaluate(()=>{__F.UI.s.view='all';__F.go('stock')});await p.waitForTimeout(250);return {p,errs}};
   const {p,errs}=await open({viewport:{width:1280,height:900}});
   const type=async t=>{await p.fill('#sq','');await p.type('#sq',t,{delay:15});await p.waitForTimeout(120)};
   const cards=()=>p.locator('#stres section.card h2').allInnerTexts();
