@@ -96,6 +96,9 @@ const ACT={
   sstate:el=>{UI.s.state=el.dataset.v;render()},
   sview:el=>{UI.s.view=el.dataset.v;render()},
   ssort:el=>{UI.s.sort=el.dataset.v;render()},
+  img:el=>{UI.sheet={kind:'img',m:el.dataset.m};render()},
+  pickimg:el=>{UI.imgFor=el.dataset.m;$('#imgfile').click()},
+  rmimg:el=>{(S.img||(S.img={}))[el.dataset.m]=null;dirty();render();toast('اتشالت الصورة')},
   sline:el=>{UI.s.line=el.dataset.v;render()},
   slist:()=>{UI.s.list=UI.s.list===false;try{localStorage.setItem(KEY+'-list',UI.s.list)}catch(e){}render()},
   sflt:el=>{UI.s.flt=el.dataset.v;render()},
@@ -207,6 +210,10 @@ try{theme=localStorage.getItem(KEY+'-theme')||'system'}catch(e){}
 try{if(localStorage.getItem(KEY+'-list')==='false')UI.s.list=false}catch(e){}
 applyTheme();
 const fi=document.createElement('input');fi.type='file';fi.id='upfile';fi.accept='.xlsx,.xls,.csv';fi.hidden=true;document.body.appendChild(fi);
+const ifl=document.createElement('input');ifl.type='file';ifl.id='imgfile';ifl.accept='image/*';ifl.hidden=true;document.body.appendChild(ifl);
+ifl.addEventListener('change',()=>{const f=ifl.files&&ifl.files[0],m=UI.imgFor;ifl.value='';if(!f||!m)return;
+  const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,480/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+    (S.img||(S.img={}))[m]=c.toDataURL('image/jpeg',.82);dirty();if(JSON.stringify(S).length>4.4e6)toast('تنبيه: مساحة التخزين في المتصفح قربت تخلص');else toast('اتحفظت صورة '+m);render()};im.onerror=()=>toast('الملف ده مش صورة');im.src=fr.result};fr.readAsDataURL(f)});
 fi.addEventListener('change',()=>{const f=fi.files&&fi.files[0];fi.value='';if(f)handleFile(f)});
 const h0=(location.hash||'').slice(1);if(VIEWS[h0])UI.tab=h0;
 document.documentElement.lang='ar';document.documentElement.dir='rtl';

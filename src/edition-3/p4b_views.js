@@ -13,7 +13,7 @@ function matrixHTML(m){
   return h+'</tbody></table></div>';
 }
 const matrixLegend='<div class="legend" style="margin-top:10px"><span><i class="dot" style="background:var(--crit)"></i>الطلب أكبر من الجاهز</span><span><i class="dot" style="background:var(--warn)"></i>قرب يخلص</span><span><i class="dot" style="background:var(--c-dirty)"></i>فيه هالك نظافة</span></div>';
-function modelHead(m){return '<div class="row sp" style="margin-bottom:12px"><div><h2 style="margin:0">'+esc(mName(m.code))+'</h2><span class="muted">'+LOC[UI.s.state]+': <b class="n">'+fmt(mSum(m.code,UI.s.state))+'</b> قطعة · طلب مفتوح <span class="n">'+fmt(D.skus.reduce((a,k)=>a+(k.m===m.code?(ctx().demand[k.id]||0):0),0))+'</span></span></div>'+pill('',ctx().abc[m.code]?'فئة '+ctx().abc[m.code]+' (حسب السحب)':'مفيش سحب')+'</div>'}
+function modelHead(m){return '<div class="row sp" style="margin-bottom:12px"><div class="row" style="flex-wrap:nowrap;gap:14px"><button class="imgbtn" data-a="img" data-m="'+m.code+'" aria-label="صورة '+m.code+'" data-tip="اضغط لعرض الصورة أو تغييرها">'+thumb(m.code,64)+'</button><div><h2 style="margin:0">'+esc(mName(m.code))+'</h2><span class="muted">'+LOC[UI.s.state]+': <b class="n">'+fmt(mSum(m.code,UI.s.state))+'</b> قطعة · طلب مفتوح <span class="n">'+fmt(D.skus.reduce((a,k)=>a+(k.m===m.code?(ctx().demand[k.id]||0):0),0))+'</span></span></div></div>'+pill('',ctx().abc[m.code]?'فئة '+ctx().abc[m.code]+' (حسب السحب)':'مفيش سحب')+'</div>'}
 function ordM(){const hm=ctx().hm;return UI.s.sort==='alpha'?MORDER.slice():MORDER.slice().sort((a,b)=>(hm[b]||0)-(hm[a]||0)||mIdx[a]-mIdx[b])}
 function vStock(){
   const s=UI.s,m=MODEL.get(s.m)||MODEL.get(MORDER[0]);
@@ -36,7 +36,7 @@ function vStock(){
   h+='<div class="row" style="margin-bottom:12px">'+sortBtn+'<button class="btn sm" data-a="slist" aria-pressed="'+showList+'">'+(showList?'إخفاء قايمة الموديلات':'إظهار قايمة الموديلات')+'</button>'+(showList?'':'<select data-c="smsel" aria-label="الموديل">'+OM.map(c=>'<option value="'+c+'" '+(c===s.m?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+(ctx().hm[c]?' ('+ctx().hm[c]+' قطعة مطلوبة)':'')+'</option>').join('')+'</select>')+'</div>';
   h+='<div class="'+(showList?'wh':'')+'">';
   if(showList)h+='<nav class="card flat mlist" aria-label="الموديلات">'+LINE_ORDER.filter(l=>groups[l]).map(l=>'<div class="mgrp">'+l+'</div>'+groups[l].map(c=>{const r=mSum(c,'READY'),low=D.skus.some(k=>k.m===c&&info(k.id).cls==='c');
-    return '<button class="mi" aria-current="'+(c===s.m)+'" data-a="smodel" data-m="'+c+'"><b>'+c+'</b><small>'+esc(MODEL.get(c).name)+'</small><span class="n">'+(low?'<i class="dot" style="background:var(--c-scrap)"></i> ':'')+fmt(s.state==='READY'?r:mSum(c,s.state))+'</span></button>'}).join('')).join('')+'</nav>';
+    return '<button class="mi" aria-current="'+(c===s.m)+'" data-a="smodel" data-m="'+c+'">'+thumb(c,34)+'<b>'+c+'</b><small>'+esc(MODEL.get(c).name)+'</small><span class="n">'+(low?'<i class="dot" style="background:var(--c-scrap)"></i> ':'')+fmt(s.state==='READY'?r:mSum(c,s.state))+'</span></button>'}).join('')).join('')+'</nav>';
   h+='<section class="card">'+modelHead(m)+matrixHTML(m)+matrixLegend+'</section></div>';
   return h;
 }
@@ -51,7 +51,7 @@ function stockTable(){
   const tot=rows.length;rows=rows.slice(0,200);
   if(!rows.length)return '<div class="card"><div class="empty">مفيش أصناف بالفلتر ده.</div></div>';
   return '<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">جاهز</th><th class="num">هالك نظافة</th><th class="num">عند المصنع</th><th class="num">مفقود</th><th class="num">طلب مفتوح</th><th class="num">يغطّي (يوم)</th><th></th></tr></thead><tbody>'+rows.map(id=>{const i=info(id),k=SKU.get(id);
-    return '<tr data-a="sku" data-sku="'+id+'"><td>'+sw(k.c)+' <b class="mono">'+k.m+'</b> '+esc(k.c)+' · '+k.s+'</td><td class="num">'+N(i.R)+'</td><td class="num">'+N(g(id,'DIRTY'))+'</td><td class="num">'+N(g(id,'FACTORY'))+'</td><td class="num">'+N(g(id,'LOST'))+'</td><td class="num">'+N(i.dm)+'</td><td class="num">'+(i.cov!=null?'<span class="n">'+Math.floor(i.cov)+'</span>':'—')+'</td><td>'+(i.R<0?pill('crit','بالسالب'):i.cls==='c'?pill('crit','هيخلص'):i.cls==='w'?pill('warn','قرب'):'')+'</td></tr>'}).join('')+'</tbody></table></div>'+(tot>200?'<p class="muted" style="margin-top:8px">أول 200 من '+fmt(tot)+'. ضيّق البحث.</p>':'');
+    return '<tr data-a="sku" data-sku="'+id+'"><td>'+thumb(k.m,26)+' '+sw(k.c)+' <b class="mono">'+k.m+'</b> '+esc(k.c)+' · '+k.s+'</td><td class="num">'+N(i.R)+'</td><td class="num">'+N(g(id,'DIRTY'))+'</td><td class="num">'+N(g(id,'FACTORY'))+'</td><td class="num">'+N(g(id,'LOST'))+'</td><td class="num">'+N(i.dm)+'</td><td class="num">'+(i.cov!=null?'<span class="n">'+Math.floor(i.cov)+'</span>':'—')+'</td><td>'+(i.R<0?pill('crit','بالسالب'):i.cls==='c'?pill('crit','هيخلص'):i.cls==='w'?pill('warn','قرب'):'')+'</td></tr>'}).join('')+'</tbody></table></div>'+(tot>200?'<p class="muted" style="margin-top:8px">أول 200 من '+fmt(tot)+'. ضيّق البحث.</p>':'');
 }
 
 /* ---------- OPERATIONS ---------- */
@@ -73,7 +73,7 @@ function picker(d){
 }
 function pkHint(src){
   const m=UI.pk.m,mm=MODEL.get(m),c=(($('#pkc')||{}).value)||mm.colors[0],z=(($('#pks')||{}).value)||mm.sizes[0],id=IDX[m+'|'+c+'|'+z];
-  return id?(src?'المتاح في '+LOC[src]+': <b class="n">'+g(id,src)+'</b>':'جاهز حاليًا: <b class="n">'+g(id,'READY')+'</b>'):'';
+  return id?thumb(m,40)+' '+(src?'المتاح في '+LOC[src]+': <b class="n">'+g(id,src)+'</b>':'جاهز حاليًا: <b class="n">'+g(id,'READY')+'</b>'):'';
 }
 function lineTable(d){
   if(!d.lines.length)return '<div class="empty">لسه مفيش أصناف. اختار الموديل واللون والمقاس وأضف.</div>';

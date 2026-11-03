@@ -102,7 +102,7 @@ function vPick(){
   const tot=rows.reduce((a,s)=>a+C.demand[s],0),short=rows.filter(s=>C.demand[s]>g(s,'READY'));
   let h='<div class="kpis" style="margin-bottom:14px">'+kpi('أصناف مطلوبة',N(rows.length),'')+kpi('قطع مطلوبة (لسه)',N(tot),'')+kpi('أصناف ناقصة',N(short.length),'الطلب أكبر من الجاهز',short.length?'crit':'good')+'</div>';
   h+='<p class="muted" style="margin-bottom:10px">القطع اللي لسه ما اتسكانتش، مجمّعة بالصنف. ده اللي يتجهّز من الرف.</p><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">مطلوب</th><th class="num">جاهز</th><th class="num">الفرق</th></tr></thead><tbody>'+
-   rows.map(s=>{const R=g(s,'READY'),d=C.demand[s],k=SKU.get(s);return '<tr data-a="sku" data-sku="'+s+'"><td>'+sw(k.c)+' <b class="mono">'+k.m+'</b> '+esc(k.c)+' · '+k.s+'</td><td class="num">'+N(d)+'</td><td class="num">'+N(R)+'</td><td class="num">'+(R>=d?'<span class="muted">'+N(R-d)+' فاضل</span>':pill('crit','ناقص '+(d-Math.max(0,R))))+'</td></tr>'}).join('')+'</tbody></table></div>';
+   rows.map(s=>{const R=g(s,'READY'),d=C.demand[s],k=SKU.get(s);return '<tr data-a="sku" data-sku="'+s+'"><td>'+thumb(k.m,26)+' '+sw(k.c)+' <b class="mono">'+k.m+'</b> '+esc(k.c)+' · '+k.s+'</td><td class="num">'+N(d)+'</td><td class="num">'+N(R)+'</td><td class="num">'+(R>=d?'<span class="muted">'+N(R-d)+' فاضل</span>':pill('crit','ناقص '+(d-Math.max(0,R))))+'</td></tr>'}).join('')+'</tbody></table></div>';
   return h;
 }
 
@@ -141,14 +141,17 @@ function sheetHTML(){
     const o=orderByRef(s.ref);if(!o)return '';title='أوردر '+o.ref;const C=ctx(),cnt={};o.lines.forEach(x=>cnt[x]=(cnt[x]||0)+1);
     body='<div class="row">'+ordPill(o)+'<span class="muted">'+esc(chanName((S.pickups.find(p=>p.id===o.pk)||{}).channel))+' · '+esc((S.pickups.find(p=>p.id===o.pk)||{}).label)+'</span></div>';
     body+='<div class="grid g2"><div class="kpi"><small>البوليصة</small><b style="font-size:18px">'+esc(o.wb)+'</b></div><div class="kpi"><small>المحافظة / النوع</small><b style="font-size:18px;font-family:var(--f-ar)">'+esc(o.gov||'')+' · '+esc(o.type)+'</b></div></div>';
-    body+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">في الأوردر</th><th class="num">جاهز دلوقتي</th></tr></thead><tbody>'+Object.keys(cnt).sort(skuSort).map(x=>{const R=g(x,'READY');return '<tr><td>'+sw(SKU.get(x).c)+' '+esc(skuName(x))+'</td><td class="num">'+N(cnt[x])+'</td><td class="num">'+(R<cnt[x]&&o.st==='open'?pill('crit',R):N(R))+'</td></tr>'}).join('')+'</tbody></table></div>';
+    body+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">في الأوردر</th><th class="num">جاهز دلوقتي</th></tr></thead><tbody>'+Object.keys(cnt).sort(skuSort).map(x=>{const R=g(x,'READY');return '<tr><td>'+thumb(SKU.get(x).m,26)+' '+sw(SKU.get(x).c)+' '+esc(skuName(x))+'</td><td class="num">'+N(cnt[x])+'</td><td class="num">'+(R<cnt[x]&&o.st==='open'?pill('crit',R):N(R))+'</td></tr>'}).join('')+'</tbody></table></div>';
     if(o.bad&&o.bad.length)body+='<div class="msg warn">أصناف مش مربوطة: '+o.bad.map(b=>esc(b[0]+' '+b[2]+' '+b[1])).join('، ')+'</div>';
     if(o.st==='done')body+='<div class="msg good">اتسكّن بواسطة '+esc(o.sc.by)+' يوم '+esc(o.sc.date)+' الساعة '+timeOf(o.sc.at)+' · '+esc(o.sc.doc)+'</div>';
     if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (ملغي من القناة)</button></div>';
     if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
+  }else if(s.kind==='img'){
+    title='صورة '+mName(s.m);const u=imgOf(s.m);
+    body=(u?'<img class="bigimg" src="'+u+'" alt="'+esc(s.m)+'">':'<div class="drop" data-a="pickimg" data-m="'+s.m+'"><b>مفيش صورة للموديل ده</b><span class="muted">اضغط لاختيار صورة (الأفضل خلفية فاتحة وصورة المنتج كله)</span></div>')+'<div class="row"><button class="btn pri" data-a="pickimg" data-m="'+s.m+'">'+(u?'تغيير الصورة':'رفع صورة')+'</button>'+(u?'<button class="btn danger" data-a="rmimg" data-m="'+s.m+'">إزالة</button>':'')+'</div><p class="muted" style="font-size:12px">الصورة بتتصغّر أوتوماتيك وبتتحفظ في المتصفح ده بس. الصورة على مستوى الموديل (كل ألوانه).</p>';
   }else if(s.kind==='sku'){
     const k=SKU.get(s.sku),i=info(s.sku);title=skuName(s.sku);
-    body='<div class="muted">'+esc(MODEL.get(k.m).name)+'</div>';
+    body='<div class="row" style="flex-wrap:nowrap;gap:14px"><button class="imgbtn" data-a="img" data-m="'+k.m+'" aria-label="صورة الموديل">'+thumb(k.m,84)+'</button><div><b>'+esc(mName(k.m))+'</b><div class="muted">'+sw(k.c)+' '+esc(k.c)+' · مقاس '+k.s+'</div></div></div>';
     body+='<div class="kpis">'+kpi('جاهز للبيع',N(i.R),'',i.R<0?'crit':'')+kpi('مطلوب (مفتوح)',N(i.dm),i.dm>i.R?'أكتر من الجاهز':'',i.dm>i.R?'crit':'')+kpi('سرعة السحب',i.v?'<span class="n">'+i.v.toFixed(1)+'</span>':'—','قطعة / يوم')+kpi('يغطّي',i.cov!=null?'<span class="n">'+Math.floor(i.cov)+'</span>':'—','يوم')+'</div>';
     body+='<div class="tw"><table class="t-sm"><tbody>'+INTERNAL.map(l=>'<tr><td><i class="dot" style="background:'+LCOL[l]+'"></i> '+LOC[l]+' <span class="muted" style="font-size:12px">'+LDESC[l]+'</span></td><td class="num">'+N(g(s.sku,l))+'</td></tr>').join('')+'<tr><td><b>الإجمالي في ملكنا</b></td><td class="num"><b>'+N(total(s.sku))+'</b></td></tr></tbody></table></div>';
     body+='<div class="chips"><button class="btn sm" data-a="skuop" data-t="CLN" data-sku="'+s.sku+'">نقل لهالك نظافة</button><button class="btn sm" data-a="skuop" data-t="RCV" data-sku="'+s.sku+'">استلام</button><button class="btn sm" data-a="skuop" data-t="CNT" data-sku="'+s.sku+'">جرد الصنف</button></div>';

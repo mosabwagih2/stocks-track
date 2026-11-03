@@ -20,6 +20,8 @@ const LINE_ORDER=['بانتي','برا','شورت','موديلات تانية'];
 const HEX={'اسود':'#1e1b24','ابيض':'#ffffff','احمر':'#d9262e','بيج':'#ead9be','رمادي':'#bdbcc4','برتقالي':'#f07a2b','زيتى':'#6f7a3c','فوشيا':'#c2317a','اصفر':'#f2c230','مينت جرين':'#8fd3b6','بيبي بلو':'#a9cbe8','كحلي':'#1f2a5a','بينك':'#f4b6c8','سيمون':'#f3a28c','روز':'#e58fa8','احمر تطعيم اسود':'#a3262c'};
 const sw=c=>'<i class="sw" style="background:'+(HEX[c]||'#cfc2ec')+'"></i>';
 const skuName=(s,withModel=true)=>{const k=SKU.get(s);return k?(withModel?k.m+' · ':'')+k.c+' · '+k.s:s};
+const imgOf=m=>{const I=S&&S.img;return(I&&(m in I))?I[m]:((D.img||{})[m]||'')};
+const thumb=(m,px)=>{const u=imgOf(m);return u?'<img class="th" src="'+u+'" alt="'+esc(m)+'" style="width:'+px+'px;height:'+px+'px">':'<span class="th ph" style="width:'+px+'px;height:'+px+'px;font-size:'+Math.max(9,Math.round(px/4))+'px">'+esc(m)+'</span>'};
 const mName=c=>{const m=MODEL.get(c);return m?c+' · '+m.name:c};
 
 /* ---------- locations (Odoo-style) ---------- */
@@ -67,7 +69,7 @@ function seed(){
   const t=Date.parse(D.asOf+'T11:00:00+02:00');
   return {v:3,moves,mid,docs:[],did:1,seq:{},pickups,orders,emps:[],actor:'مصعب',date:D.today,
     sup:{log:[['FLY',2000],['PKS',600],['PKM',600],['PKL',300],['CUP',960]].map(x=>({t,date:D.asOf,item:x[0],q:x[1],why:'رصيد افتتاحي تجريبي. عدّله بجرد',doc:null}))},
-    st:{lookback:14,cover:14,excess:60,target:30,packS:2,packM:5,cupBR1:2,flyPer:1},costs:{},alias:{}};
+    st:{lookback:14,cover:14,excess:60,target:30,packS:2,packM:5,cupBR1:2,flyPer:1},costs:{},alias:{},img:{}};
 }
 function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.v===3){S=s;return}}}catch(e){}S=seed()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
