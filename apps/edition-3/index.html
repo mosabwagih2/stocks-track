@@ -295,6 +295,7 @@ details.dd[open]>summary::after{transform:rotate(180deg)}
 <style>
 /* Phone layout (<=820px). Desktop is untouched. */
 .nav.more{display:none}
+.sortbtn{display:none}
 @media (max-width:820px){
   body{font-size:15px}
   .nav.sec{display:none}
@@ -338,10 +339,21 @@ details.dd[open]>summary::after{transform:rotate(180deg)}
   .mx .cl{padding:0 4px 0 2px;font-size:12px}
   .cell{min-width:0;width:100%;height:44px;font-size:12.5px;border-radius:8px;letter-spacing:-.02em}
   .cell small{font-size:8.5px}
+  .top .sub:has(>.hm:only-child){display:none}
+  .top{margin-bottom:10px}
+  .top .tools>.seg button{padding:10px 6px;font-size:14px}
+  .top .tools>.btn{min-height:40px}
   .chips.scrollx{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px;padding-block:2px}
+  .chips.scrollx .chip{padding:7px 13px;font-size:13px}
+  .row>.chips.scrollx{margin-inline:0;padding-inline:0}
+  .seg[aria-label="الترتيب"]{display:none}
+  .sortbtn{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;flex:none;cursor:pointer;min-height:36px;padding:0 12px;border:1px solid var(--line2);border-radius:99px;background:var(--surface);font-size:13px;font-weight:500;white-space:nowrap}
+  .sortbtn:active{background:var(--lav)}
+  #sq{min-width:0!important;max-width:none!important;width:100%}
+  .row:has(#sq)>.chips.scrollx{flex:1 1 100%}
   .chips.scrollx::-webkit-scrollbar{display:none}
   .chips.scrollx .chip{flex:none}
-  .row>.chips.scrollx{flex:1 1 100%;min-width:0}
+  .row>.chips.scrollx{flex:1 1 0;min-width:0}
   .sheet.compact{top:auto;bottom:0;max-height:75%;height:auto;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}
   /* sheets */
   .sheet>header{padding:14px 16px}
@@ -1380,14 +1392,14 @@ function ordM(){const hm=ctx().hm;return UI.s.sort==='alpha'?MORDER.slice():MORD
 function vStock(){
   const s=UI.s,m=MODEL.get(s.m)||MODEL.get(MORDER[0]);
   const tools='<div class="seg"><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">كل الموديلات</button><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">موديل واحد</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
-  let h=top('المخزون','كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.',tools+'<button class="btn" data-a="catedit">تعديل</button><button class="btn pri" data-a="skuadd" data-m="__new" data-only="1">+ موديل جديد</button>');
+  let h=top('المخزون','<span class="hm">كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.</span>',tools+'<button class="btn" data-a="catedit">تعديل</button><button class="btn pri" data-a="skuadd" data-m="__new" data-only="1">+ موديل جديد</button>');
   h+='<div class="chips scrollx" style="margin-bottom:14px">'+INTERNAL.map(l=>'<button class="chip" aria-pressed="'+(s.state===l)+'" data-a="sstate" data-v="'+l+'"><i class="dot" style="background:'+LCOL[l]+'"></i>'+LOC[l]+' <span class="n">'+fmt(locSum(l))+'</span></button>').join('')+'</div>';
   if(s.view==='table'){
     h+='<div class="row" style="margin-bottom:12px"><div class="chips scrollx">'+[['all','الكل'],['low','قرب يخلص'],['neg','بالسالب'],['dem','عليه طلب مفتوح'],['arch','مؤرشف ('+Object.keys(S.cat.arch).filter(k=>S.cat.arch[k]).length+')']].map(f=>'<button class="chip" aria-pressed="'+((s.flt||'all')===f[0])+'" data-a="sflt" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div><input type="search" id="sq" placeholder="ابحث: BR2 احمر L" value="'+esc(s.q)+'" data-c="sq" style="flex:1;min-width:200px;max-width:340px"></div><div id="stres">'+stockTable()+'</div>';
     return h;
   }
   const groups={},OM=ordM();OM.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
-  const sortBtn='<div class="seg" role="group" aria-label="الترتيب"><button aria-pressed="'+(s.sort!=='alpha')+'" data-a="ssort" data-v="pull">الأكتر سحبًا</button><button aria-pressed="'+(s.sort==='alpha')+'" data-a="ssort" data-v="alpha">أبجدي</button></div>';
+  const sortBtn='<div class="seg" role="group" aria-label="الترتيب"><button aria-pressed="'+(s.sort!=='alpha')+'" data-a="ssort" data-v="pull">الأكتر سحبًا</button><button aria-pressed="'+(s.sort==='alpha')+'" data-a="ssort" data-v="alpha">أبجدي</button></div><button type="button" class="sortbtn" data-a="ssort" data-v="'+(s.sort==='alpha'?'pull':'alpha')+'" aria-label="تغيير الترتيب">⇅ '+(s.sort==='alpha'?'أبجدي':'الأكتر سحبًا')+'</button>';
   if(s.view==='all'){
     const L=s.line||'all',ms=OM.filter(c=>L==='all'||lineOf(c)===L);
     h+='<div class="row" style="margin-bottom:14px"><div class="chips scrollx">'+[['all','كل الموديلات']].concat(LINE_ORDER.filter(l=>groups[l]).map(l=>[l,l])).map(f=>'<button class="chip" aria-pressed="'+(L===f[0])+'" data-a="sline" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div>'+sortBtn+'</div>';

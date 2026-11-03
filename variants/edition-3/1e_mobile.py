@@ -30,9 +30,14 @@ for a,b in [("h+='<div class=\"chips\" style=\"margin-bottom:14px\">'+INTERNAL.m
 
 rep("<aside class=\"sheet\" role=\"dialog\"","<aside class=\"sheet'+(s.kind==='more'?' compact':'')+'\" role=\"dialog\"")
 
+# ---- stock toolbar: compact on phones ----
+rep("""'المخزون','كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.',""","""'المخزون','<span class="hm">كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.</span>',""")
+rep("""data-a="ssort" data-v="alpha">أبجدي</button></div>';""","""data-a="ssort" data-v="alpha">أبجدي</button></div><button type="button" class="sortbtn" data-a="ssort" data-v="'+(s.sort==='alpha'?'pull':'alpha')+'" aria-label="تغيير الترتيب">⇅ '+(s.sort==='alpha'?'أبجدي':'الأكتر سحبًا')+'</button>';""")
+
 css=r"""<style>
 /* Phone layout (<=820px). Desktop is untouched. */
 .nav.more{display:none}
+.sortbtn{display:none}
 @media (max-width:820px){
   body{font-size:15px}
   .nav.sec{display:none}
@@ -76,10 +81,21 @@ css=r"""<style>
   .mx .cl{padding:0 4px 0 2px;font-size:12px}
   .cell{min-width:0;width:100%;height:44px;font-size:12.5px;border-radius:8px;letter-spacing:-.02em}
   .cell small{font-size:8.5px}
+  .top .sub:has(>.hm:only-child){display:none}
+  .top{margin-bottom:10px}
+  .top .tools>.seg button{padding:10px 6px;font-size:14px}
+  .top .tools>.btn{min-height:40px}
   .chips.scrollx{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px;padding-block:2px}
+  .chips.scrollx .chip{padding:7px 13px;font-size:13px}
+  .row>.chips.scrollx{margin-inline:0;padding-inline:0}
+  .seg[aria-label="الترتيب"]{display:none}
+  .sortbtn{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;flex:none;cursor:pointer;min-height:36px;padding:0 12px;border:1px solid var(--line2);border-radius:99px;background:var(--surface);font-size:13px;font-weight:500;white-space:nowrap}
+  .sortbtn:active{background:var(--lav)}
+  #sq{min-width:0!important;max-width:none!important;width:100%}
+  .row:has(#sq)>.chips.scrollx{flex:1 1 100%}
   .chips.scrollx::-webkit-scrollbar{display:none}
   .chips.scrollx .chip{flex:none}
-  .row>.chips.scrollx{flex:1 1 100%;min-width:0}
+  .row>.chips.scrollx{flex:1 1 0;min-width:0}
   .sheet.compact{top:auto;bottom:0;max-height:75%;height:auto;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}
   /* sheets */
   .sheet>header{padding:14px 16px}
