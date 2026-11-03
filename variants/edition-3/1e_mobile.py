@@ -88,7 +88,7 @@ css=r"""<style>
   .cell small{font-size:8.5px}
   .top .sub:has(>.hm:only-child){display:none}
   .top{margin-bottom:10px}
-  .top .tools>.seg button{padding:10px 6px;font-size:14px}
+  .top .tools>.seg button{padding:10px 4px;font-size:13px;white-space:nowrap}
   .top .tools>.btn{min-height:40px}
   .chips.scrollx{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px;padding-block:2px}
   .chips.scrollx .chip{padding:7px 13px;font-size:13px}

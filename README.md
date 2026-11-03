@@ -50,10 +50,12 @@ See the brief for everything else (open questions: bundles, cups, lead times, ch
 4. `1d_integrity.py` (runs after step 2): one reorder engine for alerts, plan and rate tab; returns linked to orders; safe cancel/reverse; net shipped; storage warning.
 5. `1e_mobile.py`: phone layout (bottom bar with a More sheet, compact matrix, one-line tables); desktop is unchanged.
 6. `1f_search.py`: stock search bar shared by the three views.
-7. `4_brand.py`: the Fémini logo and a palette derived from the logo purple #43316f. This is the comparison copy.
+7. `1g_dashboard.py` (+ `dashboard.js`): the command-center tab in Analytics (money, movement, stock health, trends, top SKUs, governorates), period based.
+8. `4_brand.py`: the Fémini logo and a palette derived from the logo purple #43316f. This is the comparison copy.
 
 `src/edition-3/build.py` still builds the older Edition 3 and would overwrite `apps/edition-3`. Rebuild with `variants/edition-3/build.sh` afterwards, or port the changes into `src/edition-3`.
 
 `tests/edition3_integrity_test.js` runs a full cycle (ship, return, cancel, reverse, supplies, alerts, reload) and checks the ledger, supplies and cross-page totals. Run with `node tests/edition3_integrity_test.js` (set `APP=` to test another build).
 `tests/edition3_mobile_test.js` checks the 390px phone layout (no sideways scroll, bottom bar, matrix fit, tap sizes, 16px fields) and that the desktop layout is unchanged.
 `tests/edition3_search_test.js` covers the stock search bar (all views, matching rules, focus, clear, phone).
+`tests/edition3_dashboard_test.js` checks every dashboard number against an independent calculation on a 100-day synthetic history (periods, previous-period comparison, ledger replay for stock level, top 10, blocked value, costs, live scan/return).
