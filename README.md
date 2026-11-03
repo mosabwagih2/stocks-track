@@ -39,3 +39,14 @@ To reset the demo data: standard edition, Configuration, Data, Reset demo data.
 - Permissions are intentionally postponed; the system is open during testing.
 
 See the brief for everything else (open questions: bundles, cups, lead times, channel formats, costing).
+
+## Edition 3 variants (`variants/edition-3`)
+
+`apps/edition-3/index.html` and `apps/edition-3-brand/index.html` are built from `variants/edition-3/base.html` (the previous Edition 3) by `variants/edition-3/build.sh`:
+
+1. `1_state.py`: clearer "needs washing" / "at factory" states, clickable rows with a detail sheet (SKUs, quantities, days since sent) and a prefilled draft action.
+2. `2_returns_sheet.py`: upload the shipping company's return sheet inside Customer Returns; matches by order code and fills the expected list.
+3. `3_toggle.py`: sidebar toggle with a short animation (Ctrl+B).
+4. `4_brand.py`: the Fémini logo and a palette derived from the logo purple #43316f. This is the comparison copy.
+
+`src/edition-3/build.py` still builds the older Edition 3 and would overwrite `apps/edition-3`. Rebuild with `variants/edition-3/build.sh` afterwards, or port the changes into `src/edition-3`.
