@@ -64,7 +64,7 @@ export default function Supplies() {
         {items.map((s) => {
           const b = supplyBalance(d.snap.supplyLog, s.id), u = dailyUse(d.snap.supplyLog, s.id, d.today), st = supplyStatus(s, b, u), c = u > 0 ? b / u : null;
           return (
-            <Card key={s.id}>
+            <Card key={s.id} className={st === 'crit' ? 'border-crit-line bg-crit-bg/40' : st === 'warn' ? 'border-warn-line bg-warn-bg/40' : ''}>
               <div className="flex items-center justify-between"><h2 className="font-display text-base font-semibold">{s.name}</h2><Pill tone={st}>{st === 'crit' ? (b < 0 ? 'سالب' : 'نفد') : st === 'warn' ? 'على وشك النفاد' : 'تمام'}</Pill></div>
               <div className="mt-3"><b className={`font-mono text-[32px] leading-none ${st === 'good' ? '' : st === 'warn' ? 'text-warn' : 'text-crit'}`}>{fmt(b)}</b> <span className="text-muted">{s.unit}</span></div>
               <div className="min-h-5 text-xs text-muted">{s.pack > 1 ? `= ${Math.floor(b / s.pack)} ${s.packName}` : ''}</div>

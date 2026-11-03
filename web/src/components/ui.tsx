@@ -55,7 +55,7 @@ export function Kpi({ label, value, sub, tone, onClick }: { label: string; value
       {sub && <em className="not-italic text-xs text-muted">{sub}</em>}
     </>
   );
-  const cls = 'grid gap-0.5 rounded-xl border border-line bg-surface px-4 py-3 text-start';
+  const cls = cn('grid gap-0.5 rounded-xl border px-4 py-3 text-start', tone === 'crit' ? 'border-crit-line bg-crit-bg' : tone === 'warn' ? 'border-warn-line bg-warn-bg' : tone === 'good' ? 'border-good-line bg-good-bg' : 'border-line bg-surface');
   return onClick ? <button type="button" onClick={onClick} className={cn(cls, 'hover:border-accent cursor-pointer w-full')}>{body}</button> : <div className={cls}>{body}</div>;
 }
 
@@ -104,8 +104,8 @@ export function TableWrap({ children, className }: { children: ReactNode; classN
 export const th = 'bg-lav px-3 py-2 text-start text-xs font-semibold text-muted whitespace-nowrap sticky top-0';
 export const td = 'border-b border-grid px-3 py-2 align-middle';
 
-export function Bar({ label, value, max, right, tone = 'accent' }: { label: ReactNode; value: number; max: number; right: ReactNode; tone?: 'accent' | 'warn' | 'crit' | 'good' }) {
-  const bg = { accent: 'bg-accent', warn: 'bg-dirty', crit: 'bg-scrap', good: 'bg-ready' }[tone];
+export function Bar({ label, value, max, right, tone = 'accent' }: { label: ReactNode; value: number; max: number; right: ReactNode; tone?: 'accent' | 'warn' | 'crit' | 'good' | 'info' | 'muted' }) {
+  const bg = { accent: 'bg-accent', warn: 'bg-dirty', crit: 'bg-scrap', good: 'bg-ready', info: 'bg-factory', muted: 'bg-line2' }[tone];
   return (
     <div className="grid grid-cols-[minmax(80px,150px)_1fr_auto] items-center gap-3 py-0.5">
       <span className="truncate">{label}</span>

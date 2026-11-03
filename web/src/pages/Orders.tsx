@@ -104,7 +104,7 @@ export default function Orders() {
             <table className="text-sm"><thead><tr><th className={th + ' w-9'} /><th className={th}>كود الأوردر</th><th className={th}>البوليصة</th><th className={th}>النوع</th><th className={th}>المحافظة</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
               <tbody>
                 {list.slice(0, n).map((o) => (
-                  <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => setOrderRef(o.ref)}>
+                  <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${o.status === 'open' && d.blocked.has(o.ref) ? 'bg-crit-bg/60' : o.status === 'shipped' ? 'bg-good-bg/50' : o.status === 'cancelled' ? 'opacity-70' : ''}`} onClick={() => setOrderRef(o.ref)}>
                     <td className={td} onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.ref)} disabled={o.status !== 'open'} onChange={() => toggle(o.ref)} aria-label="تحديد" /></td>
                     <td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{o.waybill}</td>
                     <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}><OrderPill o={o} d={d} /></td>
