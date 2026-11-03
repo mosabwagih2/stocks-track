@@ -4,6 +4,9 @@ Warehouse tracking prototypes for **Fémini** (women's underwear brand, Egypt): 
 
 This repository is the **design and brainstorming state** of the project, to be handed over to the real build. Nothing here is production software: both prototypes are single HTML files that keep their data in the browser only (no backend, no real photo storage).
 
+## Production app
+`web/` is the real build: **React + TypeScript + Tailwind CSS + Supabase** (database functions enforce the rules; the ledger is append-only). `supabase/` has the migrations, the seed generated from the real data, and SQL tests that run on a throw-away Postgres. See [`web/README.md`](web/README.md). The single-file prototypes below stay as design references.
+
 ## Start here
 - [`docs/LOVABLE_BRIEF.md`](docs/LOVABLE_BRIEF.md): the full handoff brief (problem, real data, decisions, open questions, build plan, acceptance scenarios).
 
