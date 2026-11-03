@@ -235,7 +235,7 @@ td.num,th.num{text-align:center}
 .imgbtn:hover .th{border-color:var(--accent)}
 .imgbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .imgbtn::after{content:'✎';position:absolute;inset-inline-end:-4px;bottom:-4px;background:var(--accent);color:var(--on-accent);width:18px;height:18px;border-radius:99px;font-size:11px;display:grid;place-items:center}
-.bigimg{width:100%;max-height:58vh;object-fit:contain;border-radius:14px;background:var(--lav);border:1px solid var(--line)}
+.bigimg{display:block;width:100%;max-width:520px;aspect-ratio:1/1;margin-inline:auto;object-fit:contain;border-radius:14px;background:var(--lav);border:1px solid var(--line)}
 .imggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
 .imggrid .imgbtn{display:grid;gap:4px;justify-items:center;text-align:center;font:500 12px var(--f-mono)}
 @media (max-width:1000px){.split,.split2,.g3,.g4{grid-template-columns:minmax(0,1fr)}.sum{position:static}.wh{grid-template-columns:minmax(0,1fr)}.mlist{max-height:none;display:flex;overflow-x:auto;padding:6px}.mlist .mgrp{display:none}.mlist .mi{min-width:128px}}
