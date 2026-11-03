@@ -204,6 +204,7 @@ document.addEventListener('mouseover',e=>{
 });
 window.addEventListener('scroll',()=>{tip.hidden=true},{passive:true});
 
+window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save()});
 /* ---------- boot ---------- */
 load();
 try{theme=localStorage.getItem(KEY+'-theme')||'system'}catch(e){}
