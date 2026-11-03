@@ -65,6 +65,18 @@ const fs=require('fs'),path=require('path');
   const rows=await p.locator('.sheet tbody tr').count();
   ok('"out of stock with demand": tile, sheet rows and the data agree',+tile===oosN&&rows===Math.min(60,oosN)&&oosN>0,tile+'/'+rows+'/'+oosN);
   await p.click('.sheet [data-a=oosplan]');await p.waitForTimeout(200);ok('sheet action opens the plan tab',await p.evaluate(()=>__F.UI.ins==='plan'&&!document.querySelector('.sheet')));
+  // time always runs left (old) to right (new), in every time chart
+  const dir=await p.evaluate(()=>{const F=__F;F.UI.ins='dash';F.UI.insP='30';F.dirty();F.go('insights');
+    const bars=[...document.querySelectorAll('#main .wk .g')].map(e=>e.getBoundingClientRect().left);
+    const pts=[...document.querySelectorAll('#main svg circle[data-tip]')].map(c=>({x:c.getBoundingClientRect().left,t:c.getAttribute('data-tip').slice(0,10)}));
+    F.UI.ins='over';F.go('insights');const col=[...document.querySelectorAll('#main .col .b')].map(e=>e.getBoundingClientRect().left);
+    F.UI.ins='rate';F.go('insights');const wk=[...document.querySelectorAll('#main .wk .g')].map(e=>e.getBoundingClientRect().left);
+    const inc=a=>a.length>1&&a.every((v,i)=>i===0||v>a[i-1]);
+    return {bars:inc(bars),line:inc(pts.map(p=>p.x))&&pts[0].t<pts[pts.length-1].t,col:inc(col),wk:inc(wk),nb:bars.length,np:pts.length}});
+  ok('dashboard bars run old (left) to new (right)',dir.bars,JSON.stringify(dir));
+  ok('dashboard line chart runs old (left) to new (right) with dates increasing',dir.line,JSON.stringify(dir));
+  ok('overview daily chart runs old (left) to new (right)',dir.col,JSON.stringify(dir));
+  ok('weekly rate chart runs old (left) to new (right)',dir.wk,JSON.stringify(dir));
   // costs -> stock value and value trend
   await p.evaluate(()=>{const F=__F,S=F.S();['BR2','PAN3','SH2','A6','S2','D2','BR4','PAN5'].forEach(m=>S.costs[m]={cost:100+m.length*7});F.UI.ins='dash';F.UI.insP='30';F.dirty();F.go('insights')});await p.waitForTimeout(250);
   const cv=await p.evaluate(()=>{const F=__F,S=F.S(),d=F.dashData();let exp=0;F.S();for(const k of D_skus()){}function D_skus(){return []}

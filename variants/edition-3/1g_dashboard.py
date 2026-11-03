@@ -17,6 +17,7 @@ rep("  }else if(s.kind==='more'){","""  }else if(s.kind==='oos'){
   }else if(s.kind==='more'){""")
 rep("  more:()=>{UI.sheet={kind:'more'};render()},","  more:()=>{UI.sheet={kind:'more'};render()},\n  oos:()=>{UI.sheet={kind:'oos'};render()},\n  oosplan:()=>{UI.sheet=null;UI.ins='plan';go('insights')},")
 css="""<style>
+.col,.wk{direction:ltr}
 .wk.dense{gap:3px}.wk.dense .p{gap:1px}.wk.dense .p i{width:5px}.wk.dense .l{font-size:10px}
 .kpi b:has(.cur){font-size:24px}.kpi b .cur{font:500 13px var(--f-ar);margin-inline-start:5px;color:var(--muted)}
 </style>
