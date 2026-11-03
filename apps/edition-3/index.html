@@ -276,7 +276,7 @@ details.dd[open]>summary::after{transform:rotate(180deg)}
   .toast{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
   .sheet{width:100%;top:8%;border-radius:18px 18px 0 0;padding-top:0}
 }
-@media (prefers-reduced-motion:no-preference){.sheet{animation:sl .18s ease-out}@keyframes sl{from{transform:translateX(-24px);opacity:.4}to{transform:none;opacity:1}}}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:sl .18s ease-out}.sheet.keep{animation:none}@keyframes sl{from{transform:translateX(-24px);opacity:.4}to{transform:none;opacity:1}}}
 </style>
 <div id="app"></div>
 <script>
@@ -1450,10 +1450,28 @@ function badges(){
   b.ops=S.docs.filter(d=>d.status==='draft').length||'';
   return b;
 }
+const _L={rail:null,main:null,sheet:null};
+function focusSig(){
+  const a=document.activeElement;if(!a||a===document.body||!a.closest||!a.closest('#app'))return null;
+  if(a.id)return '#'+a.id;
+  const ks=['data-a','data-c','data-k','data-v','data-sku','data-id','data-m','data-i','data-f','data-ref'];
+  const parts=ks.filter(k=>a.hasAttribute(k)).map(k=>'['+k+'="'+String(a.getAttribute(k)).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"]');
+  return parts.length?a.tagName.toLowerCase()+parts.join(''):null;
+}
 function render(){
   const b=badges();
-  const rail='<nav class="rail" aria-label="التنقل"><div class="brand"><i>F</i><div><b>Fémini</b><small>Stock · مخزن</small></div></div>'+NAV.map(n=>'<button class="nav" data-a="go" data-t="'+n[0]+'" '+(UI.tab===n[0]?'aria-current="page"':'')+'>'+ic(n[0])+'<span>'+n[1]+'</span>'+(b[n[0]]?'<span class="bd">'+b[n[0]]+'</span>':'')+'</button>').join('')+'<div class="sp"></div><div class="foot"><button class="tbtn" data-a="theme">◐ المظهر: '+({system:'تلقائي',light:'فاتح',dark:'داكن'})[theme]+'</button><span>'+esc(S.actor)+' · نسخة تجريبية</span></div></nav>';
-  $('#app').innerHTML='<div class="shell">'+rail+'<main class="main" id="main">'+(VIEWS[UI.tab]||vToday)()+'</main></div>'+sheetHTML();
+  const railH='<nav class="rail" aria-label="التنقل"><div class="brand"><i>F</i><div><b>Fémini</b><small>Stock · مخزن</small></div></div>'+NAV.map(n=>'<button class="nav" data-a="go" data-t="'+n[0]+'" '+(UI.tab===n[0]?'aria-current="page"':'')+'>'+ic(n[0])+'<span>'+n[1]+'</span>'+(b[n[0]]?'<span class="bd">'+b[n[0]]+'</span>':'')+'</button>').join('')+'<div class="sp"></div><div class="foot"><button class="tbtn" data-a="theme">◐ المظهر: '+({system:'تلقائي',light:'فاتح',dark:'داكن'})[theme]+'</button><span>'+esc(S.actor)+' · نسخة تجريبية</span></div></nav>';
+  const mainH='<main class="main" id="main">'+(VIEWS[UI.tab]||vToday)()+'</main>',sheetH=sheetHTML(),app=$('#app');
+  if(!$('#railw')){app.innerHTML='<div class="shell"><div id="railw" style="display:contents"></div><div id="mainw" style="display:contents"></div></div><div id="sheetw"></div>';_L.rail=_L.main=_L.sheet=null}
+  const fs=focusSig(),y=window.scrollY;
+  if(_L.rail!==railH){$('#railw').innerHTML=railH;_L.rail=railH}
+  if(_L.main!==mainH){$('#mainw').innerHTML=mainH;_L.main=mainH;if(Math.abs(window.scrollY-y)>1)window.scrollTo(0,y)}
+  if(_L.sheet!==sheetH){
+    const sw=$('#sheetw'),had=!!_L.sheet,ob=$('.sheet .body',sw),st=ob?ob.scrollTop:0;
+    sw.innerHTML=sheetH;_L.sheet=sheetH;
+    if(had&&sheetH){const sh=$('.sheet',sw);if(sh)sh.classList.add('keep');const nb=$('.body',sw);if(nb)nb.scrollTop=st}
+  }
+  if(fs&&(!document.activeElement||document.activeElement===document.body)){try{const el=$(fs);if(el)el.focus({preventScroll:true})}catch(e){}}
   document.title='Fémini Stock';
 }
 function partial(){
@@ -1680,7 +1698,7 @@ const CHG={
   wd:el=>{if(!el.value)return;UI.vd=el.value>=S.date?null:el.value;render()},
   sel:el=>{UI.sel[el.dataset.ref]=el.checked;render()},
   upch:el=>{const s=UI.sheet;s.channel=el.value;if(s.rows){try{s.res=importRows(s.rows,s.channel,'__new__');s.err=''}catch(e){s.err=String(e.message||e)}}render()},
-  updt:el=>{UI.sheet.date=(el.value&&el.value<=S.date)?el.value:S.date;render()},
+  updt:el=>{UI.sheet.date=(el.value&&el.value<=S.date)?el.value:S.date;el.value=UI.sheet.date;render()},
   hdate:el=>{const d=curDoc(),v=el.value;if(!v||v>S.date||v<addDays(S.date,-3)){toast('التاريخ لازم يكون ضمن آخر 3 أيام ومش في المستقبل');el.value=d.date;return}d.date=v;dirty();partial()},
   h:el=>{const d=curDoc();if(String(d.hdr[el.dataset.f])===el.value){return}d.hdr[el.dataset.f]=el.value;dirty();if(['to'].indexOf(el.dataset.f)>=0)render();else partial()},
   clnfrom:el=>{const d=curDoc();d.hdr.from=el.value;d.hdr.to=el.value==='DIRTY'?'SCRAP':'DIRTY';dirty();render()},
