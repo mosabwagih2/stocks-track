@@ -20,7 +20,7 @@ function fresh(): State {
   for (const k of seed.skus) if ((k.open ?? 0) > 0) moves.push({ id: mid++, ts: `${seed.asOf}T08:00:00Z`, date: seed.asOf, sku: k.id, qty: k.open!, from: 'EXT_OPEN', to: 'READY', type: 'OPN', doc: 'OPN-0001', by: 'system', note: 'رصيد افتتاحي من جرد 29-10' });
   const pickups: Pickup[] = []; const orders: Order[] = [];
   seed.pickups.forEach((p, i) => {
-    const id = `P${i + 1}`; pickups.push({ id, label: p.label, date: seed.today, channel: 'VENDOOR', source: 'ملف فيندور 2-11-2026' });
+    const id = `P${i + 1}`; pickups.push({ id, label: p.label, date: cairoToday(), channel: 'VENDOOR', source: 'ملف فيندور 2-11-2026' }); // demo: the sample pickups are dated today
     for (const o of p.orders) orders.push({ ref: o.ref, waybill: String(o.wb), type: String(o.type).includes('استبدال') ? 'exchange' : 'new', gov: o.gov, total: o.total, lines: o.lines.slice(), unmapped: [], pickupId: id, status: 'open' });
   });
   const mk = (id: string, name: string, unit: string, pack: number, packName: string, min: number, rule: Supply['rule'], open: number) =>
