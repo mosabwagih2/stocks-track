@@ -130,6 +130,8 @@ const ACT={
     d.hdr.unk=unk;dirty();render();
   },
   supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
+  blkview:()=>{UI.sheet={kind:'blocked'};render()},
+  of2:el=>go('orders',()=>{UI.o.f=el.dataset.v;UI.o.tab='list';UI.o.pk='';UI.o.n=60}),
   supedit:()=>{const s=UI.sheet;s.tab='edit';s.err='';s.arch=false;s.f=formOf(supItem(s.id));render()},
   supconf:el=>{const it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:'edit',act:'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:formOf(it),err:'',arch:false,undo:null};render()},
   supnew:()=>{UI.sheet={kind:'supnew',f:blankForm(),err:''};render()},

@@ -127,6 +127,8 @@ td.num,th.num{text-align:center}
 /* big numbers */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:2px}
+button.kpi{text-align:start;cursor:pointer;width:100%}
+button.kpi:hover{border-color:var(--accent)}
 .kpi small{color:var(--muted);font-weight:500}
 .kpi b{font:600 28px/1.2 var(--f-mono);letter-spacing:-.02em}
 .kpi em{font-style:normal;color:var(--muted);font-size:12px}
@@ -701,7 +703,7 @@ const pill=(k,t,tip)=>'<span class="pill '+k+'"'+(tip?' data-tip="'+esc(tip)+'"'
 const hbar=(label,v,max,right,cls,tip)=>'<div class="hb"'+(tip?' data-tip="'+esc(tip)+'"':'')+'><span class="nm">'+label+'</span><div class="tr"><i class="'+(cls||'')+'" style="width:'+(max?Math.max(2,v/max*100).toFixed(1):0)+'%"></i></div><span class="v">'+right+'</span></div>';
 const top=(title,sub,tools)=>'<div class="top"><div><h1>'+title+'</h1>'+(sub?'<p class="sub">'+sub+'</p>':'')+'</div><div class="tools">'+(tools||'')+'</div></div>';
 const timeOf=ms=>new Date(ms).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Africa/Cairo'});
-const kpi=(l,v,s,k)=>'<div class="kpi '+(k||'')+'"><small>'+l+'</small><b>'+v+'</b>'+(s?'<em>'+s+'</em>':'')+'</div>';
+const kpi=(l,v,s,k,act)=>(act?'<button type="button" class="kpi '+(k||'')+'" data-a="'+act+'" data-tip="اضغط تشوف التفاصيل">':'<div class="kpi '+(k||'')+'">')+'<small>'+l+(act?' ‹':'')+'</small><b>'+v+'</b>'+(s?'<em>'+s+'</em>':'')+(act?'</button>':'</div>');
 const stp=(i,v,f)=>'<span class="stp"><button type="button" data-a="ls" data-i="'+i+'" data-f="'+f+'" data-d="-1" aria-label="أقل">−</button><input type="number" min="0" value="'+v+'" data-c="ln" data-i="'+i+'" data-f="'+f+'" aria-label="الكمية"><button type="button" data-a="ls" data-i="'+i+'" data-f="'+f+'" data-d="1" aria-label="أكتر">+</button></span>';
 
 function actions(){
@@ -729,7 +731,7 @@ function vToday(){
   h+='<section class="card lift"><h2>تدفق اليوم <span class="hint">البيك أب هو المطلوب. الخصم من المخزون بيحصل بالسكان بس.</span></h2>';
   if(!os.length)h+='<div class="empty">مفيش بيك أب في اليوم ده. ارفع ملف البيك أب أو غيّر يوم العمل.</div>';
   else{
-    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('المطلوب (بيك أب)',N(os.length),fmt(pc(os))+' قطعة')+kpi('اتسكّن (خرج فعلًا)',N(done.length),fmt(pc(done))+' قطعة · '+pct(done.length,os.length),'good')+kpi('لسه ما اتسكانش',N(open.length-blk.length),fmt(pc(open.filter(o=>!C.blocked[o.ref])))+' قطعة',open.length-blk.length?'warn':'')+kpi('هيقف بالمخزون',N(blk.length),fmt(pc(blk))+' قطعة',blk.length?'crit':'')+'</div>';
+    h+='<div class="kpis" style="margin-bottom:14px">'+kpi('المطلوب (بيك أب)',N(os.length),fmt(pc(os))+' قطعة')+kpi('اتسكّن (خرج فعلًا)',N(done.length),fmt(pc(done))+' قطعة · '+pct(done.length,os.length),'good')+kpi('لسه ما اتسكانش',N(open.length-blk.length),fmt(pc(open.filter(o=>!C.blocked[o.ref])))+' قطعة',open.length-blk.length?'warn':'')+kpi('هيقف بالمخزون',N(blk.length),fmt(pc(blk))+' قطعة',blk.length?'crit':'',blk.length?'blkview':'')+'</div>';
     const w=x=>(x/os.length*100).toFixed(2)+'%';
     h+='<div class="flow" role="img" aria-label="اتسكّن '+done.length+' من '+os.length+'"><i class="a" style="width:'+w(done.length)+'"></i><i class="b" style="width:'+w(open.length-blk.length)+'"></i><i class="c" style="width:'+w(blk.length)+'"></i></div>';
     h+='<div class="legend" style="margin-top:8px"><span><i class="dot" style="background:var(--c-ready)"></i>اتسكّن</span><span><i class="dot" style="background:var(--line2)"></i>مستني السكان</span><span><i class="dot" style="background:var(--c-scrap)"></i>هيقف بالمخزون</span></div>';
@@ -845,6 +847,17 @@ function sheetHTML(){
     if(o.st==='cx')body+='<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّعه مفتوح</button></div>';
   }else if(s.kind==='sup'||s.kind==='supnew'){
     const r=supSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='blocked'){
+    const C=ctx(),ids=S.pickups.filter(p=>p.date===S.date).map(p=>p.id),bl=S.orders.filter(o=>o.st==='open'&&ids.indexOf(o.pk)>=0&&C.blocked[o.ref]);
+    title='هيقف بالمخزون ('+bl.length+' أوردر)';
+    const byS={};bl.forEach(o=>C.blocked[o.ref].forEach(x=>{const e=byS[x[0]]||(byS[x[0]]={n:0,q:0});e.n++;e.q+=x[1]}));
+    const ks=Object.keys(byS).sort((a,b)=>byS[b].n-byS[a].n||skuSort(a,b));
+    body=bl.length?'<div class="msg">الأوردر بيقف لو أي قطعة فيه ناقصة، لأنه بيتبعت كامل. الناقص محسوب على الجاهز دلوقتي ومتوزّع على الأوردرات بالترتيب.</div>':'<div class="empty">مفيش أوردرات هتقف النهارده.</div>';
+    if(bl.length){
+      body+='<h3 style="font-size:15px">الأصناف الناقصة <span class="muted" style="font-weight:400">(بتوقّف أكتر أوردرات الأول)</span></h3><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">جاهز</th><th class="num">ناقص</th><th class="num">أوردرات واقفة</th></tr></thead><tbody>'+ks.map(s=>'<tr data-a="sku" data-sku="'+s+'"><td>'+thumb(SKU.get(s).m,26)+' '+sw(SKU.get(s).c)+' '+esc(skuName(s))+'</td><td class="num">'+N(g(s,'READY'))+'</td><td class="num">'+pill('crit',byS[s].q)+'</td><td class="num">'+N(byS[s].n)+'</td></tr>').join('')+'</tbody></table></div>';
+      body+='<h3 style="font-size:15px">الأوردرات الواقفة</h3><div class="tw"><table class="t-sm"><thead><tr><th>الكود</th><th class="num">قطع</th><th>الناقص فيه</th></tr></thead><tbody>'+bl.map(o=>'<tr data-a="order" data-ref="'+esc(o.ref)+'"><td class="mono">'+esc(o.ref)+'</td><td class="num">'+N(o.lines.length)+'</td><td>'+C.blocked[o.ref].map(x=>'<span class="pill crit" style="margin:2px">'+esc(skuName(x[0]))+' ×'+x[1]+'</span>').join(' ')+'</td></tr>').join('')+'</tbody></table></div>';
+      body+='<button class="btn" data-a="of2" data-v="blocked">افتحهم في صفحة الأوردرات</button>';
+    }
   }else if(s.kind==='img'){
     title='صورة '+mName(s.m);const u=imgOf(s.m);
     body=(u?'<img class="bigimg" src="'+u+'" alt="'+esc(s.m)+'">':'<div class="drop" data-a="pickimg" data-m="'+s.m+'"><b>مفيش صورة للموديل ده</b><span class="muted">اضغط لاختيار صورة (الأفضل خلفية فاتحة وصورة المنتج كله)</span></div>')+'<div class="row"><button class="btn pri" data-a="pickimg" data-m="'+s.m+'">'+(u?'تغيير الصورة':'رفع صورة')+'</button>'+(u?'<button class="btn danger" data-a="rmimg" data-m="'+s.m+'">إزالة</button>':'')+'</div><p class="muted" style="font-size:12px">أي صورة بترفعها بتتحوّل أوتوماتيك لمربع 1:1 (600×600) من غير قص: الصورة كاملة بتتحط في النص وبياض الخلفية بياخد لون ركن الصورة. الأفضل ترفعها مربعة من الأول (مثلًا 1000×1000). بتتحفظ في المتصفح ده بس.</p>';
@@ -1217,6 +1230,8 @@ const ACT={
     d.hdr.unk=unk;dirty();render();
   },
   supopen:el=>{const act=el.dataset.act,it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:act==='manage'?'move':'move',act:act==='rcv'?'rcv':'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:null,err:'',arch:false,undo:null};render();setTimeout(()=>{const q=$('#supq');if(q)q.focus()},60)},
+  blkview:()=>{UI.sheet={kind:'blocked'};render()},
+  of2:el=>go('orders',()=>{UI.o.f=el.dataset.v;UI.o.tab='list';UI.o.pk='';UI.o.n=60}),
   supedit:()=>{const s=UI.sheet;s.tab='edit';s.err='';s.arch=false;s.f=formOf(supItem(s.id));render()},
   supconf:el=>{const it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:'edit',act:'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:formOf(it),err:'',arch:false,undo:null};render()},
   supnew:()=>{UI.sheet={kind:'supnew',f:blankForm(),err:''};render()},
