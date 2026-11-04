@@ -241,7 +241,6 @@ csh=r"""<style>
 .dot.hd{display:inline-block;width:9px;height:9px;border-radius:9px;margin-inline-end:5px}
 @media (max-width:820px){.hms{table-layout:fixed}.hms td.hmc{min-width:0;padding:7px 1px;font-size:11px}.hms th:first-child{width:58px}.hms th:last-child,.hms td:last-child{display:none}.tw:has(>table.hms){padding:4px;overflow-x:hidden!important}}
 .mxgrid .mx{width:100%;table-layout:fixed}.mxgrid .mx th:first-child,.mxgrid .mx td.cl{width:110px}.mxgrid .mx .cell{width:100%;min-width:0}.mxgrid .tw{padding:8px}
-@media (min-width:1180px){.mxgrid{display:grid!important;grid-template-columns:1fr 1fr;align-items:start;gap:14px}.mxgrid>.card{margin:0}}
 /* expanded matrix in the stock list fills the row */
 .stkl tr.mopen .tw{padding:8px}.stkl tr.mopen .mx{width:100%;table-layout:fixed}.stkl tr.mopen .mx th:first-child,.stkl tr.mopen .mx td.cl{width:120px}.stkl tr.mopen .mx .cell{width:100%;min-width:0}
 </style>
