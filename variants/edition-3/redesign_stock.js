@@ -8,14 +8,14 @@ const bar=(v,max,k)=>'<span class="rb" aria-hidden="true"><i class="'+(k||'')+'"
 function stockList(){
   const s=UI.s,sq=stockQ(),R=rateData(),by={};R.rows.forEach(r=>by[r.m]=r);
   UI.s.open=UI.s.open||{};
-  const all=MORDER.filter(c=>by[c]),ms=all.filter(c=>!sq||modelHit(c,sq));
+  const all=MORDER.filter(c=>by[c]),ms=all.filter(c=>(!sq||modelHit(c,sq))&&(s.state==='READY'||mSum(c,s.state)>0));
   const groups={};ms.forEach(c=>{(groups[lineOf(c)]||(groups[lineOf(c)]=[])).push(c)});
   const sv=c=>s.state==='READY'?by[c].ready:mSum(c,s.state);
   const cmp=(a,b)=>s.sort==='alpha'?(mIdx[a]-mIdx[b]):(by[b].rate-by[a].rate||mIdx[a]-mIdx[b]);
   const nCrit=ms.filter(c=>by[c].k==='crit').length,nWarn=ms.filter(c=>by[c].k==='warn').length,need=ms.reduce((a,c)=>a+by[c].need,0);
   const dmTot=ms.reduce((a,c)=>a+by[c].dm,0),stTot=ms.reduce((a,c)=>a+sv(c),0);
   let h=strip([si('الموديلات',N(ms.length),sq?'من '+all.length:LINE_ORDER.filter(l=>groups[l]).length+' خط'),si(LOC[s.state],N(stTot),'قطعة'),si('طلب مفتوح',N(dmTot),'قطعة'),si('اطلب تصنيع',N(nCrit),nWarn?nWarn+' كمان قربوا':'موديل',nCrit?'crit':nWarn?'warn':'good'),si('مقترح تصنيعه',N(need),'قطعة',need?'warn':'')]);
-  if(!ms.length)return h+'<div class="card"><div class="empty">مفيش نتيجة'+(sq?' لـ "'+esc(s.q.trim())+'"':'')+'.</div></div>';
+  if(!ms.length)return h+'<div class="card"><div class="empty">'+(s.state!=='READY'&&!sq?'مفيش قطع في '+LOC[s.state]+'.':'مفيش نتيجة'+(sq?' لـ "'+esc(s.q.trim())+'"':'')+'.')+'</div></div>';
   const openN=ms.filter(c=>s.open[c]).length;
   h+='<div class="row sp" style="margin:4px 0 10px"><span class="muted" style="font-size:13px">اضغط على أي موديل يفتح المصفوفة بتاعته</span><span class="row" style="gap:8px"><span class="seg" role="group" aria-label="الترتيب"><button aria-pressed="'+(s.sort!=='alpha')+'" data-a="ssort" data-v="pull">الأكثر سحبًا</button><button aria-pressed="'+(s.sort==='alpha')+'" data-a="ssort" data-v="alpha">أبجدي</button></span><button class="btn sm" data-a="mexpall">'+(openN===ms.length?'اقفل الكل':'افتح الكل')+'</button></span></div>';
   h+='<div class="tw"><table class="dt stkl"><thead><tr><th>الموديل</th><th class="num">'+LOC[s.state]+'</th><th class="num">طلب مفتوح</th><th class="num">سحب/أسبوع</th><th>التغطية</th><th>الحالة</th><th style="width:28px"></th></tr></thead><tbody>';

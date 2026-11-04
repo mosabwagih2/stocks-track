@@ -112,3 +112,8 @@ Two views instead of three tabs that looked alike: "اللي حصل" (one feed o
 A return document now works parcel by parcel: scan or type a waybill (or order code), the system finds the original order and lists every piece that was shipped, the employee marks each piece good / cleaning / scrap / missing, and the difference between shipped and received is shown per order. Posting is unchanged (good to ready, cleaning, scrap, missing to lost), plus each order keeps "received x of y". Test: `tests/edition3_returns_test.js`.
 
 > Returns: the manual count by model, colour and size is back inside the return document (a separate card, "جرد يدوي"), and can be used alone or together with waybill parcels.
+
+## Shop supplies and the stock state filter (Brand 2)
+
+- Choosing a state chip on the Stock page (cleaning, factory, scrap, lost) lists only the models and items that have pieces in that state (list, matrices and all-items views).
+- Shop supply (SHP): no photo is required before saving. A shop name is required; the day and time are kept. A confirmed supply gets a delivery note (two copies: shop and warehouse, signature block, optional prices) to print or download as HTML or Excel, a "delivered" step with the receiver's name, and an optional signed-paper photo afterwards. Operations has a new tab, "توريدات المحل", with filters, per-shop totals and a re-print button. Test: `tests/edition3_shop_test.js`.

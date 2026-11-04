@@ -83,8 +83,8 @@ function genDemo(){
         let d=newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'بقع وقت التغليف'};h.slice(3,9).forEach(k=>d.lines.push({sku:k.id,q:1+Math.floor(rnd()*2)}));confirmDoc(d);
         d=newDoc('CLN');d.hdr={from:'READY',to:'SCRAP',reason:'قماش بايظ'};h.slice(12,15).forEach(k=>d.lines.push({sku:k.id,q:1}));confirmDoc(d)}
       /* 6. transfers to the shop */
-      if(i===9||i===22){at(day,16);const d=newDoc('SHP');d.hdr.note=i===9?'محل المعادي':'محل مدينة نصر';
-        sk.filter(k=>g(k.id,'READY')>=8&&DEMO_MW[k.m]>=1).slice(i===9?0:20,i===9?26:46).forEach(k=>d.lines.push({sku:k.id,q:Math.min(6,Math.floor(g(k.id,'READY')*.2))||1}));pho(d.id);confirmDoc(d)}
+      if(i===9||i===22){at(day,16);const d=newDoc('SHP');d.hdr.shop=i===9?'محل المعادي':'محل مدينة نصر';
+        sk.filter(k=>g(k.id,'READY')>=8&&DEMO_MW[k.m]>=1).slice(i===9?0:20,i===9?26:46).forEach(k=>d.lines.push({sku:k.id,q:Math.min(6,Math.floor(g(k.id,'READY')*.2))||1}));confirmDoc(d);if(d.status==='done'&&i===9)d.hdr.delivered={at:T,date:day,by:S.actor,receiver:'أستاذ محمود'}}
       /* 7. stocktake of two models */
       if(i===19){at(day,17);const d=newDoc('CNT');d.hdr.state='READY';d.hdr.models=['A6','S2'];
         let n=0;sk.filter(k=>k.m==='A6'||k.m==='S2').forEach(k=>{const now=g(k.id,'READY');d.hdr.snap[k.id]=now;let diff=0;if(now>0&&rnd()<.14)diff=pick([-3,-2,-1,-1,1,2]);d.hdr.cnt[k.id]=Math.max(0,now+diff);if(diff)n++});

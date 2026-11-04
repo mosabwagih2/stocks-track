@@ -12,7 +12,7 @@ function lgDescribe(g,doc){
     case 'SCN':return 'شحن '+(H.refs?H.refs.length+' أوردر':'أوردرات')+' · '+fmt(n)+' قطعة';
     case 'RCV':return 'استلام من المصنع · '+fmt(n)+' قطعة'+(H.ref?' (إذن '+esc(H.ref)+')':'');
     case 'RTN':{const r=sum(m=>m.to==='READY'),d=sum(m=>m.to==='DIRTY'),x=sum(m=>m.to==='SCRAP'),l=sum(m=>m.to==='LOST');return 'استلام مرتجعات'+(H.channel?' من '+esc(chanName(H.channel)):'')+': سليم '+fmt(r)+(d?' · نضافة '+fmt(d):'')+(x?' · هالك '+fmt(x):'')+(l?' · ناقص '+fmt(l):'')}
-    case 'SHP':return 'توريد للمحل'+(H.note?' ('+esc(H.note)+')':'')+' · '+fmt(n)+' قطعة';
+    case 'SHP':return 'توريد للمحل'+((H.shop||H.note)?' ('+esc(H.shop||H.note)+')':'')+' · '+fmt(n)+' قطعة';
     case 'CLN':return 'تصنيف حالة: '+esc(LOC[H.from]||'')+' ← '+esc(LOC[H.to]||'')+' · '+fmt(n)+' قطعة';
     case 'FSD':return (H.kind==='wash'?'إرسال للمصنع للغسيل':'تسليم هالك للمصنع')+' · '+fmt(n)+' قطعة';
     case 'FRC':{const x=sum(m=>m.to==='SCRAP');return 'استلام من المصنع: رجع '+fmt(sum(m=>m.to==='READY'))+(x?' · مرفوض '+fmt(x):'')}
