@@ -9,22 +9,21 @@ function shpWhen(d){const t=d.confirmedAt||Date.now();return {date:d.date||S.dat
 const SHP_LOGO='__SHP_LOGO__';
 function shpNoteHTML(d,opt){
   opt=opt||{};const rows=shpRows(d),W=shpWhen(d),H=d.hdr||{},prices=!!opt.prices&&shpHasPrices(d),tot=rows.reduce((a,r)=>a+r.q,0),val=rows.reduce((a,r)=>a+r.q*r.price,0);
-  const body='<section class="pg"><header><div class="br"><img src="'+SHP_LOGO+'" alt="Fémini"></div><div class="tt"><h1>إذن تسليم بضاعة</h1><span class="sb">من المخزن إلى المحل</span></div><div class="no"><small>رقم الإذن</small><b>'+esc(shpNo(d))+'</b><small>'+esc(W.date)+' · '+esc(W.time)+'</small></div></header>'
+  const body='<section class="pg"><header><div class="br"><img src="'+SHP_LOGO+'" alt="Fémini"></div><div class="tt"><h1>إذن تسليم بضاعة</h1></div><div class="no"><b>'+esc(shpNo(d))+'</b><small>'+esc(W.date)+' · '+esc(W.time)+'</small></div></header>'
    +'<div class="meta"><div><small>من</small><b>مخزن Fémini</b></div><div><small>إلى</small><b>'+esc(H.shop||'—')+'</b></div><div><small>أعدّه</small><b>'+esc(d.by||'')+'</b></div></div>'
    +'<table><thead><tr><th>م</th><th>الموديل</th><th>الوصف</th><th>اللون</th><th>المقاس</th><th class="n">الكمية</th>'+(prices?'<th class="n">السعر</th><th class="n">الإجمالي</th>':'')+'</tr></thead><tbody>'
    +rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td class="m">'+esc(r.model)+'</td><td>'+esc(r.mname)+'</td><td>'+esc(r.color)+'</td><td>'+esc(r.size)+'</td><td class="n"><b>'+r.q+'</b></td>'+(prices?'<td class="n">'+fmt(r.price)+'</td><td class="n">'+fmt(r.q*r.price)+'</td>':'')+'</tr>').join('')
    +'</tbody><tfoot><tr><td colspan="5">الإجمالي · '+rows.length+' صنف</td><td class="n"><b>'+tot+'</b></td>'+(prices?'<td></td><td class="n"><b>'+fmt(val)+'</b></td>':'')+'</tr></tfoot></table>'
    +(H.note?'<p class="nt"><b>ملاحظات:</b> '+esc(H.note)+'</p>':'')
    +'<p class="rv">راجع الكميات قبل التوقيع على الاستلام.</p>'
-   +'<div class="sg"><div><small>توقيع مستلم الاستور</small><i></i></div><div><small>توقيع أمين المخزن</small><i></i></div></div>'
-   +'<footer>Fémini · مخزن</footer></section>';
+   +'<div class="sg"><div><small>توقيع مستلم الاستور</small><i></i></div><div><small>توقيع أمين المخزن</small><i></i></div></div></section>';
   return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>إذن تسليم '+esc(shpNo(d))+'</title><style>'
    +'*{box-sizing:border-box}body{margin:0;background:#fff;color:#1f1738;font:13px/1.6 "IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pg{width:190mm;max-width:100%;margin:0 auto;padding:10mm 0}'
-   +'header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;border-bottom:3px solid #43316f;padding-bottom:10px;margin-bottom:12px}.br img{height:24mm;width:auto;display:block}.tt{text-align:center}.tt h1{margin:0;font-size:22px;color:#43316f}.sb{color:#655e80;font-size:12px}.no{text-align:left;justify-self:end}.no small{display:block;color:#655e80;font-size:11px}.no b{display:inline-block;margin:2px 0;padding:2px 12px;border-radius:99px;background:#43316f;color:#fff;font:600 15px monospace;direction:ltr}'
-   +'.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.meta div{border:1px solid #d3cbe6;border-radius:10px;padding:6px 10px;background:#faf9fd}.meta small{display:block;color:#655e80;font-size:11px}.meta b{color:#43316f}'
-   +'table{width:100%;border-collapse:collapse;border:1px solid #d3cbe6}th,td{border-bottom:1px solid #e5e0f0;padding:5px 8px;text-align:right}th{background:#43316f;color:#fff;font-size:12px;font-weight:600}tbody tr:nth-child(even) td{background:#faf9fd}.n{text-align:center}.m{font-family:monospace;font-weight:700;color:#43316f}tfoot td{background:#eeeaf6;font-weight:700;color:#43316f;border-top:2px solid #43316f}'
-   +'.nt{margin:10px 0 0}.rv{color:#655e80;font-size:12px;margin:12px 0}.sg{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:26px}.sg>div{border:1px solid #d3cbe6;border-radius:10px;padding:8px 12px 0;height:30mm}.sg small{display:block;color:#43316f;font-weight:600;font-size:12px}.sg i{display:block}'
-   +'footer{margin-top:16px;text-align:center;color:#a59cc0;font-size:11px;letter-spacing:.04em}thead{display:table-header-group}tr,.sg,footer{page-break-inside:avoid}@page{size:A4;margin:8mm}@media print{.pg{padding:0}}</style></head><body>'+body+'</body></html>';
+   +'header{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:2px solid #43316f;padding-bottom:8px;margin-bottom:10px}.br img{height:20mm;width:auto;display:block}.tt{text-align:center}.tt h1{margin:0;font-size:20px}.no{text-align:left}.no b{font:600 16px monospace;display:block;direction:ltr}.no small{color:#655e80}'
+   +'.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}.meta div{border:1px solid #d3cbe6;border-radius:8px;padding:6px 10px}.meta small{display:block;color:#655e80;font-size:11px}'
+   +'table{width:100%;border-collapse:collapse}th,td{border:1px solid #d3cbe6;padding:5px 8px;text-align:right}th{background:#f3f0f9;font-size:12px}.n{text-align:center}.m{font-family:monospace;font-weight:600}tfoot td{background:#f3f0f9;font-weight:600}'
+   +'.nt{margin:10px 0 0}.rv{color:#655e80;font-size:12px;margin:10px 0}.sg{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:24px}.sg small{display:block;color:#655e80;font-size:11px}.sg i{display:block;border-bottom:1px solid #1f1738;height:34px}'
+   +'thead{display:table-header-group}tr,.sg{page-break-inside:avoid}@page{size:A4;margin:8mm}@media print{.pg{padding:0}}</style></head><body>'+body+'</body></html>';
 }
 function shpAOA(d,opt){
   const rows=shpRows(d),W=shpWhen(d),prices=!!(opt&&opt.prices)&&shpHasPrices(d),H=d.hdr||{};
