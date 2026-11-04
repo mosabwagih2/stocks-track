@@ -88,3 +88,9 @@ The redesign copy has a stock heat map (Stock > خريطة): model x size, colou
 - `variants/edition-3/redesign_access.js` (+ `access_patch.py`): users with roles (admin, supervisor, packer, read-only), editable permission matrix, optional PIN lock screen, audit log, money masking, per-action and core-function permission guards.
 - Day close: checklist (blockers and warnings), opening + in - out = closing reconciliation per state, locks every day up to the closed date (documents, cancellations, supplies), admin reopen with a logged reason. Test: `tests/edition3_access_test.js`.
 - Scope: this is browser-side (localStorage, hashed PINs), so it prevents mistakes and keeps an audit trail. Real enforcement needs the server (Supabase) version.
+
+## Production audit (Brand 2)
+
+- New suites: `edition3_fuzz_test.js` (random operations, ledger/order/supply invariants after every step), `edition3_crawl_test.js` (every screen x light/dark x desktop/phone x empty/demo data, plus HTML-injection check), `edition3_prod_test.js` (reload persistence, PIN after reload, corrupt/old storage, quota, double submit, two tabs, midnight rollover, bad import files, backup/restore, speed).
+- Fixes from the audit: demo load left the catalog state unset (the "all items" view crashed), a document could be confirmed twice, two tabs could overwrite each other, accessibility labels in the users tab.
+- Added: backup download and restore (Settings, Data) with a reminder on Today.

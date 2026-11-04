@@ -14,9 +14,9 @@ const ACT_PERM={pksave:'pickup',pksave2:'pickup',pkdel:'pickup',pkdel2:'pickup',
   reset:'settings',reset2:'settings',demoask:'settings',demoload:'settings',demoreset:'settings',
   skuadd:'catalog',catedit:'catalog',catsave:'catalog',skusave:'catalog',modelrm:'catalog',modelarch:'catalog',modelarch2:'catalog',modelrestore:'catalog',skuarch:'catalog',skuarch2:'catalog',skurestore:'catalog',skuop:'catalog',
   supsave:'supplies',supnew:'supplies',supconf:'supplies',suparch:'supplies',suparch2:'supplies',supundo:'supplies',supundo2:'supplies',undoentry:'supplies',supact:'supplies',
-  usadd:'users',usdel:'users',clreopen:'reopen'};
+  usadd:'users',bkdl:'settings',bkyes:'settings',usdel:'users',clreopen:'reopen'};
 const CLOSED_ACTS={pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
-const CHG_PERM={cost:'settings',st:'settings',actor:'settings'};
+const CHG_PERM={bkfile:'settings',cost:'settings',st:'settings',actor:'settings'};
 function cyrb(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)}
 const pinHash=p=>cyrb('fm|'+String(p).trim());
 const navList=()=>NAV.filter(n=>n[0]!=='config'||can('settings')||can('users'));
@@ -112,7 +112,9 @@ function closeSheet(){
   if(last&&can('reopen'))h+='<div class="msg warn" style="margin-top:14px"><b>فتح آخر يوم مقفول ('+esc(last.date)+')</b><label class="f" style="margin-top:8px">السبب (بيتسجل)<input data-c="clreason" value="'+esc(cl.reason||'')+'"></label><div style="margin-top:8px"><button class="btn danger" data-a="clreopen" '+((cl.reason||'').trim()?'':'disabled')+'>افتح اليوم</button></div></div>';
   return {title:'تقفيل اليوم',body:h};
 }
-function dayCloseBar(){
+function backupNudge(){const a=bkAge();if(!S.moves.length||!(a==null||a>7)||S.demo)return '';return '<div class="msg warn row sp dcb"><span>'+(a==null?'لسه ما اتاخدتش نسخة احتياطية من البيانات.':'آخر نسخة احتياطية من <b>'+a+'</b> يوم.')+' البيانات متخزنة في المتصفح بس.</span><button class="btn sm" data-a="bkdl">نزّل نسخة دلوقتي</button></div>'}
+function dayCloseBar(){return dayCloseBar0()+backupNudge()}
+function dayCloseBar0(){
   if(!S.closes)return '';
   const un=unlockedDays(),past=un.filter(d=>d<S.date&&(S.pickups.some(p=>p.date===d)||S.moves.some(m=>m.date===d)));
   if(dayLocked(S.date)){const c=S.closes.filter(x=>x.status==='closed').slice(-1)[0];return '<div class="msg good row sp dcb"><span><b>اليوم مقفول</b>'+(c?' · '+esc(c.by)+' '+timeOf(c.at):'')+'. العمليات متوقفة لحد ما المدير يفتحه.</span><button class="btn sm" data-a="closeday">تفاصيل التقفيل</button></div>'}
@@ -131,12 +133,12 @@ function vAccess(){
   const adm=S.users.filter(u=>u.role==='admin'&&u.on!==false).length;
   const ro=sel=>Object.keys(S.roles).map(r=>'<option value="'+r+'" '+(sel===r?'selected':'')+'>'+esc(S.roles[r].name)+'</option>').join('');
   let h='<section class="card"><h2>المستخدمين <span class="hint">كل حاجة بتتسجل باسم اللي دخل</span></h2><div class="tw"><table class="dt"><thead><tr><th>الاسم</th><th>الدور</th><th>رقم سري</th><th>شغّال</th><th></th></tr></thead><tbody>'
-   +S.users.map(u=>'<tr><td><b>'+esc(u.name)+'</b>'+(u.id===S.cur?' <span class="pill info">أنت</span>':'')+'</td><td><select data-c="usrole" data-id="'+u.id+'">'+ro(u.role)+'</select></td><td>'+(u.pin?'<span class="pill good">متحط</span> ':'<span class="pill">مفيش</span> ')+'<input type="password" inputmode="numeric" placeholder="جديد" data-c="usrpin" data-id="'+u.id+'" style="width:90px"></td><td><input type="checkbox" data-c="usron" data-id="'+u.id+'" '+(u.on!==false?'checked':'')+'></td><td>'+(u.id===S.cur?'':'<button class="btn sm danger" data-a="usdel" data-id="'+u.id+'">حذف</button>')+'</td></tr>').join('')
+   +S.users.map(u=>'<tr><td><b>'+esc(u.name)+'</b>'+(u.id===S.cur?' <span class="pill info">أنت</span>':'')+'</td><td><select data-c="usrole" data-id="'+u.id+'" aria-label="دور '+esc(u.name)+'">'+ro(u.role)+'</select></td><td>'+(u.pin?'<span class="pill good">متحط</span> ':'<span class="pill">مفيش</span> ')+'<input type="password" inputmode="numeric" placeholder="جديد" data-c="usrpin" data-id="'+u.id+'" style="width:90px"></td><td><input type="checkbox" data-c="usron" data-id="'+u.id+'" aria-label="'+esc(u.name)+' شغّال" '+(u.on!==false?'checked':'')+'></td><td>'+(u.id===S.cur?'':'<button class="btn sm danger" data-a="usdel" data-id="'+u.id+'">حذف</button>')+'</td></tr>').join('')
    +'</tbody></table></div><div class="picker" style="margin-top:12px"><label class="f">اسم جديد<input id="nu_name"></label><label class="f">الدور<select id="nu_role">'+ro('pack')+'</select></label><label class="f">رقم سري (اختياري)<input id="nu_pin" type="password" inputmode="numeric"></label><button class="btn pri" data-a="usadd">+ إضافة مستخدم</button></div>'
    +(adm<2?'<p class="muted" style="margin-top:8px;font-size:12.5px">لازم يفضل مدير واحد شغّال على الأقل.</p>':'')+'</section>';
   const rk=Object.keys(S.roles);
   h+='<section class="card"><h2>مصفوفة الصلاحيات <span class="hint">المدير دايمًا كل حاجة</span></h2><div class="tw"><table class="t-sm"><thead><tr><th>الصلاحية</th>'+rk.map(r=>'<th class="num">'+esc(S.roles[r].name)+'</th>').join('')+'</tr></thead><tbody>'
-   +PERMS.map(p=>'<tr><td>'+p[1]+'</td>'+rk.map(r=>'<td class="num"><input type="checkbox" data-c="rolep" data-r="'+r+'" data-p="'+p[0]+'" '+((r==='admin'||S.roles[r].perms.indexOf(p[0])>=0)?'checked':'')+(r==='admin'?' disabled':'')+'></td>').join('')+'</tr>').join('')+'</tbody></table></div></section>';
+   +PERMS.map(p=>'<tr><td>'+p[1]+'</td>'+rk.map(r=>'<td class="num"><input type="checkbox" data-c="rolep" data-r="'+r+'" data-p="'+p[0]+'" aria-label="'+p[1]+' · '+esc(S.roles[r].name)+'" '+((r==='admin'||S.roles[r].perms.indexOf(p[0])>=0)?'checked':'')+(r==='admin'?' disabled':'')+'></td>').join('')+'</tr>').join('')+'</tbody></table></div></section>';
   h+='<section class="card"><h2>سجل النشاط <span class="hint">آخر 25</span></h2>'+(S.audit.length?'<div class="tl">'+S.audit.slice(-25).reverse().map(a=>'<div class="tli" style="grid-template-columns:minmax(0,1fr) auto"><span class="tt"><b>'+esc(a.m)+'</b><small class="muted">'+esc(a.by)+'</small></span><span class="muted" style="font-size:12px">'+timeOf(a.t)+'</span></div>').join('')+'</div>':'<div class="muted">لسه مفيش.</div>')+'</section>';
   return h;
 }
@@ -149,7 +151,17 @@ function dateNav(date,isToday){
   const lo=firstDay();
   return '<span class="dnav" role="group" aria-label="اختيار اليوم"><button class="btn sm" data-a="vdstep" data-n="-1" '+(date<=lo?'disabled':'')+' aria-label="اليوم اللي قبله">›</button><input type="date" value="'+date+'" min="'+lo+'" max="'+S.date+'" data-c="vdpick" aria-label="اختار يوم"><button class="btn sm" data-a="vdstep" data-n="1" '+(isToday?'disabled':'')+' aria-label="اليوم اللي بعده">‹</button></span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>');
 }
+function bkAge(){return S.bk?Math.floor((Date.now()-S.bk)/864e5):null}
+function backupBox(){
+  const a=bkAge(),has=S.moves.length>0;
+  return '<div class="msg '+(has&&(a==null||a>7)?'warn':'')+'" style="margin-bottom:12px"><b>نسخة احتياطية</b><div class="muted" style="margin:4px 0 10px;font-size:12.5px">'+(a==null?'لسه ما اتاخدتش نسخة.':a===0?'آخر نسخة: النهارده.':'آخر نسخة من '+a+' يوم.')+' الملف فيه كل العمليات والأوردرات والمستلزمات والمستخدمين والصور.</div>'
+   +(UI.bkAsk?'<div class="msg crit"><b>استرجاع '+esc(UI.bkAsk.name)+'</b><br>'+esc(UI.bkAsk.text)+'<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="bkyes">أيوه، استرجع</button><button class="btn sm" data-a="bkno">لأ</button></div></div>'
+    :'<div class="row"><button class="btn pri" data-a="bkdl">نزّل نسخة احتياطية</button><label class="btn">استرجاع من ملف<input type="file" accept=".json,application/json" data-c="bkfile" hidden></label></div>')+(UI.bkErr?'<div class="msg crit" style="margin-top:8px">'+esc(UI.bkErr)+'</div>':'')+'</div>';
+}
 const ACT_ACC={
+  bkdl:()=>{const j=JSON.stringify({app:'femini-stock',v:3,at:Date.now(),state:S,photos:PH}),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([j],{type:'application/json'}));a.download='femini-backup-'+S.date+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);S.bk=Date.now();audit('نسخة احتياطية ('+Math.round(j.length/1024)+' KB)');dirty();toast('اتنزّلت النسخة الاحتياطية');render()},
+  bkno:()=>{UI.bkAsk=null;UI.bkErr=null;UI._bk=null;render()},
+  bkyes:()=>{const o=UI._bk;if(!o)return;try{S=o.state;ensureSup(S);ensureCat(S);rebuildCatalog();phClear();Object.keys(o.photos||{}).forEach(k=>{PH[k]=o.photos[k];phPut(k,o.photos[k])});S.date=cairoToday();_bal=null;_ctx=null;UI.bkAsk=null;UI._bk=null;UI.doc=null;UI.sheet=null;UI.vd=null;UI.locked=S.users.some(u=>u.pin);audit('استرجاع نسخة احتياطية');save();toast('اتسترجعت النسخة');render()}catch(e){UI.bkErr='فشل الاسترجاع: '+e.message;render()}},
   vdstep:el=>{const d=addDays(viewDate(),+el.dataset.n);if(d>=S.date)UI.vd=null;else if(d>=firstDay())UI.vd=d;render()},
   recvmenu:()=>{UI.sheet={kind:'recv'};render()},
   recvgo:el=>{const t=el.dataset.t,p=DOC_PERM[t];if(p&&!can(p)){deny(p);return}if(dayLocked(S.date)){toast('اليوم مقفول. لازم المدير يفتحه الأول');return}UI.sheet=null;go('ops',()=>{newDoc(t)})},
@@ -177,6 +189,9 @@ const ACT_ACC={
   usdel:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');return}S.users=S.users.filter(x=>x!==u);audit('حذف مستخدم: '+u.name);dirty();render()}
 };
 const CHG_ACC={
+  bkfile:el=>{const f=el.files&&el.files[0];el.value='';if(!f)return;UI.bkErr=null;const r=new FileReader();r.onerror=()=>{UI.bkErr='مقدرتش أقرأ الملف.';render()};
+    r.onload=()=>{try{const o=JSON.parse(r.result),st=o&&o.state;if(!o||o.app!=='femini-stock'||!st||st.v!==3||!Array.isArray(st.moves)||!Array.isArray(st.orders)||!Array.isArray(st.docs))throw new Error('الملف ده مش نسخة احتياطية من السيستم');
+      const n=st.moves.length;UI.bkAsk={name:f.name,text:'فيها '+fmt(n)+' حركة و'+fmt(st.orders.length)+' أوردر و'+fmt(st.docs.length)+' عملية. ده هيستبدل كل اللي في المتصفح ده دلوقتي.'};UI._bk=o}catch(e){UI.bkErr=e.message;UI.bkAsk=null;UI._bk=null}render()};r.readAsText(f)},
   vdpick:el=>{const v=el.value;if(!v||v>=S.date)UI.vd=null;else if(v>=firstDay())UI.vd=v;render()},
   usrole:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;if(u.role==='admin'&&el.value!=='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');render();return}u.role=el.value;if(u.id===S.cur&&!can('users')){UI.cfgTab='plan'}audit('تغيير دور '+u.name+' إلى '+roleName(u.role));dirty();render()},
   usron:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;if(!el.checked&&u.id===S.cur){toast('مينفعش توقف نفسك');render();return}if(!el.checked&&u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');render();return}u.on=el.checked;audit((u.on?'تشغيل ':'إيقاف ')+u.name);dirty();render()},

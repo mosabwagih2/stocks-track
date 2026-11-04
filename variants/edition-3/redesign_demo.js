@@ -19,7 +19,7 @@ function genDemo(){
   Date.now=()=>T;
   const info={ch:{}};
   try{
-    const _ka=(S&&S.users)?{users:S.users,cur:S.cur,roles:S.roles,audit:S.audit}:null;S=seed();ensureSup(S);if(_ka)Object.assign(S,_ka);S.moves=[];S.mid=1;S.docs=[];S.did=1;S.seq={};S.pickups=[];S.orders=[];S.emps=[];S.sup.log=[];S.sup.eid=0;S.costs={};phClear();_bal=null;_ctx=null;UI.doc=null;UI.sheet=null;UI.msg=null;
+    const _ka=(S&&S.users)?{users:S.users,cur:S.cur,roles:S.roles,audit:S.audit}:null;S=seed();ensureSup(S);ensureCat(S);rebuildCatalog();if(_ka)Object.assign(S,_ka);S.moves=[];S.mid=1;S.docs=[];S.did=1;S.seq={};S.pickups=[];S.orders=[];S.emps=[];S.sup.log=[];S.sup.eid=0;S.costs={};phClear();_bal=null;_ctx=null;UI.doc=null;UI.sheet=null;UI.msg=null;
     const base={D:780,A:640,S:520,B:360,P:290,SH:430};
     D.models.forEach(m=>{const p=(base[m.code.replace(/\d+$/,'')]||base[m.code[0]]||450)+(m.code.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%5)*30;S.costs[m.code]={cost:Math.round(p*.42),price:p}});
     const price=s=>(S.costs[SKU.get(s).m]||{price:400}).price;

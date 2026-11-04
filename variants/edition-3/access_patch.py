@@ -50,3 +50,11 @@ csd2="""<style>
 """
 _i=s.index('<div id="app"></div>')
 s=s[:_i]+csd2+s[_i:]
+
+rep("const _p=DOC_PERM[d.type];if(_p&&!can(_p)){deny(_p);return false}","if(d.status!=='draft')return false;const _p=DOC_PERM[d.type];if(_p&&!can(_p)){deny(_p);return false}")
+rep("function save(){try{","function save(){if(STALE)return;try{")
+rep("function storeBanner(){","function storeBanner(){\n  if(STALE)return '<div class=\"msg crit\" style=\"margin-bottom:14px\"><b>اتغيّرت البيانات من تبويب تاني.</b> الحفظ اتوقف في التبويب ده عشان ما نمسحش شغل التبويب التاني. حدّث الصفحة وكمّل منها. <button class=\"btn sm\" data-a=\"reloadapp\">حدّث الصفحة</button></div>';")
+rep("Object.assign(ACT,ACT_ACC);","Object.assign(ACT,ACT_ACC);ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});")
+rep("const PERMS=[","let STALE=false;\nconst PERMS=[")
+
+rep("""<p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. ده نموذج تجريبي.</p>'+""","""<p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. خد نسخة احتياطية بشكل دوري، لأن مسح بيانات المتصفح بيمسح كل حاجة.</p>'+backupBox()+'<div class="gh">رجوع للأصل</div>'+""")
