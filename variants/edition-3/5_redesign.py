@@ -292,10 +292,10 @@ cch=r"""<style>
 /* horizontal bars: slim rounded track with a soft gradient fill */
 .hb{padding:5px 6px;border-radius:10px;transition:background .12s}.hb:hover{background:var(--lav)}
 .hb .tr{height:7px;background:var(--grid);overflow:hidden}
-.hb .tr i{background:linear-gradient(270deg,color-mix(in srgb,var(--accent) 50%,var(--surface)),var(--accent));border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
-.hb .tr i.w{background:linear-gradient(270deg,color-mix(in srgb,var(--c-dirty) 50%,var(--surface)),var(--c-dirty))}
-.hb .tr i.c{background:linear-gradient(270deg,color-mix(in srgb,var(--c-scrap) 50%,var(--surface)),var(--c-scrap))}
-.hb .tr i.g{background:linear-gradient(270deg,color-mix(in srgb,var(--c-ready) 50%,var(--surface)),var(--c-ready))}
+.hb .tr i{background:var(--accent);border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.hb .tr i.w{background:var(--c-dirty)}
+.hb .tr i.c{background:var(--c-scrap)}
+.hb .tr i.g{background:var(--c-ready)}
 .hb .v{color:var(--muted)}
 </style>
 """
