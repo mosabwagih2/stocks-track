@@ -1173,7 +1173,7 @@ function supSheet(s){
 
 /* ---------- photos: IndexedDB so document photos survive reload ---------- */
 let IDBH=null;
-function idbOpen(){return new Promise(res=>{try{const r=indexedDB.open('femini-v3',1);r.onupgradeneeded=()=>r.result.createObjectStore('ph');r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);r.onblocked=()=>res(null)}catch(e){res(null)}})}
+function idbOpen(){return new Promise(res=>{try{const r=indexedDB.open('femini-v3',2);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains('ph'))db.createObjectStore('ph');if(!db.objectStoreNames.contains('fl'))db.createObjectStore('fl')};r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);r.onblocked=()=>res(null)}catch(e){res(null)}})}
 function phPut(id,data){if(!IDBH)return;try{IDBH.transaction('ph','readwrite').objectStore('ph').put(data,id)}catch(e){}}
 function phClear(){Object.keys(PH).forEach(k=>delete PH[k]);if(!IDBH)return;try{IDBH.transaction('ph','readwrite').objectStore('ph').clear()}catch(e){}}
 function phLoad(){return new Promise(res=>{if(!IDBH)return res();try{const rq=IDBH.transaction('ph').objectStore('ph').openCursor();rq.onsuccess=()=>{const c=rq.result;if(c){PH[c.key]=c.value;c.continue()}else res()};rq.onerror=()=>res()}catch(e){res()}})}
@@ -1275,27 +1275,27 @@ function flowSheet(w){
 function vFiles(){
   const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات']];
   let h=top('الملفات','كل اللي اترفع أو اتسجّل: ملفات البيك أب والسكان وصور الورق الموقّع. من هنا تعدّلها أو تحذفها أو تلاقي مكانها.','');
-  h+='<div class="msg" style="margin-bottom:14px"><b>فين بتتحفظ ملفاتي؟</b><br>ملف Excel أو CSV نفسه مش بيتخزّن. السيستم بيقراه وبيحفظ البيانات اللي طلعت منه (الأوردرات والكميات) واسم الملف كمرجع. صور الورق الموقّع بتتحفظ في المتصفح ده بس. تقدر تعدّل كل حاجة من الجداول اللي تحت.</div>';
+  h+='<div class="msg" style="margin-bottom:14px"><b>فين بتتحفظ ملفاتي؟</b><br>كل ملف ترفعه (بيك أب، سكان، صور الورق الموقّع، صور الإلغاء) بيتحفظ بنسخته الأصلية زي ما هو، وتقدر تنزّله في أي وقت من زر ⬇. الملفات محفوظة في المتصفح ده على الجهاز ده، فلو غيّرت الجهاز أو مسحت بيانات المتصفح هتضيع. الملفات اللي اترفعت قبل الميزة دي اسمها بس هو المحفوظ.</div>';
   h+='<div class="tabs" role="tablist">'+T.map(t=>'<button role="tab" aria-selected="'+(UI.fl===t[0])+'" data-a="fltab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
   if(UI.fl==='sc'){
     const ds=S.docs.filter(d=>d.type==='SCN').slice().reverse();
-    return h+(ds.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>الموظف</th><th>الملف</th><th>التاريخ</th><th class="num">أوردرات</th><th class="num">قطع</th><th>الحالة</th><th></th></tr></thead><tbody>'+ds.map(d=>{const pc=d.hdr.refs.reduce((a,r)=>a+((orderByRef(r)||{lines:[]}).lines.length),0);return '<tr><td class="mono">'+(d.no||'—')+'</td><td>'+esc(d.hdr.emp)+'</td><td class="muted">'+esc(d.hdr.src||'')+'</td><td class="mono">'+d.date+'</td><td class="num">'+N(d.hdr.refs.length)+'</td><td class="num">'+N(pc)+'</td><td>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</td><td><button class="btn sm" data-a="scedit" data-id="'+d.id+'">'+(d.status==='done'?'تعديل':'فتح')+'</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش ملفات سكان. ارفع ملف من صفحة الأوردرات.</div></div>');
+    return h+(ds.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>الموظف</th><th>الملف</th><th>التاريخ</th><th class="num">أوردرات</th><th class="num">قطع</th><th>الحالة</th><th></th></tr></thead><tbody>'+ds.map(d=>{const pc=d.hdr.refs.reduce((a,r)=>a+((orderByRef(r)||{lines:[]}).lines.length),0);return '<tr><td class="mono">'+(d.no||'—')+'</td><td>'+esc(d.hdr.emp)+'</td><td class="muted">'+esc(d.hdr.src||'')+(d.hdr.file?'<div style="margin-top:4px">'+flBtn('dc:'+d.id,d.hdr.file,'تنزيل')+'</div>':'')+'</td><td class="mono">'+d.date+'</td><td class="num">'+N(d.hdr.refs.length)+'</td><td class="num">'+N(pc)+'</td><td>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</td><td><button class="btn sm" data-a="scedit" data-id="'+d.id+'">'+(d.status==='done'?'تعديل':'فتح')+'</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش ملفات سكان. ارفع ملف من صفحة الأوردرات.</div></div>');
   }
   if(UI.fl==='cx'){
     const os=S.orders.filter(o=>o.st==='cx'&&o.cx).sort((a,b)=>b.cx.at-a.cx.at);
-    return h+'<div class="row" style="margin-bottom:12px"><button class="btn danger" data-a="cxopen">+ إلغاء أوردر</button></div>'+(os.length?'<div class="grid g3">'+os.map(o=>{const u=PH[cxKey(o.ref)];return '<div class="card flat" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px">'+(u?'<img src="'+u+'" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;border:1px solid var(--line)">':'<span class="empty" style="aspect-ratio:4/3;display:grid;place-items:center;border:1px dashed var(--line2);border-radius:10px">الصورة مش محفوظة</span>')+'<span class="row sp"><b class="mono">'+esc(o.ref)+'</b>'+pill('lost','ملغي')+'</span><span class="muted" style="font-size:12px">شحن '+esc(o.wb)+' · '+o.lines.length+' قطعة · '+esc(o.cx.date)+' · '+esc(o.cx.by)+(o.cx.reason?'<br>'+esc(o.cx.reason):'')+(o.cx.returned?'<br>رجعت للمخزون ('+esc(o.cx.doc)+')':'')+'</span><div class="row"><button class="btn sm" data-a="order" data-ref="'+esc(o.ref)+'">تفاصيل</button><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّع الأوردر</button></div></div>'}).join('')+'</div>':'<div class="card"><div class="empty">مفيش أوردرات ملغية.</div></div>');
+    return h+'<div class="row" style="margin-bottom:12px"><button class="btn danger" data-a="cxopen">+ إلغاء أوردر</button></div>'+(os.length?'<div class="grid g3">'+os.map(o=>{const u=PH[cxKey(o.ref)];return '<div class="card flat" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px">'+(u?'<img src="'+u+'" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;border:1px solid var(--line)">':'<span class="empty" style="aspect-ratio:4/3;display:grid;place-items:center;border:1px dashed var(--line2);border-radius:10px">الصورة مش محفوظة</span>')+'<span class="row sp"><b class="mono">'+esc(o.ref)+'</b>'+pill('lost','ملغي')+'</span><span class="muted" style="font-size:12px">شحن '+esc(o.wb)+' · '+o.lines.length+' قطعة · '+esc(o.cx.date)+' · '+esc(o.cx.by)+(o.cx.reason?'<br>'+esc(o.cx.reason):'')+(o.cx.returned?'<br>رجعت للمخزون ('+esc(o.cx.doc)+')':'')+'</span><div class="row">'+(u?flBtn('cx:'+o.ref,{name:'cancel-'+o.ref+'.jpg'},'تنزيل الصورة'):'')+'<button class="btn sm" data-a="order" data-ref="'+esc(o.ref)+'">تفاصيل</button><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّع الأوردر</button></div></div>'}).join('')+'</div>':'<div class="card"><div class="empty">مفيش أوردرات ملغية.</div></div>');
   }
   if(UI.fl==='ph'){
     const ds=S.docs.filter(d=>d.type==='RCV'||d.type==='SHP').slice().reverse();
-    return h+(ds.length?'<div class="grid g3">'+ds.map(d=>{const u=PH[d.id],pc=d.lines.reduce((a,l)=>a+num(l.q),0);return '<button class="card flat" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px" data-a="opendoc2" data-id="'+d.id+'">'+(u?'<img src="'+u+'" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;border:1px solid var(--line)">':'<span class="empty" style="aspect-ratio:4/3;display:grid;place-items:center;border:1px dashed var(--line2);border-radius:10px;padding:8px">'+(d.photo?'الصورة مش محفوظة بعد إعادة التحميل. ارفعها تاني':'مفيش صورة')+'</span>')+'<span class="row sp"><b>'+OT[d.type].ar+' <span class="mono">'+(d.no||'مسودة')+'</span></b>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</span><span class="muted" style="font-size:12px">'+d.date+' · '+fmt(pc)+' قطعة</span></button>'}).join('')+'</div>':'<div class="card"><div class="empty">لسه مفيش استلام أو توريد للمحل. الصور بتتضاف مع العملية.</div></div>');
+    return h+(ds.length?'<div class="grid g3">'+ds.map(d=>{const u=PH[d.id],pc=d.lines.reduce((a,l)=>a+num(l.q),0);return '<div style="display:grid;gap:6px"><button class="card flat" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px" data-a="opendoc2" data-id="'+d.id+'">'+(u?'<img src="'+u+'" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;border:1px solid var(--line)">':'<span class="empty" style="aspect-ratio:4/3;display:grid;place-items:center;border:1px dashed var(--line2);border-radius:10px;padding:8px">'+(d.photo?'الصورة مش محفوظة بعد إعادة التحميل. ارفعها تاني':'مفيش صورة')+'</span>')+'<span class="row sp"><b>'+OT[d.type].ar+' <span class="mono">'+(d.no||'مسودة')+'</span></b>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</span><span class="muted" style="font-size:12px">'+d.date+' · '+fmt(pc)+' قطعة</span></button>'+(u?flBtn('ph:'+d.id,d.photo||{name:'note-'+(d.no||d.id)+'.jpg'},'تنزيل الصورة'):'')+'</div>'}).join('')+'</div>':'<div class="card"><div class="empty">لسه مفيش استلام أو توريد للمحل. الصور بتتضاف مع العملية.</div></div>');
   }
   const ps=S.pickups.slice().reverse();
-  return h+(ps.length?'<div class="tw"><table><thead><tr><th>البيك أب</th><th>الملف</th><th>التاريخ</th><th>القناة</th><th class="num">أوردرات</th><th class="num">اتشحن</th><th></th></tr></thead><tbody>'+ps.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx');return '<tr><td><b>'+esc(p.label)+'</b></td><td class="muted">'+esc(p.src||'')+'</td><td class="mono">'+esc(p.date)+'</td><td>'+esc(chanName(p.channel))+'</td><td class="num">'+N(po.length)+'</td><td class="num">'+N(po.filter(o=>o.st==='done').length)+'</td><td><button class="btn sm" data-a="pkedit" data-id="'+p.id+'">تعديل</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش بيك أب. ارفع ملف من صفحة الأوردرات.</div></div>');
+  return h+(ps.length?'<div class="tw"><table><thead><tr><th>البيك أب</th><th>الملف</th><th>التاريخ</th><th>القناة</th><th class="num">أوردرات</th><th class="num">اتشحن</th><th></th></tr></thead><tbody>'+ps.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx');return '<tr><td><b>'+esc(p.label)+'</b></td><td class="muted">'+esc(p.src||'')+(p.file?'<div style="margin-top:4px">'+flBtn('pk:'+p.id,p.file,'تنزيل')+'</div>':'')+'</td><td class="mono">'+esc(p.date)+'</td><td>'+esc(chanName(p.channel))+'</td><td class="num">'+N(po.length)+'</td><td class="num">'+N(po.filter(o=>o.st==='done').length)+'</td><td><button class="btn sm" data-a="pkedit" data-id="'+p.id+'">تعديل</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش بيك أب. ارفع ملف من صفحة الأوردرات.</div></div>');
 }
 function pkEditSheet(s){
   const p=S.pickups.find(x=>x.id===s.id);if(!p)return {title:'',body:''};
   const po=S.orders.filter(o=>o.pk===p.id),dn=po.filter(o=>o.st==='done').length,pc=po.reduce((a,o)=>a+o.lines.length,0);
-  let body='<div class="kpis">'+kpi('أوردرات',N(po.length),fmt(pc)+' قطعة')+kpi('اتشحن',N(dn),'',dn?'good':'')+'</div><div class="muted" style="font-size:13px">الملف الأصلي: <b>'+esc(p.src||'—')+'</b></div>';
+  let body='<div class="kpis">'+kpi('أوردرات',N(po.length),fmt(pc)+' قطعة')+kpi('اتشحن',N(dn),'',dn?'good':'')+'</div><div class="muted" style="font-size:13px">الملف الأصلي: <b>'+esc(p.src||'—')+'</b>'+(p.file?'<div style="margin-top:8px">'+flBtn('pk:'+p.id,p.file)+'</div>':'')+'</div>';
   body+='<div class="grid g2">'+'<label class="f" style="grid-column:1/-1">اسم البيك أب<input value="'+esc(s.f.label)+'" data-c="pkf" data-f="label"></label><label class="f">التاريخ<input type="date" value="'+esc(s.f.date)+'" data-c="pkf" data-f="date"></label><label class="f">القناة<select data-c="pkf" data-f="channel">'+CHAN.map(c=>'<option value="'+c.id+'" '+(s.f.channel===c.id?'selected':'')+'>'+c.name+'</option>').join('')+'</select></label></div>';
   if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
   body+='<div class="row"><button class="btn pri" data-a="pksave2">حفظ التعديل</button><button class="btn" data-a="of3" data-id="'+p.id+'">فتح أوردراته</button></div>';
@@ -1307,7 +1307,7 @@ function pkEditSheet(s){
 function scEditSheet(s){
   const d=S.docs.find(x=>x.id===s.id);if(!d)return {title:'',body:''};
   const pc=d.hdr.refs.reduce((a,r)=>a+((orderByRef(r)||{lines:[]}).lines.length),0);
-  let body='<div class="kpis">'+kpi('أوردرات',N(d.hdr.refs.length),fmt(pc)+' قطعة')+kpi('الحالة',d.status==='done'?'مؤكد':d.status==='reversed'?'معكوس':'مسودة','')+'</div><div class="muted" style="font-size:13px">رقم <b class="mono">'+(d.no||'—')+'</b> · '+d.date+'<br>الملف الأصلي: <b>'+esc(d.hdr.src||'—')+'</b></div>';
+  let body='<div class="kpis">'+kpi('أوردرات',N(d.hdr.refs.length),fmt(pc)+' قطعة')+kpi('الحالة',d.status==='done'?'مؤكد':d.status==='reversed'?'معكوس':'مسودة','')+'</div><div class="muted" style="font-size:13px">رقم <b class="mono">'+(d.no||'—')+'</b> · '+d.date+'<br>الملف الأصلي: <b>'+esc(d.hdr.src||'—')+'</b>'+(d.hdr.file?'<div style="margin-top:8px">'+flBtn('dc:'+d.id,d.hdr.file)+'</div>':'')+'</div>';
   if(d.status==='done'){
     body+='<label class="f">اسم الموظف<input value="'+esc(s.emp)+'" data-c="scemp" id="scemp"></label><div class="row"><button class="btn pri" data-a="scsave">حفظ اسم الموظف</button><button class="btn" data-a="opendoc2" data-id="'+d.id+'">فتح العملية</button></div><p class="muted" style="font-size:12px">تغيير الاسم بيحدّث الأوردرات وإحصائيات الموظفين. حركات المخزون القديمة بتفضل زي ما هي في السجل.</p>';
     if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
@@ -1479,7 +1479,7 @@ function cxApply(s){if(!can('cancel')||dayLocked(S.date))return false;
     consumption(o).forEach(c=>supPush(c[0],-c[1],'rev','إلغاء أوردر '+o.ref,no,S.date,{ofKind:'auto'}));
     cx.returned=true;cx.doc=no;
   }
-  o.st='cx';o.cx=cx;PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);dirty();return true;
+  o.st='cx';o.cx=cx;PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);if(s.pfile)flPut('cx:'+o.ref,s.pfile);dirty();return true;
 }
 function cxRestore(o){
   const c=o.cx||{};o.st=(c.was==='done'&&(!c.returned||c.viaRet))?'done':'open';delete o.cx;dirty();
@@ -2702,8 +2702,13 @@ function shpCard(d){
   let h='<section class="card"><h2>التسليم للمحل</h2><div class="msg good" style="margin-bottom:10px">اتسجّل يوم <b>'+esc(W.date)+'</b> الساعة <b>'+esc(W.time)+'</b> · '+fmt(shpRows(d).reduce((a,r)=>a+r.q,0))+' قطعة خرجت من المخزن للمحل.</div>';
   h+='<div class="row" style="gap:8px;margin-bottom:12px"><button class="btn pri" data-a="shpnote" data-id="'+d.id+'">إذن التسليم (طباعة / تنزيل)</button></div>';
   if(dv)h+='<div class="msg good"><b>اتسلّم للمحل</b> '+esc(dv.date||'')+(dv.at?' · '+timeOf(dv.at):'')+(dv.receiver?' · استلمه '+esc(dv.receiver):'')+' · سجّله '+esc(dv.by||'')+'</div>';
-  else h+='<div class="msg warn" style="margin-bottom:10px">لسه ما اتسلّمش للمحل. لما توصّله وتاخد التوقيع، سجّل التسليم.</div><div class="row" style="gap:8px;flex-wrap:wrap"><input data-c="shprecv" placeholder="اسم اللي استلم في المحل (اختياري)" value="'+esc(UI.shpRecv||'')+'" style="flex:1;min-width:200px"><button class="btn" data-a="shpdone">تم التسليم للمحل</button></div>';
-  h+='<div style="margin-top:12px">'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="الإذن الموقّع" style="width:100%;max-width:420px;border-radius:10px;border:1px solid var(--line)">':'')+'<label class="f" style="margin-top:8px">'+(PH[d.id]?'تغيير صورة الإذن الموقّع':'صورة الإذن الموقّع (اختياري، بعد التسليم)')+'<input type="file" accept="image/*" data-c="photo"></label></div></section>';
+  const has=!!PH[d.id],pm=d.photo||{name:'signed-note-'+d.no+'.jpg'};
+  const photo='<div class="msg '+(dv||has?'good':'crit')+'" style="margin:'+(dv?'12px':'0')+' 0 10px"><b>'+(dv?'صورة الإذن الموقّع':'لسه ما اتسلّمش للمحل. الخطوة الأولى: صوّر الإذن بعد ما المحل يوقّع عليه')+'</b>'+(dv?'':'<br>الصورة <b>إجبارية</b>. من غيرها مش هتقدر تأكّد التسليم، لأنها الإثبات إن المحل استلم.')+'</div>'
+    +(has?'<img src="'+PH[d.id]+'" alt="الإذن الموقّع" style="width:100%;max-width:420px;border-radius:10px;border:1px solid var(--line)"><div style="margin-top:6px">'+flBtn('ph:'+d.id,pm,'تنزيل صورة الإذن')+'</div>':'')
+    +'<label class="f" style="margin-top:8px">'+(has?'تغيير صورة الإذن الموقّع':'ارفع صورة الإذن الموقّع (مطلوبة)')+'<input type="file" accept="image/*" data-c="photo"></label>';
+  if(dv){h+='<div class="msg good"><b>اتسلّم للمحل</b> '+esc(dv.date||'')+(dv.at?' · '+timeOf(dv.at):'')+(dv.receiver?' · استلمه '+esc(dv.receiver):'')+' · سجّله '+esc(dv.by||'')+'</div>'+photo}
+  else h+=photo+'<div class="msg warn" style="margin:14px 0 10px">'+(has?'الصورة اترفعت. راجعها، ولو الإذن واضح وعليه التوقيع اضغط "تم التسليم للمحل" للتأكيد. العملية دي بتتسجّل ومبتتعدّلش.':'زر "تم التسليم للمحل" مقفول لحد ما ترفع صورة الإذن الموقّع.')+'</div><div class="row" style="gap:8px;flex-wrap:wrap"><input data-c="shprecv" placeholder="اسم اللي استلم في المحل (اختياري)" value="'+esc(UI.shpRecv||'')+'" style="flex:1;min-width:200px"><button class="btn pri" data-a="shpdone" '+(has?'':'disabled aria-disabled="true"')+'>تم التسليم للمحل</button></div>';
+  h+='</section>';
   return h;
 }
 /* ---------- the shop page (a tab inside Operations) ---------- */
@@ -2741,7 +2746,7 @@ const ACT_SH={
     const ws=XLSX.utils.aoa_to_sheet(shpAOA(d,{prices:s.prices})),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'اذن تسليم');const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});saveFile('delivery-note-'+d.no+'.xlsx',new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'اتنزّل ملف Excel')},
   shppdf:async()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===(s||{}).id);if(!d)return;toast('بجهّز ملف الـ PDF…');try{const b=await shpPDF(d,{prices:s.prices});await saveFile('delivery-note-'+d.no+'.pdf',b,'اتنزّل ملف الـ PDF')}catch(e){toast('مقدرتش أجهّز الـ PDF (محتاج إنترنت). جرّب الـ HTML.')}},
   shppng:async()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===(s||{}).id);if(!d)return;toast('بجهّز الصورة…');try{const b=await shpPNG(d,{prices:s.prices});await saveFile('delivery-note-'+d.no+'.png',b,'اتنزّلت الصورة')}catch(e){toast('مقدرتش أجهّز الصورة (محتاج إنترنت). جرّب الـ HTML.')}},
-  shpdone:()=>{const d=curDoc();if(!d||d.status!=='done'||d.hdr.delivered)return;d.hdr.delivered={at:Date.now(),date:S.date,by:S.actor,receiver:(UI.shpRecv||'').trim()};UI.shpRecv='';audit('تسليم '+d.no+' للمحل');dirty();toast('اتسجّل التسليم للمحل');render()}
+  shpdone:()=>{const d=curDoc();if(!d||d.status!=='done'||d.hdr.delivered)return;if(!PH[d.id]){toast('لازم ترفع صورة الإذن الموقّع الأول');return}d.hdr.delivered={at:Date.now(),date:S.date,by:S.actor,receiver:(UI.shpRecv||'').trim()};UI.shpRecv='';audit('تسليم '+d.no+' للمحل');dirty();toast('اتسجّل التسليم للمحل');render()}
 };
 const CHG_SH={
   shpprices:el=>{if(UI.sheet){UI.sheet.prices=el.checked;render()}}
@@ -2750,6 +2755,21 @@ const INP_SH={
   shprecv:el=>{UI.shpRecv=el.value},
   shpq:el=>{(UI.shp||(UI.shp={shop:'',st:'all',q:''})).q=el.value;const r=$('#shpres');if(r)r.innerHTML=shopListHTML(shopData());_L.main=null}
 };
+
+/* ---------- originals: every uploaded file is kept as-is (IndexedDB 'fl') and can be downloaded any time ---------- */
+function flPut(key,blob){if(!blob||!IDBH||!IDBH.objectStoreNames.contains('fl'))return;try{IDBH.transaction('fl','readwrite').objectStore('fl').put({blob,name:blob.name||'',type:blob.type||'',size:blob.size,at:Date.now()},key)}catch(e){}}
+function flGet(key){return new Promise(res=>{if(!IDBH||!IDBH.objectStoreNames.contains('fl'))return res(null);try{const rq=IDBH.transaction('fl').objectStore('fl').get(key);rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>res(null)}catch(e){res(null)}})}
+function dataBlob(u){try{const m=/^data:([^;,]*)(;base64)?,(.*)$/.exec(u);if(!m)return null;const bin=m[2]?atob(m[3]):decodeURIComponent(m[3]),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:m[1]||'application/octet-stream'})}catch(e){return null}}
+function flSize(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB'}
+async function flDL(key,label){
+  const r=await flGet(key);
+  if(r&&r.blob){saveFile(r.name||label||'file',r.blob,'اتنزّل الملف الأصلي');return}
+  const u=key.indexOf('ph:')===0?PH[key.slice(3)]:key.indexOf('cx:')===0?PH[cxKey(key.slice(3))]:null;
+  if(u){const b=dataBlob(u);if(b){saveFile(((label||'photo').replace(/\.[^.]+$/,''))+'.jpg',b,'اتنزّلت الصورة');return}}
+  toast('الملف الأصلي مش محفوظ في المتصفح ده');
+}
+function flBtn(key,meta,txt){return meta?'<button class="btn sm" data-a="fldl" data-k="'+esc(key)+'" data-n="'+esc(meta.name||'')+'">⬇ '+(txt||'تنزيل الملف الأصلي')+' <span class="muted" style="font-size:11px">'+esc(meta.name||'')+(meta.size?' · '+flSize(meta.size):'')+'</span></button>':''}
+const ACT_FL={fldl:el=>{flDL(el.dataset.k,el.dataset.n)}};
 
 function vStock(){
   const s=UI.s;
@@ -2862,7 +2882,7 @@ function vDoc(d){
   if(d.type==='FSD')h+='<label class="f" style="grid-column:1/-1">نوع الإرسال<select data-c="fsdkind" '+dis+'><option value="wash" '+(H.kind==='wash'?'selected':'')+'>غسيل مجاني (من هالك نظافة، وهيرجع)</option><option value="waste" '+(H.kind==='waste'?'selected':'')+'>تسليم هالك للمصنع (من هالك نهائي، وبيخرج)</option></select></label>';
   if(d.type==='RTN')h+='<label class="f">القناة<select data-c="h" data-f="channel" '+dis+'>'+CHAN.map(c=>'<option value="'+c.id+'" '+(H.channel===c.id?'selected':'')+'>'+c.name+'</option>').join('')+'</select></label>';
   if(d.type==='CNT')h+='<label class="f">الحالة اللي بتتعدّ<select data-c="cntstate" '+(draft&&!H.started?'':'disabled')+'>'+['READY','DIRTY'].map(l=>'<option value="'+l+'" '+(H.state===l?'selected':'')+'>'+LOC[l]+'</option>').join('')+'</select></label>';
-  if(d.type==='SCN')h+='<div class="kpi"><small>الموظف</small><b style="font-size:18px;font-family:var(--f-ar)">'+esc(H.emp)+'</b></div><div class="kpi"><small>المصدر</small><b style="font-size:15px;font-family:var(--f-ar)">'+esc(H.src)+'</b></div>';
+  if(d.type==='SCN')h+='<div class="kpi"><small>الموظف</small><b style="font-size:18px;font-family:var(--f-ar)">'+esc(H.emp)+'</b></div><div class="kpi"><small>المصدر</small><b style="font-size:15px;font-family:var(--f-ar)">'+esc(H.src)+'</b>'+(H.file?'<div style="margin-top:6px">'+flBtn('dc:'+d.id,H.file)+'</div>':'')+'</div>';
   h+='</div>';
   if(draft&&d.type==='RCV')h+='<div style="margin-top:12px"><label class="f">صورة الورقة الموقّعة من الطرفين<input type="file" accept="image/*" data-c="photo"></label>'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="الورقة" style="margin-top:8px;max-height:140px;border-radius:10px;border:1px solid var(--line)">':'')+'</div>';
   h+='</section>';
@@ -2888,7 +2908,7 @@ function vDoc(d){
     h+='<div style="margin-top:14px" class="row"><button class="btn pri" data-a="confirm" '+(r.ok?'':'disabled')+'>تأكيد وتسجيل '+fmt(r.mv.reduce((a,m)=>a+m.q,0))+' قطعة</button><button class="btn danger sm" data-a="deldoc">حذف المسودة</button></div></section>';
     h+='<section class="card"><h2>اللي هيتغيّر <span class="hint">'+eff.length+' صنف</span></h2>'+(eff.length?'<div class="eff">'+eff.slice(0,40).map(e=>'<div class="e"><div class="t"><span>'+esc(skuName(e.sku))+'</span></div>'+e.ch.map(c=>'<div class="chg">'+LOC[c.l]+': دلوقتي <b>'+c.now+'</b> · هيبقى <b>'+c.after+'</b></div>').join('')+'</div>').join('')+'</div>':'<div class="empty">هيظهر هنا أثر العملية على كل صنف قبل التأكيد.</div>')+'</section>';
   }else{
-    const phv=(d.type==='RCV')?'<div style="margin-top:12px">'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="صورة الورقة" style="width:100%;border-radius:10px;border:1px solid var(--line)">':'<div class="muted" style="font-size:12px">'+(d.photo?'صورة الورقة مش متاحة بعد إعادة التحميل.':'مفيش صورة.')+'</div>')+'<label class="f" style="margin-top:8px">'+(PH[d.id]?'تغيير صورة الورقة':'رفع صورة الورقة')+'<input type="file" accept="image/*" data-c="photo"></label></div>':'';
+    const phv=(d.type==='RCV')?'<div style="margin-top:12px">'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="صورة الورقة" style="width:100%;border-radius:10px;border:1px solid var(--line)"><div style="margin-top:6px">'+flBtn('ph:'+d.id,d.photo||{name:'receipt-'+(d.no||d.id)+'.jpg'},'تنزيل الصورة')+'</div>':'<div class="muted" style="font-size:12px">'+(d.photo?'صورة الورقة مش متاحة بعد إعادة التحميل.':'مفيش صورة.')+'</div>')+'<label class="f" style="margin-top:8px">'+(PH[d.id]?'تغيير صورة الورقة':'رفع صورة الورقة')+'<input type="file" accept="image/*" data-c="photo"></label></div>':'';
     h+=(d.type==='SHP'?shpCard(d):'')+'<section class="card"><h2>الحالة</h2>'+(d.status==='done'?'<div class="msg good">اتأكدت وسجّلت '+d.nMoves+' حركة.</div>':'<div class="msg">العملية اتعكست.</div>')+(d.status==='done'?phv:'')+(UI.msg?'<div class="msg crit" style="margin-top:12px">'+UI.msg+'</div>':'')+'</section>';
     h+='<section class="card"><h2>السجل</h2><div class="queue">'+d.log.slice().reverse().map(l=>'<div class="muted" style="font-size:13px"><span class="mono">'+timeOf(l.t)+'</span> · '+esc(l.by)+': '+esc(l.m)+'</div>').join('')+'</div></section>';
   }
@@ -3372,7 +3392,7 @@ function handleFile(file){
   const fr=new FileReader();
   fr.onload=()=>{
     try{
-      s.fname=file.name;s.err='';
+      s.fname=file.name;s.orig=file;s.err='';
       if(s.t==='scan'){
         let rows;if(isCsv)rows=parseCSVText(new TextDecoder('utf-8').decode(fr.result));else{const wb=XLSX.read(fr.result,{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''})}
         const sc=parseScan(rows),nm=sc.filter(x=>x.name)[0];if(!s.emp&&nm)s.emp=nm.name;s.res=matchScans(sc);
@@ -3392,7 +3412,7 @@ const ACT={
   act:el=>{const a=actions()[+el.dataset.i];if(a)go(a.go[0],a.go[1])},
   theme:()=>{theme=theme==='system'?'dark':theme==='dark'?'light':'system';try{localStorage.setItem(KEY+'-theme',theme)}catch(e){}applyTheme();render()},
   upload:el=>{UI.sheet={kind:'upload',t:el.dataset.t,channel:'VENDOOR',date:S.date,emp:S.actor,res:null,err:''};render()},
-  uptype:el=>{const s=UI.sheet;s.t=el.dataset.v;s.res=null;s.err='';s.fname='';s.manual=false;render()},
+  uptype:el=>{const s=UI.sheet;s.t=el.dataset.v;s.res=null;s.err='';s.fname='';s.orig=null;s.manual=false;render()},
   pickfile:()=>$('#upfile').click(),
   closesheet:()=>{
     const sh=$('.sheet'),sc=$('.scrim');
@@ -3403,13 +3423,13 @@ const ACT={
   pksave:()=>{
     const s=UI.sheet,r=s.res;if(!r||!r.orders.length)return;
     const n=S.pickups.reduce((a,p)=>Math.max(a,+p.id.slice(1)||0),0)+1,id='P'+n;
-    S.pickups.push({id,label:'بيك أب '+n,date:s.date,channel:s.channel,src:s.fname});
+    S.pickups.push({id,label:'بيك أب '+n,date:s.date,channel:s.channel,src:s.fname,file:s.orig?{name:s.orig.name,size:s.orig.size}:null});if(s.orig)flPut('pk:'+id,s.orig);
     r.orders.forEach(o=>{o.pk=id;S.orders.push(o)});dirty();
     UI.sheet=null;UI.o.pk=id;UI.o.f='all';toast('اتستورد '+r.orders.length+' أوردر. لسه ما اتخصمش حاجة.');go('orders');
   },
   scansave:()=>{
     const s=UI.sheet,r=s.res;if(!r||!r.matched.length||!(s.emp||'').trim())return;
-    const d=makeScn(r.matched,s.emp.trim(),s.manual?'تسجيل يدوي':s.fname);d.date=S.date;
+    const d=makeScn(r.matched,s.emp.trim(),s.manual?'تسجيل يدوي':s.fname);d.date=S.date;if(s.orig&&!s.manual){d.hdr.file={name:s.orig.name,size:s.orig.size};flPut('dc:'+d.id,s.orig)}
     if(!confirmDoc(d)){toast('مقدرتش أسجّل. راجع العملية');UI.sheet=null;go('ops',()=>{UI.doc=d.id});return}
     UI.sheet=null;UI.sel={};const neg=D.skus.filter(k=>g(k.id,'READY')<0).length;
     toast('اتسجّل '+r.matched.length+' أوردر وخرجوا من المخزون'+(neg?'. تنبيه: '+neg+' صنف بالسالب':''));go('orders',()=>{UI.o.f='done'});
@@ -3606,7 +3626,7 @@ const ACT={
   reset2:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();ensureSup(S);ensureCat(S);rebuildCatalog();phClear();UI.confirmReset=false;UI.doc=null;UI.sheet=null;_bal=null;_ctx=null;toast('رجعنا للبيانات الأصلية');render()}
 };
 const CHG={
-  cxphoto:el=>{const s=UI.sheet,f=el.files&&el.files[0];if(!s||!f)return;phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})},
+  cxphoto:el=>{const s=UI.sheet,f=el.files&&el.files[0];if(!s||!f)return;s.pfile=f;phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})},
   cxreason:el=>{UI.sheet.reason=el.value},
   cxret:el=>{UI.sheet.ret=el.checked},
   wd:el=>{if(!el.value)return;UI.vd=el.value>=S.date?null:el.value;render()},
@@ -3637,7 +3657,7 @@ const CHG={
     fr.readAsArrayBuffer(f)},
   pkf:el=>{const s=UI.sheet;if(s&&s.f)s.f[el.dataset.f]=el.value;if(s&&s.err){s.err=''}},
   scemp:el=>{UI.sheet.emp=el.value},
-  photo:el=>{const d=curDoc(),f=el.files&&el.files[0];if(!f)return;phFromFile(f,data=>{PH[d.id]=data;phPut(d.id,data);d.photo={name:f.name,size:f.size};if(d.status!=='draft')d.log.push(logE('اتغيّرت صورة الورقة'));dirty();render()})},
+  photo:el=>{const d=curDoc(),f=el.files&&el.files[0];if(!f)return;flPut('ph:'+d.id,f);phFromFile(f,data=>{PH[d.id]=data;phPut(d.id,data);d.photo={name:f.name,size:f.size};if(d.status!=='draft')d.log.push(logE('اتغيّرت صورة الورقة'));dirty();render()})},
   st:el=>{S.st[el.dataset.f]=Math.max(0,+el.value||0);dirty();toast('اتحفظ')},
   cost:el=>{const c=S.costs[el.dataset.m]||(S.costs[el.dataset.m]={});c[el.dataset.f]=+el.value||0;dirty();render()},
   actor:el=>{S.actor=el.value.trim()||'مصعب';dirty()},
@@ -3665,7 +3685,7 @@ const INP={
   lq:el=>{UI.led.q=el.value;$('#ledres').innerHTML=ledRows();_L.main=null},
   upemp:el=>{const s=UI.sheet;s.emp=el.value;const b=$('[data-a=scansave]');if(b&&s.res)b.disabled=!(s.res.matched.length&&el.value.trim())}
 };
-Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT,ACT_SH);Object.assign(CHG,CHG_LG,CHG_RT,CHG_SH);Object.assign(INP,INP_LG,INP_SH);ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});Object.assign(CHG,CHG_ACC);Object.assign(INP,INP_ACC);
+Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT,ACT_SH,ACT_FL);Object.assign(CHG,CHG_LG,CHG_RT,CHG_SH);Object.assign(INP,INP_LG,INP_SH);ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});Object.assign(CHG,CHG_ACC);Object.assign(INP,INP_ACC);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   if(el.tagName==='TR'&&e.target.closest('input,[data-nodrill]'))return;

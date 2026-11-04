@@ -56,6 +56,11 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   ok('print and Excel actions do not error (print may be unavailable in a frame)',await p.evaluate(()=>{try{__F.ACT.shpprint();return true}catch(e){return false}})&&await p.evaluate(()=>{try{__F.ACT.shpxls();return true}catch(e){return false}}));
   await p.evaluate(()=>{__F.UI.sheet=null;__F.render()});
   // ---- delivery tracking
+  ok('the delivered button is disabled until the signed note photo is uploaded, and says why',await p.evaluate(()=>{const b=document.querySelector('[data-a=shpdone]');return b.disabled&&/إجبارية/.test(document.getElementById('main').innerText)&&/مقفول لحد ما ترفع صورة/.test(document.getElementById('main').innerText)}));
+  ok('even calling the action directly is refused without the photo',await p.evaluate(()=>{__F.ACT.shpdone();const d=__F.S().docs.find(x=>x.id===__F.UI.doc);return !d.hdr.delivered}));
+  fs.writeFileSync('/tmp/_signed.png',Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64'));
+  await p.setInputFiles('[data-c=photo]','/tmp/_signed.png');await p.waitForTimeout(500);
+  ok('after the photo is uploaded the button unlocks',await p.evaluate(()=>!document.querySelector('[data-a=shpdone]').disabled));
   await p.fill('[data-c=shprecv]','أستاذ هشام');await p.click('[data-a=shpdone]');await p.waitForTimeout(250);
   ok('marking it delivered stores who received it and when',await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);return !!d.hdr.delivered&&d.hdr.delivered.receiver==='أستاذ هشام'&&/اتسلّم للمحل/.test(document.getElementById('main').innerText)}));
   ok('the signed paper can still be attached afterwards (optional)',await p.evaluate(()=>!!document.querySelector('[data-c=photo]')));

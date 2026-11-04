@@ -92,8 +92,13 @@ function shpCard(d){
   let h='<section class="card"><h2>التسليم للمحل</h2><div class="msg good" style="margin-bottom:10px">اتسجّل يوم <b>'+esc(W.date)+'</b> الساعة <b>'+esc(W.time)+'</b> · '+fmt(shpRows(d).reduce((a,r)=>a+r.q,0))+' قطعة خرجت من المخزن للمحل.</div>';
   h+='<div class="row" style="gap:8px;margin-bottom:12px"><button class="btn pri" data-a="shpnote" data-id="'+d.id+'">إذن التسليم (طباعة / تنزيل)</button></div>';
   if(dv)h+='<div class="msg good"><b>اتسلّم للمحل</b> '+esc(dv.date||'')+(dv.at?' · '+timeOf(dv.at):'')+(dv.receiver?' · استلمه '+esc(dv.receiver):'')+' · سجّله '+esc(dv.by||'')+'</div>';
-  else h+='<div class="msg warn" style="margin-bottom:10px">لسه ما اتسلّمش للمحل. لما توصّله وتاخد التوقيع، سجّل التسليم.</div><div class="row" style="gap:8px;flex-wrap:wrap"><input data-c="shprecv" placeholder="اسم اللي استلم في المحل (اختياري)" value="'+esc(UI.shpRecv||'')+'" style="flex:1;min-width:200px"><button class="btn" data-a="shpdone">تم التسليم للمحل</button></div>';
-  h+='<div style="margin-top:12px">'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="الإذن الموقّع" style="width:100%;max-width:420px;border-radius:10px;border:1px solid var(--line)">':'')+'<label class="f" style="margin-top:8px">'+(PH[d.id]?'تغيير صورة الإذن الموقّع':'صورة الإذن الموقّع (اختياري، بعد التسليم)')+'<input type="file" accept="image/*" data-c="photo"></label></div></section>';
+  const has=!!PH[d.id],pm=d.photo||{name:'signed-note-'+d.no+'.jpg'};
+  const photo='<div class="msg '+(dv||has?'good':'crit')+'" style="margin:'+(dv?'12px':'0')+' 0 10px"><b>'+(dv?'صورة الإذن الموقّع':'لسه ما اتسلّمش للمحل. الخطوة الأولى: صوّر الإذن بعد ما المحل يوقّع عليه')+'</b>'+(dv?'':'<br>الصورة <b>إجبارية</b>. من غيرها مش هتقدر تأكّد التسليم، لأنها الإثبات إن المحل استلم.')+'</div>'
+    +(has?'<img src="'+PH[d.id]+'" alt="الإذن الموقّع" style="width:100%;max-width:420px;border-radius:10px;border:1px solid var(--line)"><div style="margin-top:6px">'+flBtn('ph:'+d.id,pm,'تنزيل صورة الإذن')+'</div>':'')
+    +'<label class="f" style="margin-top:8px">'+(has?'تغيير صورة الإذن الموقّع':'ارفع صورة الإذن الموقّع (مطلوبة)')+'<input type="file" accept="image/*" data-c="photo"></label>';
+  if(dv){h+='<div class="msg good"><b>اتسلّم للمحل</b> '+esc(dv.date||'')+(dv.at?' · '+timeOf(dv.at):'')+(dv.receiver?' · استلمه '+esc(dv.receiver):'')+' · سجّله '+esc(dv.by||'')+'</div>'+photo}
+  else h+=photo+'<div class="msg warn" style="margin:14px 0 10px">'+(has?'الصورة اترفعت. راجعها، ولو الإذن واضح وعليه التوقيع اضغط "تم التسليم للمحل" للتأكيد. العملية دي بتتسجّل ومبتتعدّلش.':'زر "تم التسليم للمحل" مقفول لحد ما ترفع صورة الإذن الموقّع.')+'</div><div class="row" style="gap:8px;flex-wrap:wrap"><input data-c="shprecv" placeholder="اسم اللي استلم في المحل (اختياري)" value="'+esc(UI.shpRecv||'')+'" style="flex:1;min-width:200px"><button class="btn pri" data-a="shpdone" '+(has?'':'disabled aria-disabled="true"')+'>تم التسليم للمحل</button></div>';
+  h+='</section>';
   return h;
 }
 /* ---------- the shop page (a tab inside Operations) ---------- */
@@ -131,7 +136,7 @@ const ACT_SH={
     const ws=XLSX.utils.aoa_to_sheet(shpAOA(d,{prices:s.prices})),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'اذن تسليم');const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});saveFile('delivery-note-'+d.no+'.xlsx',new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'اتنزّل ملف Excel')},
   shppdf:async()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===(s||{}).id);if(!d)return;toast('بجهّز ملف الـ PDF…');try{const b=await shpPDF(d,{prices:s.prices});await saveFile('delivery-note-'+d.no+'.pdf',b,'اتنزّل ملف الـ PDF')}catch(e){toast('مقدرتش أجهّز الـ PDF (محتاج إنترنت). جرّب الـ HTML.')}},
   shppng:async()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===(s||{}).id);if(!d)return;toast('بجهّز الصورة…');try{const b=await shpPNG(d,{prices:s.prices});await saveFile('delivery-note-'+d.no+'.png',b,'اتنزّلت الصورة')}catch(e){toast('مقدرتش أجهّز الصورة (محتاج إنترنت). جرّب الـ HTML.')}},
-  shpdone:()=>{const d=curDoc();if(!d||d.status!=='done'||d.hdr.delivered)return;d.hdr.delivered={at:Date.now(),date:S.date,by:S.actor,receiver:(UI.shpRecv||'').trim()};UI.shpRecv='';audit('تسليم '+d.no+' للمحل');dirty();toast('اتسجّل التسليم للمحل');render()}
+  shpdone:()=>{const d=curDoc();if(!d||d.status!=='done'||d.hdr.delivered)return;if(!PH[d.id]){toast('لازم ترفع صورة الإذن الموقّع الأول');return}d.hdr.delivered={at:Date.now(),date:S.date,by:S.actor,receiver:(UI.shpRecv||'').trim()};UI.shpRecv='';audit('تسليم '+d.no+' للمحل');dirty();toast('اتسجّل التسليم للمحل');render()}
 };
 const CHG_SH={
   shpprices:el=>{if(UI.sheet){UI.sheet.prices=el.checked;render()}}

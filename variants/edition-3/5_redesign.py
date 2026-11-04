@@ -317,5 +317,6 @@ exec(open(str(H/'returns_patch.py'),encoding='utf-8').read())
 exec(open(str(H/'tweaks_patch.py'),encoding='utf-8').read())
 
 exec(open(str(H/'shop_patch.py'),encoding='utf-8').read())
+exec(open(str(H/'files_patch.py'),encoding='utf-8').read())
 (T/'base_v2.html').write_text(s,encoding='utf-8')
 print('5 ok')
