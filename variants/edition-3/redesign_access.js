@@ -89,7 +89,7 @@ function closeSheet(){
 }
 function backupNudge(){const a=bkAge();if(!S.moves.length||!(a==null||a>7)||S.demo)return '';return '<div class="msg warn row sp dcb"><span>'+(a==null?'لسه ما اتاخدتش نسخة احتياطية من البيانات.':'آخر نسخة احتياطية من <b>'+a+'</b> يوم.')+' البيانات متخزنة في المتصفح بس.</span><button class="btn sm" data-a="bkdl">نزّل نسخة دلوقتي</button></div>'}
 function dayCloseBar(){
-  const lock=dayLocked(S.date)?'<div class="msg good row sp dcb"><span><b>✓ اليوم مقفول.</b> أرقامه متثبّتة ومفيش تسجيل جديد فيه. بكرة يوم جديد مفتوح لوحده.</span><span class="row" style="gap:8px"><button class="btn sm" data-a="closeday">التقرير</button>'+(can('close')?'<button class="btn sm" data-a="clopen">افتح اليوم</button>':'')+'</span></div>':'';
+  const lock=dayLocked(S.date)?'<div class="msg good row sp dcb"><span><b>✓ اليوم مقفول.</b> أرقامه متثبّتة ومفيش تسجيل جديد فيه. بكرة يوم جديد مفتوح لوحده.</span><span class="row" style="gap:8px"><button class="btn sm" data-a="closeday">التقرير</button></span></div>':'';
   return lock+backupNudge();
 }
 function whoSheet(){

@@ -1707,7 +1707,7 @@ function sheetHTML(){
     if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
     if(s.t==='scan'&&s.res){
       const r=s.res,pcs=r.matched.reduce((a,m)=>a+(orderByRef(m.ref)||{lines:[]}).lines.length,0);
-      body+='<label class="f">اسم الموظف (اللي سكان)<input id="upemp" list="emps" value="'+esc(s.emp||'')+'" data-c="upemp" placeholder="مثلًا: عبدالله"></label><datalist id="emps">'+S.emps.map(e=>'<option value="'+esc(e)+'">').join('')+'</datalist>';
+      s.emp=S.actor;body+='<p class="muted" style="font-size:12.5px;margin:0 0 8px">الشحن هيتسجّل باسم <b>'+esc(S.actor)+'</b>.</p>';
       body+='<div class="kpis">'+kpi('سكان في الملف',N(r.scans),'')+kpi('أوردر جديد',N(r.matched.length),fmt(pcs)+' قطعة هتتخصم','good')+kpi('اتسجّل قبل كده',N(r.already.length),'',r.already.length?'warn':'')+kpi('كود غير معروف',N(r.unk.length),'',r.unk.length?'crit':'')+'</div>';
       if(r.dups.length)body+='<div class="msg warn">'+r.dups.length+' سكان مكرر في نفس الملف اتخطّى.</div>';
       if(r.already.length)body+='<div class="msg warn">'+r.already.length+' أوردر اتسجّل قبل كده'+(r.already[0].by?' (مثلًا بواسطة '+esc(r.already[0].by)+')':'')+' ومش هيتخصم تاني.</div>';
@@ -2227,7 +2227,7 @@ function closeSheet(){
 }
 function backupNudge(){const a=bkAge();if(!S.moves.length||!(a==null||a>7)||S.demo)return '';return '<div class="msg warn row sp dcb"><span>'+(a==null?'لسه ما اتاخدتش نسخة احتياطية من البيانات.':'آخر نسخة احتياطية من <b>'+a+'</b> يوم.')+' البيانات متخزنة في المتصفح بس.</span><button class="btn sm" data-a="bkdl">نزّل نسخة دلوقتي</button></div>'}
 function dayCloseBar(){
-  const lock=dayLocked(S.date)?'<div class="msg good row sp dcb"><span><b>✓ اليوم مقفول.</b> أرقامه متثبّتة ومفيش تسجيل جديد فيه. بكرة يوم جديد مفتوح لوحده.</span><span class="row" style="gap:8px"><button class="btn sm" data-a="closeday">التقرير</button>'+(can('close')?'<button class="btn sm" data-a="clopen">افتح اليوم</button>':'')+'</span></div>':'';
+  const lock=dayLocked(S.date)?'<div class="msg good row sp dcb"><span><b>✓ اليوم مقفول.</b> أرقامه متثبّتة ومفيش تسجيل جديد فيه. بكرة يوم جديد مفتوح لوحده.</span><span class="row" style="gap:8px"><button class="btn sm" data-a="closeday">التقرير</button></span></div>':'';
   return lock+backupNudge();
 }
 function whoSheet(){
@@ -2576,7 +2576,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.i
 
 function vStock(){
   const s=UI.s;
-  const tools='<div class="seg"><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">مصفوفات</button><button aria-pressed="'+(s.view==='heat')+'" data-a="sview" data-v="heat">خريطة</button><button aria-pressed="'+(s.view==='list')+'" data-a="sview" data-v="list">قائمة</button><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">موديل واحد</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
+  const tools='<div class="seg"><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">مصفوفات</button><button aria-pressed="'+(s.view==='heat')+'" data-a="sview" data-v="heat">خريطة</button><button aria-pressed="'+(s.view==='list')+'" data-a="sview" data-v="list">قائمة</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
   let h=top('المخزون','<span class="hm">كل صنف (موديل × لون × مقاس) وحالته. اضغط أي خانة تفتح تفاصيلها.</span>',tools+'<button class="btn" data-a="catedit">تعديل</button><button class="btn pri" data-a="skuadd" data-m="__new" data-only="1">+ موديل جديد</button>');
   h+=stockSearchBar();
   h+='<div class="chips scrollx" style="margin-bottom:14px">'+INTERNAL.map(l=>'<button class="chip" aria-pressed="'+(s.state===l)+'" data-a="sstate" data-v="'+l+'"><i class="dot" style="background:'+LCOL[l]+'"></i>'+LOC[l]+' <span class="n">'+fmt(locSum(l))+'</span></button>').join('')+'</div>';
@@ -2584,6 +2584,7 @@ function vStock(){
 }
 function stockBody(){
   const s=UI.s,sq=stockQ();let h='';
+  if(s.view==='matrix')s.view='list';
   if(s.view==='list'){return stockList()}
   if(s.view==='heat'){return stockHeat()}
   if(s.view==='table'){
@@ -3144,7 +3145,7 @@ const _L={rail:null,main:null,sheet:null};
 function focusSig(){
   const a=document.activeElement;if(!a||a===document.body||!a.closest||!a.closest('#app'))return null;
   if(a.id)return '#'+a.id;
-  const ks=['data-a','data-c','data-k','data-v','data-sku','data-id','data-m','data-i','data-f','data-ref'];
+  const ks=['data-a','data-c','data-k','data-v','data-sku','data-id','data-m','data-i','data-f','data-ref','data-t','data-p','data-d','data-n','data-w','data-l','data-z'];
   const parts=ks.filter(k=>a.hasAttribute(k)).map(k=>'['+k+'="'+String(a.getAttribute(k)).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"]');
   return parts.length?a.tagName.toLowerCase()+parts.join(''):null;
 }
@@ -3188,7 +3189,7 @@ function copy(text,ok){
 
 /* ---------- file handling ---------- */
 function handleFile(file){
-  const s=UI.sheet;if(!s||s.kind!=='upload'){UI.sheet=s={kind:'upload',t:'pickup',channel:'VENDOOR',date:S.date,emp:S.emps[S.emps.length-1]||'',res:null,err:''}}
+  const s=UI.sheet;if(!s||s.kind!=='upload'){UI.sheet=s={kind:'upload',t:'pickup',channel:'VENDOOR',date:S.date,emp:S.actor,res:null,err:''}}
   const isCsv=/\.csv$/i.test(file.name);
   if(!window.XLSX&&!(s.t==='scan'&&isCsv)){s.err='مكتبة قراءة Excel ما اتحملتش. اتأكد من الاتصال وجرّب تاني، أو ارفع ملف CSV للسكان.';render();return}
   const fr=new FileReader();
@@ -3213,7 +3214,7 @@ const ACT={
   go:el=>go(el.dataset.t),
   act:el=>{const a=actions()[+el.dataset.i];if(a)go(a.go[0],a.go[1])},
   theme:()=>{theme=theme==='system'?'dark':theme==='dark'?'light':'system';try{localStorage.setItem(KEY+'-theme',theme)}catch(e){}applyTheme();render()},
-  upload:el=>{UI.sheet={kind:'upload',t:el.dataset.t,channel:'VENDOOR',date:S.date,emp:S.emps[S.emps.length-1]||'',res:null,err:''};render()},
+  upload:el=>{UI.sheet={kind:'upload',t:el.dataset.t,channel:'VENDOOR',date:S.date,emp:S.actor,res:null,err:''};render()},
   uptype:el=>{const s=UI.sheet;s.t=el.dataset.v;s.res=null;s.err='';s.fname='';s.manual=false;render()},
   pickfile:()=>$('#upfile').click(),
   closesheet:()=>{
@@ -3491,7 +3492,7 @@ Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT);Object.assign(CHG,CHG_LG,CHG_RT);Object
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   if(el.tagName==='TR'&&e.target.closest('input,[data-nodrill]'))return;
-  if(ACT[el.dataset.a]){if(!gateAct(el))return;ACT[el.dataset.a](el,e)}
+  if(ACT[el.dataset.a]){if(!gateAct(el))return;ACT[el.dataset.a](el,e);if(e.detail>0){const _a=document.activeElement;if(_a&&_a.tagName==='BUTTON')_a.blur()}}
 });
 document.addEventListener('change',e=>{const el=e.target.closest('[data-c]');if(el&&CHG[el.dataset.c]){const p=CHG_PERM[el.dataset.c];if(p&&!can(p)){deny(p);render();return}CHG[el.dataset.c](el)}});
 document.addEventListener('input',e=>{const el=e.target.closest('[data-c]');if(el&&INP[el.dataset.c])INP[el.dataset.c](el)});

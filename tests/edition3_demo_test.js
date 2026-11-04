@@ -7,7 +7,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   const b=await chromium.launch();
   const open=async(o)=>{const c=await b.newContext(o||{viewport:{width:1280,height:900}});const p=await c.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));await p.goto('file://'+wrap);await p.waitForSelector('.shell');await p.waitForTimeout(300);return {p,errs}};
   const {p,errs}=await open();
-  ok('stock view switch order: matrices, map, list, one model, all items',await p.evaluate(()=>{__F.go('stock');return [...document.querySelectorAll('.seg [data-a=sview]')].map(e=>e.dataset.v).join()==='all,heat,list,matrix,table'}));
+  ok('stock views: matrices, map, list, all items',await p.evaluate(()=>{__F.go('stock');return [...document.querySelectorAll('.seg [data-a=sview]')].map(e=>e.dataset.v).join()==='all,heat,list,table'}));
   ok('before loading: Today offers the demo',await p.evaluate(()=>{__F.go('today');return !!document.querySelector('.dm-bn [data-a=demotour]')}));
   await p.evaluate(()=>{__F.UI.cfgTab='demo';__F.go('config')});await p.waitForTimeout(200);
   await p.click('[data-a=demoask]');ok('asks for confirmation before wiping',await p.evaluate(()=>!!document.querySelector('[data-a=demoload]')));
