@@ -41,7 +41,7 @@ const fs=require('fs'),path=require('path');
   await p.evaluate(()=>__F.go('orders'));await p.waitForTimeout(250);
   const od=await p.evaluate(()=>{const F=__F,S=F.S(),C=F.ctx(),val=o=>parseFloat(String(o.total).replace(/[^\d.]/g,''))||0;
     const heads=[...document.querySelectorAll('.ordt tr.grp')];const bad=[];
-    heads.forEach((g,i)=>{const p=S.pickups[i],po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length,txt=g.textContent.replace(/,/g,'');
+    heads.forEach((g,i)=>{const p=S.pickups[heads.length-1-i],po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length,txt=g.textContent.replace(/,/g,'');
       if(!txt.includes(p.label)||!txt.includes(pd+' / '+po.length)||!txt.includes(String(Math.round(po.reduce((a,o)=>a+val(o),0))))||!txt.includes(String(po.reduce((a,o)=>a+o.lines.length,0))))bad.push(p.label)});
     const strip=[...document.querySelectorAll('.strip .si')].map(e=>e.textContent.replace(/,/g,''));const all=S.orders.filter(o=>o.st!=='cx');
     const rows=[...document.querySelectorAll('.ordt tbody tr[data-ref]')];const rank=r=>{const o=F.orderByRef(r.dataset.ref);return o.st==='open'?(C.blocked[o.ref]?0:1):2};let sorted=true;let lastG=null,prev=-1;

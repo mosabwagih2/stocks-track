@@ -1596,7 +1596,7 @@ function ordStrip(){
 function ordRows(list){
   const C=ctx(),pkIdx={};S.pickups.forEach((p,i)=>pkIdx[p.id]=i);
   const pr=o=>o.st==='open'?(C.blocked[o.ref]?0:1):o.st==='done'?2:3;
-  const L=list.slice().sort((a,b)=>((pkIdx[a.pk]||0)-(pkIdx[b.pk]||0))||pr(a)-pr(b)).slice(0,UI.o.n);
+  const L=list.slice().sort((a,b)=>((pkIdx[b.pk]||0)-(pkIdx[a.pk]||0))||pr(a)-pr(b)).slice(0,UI.o.n);
   let last=null,h='';
   L.forEach(o=>{
     if(o.pk!==last){last=o.pk;const p=S.pickups.find(x=>x.id===o.pk);
@@ -2152,7 +2152,7 @@ const ACT_PERM={pksave:'pickup',pksave2:'pickup',pkdel:'pickup',pkdel2:'pickup',
   skuadd:'catalog',catedit:'catalog',catsave:'catalog',skusave:'catalog',modelrm:'catalog',modelarch:'catalog',modelarch2:'catalog',modelrestore:'catalog',skuarch:'catalog',skuarch2:'catalog',skurestore:'catalog',skuop:'catalog',
   supsave:'supplies',supnew:'supplies',supconf:'supplies',suparch:'supplies',suparch2:'supplies',supundo:'supplies',supundo2:'supplies',undoentry:'supplies',supact:'supplies',
   usadd:'users',bkdl:'settings',bkyes:'settings',suprestoreyes:'supplies',suprestore:'supplies',usdel:'users',clconfirm:'close',clopen:'close'};
-const CLOSED_ACTS={pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
+const CLOSED_ACTS={upload:1,scansave:1,pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
 const CHG_PERM={bkfile:'settings',cost:'settings',st:'settings',actor:'settings'};
 function cyrb(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)}
 const pinHash=p=>cyrb('fm|'+String(p).trim());
@@ -2527,6 +2527,7 @@ function rtnParcels(d,draft){
      +'<p class="muted" style="margin:8px 0 0;font-size:12.5px">كل بوليصة = أوردر. السيستم بيعرف إيه اللي اتشحن فيه، وانت بتعدّ اللي رجع قطعة قطعة. تقدر تلزق كذا رقم مرة واحدة.</p>'
      +((H.msgs||[]).length?'<div style="display:grid;gap:6px;margin-top:10px">'+H.msgs.map(m=>'<div class="msg '+m.k+'">'+esc(m.t)+'</div>').join('')+'</div>':'')+'</section>';
   }
+  if(draft||H.sheet)h+='<details class="dd" style="margin-bottom:14px"'+(H.sheet?' open':'')+'><summary><b>شيت شركة الشحن</b><span class="muted" style="font-size:12px">اختياري</span></summary><div style="padding:0 12px 12px">'+rtnSheetCard(d,draft)+'</div></details>';
   if(P.length||!draft){
     h+='<div class="strip" style="margin-bottom:14px">'+[si('بوالص',N(st.parcels),''),si('متوقع',N(st.exp),'قطعة'),si('استلمنا',N(st.got),'قطعة · سليم '+st.r+' · نضافة '+st.d+' · هالك '+st.x,'good'),si('ناقص',N(st.m),'قطعة',st.m?'crit':'good')].concat(draft?[si('لسه ما اتعدش',N(st.pending),'قطعة',st.pending?'warn':'')]:[]).join('')+'</div>';
     const diff=P.map(p=>{const m=p.items.filter(i=>i.st==='m'),e=0;return m.length?{p,m}:null}).filter(Boolean);
@@ -2649,7 +2650,7 @@ function vOps(){
   h+='<div class="launch">'+['دخول','خروج','داخلي','رقابة'].map(g_=>'<section class="card flat lg"><h3>'+g_+'</h3>'+OPS_LIST.filter(t=>OT[t].grp===g_).map(t=>'<button class="lop" data-a="newop" data-t="'+t+'"><span class="ic">'+ic(OT[t].ic)+'</span><span><b>'+OT[t].ar+'</b><small>'+OT[t].d+'</small></span></button>').join('')+'</section>').join('')+'</div>';
   const F=[['all','الكل'],['draft','مسودة'],['done','مؤكدة'],['reversed','معكوسة']],docs=S.docs.filter(x=>UI.opF==='all'||x.status===UI.opF).slice().reverse();
   h+='<div class="row sp" style="margin:20px 0 10px"><h2 style="font-size:17px">آخر العمليات</h2><div class="chips scrollx">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.opF===f[0])+'" data-a="opf" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div></div>';
-  h+=docs.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>العملية</th><th>التاريخ</th><th class="num">حركات</th><th>اتعملت بواسطة</th><th>الحالة</th></tr></thead><tbody>'+docs.slice(0,60).map(x=>'<tr data-a="opendoc" data-id="'+x.id+'"><td class="mono">'+(x.no||'مسودة')+'</td><td>'+OT[x.type].ar+' <span class="muted" style="font-size:12px">'+OT[x.type].en+'</span></td><td class="mono">'+x.date+'</td><td class="num">'+N(x.nMoves||0)+'</td><td>'+esc(x.hdr.emp||x.by)+'</td><td>'+(x.status==='done'?pill('good','مؤكدة'):x.status==='draft'?pill('warn','مسودة'):pill('','معكوسة'))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش عمليات. ابدأ من الكروت اللي فوق. الرصيد الافتتاحي ظاهر في سجل الحركات.</div></div>';
+  h+=docs.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>العملية</th><th>التاريخ</th><th class="num">حركات</th><th>اتعملت بواسطة</th><th>الحالة</th></tr></thead><tbody>'+docs.slice(0,60).map(x=>'<tr data-a="opendoc" data-id="'+x.id+'"><td class="mono">'+(x.no||'مسودة')+'</td><td>'+OT[x.type].ar+' </td><td class="mono">'+x.date+'</td><td class="num">'+N(x.nMoves||0)+'</td><td>'+esc(x.hdr.emp||x.by)+'</td><td>'+(x.status==='done'?pill('good','مؤكدة'):x.status==='draft'?pill('warn','مسودة'):pill('','معكوسة'))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش عمليات. ابدأ من الكروت اللي فوق. الرصيد الافتتاحي ظاهر في سجل الحركات.</div></div>';
   return h;
 }
 function picker(d){
@@ -2681,7 +2682,7 @@ function cntGrid(d){
 function vDoc(d){
   const T=OT[d.type],H=d.hdr,draft=d.status==='draft',r=draft?build(d):null;
   let h='<div class="row" style="margin-bottom:6px"><button class="btn sm ghost" data-a="backops">← كل العمليات</button></div>';
-  h+=top(T.ar+' <span class="pill" style="font-size:12px;vertical-align:middle">'+T.en+'</span>',d.no?'رقم <span class="mono">'+d.no+'</span> · '+d.date:'مسودة. مفيش حاجة اتغيّرت في المخزون لسه.','<span>'+(d.status==='done'?pill('good','مؤكدة'):d.status==='reversed'?pill('','معكوسة'):pill('warn','مسودة'))+'</span>');
+  h+=top(T.ar,d.no?'رقم <span class="mono">'+d.no+'</span> · '+d.date:'مسودة. مفيش حاجة اتغيّرت في المخزون لسه.','<span>'+(d.status==='done'?pill('good','مؤكدة'):d.status==='reversed'?pill('','معكوسة'):pill('warn','مسودة'))+'</span>');
   h+='<div class="grid split2"><div class="stack"><section class="card">';
   // header fields
   h+='<h2>البيانات</h2><div class="grid g2">';
@@ -2697,7 +2698,6 @@ function vDoc(d){
   h+='</div>';
   if(draft&&(d.type==='RCV'||d.type==='SHP'))h+='<div style="margin-top:12px"><label class="f">صورة الورقة الموقّعة من الطرفين<input type="file" accept="image/*" data-c="photo"></label>'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="الورقة" style="margin-top:8px;max-height:140px;border-radius:10px;border:1px solid var(--line)">':'')+'</div>';
   h+='</section>';
-  if(d.type==='RTN'&&(draft||d.hdr.sheet))h+=rtnSheetCard(d,draft);
   if(d.type==='CNT'){
     h+='<section class="card"><h2>الجرد</h2>';
     if(draft&&!H.started){h+='<div class="chips" style="margin-bottom:10px">'+MORDER.map(c=>'<button class="chip" aria-pressed="'+(H.models.indexOf(c)>=0)+'" data-a="cntm" data-m="'+c+'">'+c+'</button>').join('')+'</div><button class="btn pri" data-a="cntstart" '+(H.models.length?'':'disabled')+'>ابدأ الجرد ('+H.models.length+' موديل)</button>'}
@@ -3189,7 +3189,7 @@ function partial(){
   const ns=t.querySelector('.sum'),os=$('.sum');if(ns&&os&&os.innerHTML!==ns.innerHTML)os.innerHTML=ns.innerHTML;
   $$('[data-sync]',t).forEach(n=>{const o=$('[data-sync="'+n.dataset.sync+'"]');if(o&&o.innerHTML!==n.innerHTML)o.innerHTML=n.innerHTML});
 }
-function toast(m,undoId){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;if(undoId){const b=document.createElement('button');b.className='btn sm';b.style.marginInlineStart='12px';b.textContent='تراجع';b.dataset.a='undoentry';b.dataset.id=undoId;t.appendChild(b)}document.body.appendChild(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),170)},undoId?9000:3200)}
+function toast(m,undoId){document.querySelectorAll('.toast').forEach(e=>e.remove());const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;if(undoId){const b=document.createElement('button');b.className='btn sm';b.style.marginInlineStart='12px';b.textContent='تراجع';b.dataset.a='undoentry';b.dataset.id=undoId;t.appendChild(b)}document.body.appendChild(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),170)},undoId?9000:3200)}
 function go(tab,fn){if(tab!==UI.tab)UI._enter=true;UI.sheet=null;if(tab!=='ops'||fn)UI.doc=null;if(fn)fn();UI.tab=tab;render();if(location.hash.slice(1)!==tab)location.hash=tab;window.scrollTo(0,0)}
 function copy(text,ok){
   const fb=()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(ok)}catch(e){toast('انسخ يدويًا')}ta.remove()};

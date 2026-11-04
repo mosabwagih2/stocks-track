@@ -7,7 +7,7 @@ function ordStrip(){
 function ordRows(list){
   const C=ctx(),pkIdx={};S.pickups.forEach((p,i)=>pkIdx[p.id]=i);
   const pr=o=>o.st==='open'?(C.blocked[o.ref]?0:1):o.st==='done'?2:3;
-  const L=list.slice().sort((a,b)=>((pkIdx[a.pk]||0)-(pkIdx[b.pk]||0))||pr(a)-pr(b)).slice(0,UI.o.n);
+  const L=list.slice().sort((a,b)=>((pkIdx[b.pk]||0)-(pkIdx[a.pk]||0))||pr(a)-pr(b)).slice(0,UI.o.n);
   let last=null,h='';
   L.forEach(o=>{
     if(o.pk!==last){last=o.pk;const p=S.pickups.find(x=>x.id===o.pk);

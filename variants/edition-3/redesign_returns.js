@@ -38,6 +38,7 @@ function rtnParcels(d,draft){
      +'<p class="muted" style="margin:8px 0 0;font-size:12.5px">كل بوليصة = أوردر. السيستم بيعرف إيه اللي اتشحن فيه، وانت بتعدّ اللي رجع قطعة قطعة. تقدر تلزق كذا رقم مرة واحدة.</p>'
      +((H.msgs||[]).length?'<div style="display:grid;gap:6px;margin-top:10px">'+H.msgs.map(m=>'<div class="msg '+m.k+'">'+esc(m.t)+'</div>').join('')+'</div>':'')+'</section>';
   }
+  if(draft||H.sheet)h+='<details class="dd" style="margin-bottom:14px"'+(H.sheet?' open':'')+'><summary><b>شيت شركة الشحن</b><span class="muted" style="font-size:12px">اختياري</span></summary><div style="padding:0 12px 12px">'+rtnSheetCard(d,draft)+'</div></details>';
   if(P.length||!draft){
     h+='<div class="strip" style="margin-bottom:14px">'+[si('بوالص',N(st.parcels),''),si('متوقع',N(st.exp),'قطعة'),si('استلمنا',N(st.got),'قطعة · سليم '+st.r+' · نضافة '+st.d+' · هالك '+st.x,'good'),si('ناقص',N(st.m),'قطعة',st.m?'crit':'good')].concat(draft?[si('لسه ما اتعدش',N(st.pending),'قطعة',st.pending?'warn':'')]:[]).join('')+'</div>';
     const diff=P.map(p=>{const m=p.items.filter(i=>i.st==='m'),e=0;return m.length?{p,m}:null}).filter(Boolean);

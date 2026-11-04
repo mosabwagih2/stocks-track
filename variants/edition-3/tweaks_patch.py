@@ -30,3 +30,11 @@ rep("""  if(!items.length)h+='<div class="card"><div class="empty">'+(UI.supArch
   if(!items.length)h+='<div class="card"><div class="empty">'+(UI.supArch?""")
 rep("""S.sup.items.map(i=>'<tr style="'+(i.arch?'opacity:.6':'')+'">""","""S.sup.items.filter(i=>!i.arch).map(i=>'<tr style="'+(i.arch?'opacity:.6':'')+'">""")
 rep("""افتح صفحة المستلزمات</button>""","""افتح صفحة المستلزمات</button>'+(S.sup.items.some(i=>i.arch)?'<button class="btn sm ghost" data-a="suparchgo">المؤرشفة ('+S.sup.items.filter(i=>i.arch).length+')</button>':'')+'""")
+
+# 7) no English operation names in the interface
+rep("""<span class="muted" style="font-size:12px">'+OT[x.type].en+'</span></td>""","""</td>""")
+rep("""top(T.ar+' <span class="pill" style="font-size:12px;vertical-align:middle">'+T.en+'</span>',""","""top(T.ar,""")
+# 8) the courier sheet card now lives inside the return (collapsed), not above it
+rep("  if(d.type==='RTN'&&(draft||d.hdr.sheet))h+=rtnSheetCard(d,draft);\n","")
+# 9) a new toast replaces the previous one instead of stacking on top of it
+rep("function toast(m,undoId){const t=document.createElement('div');","function toast(m,undoId){document.querySelectorAll('.toast').forEach(e=>e.remove());const t=document.createElement('div');")
