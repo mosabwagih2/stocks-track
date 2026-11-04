@@ -43,10 +43,37 @@ function shpPrint(html){
   const f=document.createElement('iframe');f.style.cssText='position:fixed;left:-9999px;width:0;height:0;border:0';f.srcdoc=html;
   f.onload=()=>{try{f.contentWindow.focus();f.contentWindow.print()}catch(e){toast('الطباعة مش متاحة هنا. نزّل الملف وافتحه من المتصفح.')}setTimeout(()=>f.remove(),60000)};document.body.appendChild(f);
 }
+const SHP_LIBS={h2c:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',pdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'};
+function shpLoad(url,test){return new Promise((res,rej)=>{if(test()){res();return}const e=document.createElement('script');e.src=url;e.onload=()=>test()?res():rej(new Error('lib'));e.onerror=()=>rej(new Error('load'));document.head.appendChild(e)})}
+async function shpCanvas(d,opt){
+  await shpLoad(SHP_LIBS.h2c,()=>!!window.html2canvas);
+  const f=document.createElement('iframe');f.style.cssText='position:fixed;left:-10000px;top:0;width:794px;height:1200px;border:0';f.srcdoc=shpNoteHTML(d,opt);document.body.appendChild(f);
+  try{
+    await new Promise((r,j)=>{f.onload=r;setTimeout(()=>j(new Error('timeout')),15000)});
+    const doc=f.contentDocument;try{await doc.fonts.ready}catch(e){}
+    const img=doc.querySelector('header img');if(img&&!img.complete)await new Promise(r=>{img.onload=r;img.onerror=r});
+    f.style.height=doc.documentElement.scrollHeight+'px';
+    const cv=await window.html2canvas(doc.body,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794,width:794});
+    const sy=doc.defaultView.scrollY||0,cuts=[...doc.querySelectorAll('tr,.sg,.meta,.nt,.rv')].map(e=>e.getBoundingClientRect().bottom+sy);
+    return {cv,cuts,w:794};
+  }finally{f.remove()}
+}
+function shpSlices(cv,cuts,w){
+  const k=cv.width/w,pageH=Math.floor(1062*k),H=cv.height,out=[];let y=0;
+  while(y<H){let end=Math.min(H,y+pageH);if(end<H){const c=cuts.map(v=>Math.floor(v*k)).filter(v=>v>y+pageH*0.5&&v<=end);if(c.length)end=Math.max(...c);if(H-end<260*k){const c2=cuts.map(v=>Math.floor(v*k)).filter(v=>v>y+pageH*0.5&&v<=end-90*k);if(c2.length)end=Math.max(...c2)}}out.push([y,end]);y=end}
+  return out;
+}
+async function shpPNG(d,opt){const {cv}=await shpCanvas(d,opt);return new Promise(r=>cv.toBlob(r,'image/png'))}
+async function shpPDF(d,opt){
+  const {cv,cuts,w}=await shpCanvas(d,opt);await shpLoad(SHP_LIBS.pdf,()=>!!(window.jspdf&&window.jspdf.jsPDF));
+  const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+  shpSlices(cv,cuts,w).forEach(([a,b],i)=>{const c=document.createElement('canvas');c.width=cv.width;c.height=b-a;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(cv,0,a,cv.width,b-a,0,0,cv.width,b-a);if(i)doc.addPage();doc.addImage(c.toDataURL('image/jpeg',0.95),'JPEG',0,8,210,(b-a)*210/cv.width)});
+  return doc.output('blob');
+}
 function shpNoteSheet(s){
   const d=S.docs.find(x=>x.id===s.id);if(!d)return {title:'إذن تسليم',body:''};
   const hp=shpHasPrices(d);
-  return {title:'إذن تسليم '+shpNo(d),body:'<div class="row sp" style="margin-bottom:10px;gap:8px;flex-wrap:wrap"><span class="row" style="gap:8px"><button class="btn pri" data-a="shpprint">طباعة</button><button class="btn" data-a="shpdl">تنزيل (HTML)</button><button class="btn" data-a="shpxls">تنزيل (Excel)</button></span>'+(hp?'<label class="row" style="gap:6px;font-size:13px"><input type="checkbox" data-c="shpprices" '+(s.prices?'checked':'')+'> اعرض الأسعار</label>':'')+'</div><p class="muted" style="font-size:12.5px;margin:0 0 10px">نسخة واحدة على A4، وفيها مكان توقيع مستلم الاستور وتوقيع أمين المخزن.</p><iframe class="notef" title="إذن التسليم" srcdoc="'+esc(shpNoteHTML(d,{prices:s.prices}))+'"></iframe>'};
+  return {title:'إذن تسليم '+shpNo(d),body:'<div class="row sp" style="margin-bottom:10px;gap:8px;flex-wrap:wrap"><span class="row" style="gap:8px"><button class="btn pri" data-a="shpprint">طباعة</button><button class="btn" data-a="shppdf">PDF</button><button class="btn" data-a="shppng">صورة (PNG)</button><button class="btn" data-a="shpdl">HTML</button><button class="btn" data-a="shpxls">Excel</button></span>'+(hp?'<label class="row" style="gap:6px;font-size:13px"><input type="checkbox" data-c="shpprices" '+(s.prices?'checked':'')+'> اعرض الأسعار</label>':'')+'</div><p class="muted" style="font-size:12.5px;margin:0 0 10px">نسخة واحدة على A4، وفيها مكان توقيع مستلم الاستور وتوقيع أمين المخزن.</p><iframe class="notef" title="إذن التسليم" srcdoc="'+esc(shpNoteHTML(d,{prices:s.prices}))+'"></iframe>'};
 }
 /* ---------- delivery tracking inside the document ---------- */
 function shpCard(d){
@@ -92,6 +119,8 @@ const ACT_SH={
   shpdl:()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===(s||{}).id);if(d)saveFile('delivery-note-'+d.no+'.html',new Blob([shpNoteHTML(d,{prices:s.prices})],{type:'text/html'}),'اتنزّل إذن التسليم')},
   shpxls:()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===(s||{}).id);if(!d)return;if(typeof XLSX==='undefined'){toast('ملف Excel مش متاح دلوقتي (محتاج إنترنت). نزّل الـ HTML.');return}
     const ws=XLSX.utils.aoa_to_sheet(shpAOA(d,{prices:s.prices})),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'اذن تسليم');const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});saveFile('delivery-note-'+d.no+'.xlsx',new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'اتنزّل ملف Excel')},
+  shppdf:async()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===(s||{}).id);if(!d)return;toast('بجهّز ملف الـ PDF…');try{const b=await shpPDF(d,{prices:s.prices});await saveFile('delivery-note-'+d.no+'.pdf',b,'اتنزّل ملف الـ PDF')}catch(e){toast('مقدرتش أجهّز الـ PDF (محتاج إنترنت). جرّب الـ HTML.')}},
+  shppng:async()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===(s||{}).id);if(!d)return;toast('بجهّز الصورة…');try{const b=await shpPNG(d,{prices:s.prices});await saveFile('delivery-note-'+d.no+'.png',b,'اتنزّلت الصورة')}catch(e){toast('مقدرتش أجهّز الصورة (محتاج إنترنت). جرّب الـ HTML.')}},
   shpdone:()=>{const d=curDoc();if(!d||d.status!=='done'||d.hdr.delivered)return;d.hdr.delivered={at:Date.now(),date:S.date,by:S.actor,receiver:(UI.shpRecv||'').trim()};UI.shpRecv='';audit('تسليم '+d.no+' للمحل');dirty();toast('اتسجّل التسليم للمحل');render()}
 };
 const CHG_SH={

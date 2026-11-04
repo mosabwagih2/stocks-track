@@ -5,6 +5,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
 (async()=>{
   const wrap='/tmp/_e3_shop_wrap.html';fs.writeFileSync(wrap,'<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"></head><body>\n'+fs.readFileSync(app,'utf8')+'\n</body></html>');
   const b=await chromium.launch();const c=await b.newContext({viewport:{width:1280,height:900},acceptDownloads:true});const p=await c.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
+  await p.route('**/html2canvas*',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync('/tmp/html2canvas.min.js')}));await p.route('**/jspdf*',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync('/tmp/jspdf.umd.min.js')}));
   await p.goto('file://'+wrap);await p.waitForSelector('.shell');await p.evaluate(()=>__F.ACT.demoload());await p.waitForTimeout(500);
   // ---- stock state filter
   const f1=await p.evaluate(()=>{const F=__F;F.UI.s.view='list';F.UI.s.state='LOST';F.UI.s.q='';F.go('stock');const rows=[...document.querySelectorAll('.stkl .mrow')].map(r=>r.dataset.m);const want=F.D.models.map(m=>m.code).filter(m=>F.D.skus.some(k=>k.m===m&&F.g(k.id,'LOST')>0));return {rows:rows.sort().join(),want:want.sort().join(),n:rows.length}});
@@ -36,6 +37,12 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   const aoa=await p.evaluate(()=>{const F=__F;return 0});
   const [dl]=await Promise.all([p.waitForEvent('download'),p.click('[data-a=shpdl]')]);const html=fs.readFileSync(await dl.path(),'utf8');
   ok('the download is a self-contained printable page named after the note',/delivery-note-SHP-\d{4}\.html/.test(dl.suggestedFilename())&&html.includes('<!doctype html>')&&html.includes('@page')&&html.includes('محل الزمالك'),dl.suggestedFilename());
+  const [dpdf]=await Promise.all([p.waitForEvent('download',{timeout:60000}),p.click('[data-a=shppdf]')]);const pdf=fs.readFileSync(await dpdf.path());
+  const pages=(pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)||[]).length;
+  ok('PDF export: a real A4 PDF named after the note',/delivery-note-SHP-\d{4}\.pdf/.test(dpdf.suggestedFilename())&&pdf.slice(0,5).toString()==='%PDF-'&&pages>=1&&pdf.length>8000,dpdf.suggestedFilename()+' pages '+pages+' bytes '+pdf.length);
+  const [dpng]=await Promise.all([p.waitForEvent('download',{timeout:60000}),p.click('[data-a=shppng]')]);const png=fs.readFileSync(await dpng.path());
+  const pw=png.readUInt32BE(16),ph=png.readUInt32BE(20);
+  ok('image export: a PNG at print resolution with the note on it',/delivery-note-SHP-\d{4}\.png/.test(dpng.suggestedFilename())&&png.slice(1,4).toString()==='PNG'&&pw>=1500&&ph>=600&&png.length>15000,pw+'x'+ph+' '+png.length);
   ok('print and Excel actions do not error (print may be unavailable in a frame)',await p.evaluate(()=>{try{__F.ACT.shpprint();return true}catch(e){return false}})&&await p.evaluate(()=>{try{__F.ACT.shpxls();return true}catch(e){return false}}));
   await p.evaluate(()=>{__F.UI.sheet=null;__F.render()});
   // ---- delivery tracking
