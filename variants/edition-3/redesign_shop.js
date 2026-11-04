@@ -7,23 +7,36 @@ function shpRows(d){
 const shpHasPrices=d=>can('money')&&shpRows(d).some(r=>r.price>0);
 function shpWhen(d){const t=d.confirmedAt||Date.now();return {date:d.date||S.date,time:timeOf(t)}}
 const SHP_LOGO='__SHP_LOGO__';
+function shpPages(rows){
+  const FULL=22,LAST=18,out=[];let r=rows.slice();
+  if(!r.length)return [[]];
+  while(r.length>LAST){let take=Math.min(FULL,r.length);if(r.length>LAST&&r.length<=FULL)take=r.length-4;out.push(r.slice(0,take));r=r.slice(take)}
+  out.push(r);return out;
+}
 function shpNoteHTML(d,opt){
-  opt=opt||{};const rows=shpRows(d),W=shpWhen(d),H=d.hdr||{},prices=!!opt.prices&&shpHasPrices(d),tot=rows.reduce((a,r)=>a+r.q,0),val=rows.reduce((a,r)=>a+r.q*r.price,0);
-  const body='<section class="pg"><header><div class="br"><img src="'+SHP_LOGO+'" alt="Fémini"></div><div class="tt"><h1>إذن تسليم بضاعة</h1></div><div class="no"><b>'+esc(shpNo(d))+'</b><small>'+esc(W.date)+' · '+esc(W.time)+'</small></div></header>'
-   +'<div class="meta"><div><small>من</small><b>مخزن Fémini</b></div><div><small>إلى</small><b>'+esc(H.shop||'—')+'</b></div><div><small>أعدّه</small><b>'+esc(d.by||'')+'</b></div></div>'
-   +'<table><thead><tr><th>م</th><th>الموديل</th><th>الوصف</th><th>اللون</th><th>المقاس</th><th class="n">الكمية</th>'+(prices?'<th class="n">السعر</th><th class="n">الإجمالي</th>':'')+'</tr></thead><tbody>'
-   +rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td class="m">'+esc(r.model)+'</td><td>'+esc(r.mname)+'</td><td>'+esc(r.color)+'</td><td>'+esc(r.size)+'</td><td class="n"><b>'+r.q+'</b></td>'+(prices?'<td class="n">'+fmt(r.price)+'</td><td class="n">'+fmt(r.q*r.price)+'</td>':'')+'</tr>').join('')
-   +'</tbody><tfoot><tr><td colspan="5">الإجمالي · '+rows.length+' صنف</td><td class="n"><b>'+tot+'</b></td>'+(prices?'<td></td><td class="n"><b>'+fmt(val)+'</b></td>':'')+'</tr></tfoot></table>'
-   +(H.note?'<p class="nt"><b>ملاحظات:</b> '+esc(H.note)+'</p>':'')
-   +'<p class="rv">راجع الكميات قبل التوقيع على الاستلام.</p>'
-   +'<div class="sg"><div><small>توقيع مستلم الاستور</small><i></i></div><div><small>توقيع أمين المخزن</small><i></i></div></div></section>';
-  return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>إذن تسليم '+esc(shpNo(d))+'</title><style>'
-   +'*{box-sizing:border-box}body{margin:0;background:#fff;color:#1f1738;font:13px/1.6 "IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pg{width:190mm;max-width:100%;margin:0 auto;padding:10mm 0}'
-   +'header{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:2px solid #43316f;padding-bottom:8px;margin-bottom:10px}.br img{height:20mm;width:auto;display:block}.tt{text-align:center}.tt h1{margin:0;font-size:20px}.no{text-align:left}.no b{font:600 16px monospace;display:block;direction:ltr}.no small{color:#655e80}'
-   +'.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}.meta div{border:1px solid #d3cbe6;border-radius:8px;padding:6px 10px}.meta small{display:block;color:#655e80;font-size:11px}'
-   +'table{width:100%;border-collapse:collapse}th,td{border:1px solid #d3cbe6;padding:5px 8px;text-align:right}th{background:#f3f0f9;font-size:12px}.n{text-align:center}.m{font-family:monospace;font-weight:600}tfoot td{background:#f3f0f9;font-weight:600}'
-   +'.nt{margin:10px 0 0}.rv{color:#655e80;font-size:12px;margin:10px 0}.sg{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:24px}.sg small{display:block;color:#655e80;font-size:11px}.sg i{display:block;border-bottom:1px solid #1f1738;height:34px}'
-   +'thead{display:table-header-group}tr,.sg{page-break-inside:avoid}@page{size:A4;margin:8mm}@media print{.pg{padding:0}}</style></head><body>'+body+'</body></html>';
+  opt=opt||{};const rows=shpRows(d),W=shpWhen(d),H=d.hdr||{},prices=!!opt.prices&&shpHasPrices(d),tot=rows.reduce((a,r)=>a+r.q,0),val=rows.reduce((a,r)=>a+r.q*r.price,0),pages=shpPages(rows);let n=0;
+  const head='<header><div class="br"><img src="'+SHP_LOGO+'" alt="Fémini"></div><div class="tt"><h1>إذن تسليم بضاعة</h1></div><div class="no"><b>'+esc(shpNo(d))+'</b><small>'+esc(W.date)+' · '+esc(W.time)+'</small></div></header>'
+   +'<div class="meta"><div><small>من</small><b>مخزن Fémini</b></div><div><small>إلى</small><b>'+esc(H.shop||'—')+'</b></div><div><small>أعدّه</small><b>'+esc(d.by||'')+'</b></div></div>';
+  const sheets=pages.map((pr,pi)=>{const last=pi===pages.length-1;
+    const tr=pr.map(r=>{n++;return '<tr><td>'+n+'</td><td class="m">'+esc(r.model)+'</td><td class="d">'+esc(r.mname)+'</td><td>'+esc(r.color)+'</td><td>'+esc(r.size)+'</td><td class="n"><b>'+r.q+'</b></td>'+(prices?'<td class="n">'+fmt(r.price)+'</td><td class="n">'+fmt(r.q*r.price)+'</td>':'')+'</tr>'}).join('');
+    return '<section class="sheet">'+head+'<div class="mid"><table><thead><tr><th>م</th><th>الموديل</th><th>الوصف</th><th>اللون</th><th>المقاس</th><th class="n">الكمية</th>'+(prices?'<th class="n">السعر</th><th class="n">الإجمالي</th>':'')+'</tr></thead><tbody>'+tr+'</tbody>'
+     +(last?'<tfoot><tr><td colspan="5">الإجمالي · '+rows.length+' صنف</td><td class="n"><b>'+tot+'</b></td>'+(prices?'<td></td><td class="n"><b>'+fmt(val)+'</b></td>':'')+'</tr></tfoot>':'')+'</table>'
+     +(last?(H.note?'<p class="nt"><b>ملاحظات:</b> '+esc(H.note)+'</p>':'')+'<p class="rv">راجع الكميات قبل التوقيع على الاستلام.</p>':'<p class="rv">يتبع في الصفحة التالية ←</p>')+'</div>'
+     +'<div class="sg"><div><small>توقيع مستلم الاستور</small><i></i></div><div><small>توقيع أمين المخزن</small><i></i></div></div><div class="pn">صفحة '+(pi+1)+' من '+pages.length+'</div></section>'}).join('');
+  return '<!doctype html><html lang="ar" dir="rtl" class="'+(opt.exp?'x':'')+'"><head><meta charset="utf-8"><title>إذن تسليم '+esc(shpNo(d))+'</title><style>'
+   +'*{box-sizing:border-box}html,body{margin:0}body{color:#1f1738;font:13px/1.5 "IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+   +'.sheet{position:relative;width:210mm;height:297mm;overflow:hidden;background:#fff;page-break-after:always;break-after:page}.sheet:last-child{page-break-after:auto;break-after:auto}'
+   +'header{position:absolute;top:9mm;left:10mm;right:10mm;height:24mm;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:2px solid #43316f}.br img{height:20mm;width:auto;display:block}.tt{text-align:center}.tt h1{margin:0;font-size:20px}.no{text-align:left}.no b{font:600 16px monospace;display:block;direction:ltr}.no small{color:#655e80}'
+   +'.meta{position:absolute;top:36mm;left:10mm;right:10mm;height:14mm;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.meta div{border:1px solid #d3cbe6;border-radius:8px;padding:2px 10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.meta small{display:block;color:#655e80;font-size:10.5px;line-height:1.3}.meta b{line-height:1.3}'
+   +'.mid{position:absolute;top:54mm;left:10mm;right:10mm;bottom:50mm}'
+   +'table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #d3cbe6;padding:0 8px;text-align:right;height:7.4mm;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px}th{background:#f3f0f9;font-size:12px;height:8mm}.n{text-align:center}.m{font-family:monospace;font-weight:600}tfoot td{background:#f3f0f9;font-weight:600;height:8mm}'
+   +'th:nth-child(1),td:nth-child(1){width:9mm}th:nth-child(2),td:nth-child(2){width:24mm}th:nth-child(3),td:nth-child(3){width:'+(prices?'38mm':'54mm')+'}'
+   +'.nt{margin:8px 0 0}.rv{color:#655e80;font-size:12px;margin:8px 0 0}'
+   +'.sg{position:absolute;left:10mm;right:10mm;bottom:14mm;height:30mm;display:grid;grid-template-columns:1fr 1fr;gap:40px}.sg>div{border-bottom:1px solid #1f1738;padding-top:2px}.sg small{display:block;color:#655e80;font-size:11px}.sg i{display:block}'
+   +'.pn{position:absolute;left:0;right:0;bottom:6mm;text-align:center;color:#a59cc0;font-size:10.5px}'
+   +'@page{size:A4;margin:0}@media screen{html:not(.x) body{background:#e9e6f0;padding:12px 0}html:not(.x) .sheet{margin:0 auto 14px;box-shadow:0 2px 10px rgba(31,23,56,.18)}}'
+   +'@media screen and (max-width:830px){html:not(.x) body{zoom:.9}}@media screen and (max-width:740px){html:not(.x) body{zoom:.8}}@media screen and (max-width:660px){html:not(.x) body{zoom:.7}}@media screen and (max-width:580px){html:not(.x) body{zoom:.62}}@media screen and (max-width:500px){html:not(.x) body{zoom:.52}}@media screen and (max-width:430px){html:not(.x) body{zoom:.44}}@media screen and (max-width:360px){html:not(.x) body{zoom:.38}}'
+   +'</style></head><body>'+sheets+'</body></html>';
 }
 function shpAOA(d,opt){
   const rows=shpRows(d),W=shpWhen(d),prices=!!(opt&&opt.prices)&&shpHasPrices(d),H=d.hdr||{};
@@ -45,29 +58,26 @@ function shpPrint(html){
 }
 const SHP_LIBS={h2c:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',pdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'};
 function shpLoad(url,test){return new Promise((res,rej)=>{if(test()){res();return}const e=document.createElement('script');e.src=url;e.onload=()=>test()?res():rej(new Error('lib'));e.onerror=()=>rej(new Error('load'));document.head.appendChild(e)})}
-async function shpCanvas(d,opt){
+async function shpCanvases(d,opt){
   await shpLoad(SHP_LIBS.h2c,()=>!!window.html2canvas);
-  const f=document.createElement('iframe');f.style.cssText='position:fixed;left:-10000px;top:0;width:794px;height:1200px;border:0';f.srcdoc=shpNoteHTML(d,opt);document.body.appendChild(f);
+  const f=document.createElement('iframe');f.style.cssText='position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0';f.srcdoc=shpNoteHTML(d,Object.assign({},opt,{exp:true}));document.body.appendChild(f);
   try{
     await new Promise((r,j)=>{f.onload=r;setTimeout(()=>j(new Error('timeout')),15000)});
     const doc=f.contentDocument;try{await doc.fonts.ready}catch(e){}
     const img=doc.querySelector('header img');if(img&&!img.complete)await new Promise(r=>{img.onload=r;img.onerror=r});
     f.style.height=doc.documentElement.scrollHeight+'px';
-    const cv=await window.html2canvas(doc.body,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794,width:794});
-    const sy=doc.defaultView.scrollY||0,cuts=[...doc.querySelectorAll('tr,.sg,.meta,.nt,.rv')].map(e=>e.getBoundingClientRect().bottom+sy);
-    return {cv,cuts,w:794};
+    const out=[];for(const sh of doc.querySelectorAll('.sheet'))out.push(await window.html2canvas(sh,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794,width:794,height:1123}));
+    return out;
   }finally{f.remove()}
 }
-function shpSlices(cv,cuts,w){
-  const k=cv.width/w,pageH=Math.floor(1062*k),H=cv.height,out=[];let y=0;
-  while(y<H){let end=Math.min(H,y+pageH);if(end<H){const c=cuts.map(v=>Math.floor(v*k)).filter(v=>v>y+pageH*0.5&&v<=end);if(c.length)end=Math.max(...c);if(H-end<260*k){const c2=cuts.map(v=>Math.floor(v*k)).filter(v=>v>y+pageH*0.5&&v<=end-90*k);if(c2.length)end=Math.max(...c2)}}out.push([y,end]);y=end}
-  return out;
+async function shpPNG(d,opt){
+  const cs=await shpCanvases(d,opt),w=cs[0].width,h=cs.reduce((a,c)=>a+c.height,0),c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);let y=0;cs.forEach(k=>{x.drawImage(k,0,y);y+=k.height});
+  return new Promise(r=>c.toBlob(r,'image/png'));
 }
-async function shpPNG(d,opt){const {cv}=await shpCanvas(d,opt);return new Promise(r=>cv.toBlob(r,'image/png'))}
 async function shpPDF(d,opt){
-  const {cv,cuts,w}=await shpCanvas(d,opt);await shpLoad(SHP_LIBS.pdf,()=>!!(window.jspdf&&window.jspdf.jsPDF));
+  const cs=await shpCanvases(d,opt);await shpLoad(SHP_LIBS.pdf,()=>!!(window.jspdf&&window.jspdf.jsPDF));
   const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
-  shpSlices(cv,cuts,w).forEach(([a,b],i)=>{const c=document.createElement('canvas');c.width=cv.width;c.height=b-a;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(cv,0,a,cv.width,b-a,0,0,cv.width,b-a);if(i)doc.addPage();doc.addImage(c.toDataURL('image/jpeg',0.95),'JPEG',0,8,210,(b-a)*210/cv.width)});
+  cs.forEach((c,i)=>{if(i)doc.addPage();doc.addImage(c.toDataURL('image/jpeg',0.95),'JPEG',0,0,210,297)});
   return doc.output('blob');
 }
 function shpNoteSheet(s){
