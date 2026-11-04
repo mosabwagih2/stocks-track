@@ -587,6 +587,9 @@ button,[data-a],.chip,.nav{touch-action:manipulation;-webkit-tap-highlight-color
 <style>
 .lnc .hp .xh,.lnc .hp .xd{opacity:0;transition:opacity .12s}.lnc .hp:hover .xh,.lnc .hp:hover .xd{opacity:1}
 .lnc text{letter-spacing:0}
+.rg .rs{transition:stroke-width .15s;animation:rin .8s cubic-bezier(.2,.8,.2,1) both;cursor:default}.rg .rs:hover{stroke-width:12}
+@keyframes rin{from{opacity:0;stroke-dasharray:0 400}}
+@media (prefers-reduced-motion:reduce){.rg .rs{animation:none}}
 .cch .cb{fill:transparent;transition:fill .12s}.cch .cg:hover .cb{fill:var(--lav)}
 .cch path{transition:opacity .12s}.cch:has(.cg:hover) .cg:not(:hover) path{opacity:.55}
 /* horizontal bars: slim rounded track with a soft gradient fill */
@@ -1454,8 +1457,10 @@ function actions(){
 }
 
 /* ---------- TODAY ---------- */
-function ring(parts,total,size){const r=48,c=2*Math.PI*r;let off=0;
-  return '<svg viewBox="0 0 120 120" width="'+size+'" height="'+size+'" aria-hidden="true"><circle cx="60" cy="60" r="'+r+'" fill="none" stroke="var(--grid)" stroke-width="12"/>'+parts.map(p=>{const len=total?p[0]/total*c:0,sv='<circle cx="60" cy="60" r="'+r+'" fill="none" stroke="'+p[1]+'" stroke-width="12" stroke-dasharray="'+len.toFixed(2)+' '+(c-len).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'" transform="rotate(-90 60 60)"/>';off+=len;return len>0?sv:''}).join('')+'</svg>'}
+function ring(parts,total,size){const r=47,c=2*Math.PI*r,live=parts.filter(p=>p[0]>0),gap=live.length>1?5:0,sw=9;let off=0;
+  const segs=live.map(p=>{const len=total?p[0]/total*c:0,vis=Math.max(.1,len-gap-sw),st=off+gap/2+sw/2;off+=len;
+    return '<circle class="rs" cx="60" cy="60" r="'+r+'" fill="none" stroke="'+p[1]+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+vis.toFixed(2)+' '+(c-vis).toFixed(2)+'" stroke-dashoffset="'+(-st).toFixed(2)+'" transform="rotate(-90 60 60)"'+(p[2]?' data-tip="'+esc(p[2]+': '+fmt(p[0]))+'"':'')+'/>'}).join('');
+  return '<svg class="rg" viewBox="0 0 120 120" width="'+size+'" height="'+size+'"><circle cx="60" cy="60" r="'+r+'" fill="none" stroke="var(--grid)" stroke-width="'+sw+'" opacity=".7"/>'+segs+'</svg>'}
 function vToday(){
   const C=ctx(),date=viewDate(),isToday=date===S.date,pks=S.pickups.filter(p=>p.date===date),ids=pks.map(p=>p.id);
   const os=S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx'),done=os.filter(o=>o.st==='done'),open=os.filter(o=>o.st==='open'),blk=open.filter(o=>C.blocked[o.ref]);
@@ -1478,7 +1483,7 @@ function vToday(){
   else head='كل اللي اتطلب اتشحن ✓';
   const pctD=os.length?Math.round(done.length/os.length*100):0,mx7=Math.max(1,...l7.map(x=>x[1]));
   const leg=(l,n,p,c,w)=>'<button type="button" class="hl" '+(n?'data-a="flow" data-w="'+w+'"':'disabled')+'><i class="dot" style="background:'+c+'"></i><span>'+l+'</span><b class="n">'+fmt(n)+'</b><span class="muted">'+fmt(p)+' قطعة</span></button>';
-  h+='<section class="card hero lift"><div class="rwrap" role="img" aria-label="اتشحن '+done.length+' من '+os.length+'">'+ring([[done.length,'var(--c-ready)'],[wait.length,'var(--line2)'],[blk.length,'var(--c-scrap)']],os.length,128)+'<div class="rc"><b class="n">'+pctD+'%</b><small>اتشحن</small></div></div>'
+  h+='<section class="card hero lift"><div class="rwrap" role="img" aria-label="اتشحن '+done.length+' من '+os.length+'">'+ring([[done.length,'var(--c-ready)','اتشحن'],[wait.length,'var(--line2)','مستنيين الشحن'],[blk.length,'var(--c-scrap)','معطل']],os.length,128)+'<div class="rc"><b class="n">'+pctD+'%</b><small>اتشحن</small></div></div>'
    +'<div class="hmain"><div class="hhead">'+head+'</div><div class="muted" style="font-size:13px;margin-top:2px">'+(os.length?fmt(os.length)+' أوردر · '+fmt(pc(os))+' قطعة مطلوبة '+(isToday?'النهارده':'في اليوم ده'):'ارفع ملف البيك أب أو غيّر يوم العمل.')+'</div>'+(btn?'<div style="margin-top:12px">'+btn+'</div>':'')
    +(os.length?'<div class="hlegend">'+leg('اتشحن',done.length,pc(done),'var(--c-ready)','done')+leg('مستني الشحن',wait.length,pc(wait),'var(--line2)','wait')+leg('معطل بالرصيد',blk.length,pc(blk),'var(--c-scrap)','blocked')+'</div>':'')+'</div>'
    +'<div class="hside"><div class="hmoney"><div><small>قيمة المطلوب</small><b class="n">'+EGP(vv(os))+'</b></div><div><small>اتشحن</small><b class="n" style="color:var(--good)">'+EGP(vv(done))+'</b></div><div><small>معطل</small><b class="n" style="color:'+(blk.length?'var(--crit)':'var(--muted)')+'">'+EGP(vv(blk))+'</b></div></div>'

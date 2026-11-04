@@ -140,8 +140,10 @@ i=s.index('<div id="app"></div>')
 s=s[:i]+css2+s[i:]
 
 # ================= TODAY + ANALYTICS =================
-ring_js="""function ring(parts,total,size){const r=48,c=2*Math.PI*r;let off=0;
-  return '<svg viewBox="0 0 120 120" width="'+size+'" height="'+size+'" aria-hidden="true"><circle cx="60" cy="60" r="'+r+'" fill="none" stroke="var(--grid)" stroke-width="12"/>'+parts.map(p=>{const len=total?p[0]/total*c:0,sv='<circle cx="60" cy="60" r="'+r+'" fill="none" stroke="'+p[1]+'" stroke-width="12" stroke-dasharray="'+len.toFixed(2)+' '+(c-len).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'" transform="rotate(-90 60 60)"/>';off+=len;return len>0?sv:''}).join('')+'</svg>'}
+ring_js="""function ring(parts,total,size){const r=47,c=2*Math.PI*r,live=parts.filter(p=>p[0]>0),gap=live.length>1?5:0,sw=9;let off=0;
+  const segs=live.map(p=>{const len=total?p[0]/total*c:0,vis=Math.max(.1,len-gap-sw),st=off+gap/2+sw/2;off+=len;
+    return '<circle class="rs" cx="60" cy="60" r="'+r+'" fill="none" stroke="'+p[1]+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+vis.toFixed(2)+' '+(c-vis).toFixed(2)+'" stroke-dashoffset="'+(-st).toFixed(2)+'" transform="rotate(-90 60 60)"'+(p[2]?' data-tip="'+esc(p[2]+': '+fmt(p[0]))+'"':'')+'/>'}).join('');
+  return '<svg class="rg" viewBox="0 0 120 120" width="'+size+'" height="'+size+'"><circle cx="60" cy="60" r="'+r+'" fill="none" stroke="var(--grid)" stroke-width="'+sw+'" opacity=".7"/>'+segs+'</svg>'}
 """
 a=s.index("function vToday(){");b=s.index("\n}\n",a)+3
 orig=s[a:b]
@@ -287,6 +289,9 @@ ins_before("function vStock(){",(H/'redesign_charts.js').read_text(encoding='utf
 cch=r"""<style>
 .lnc .hp .xh,.lnc .hp .xd{opacity:0;transition:opacity .12s}.lnc .hp:hover .xh,.lnc .hp:hover .xd{opacity:1}
 .lnc text{letter-spacing:0}
+.rg .rs{transition:stroke-width .15s;animation:rin .8s cubic-bezier(.2,.8,.2,1) both;cursor:default}.rg .rs:hover{stroke-width:12}
+@keyframes rin{from{opacity:0;stroke-dasharray:0 400}}
+@media (prefers-reduced-motion:reduce){.rg .rs{animation:none}}
 .cch .cb{fill:transparent;transition:fill .12s}.cch .cg:hover .cb{fill:var(--lav)}
 .cch path{transition:opacity .12s}.cch:has(.cg:hover) .cg:not(:hover) path{opacity:.55}
 /* horizontal bars: slim rounded track with a soft gradient fill */
