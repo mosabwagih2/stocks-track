@@ -77,3 +77,8 @@ The redesign copy has a stock heat map (Stock > خريطة): model x size, colou
 - Settings, "داتا تجريبية وجولة": load/reset buttons and a 12-card tour (problem, how the system solves it, live numbers, jump button). Today shows a banner while demo data is loaded.
 - Stock heat map now uses the same look as the demand heat map (purple intensity, corner dot for short/low/surplus). Test: `tests/edition3_heat_test.js`, `tests/edition3_demo_test.js`.
 - Analytics charts modernised in Brand 2 (`redesign_charts.js`): smooth gradient area lines with crosshair hover, SVG column charts with hairline grid, slim gradient bars.
+
+## Brand 2 (Copy): Studio redesign
+
+- `variants/edition-3/studio.css` + `6_studio.py` build `apps/edition-3-brand-v2-copy` on top of Brand 2: warm ivory ground, aubergine ink, one accent, segmented controls, quiet tables, larger numbers, hairline cards.
+- The demo tab opens with a 9-second looping stage (stageshow-style: a cursor scans, the order flips, the balance rolls, the supplies tick). It shows the end state when reduced motion is on.
