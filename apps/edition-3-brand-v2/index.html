@@ -1088,6 +1088,7 @@ function vSupplies(){
   const items=S.sup.items.filter(i=>UI.supArch?i.arch:!i.arch),nArch=S.sup.items.filter(i=>i.arch).length;
   const tools=(nArch||UI.supArch?'<button class="btn" data-a="suparchview">'+(UI.supArch?'← رجوع للمستلزمات':'المؤرشفة ('+nArch+')')+'</button>':'')+'<button class="btn pri" data-a="supnew">+ إضافة مستلزم</button>';
   let h=top(UI.supArch?'المستلزمات المؤرشفة':'المستلزمات','عبوات وفلايرز وكاسات. بتتخصم لوحدها مع كل أوردر بيتشحن حسب قاعدة كل مستلزم.',tools);
+  if(UI.supAsk){const _i=supItem(UI.supAsk);if(_i)h+='<div class="msg warn row sp" style="margin-bottom:14px"><span>هترجّع <b>'+esc(_i.name)+'</b>، وهيرجع يتخصم لوحده مع الأوردرات. متأكد؟</span><span class="row" style="gap:8px"><button class="btn sm pri" data-a="suprestoreyes">أيوه، رجّعه</button><button class="btn sm" data-a="suprestoreno">لأ</button></span></div>'}
   if(!items.length)h+='<div class="card"><div class="empty">'+(UI.supArch?'مفيش مستلزمات مؤرشفة.':'لسه مفيش مستلزمات. اضغط "إضافة مستلزم".')+'</div></div>';
   h+=supStrip(S.sup.items.filter(i=>!i.arch));h+=supTable(items);
   const lg=S.sup.log.slice(-30).reverse();
@@ -1305,7 +1306,6 @@ function scEditSheet(s){
   if(d.status==='done'){
     body+='<label class="f">اسم الموظف<input value="'+esc(s.emp)+'" data-c="scemp" id="scemp"></label><div class="row"><button class="btn pri" data-a="scsave">حفظ اسم الموظف</button><button class="btn" data-a="opendoc2" data-id="'+d.id+'">فتح العملية</button></div><p class="muted" style="font-size:12px">تغيير الاسم بيحدّث الأوردرات وإحصائيات الموظفين. حركات المخزون القديمة بتفضل زي ما هي في السجل.</p>';
     if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
-    body+='<div class="card flat" style="margin-top:6px"><h2 style="font-size:15px">عكس الملف كله</h2>'+(s.rev?'<div class="msg crit">هيرجّع '+d.hdr.refs.length+' أوردر "مستني الشحن" ويرجّع '+fmt(pc)+' قطعة للمخزون والمستلزمات. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="screv2">أيوه، اعكس</button><button class="btn sm" data-a="screv">لأ</button></div></div>':'<p class="muted" style="margin-bottom:10px">لو رفعت الملف بالغلط. بيسجّل حركة عكسية ومش بيمسح القديم.</p><button class="btn danger sm" data-a="screv">عكس الملف</button>')+'</div>';
   }else body+='<button class="btn" data-a="opendoc2" data-id="'+d.id+'">فتح العملية</button>';
   return {title:'ملف سكان · '+esc(d.hdr.emp),body};
 }
@@ -2001,7 +2001,6 @@ function genDemo(){
       let shipNeg=null;
       const free={},have=s=>(s in free)?free[s]:(free[s]=g(s,'READY')),canShip=o=>{const n={};o.lines.forEach(s=>n[s]=(n[s]||0)+1);return Object.keys(n).every(s=>have(s)>=n[s])},take=o=>o.lines.forEach(s=>free[s]=have(s)-1);
       const pkD=Object.fromEntries(S.pickups.map(p=>[p.id,p.date]));
-      if(i===26){const c=S.orders.filter(o=>o.st==='open'&&!o.bad.length&&pkD[o.pk]<day&&canShip(o)).slice(0,6);if(c.length){at(day,11,30);const d=makeScn(c.map(o=>({ref:o.ref,t:'11:2'+(c.indexOf(o)%10)})),'كريم','ملف سكان غلط');if(confirmDoc(d))reverseDoc(d);_bal=null}}
       /* 11. shipping: scan today's shippable orders, channel by channel */
       const open=S.orders.filter(o=>o.st==='open'&&!o.bad.length&&pkD[o.pk]<=day).sort((a,b)=>pkD[a.pk]<pkD[b.pk]?-1:pkD[a.pk]>pkD[b.pk]?1:0),ship={};
       Object.keys(free).forEach(k=>delete free[k]);
@@ -2063,7 +2062,7 @@ function demoTour(){
    {t:'أوردر واقف عشان قطعة واحدة',p:'أوردر فيه 4 قطع، 3 منهم موجودين وواحدة لأ. محدش بيلاحظ والأوردر يفضل قاعد وبيتأخر.',s:'السيستم بيمشي على الأوردرات بالترتيب ويشوف مين ينفع يتشحن بالرصيد. اللي ناقصه قطعة بيتعلّم "معطل" وبيقولك بالظبط أنهي قطعة وكام ناقص.',proof:[fp('أوردر معطل',fmt(blk.length)),topBk?fp('أكتر صنف معطّل',esc(skuName(topBk))):''],go:'orders',pre:()=>{UI.o.f='blocked';UI.o.tab='list'},b:'شوف المعطل'},
    {t:'المرتجع بيرجع ناقص أو مبهدل',p:'المرتجعات بترجع من القنوات متلخبطة: سليم، محتاج غسيل، هالك، وساعات ناقص. من غير تتبع الناقص ده بيضيع ومحدش يعرف مين السبب.',s:'استلام المرتجع بيتعدّ قطعة قطعة: سليم يرجع جاهز، محتاج نضافة يروح لهالك النظافة، هالك نهائي، وأي ناقص بيتسجل مفقود ومربوط بالقناة والأوردر.',proof:[fp('أوردر اترجع',fmt(rets)),worst?fp('أعلى نسبة مرتجع: '+chanName(worst.id),worst.rate.toFixed(0)+'%'):'',fp('قطعة مفقودة',fmt(lostN))],go:'insights',pre:()=>{UI.ins='plan'},b:'صحة المخزون والقنوات'},
    {t:'الهالك والغسيل عند المصنع',p:'القطع المتسخة بتتراكم، وبتتبعت للمصنع، وما حدش بيعرف إيه اللي لسه هناك من أسبوعين.',s:'مسار ثابت: هالك نظافة، إرسال للمصنع، استلام مغسول (والمرفوض يتحوّل هالك نهائي). ولو حاجة قعدت عند المصنع أكتر من اللازم بتظهر في "المعطل".',proof:[fp('محتاج غسيل',fmt(dirtyN)),fp('عند المصنع',fmt(facN)),fp('هالك نهائي',fmt(scrapN))],go:'insights',pre:()=>{UI.ins='stuck'},b:'شوف المعطل'},
-   {t:'مين غيّر الرقم؟',p:'في إكسيل أي حد يعدّل أي خانة ومفيش أثر. وفي الشحن أحيانًا بيتعمل سكان غلط.',s:'مفيش تعديل. كل عملية ليها رقم ومسودة ثم تأكيد، وبتتقفل بعد 3 أيام. الغلط بيتصلّح بعملية عكسية بتظهر في السجل، والاستلام والتوريد للمحل لازم صورة الورقة الموقّعة.',proof:[fp('عملية متأكدة',fmt(S.docs.filter(d=>d.status==='done').length)),fp('عملية معكوسة',fmt(revN)),fp('أوردر ملغي بصورة بوليصة',fmt(cxN))],go:'ledger',pre:()=>{},b:'افتح السجل'},
+   {t:'مين غيّر الرقم؟',p:'في إكسيل أي حد يعدّل أي خانة ومفيش أثر. وفي الشحن مفيش أثر لمين سكّن إيه.',s:'مفيش تعديل. كل عملية ليها رقم ومسودة ثم تأكيد، وبتتقفل بعد 3 أيام. كل عملية مسجّلة باسم اللي عملها وفي السجل، والاستلام والتوريد للمحل لازم صورة الورقة الموقّعة.',proof:[fp('عملية متأكدة',fmt(S.docs.filter(d=>d.status==='done').length)),fp('أوردر ملغي بصورة بوليصة',fmt(cxN))],go:'ledger',pre:()=>{},b:'افتح السجل'},
    {t:'الجرد بيبوّظ الأرقام',p:'لما بتعد وتلاقي فرق بتكتب الرقم الجديد فوق القديم، فبتضيع معلومة إيه اللي اتفقد ومتى.',s:'الجرد عملية زي غيرها: بتعدّ، بتكشف الفروق، بتوافق، فيتسجل الفرق كحركة "تسوية جرد". الرصيد القديم والجديد والفرق كلهم محفوظين.',proof:cnt1?[fp('عجز',fmt(cd)),fp('زيادة',fmt(cs)),fp('في عملية',esc(cnt1.no))]:[fp('ما فيش جرد لسه','')],go:'ledger',pre:()=>{UI.led.type='CNT'},b:'عمليات الجرد'},
    {t:'أصنّع كام وإمتى؟',p:'القرار بيتاخد بالإحساس: ساعات بتصنّع حاجة واقفة، وساعات بتخلص الحاجة اللي بتتباع.',s:'لكل صنف سرعة سحب أسبوعية (الأحدث أهم)، وحد أمان حسب تذبذب الطلب، ونقطة إعادة طلب بتعتمد على مهلة المصنع. اللي نزل عن النقطة بيتقترح تصنيعه بالكمية، وخريطة المخزون بتوريك الناقص والزيادة بنظرة.',proof:[fp('صنف تحت النقطة',fmt(lows.filter(x=>x[1].cls==='w').length)),fp('قطعة مقترح تصنيعها',fmt(pr.reduce((a,r)=>a+r.q,0))),fp('خانة زيادة/راكدة',fmt(ex.length))],go:'stock',pre:()=>{UI.s.view='heat';UI.s.state='READY'},b:'خريطة المخزون'},
    {t:'مخزون راكد بياكل فلوس',p:'موديلات اتصنعت وما اتباعتش. محدش شايفها لأنها مدفونة وسط 600 صنف.',s:'أي صنف ما اتسحبش من آخر فترة أو تغطيته أطول من '+S.st.excess+' يوم بيتعلّم زيادة/راكد، وقيمته بتتحسب بالتكلفة.',proof:[fp('قطعة راكدة',fmt(deadP)),fp('خانة زيادة',fmt(ex.length))],go:'insights',pre:()=>{UI.ins='plan'},b:'صحة المخزون'},
@@ -2139,11 +2138,11 @@ function trendChart(A){
    Honest scope: everything here runs in the browser, so it keeps honest people honest and builds the audit trail.
    Real enforcement needs a server (the Supabase version). */
 let STALE=false;
-const PERMS=[['money','يشوف الفلوس والتكلفة'],['scan','شحن بالسكان'],['returns','استلام المرتجع'],['receive','استلام من المصنع'],['internal','هالك / غسيل / مفقود'],['ship','توريد للمحل'],['count','الجرد'],['pickup','رفع بيك أب'],['cancel','إلغاء أوردر'],['reverse','عكس عملية'],['catalog','تعديل الأصناف والموديلات'],['supplies','المستلزمات'],['close','قفل اليوم وفتحه'],['settings','الإعدادات'],['users','المستخدمين والصلاحيات']];
+const PERMS=[['money','يشوف الفلوس والتكلفة'],['scan','شحن بالسكان'],['returns','استلام المرتجع'],['receive','استلام من المصنع'],['internal','هالك / غسيل / مفقود'],['ship','توريد للمحل'],['count','الجرد'],['pickup','رفع بيك أب'],['cancel','إلغاء أوردر'],['catalog','تعديل الأصناف والموديلات'],['supplies','المستلزمات'],['close','قفل اليوم وفتحه'],['settings','الإعدادات'],['users','المستخدمين والصلاحيات']];
 const PERM_NAME=Object.fromEntries(PERMS);
 const ROLE_DEFAULT={
   admin:{name:'مدير',perms:PERMS.map(p=>p[0])},
-  sup:{name:'مشرف مخزن',perms:['scan','returns','receive','internal','ship','count','pickup','cancel','reverse','catalog','supplies','close']},
+  sup:{name:'مشرف مخزن',perms:['scan','returns','receive','internal','ship','count','pickup','cancel','catalog','supplies','close']},
   pack:{name:'موظف شحن',perms:['scan','returns']},
   view:{name:'مراجعة (قراءة فقط)',perms:['money']}
 };
@@ -2152,7 +2151,7 @@ const ACT_PERM={pksave:'pickup',pksave2:'pickup',pkdel:'pickup',pkdel2:'pickup',
   reset:'settings',reset2:'settings',demoask:'settings',demoload:'settings',demoreset:'settings',
   skuadd:'catalog',catedit:'catalog',catsave:'catalog',skusave:'catalog',modelrm:'catalog',modelarch:'catalog',modelarch2:'catalog',modelrestore:'catalog',skuarch:'catalog',skuarch2:'catalog',skurestore:'catalog',skuop:'catalog',
   supsave:'supplies',supnew:'supplies',supconf:'supplies',suparch:'supplies',suparch2:'supplies',supundo:'supplies',supundo2:'supplies',undoentry:'supplies',supact:'supplies',
-  usadd:'users',bkdl:'settings',bkyes:'settings',usdel:'users',clconfirm:'close',clopen:'close'};
+  usadd:'users',bkdl:'settings',bkyes:'settings',suprestoreyes:'supplies',suprestore:'supplies',usdel:'users',clconfirm:'close',clopen:'close'};
 const CLOSED_ACTS={pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
 const CHG_PERM={bkfile:'settings',cost:'settings',st:'settings',actor:'settings'};
 function cyrb(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)}
@@ -2542,14 +2541,23 @@ function rtnParcels(d,draft){
   h+=rtnManual(d,draft);
   return h;
 }
+function rtnFix(l){
+  const e=num(l.exp);
+  if(!l.mv){const fresh=l.r===''&&l.d===''&&l.x==='';l.d=num(l.d);l.x=num(l.x);l.m=fresh?0:Math.max(0,e-num(l.r)-l.d-l.x);l.mv=1}
+  l.d=num(l.d);l.x=num(l.x);l.m=num(l.m);
+  let over=l.d+l.x+l.m-e;if(over>0){const t=Math.min(l.m,over);l.m-=t;over-=t;const u=Math.min(l.x,over);l.x-=u;over-=u;l.d=Math.max(0,l.d-over)}
+  l.r=Math.max(0,e-l.d-l.x-l.m);
+}
 function rtnManual(d,draft){
-  const H=d.hdr,rows=d.lines.map((l,i)=>[l,i]).filter(x=>!x[0].par),ro=!draft;
+  const H=d.hdr,ro=!draft;d.lines.forEach(l=>{if(!l.par&&draft)rtnFix(l)});
+  const rows=d.lines.map((l,i)=>[l,i]).filter(x=>!x[0].par);
   if(ro&&!rows.length)return '';
   let h='<section class="card"><h2>جرد يدوي <span class="hint">من غير بوليصة</span></h2>';
-  if(draft)h+='<p class="muted" style="margin:0 0 10px;font-size:12.5px">اختار الموديل واللون والمقاس وكمية المتوقع، وبعدين اكتب اللي استلمته فعلًا في كل خانة. اللي ما رجعش بيتسجّل مفقود. لو رجع أكتر من المتوقع اكتب العدد الفعلي وهتتسجّل زيادة.</p>'+picker(d)+'<div style="height:12px"></div>';
+  if(draft)h+='<p class="muted" style="margin:0 0 10px;font-size:12.5px">اختار الصنف وكمية المتوقع. السليم بيتحسب لوحده، فاكتب بس اللي <b>مش سليم</b>: هالك نظافة، هالك نهائي، أو ناقص (ما رجعش). لو رجع أكتر من المتوقع زوّد المتوقع.</p>'+picker(d)+'<div style="height:12px"></div>';
   if(rows.length){
-    h+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">متوقع</th><th class="num">رجع سليم</th><th class="num">هالك نظافة</th><th class="num">هالك نهائي</th><th class="num">ناقص</th><th></th></tr></thead><tbody>'
-     +rows.map(([l,i])=>{const got=num(l.r)+num(l.d)+num(l.x),sh=num(l.exp)-got;return '<tr><td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(l.exp)+'</td>'+['r','d','x'].map(f=>'<td class="num"><input type="number" min="0" value="'+l[f]+'" data-c="ln" data-i="'+i+'" data-f="'+f+'" '+(ro?'disabled':'')+'></td>').join('')+'<td class="num" data-sync="sh'+i+'">'+(sh>0?pill('crit',sh):sh<0?pill('warn','+'+(-sh)):'<span class="muted">0</span>')+'</td><td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="حذف">حذف</button>')+'</td></tr>'}).join('')+'</tbody></table></div>'
+    const inp=(l,i,f)=>'<td class="num"><input type="number" min="0" max="'+num(l.exp)+'" value="'+(l[f]||'')+'" placeholder="0" data-c="rtnln" data-i="'+i+'" data-f="'+f+'" aria-label="'+({d:'هالك نظافة',x:'هالك نهائي',m:'ناقص'})[f]+'" '+(ro?'disabled':'')+'></td>';
+    h+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">متوقع</th><th class="num">هالك نظافة</th><th class="num">هالك نهائي</th><th class="num">ناقص</th><th class="num">سليم</th><th></th></tr></thead><tbody>'
+     +rows.map(([l,i])=>'<tr><td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(l.exp)+'</td>'+inp(l,i,'d')+inp(l,i,'x')+inp(l,i,'m')+'<td class="num">'+pill('good',N(num(l.r)))+'</td><td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="حذف">حذف</button>')+'</td></tr>').join('')+'</tbody></table></div>'
      +(draft?'<label class="row" style="margin-top:10px;gap:8px"><input type="checkbox" data-c="rtnmc" '+(H.mcounted?'checked':'')+'> خلّصت عدّ الأصناف اليدوية</label>':'');
   }else if(draft)h+='<div class="empty" style="padding:10px">لسه مفيش أصناف يدوية.</div>';
   return h+'</section>';
@@ -2570,6 +2578,7 @@ const ACT_RT={
   rtnsheetadd:()=>{const d=curDoc(),H=d.hdr;if(!d||d.status!=='draft'||!H.sheet)return;const codes=[];H.sheet.rows.forEach(r=>{const m=rtnMatch(d,r);if(m.k==='ok')codes.push(m.o.ref)});const n=rtnAddCodes(d,codes);if(n){d.log.push(logE('اتضافت '+n+' بوليصة من شيت الشحن'));toast('اتضاف '+n+' بوليصة. عدّ القطع بقى.')}render()}
 };
 const CHG_RT={
+  rtnln:el=>{const d=curDoc();if(!d||d.status!=='draft')return;const l=d.lines[+el.dataset.i];if(!l)return;l[el.dataset.f]=num(el.value);rtnFix(l);d.hdr.mcounted=false;rtnSync(d);dirty();clearTimeout(window.__rs);window.__rs=setTimeout(render,0)},
   rtnmc:el=>{const d=curDoc();if(!d||d.status!=='draft')return;d.hdr.mcounted=el.checked;rtnSync(d);dirty();render()}
 };
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='rtnwb'){e.preventDefault();ACT_RT.rtnadd()}});
@@ -2712,7 +2721,7 @@ function vDoc(d){
     h+='<section class="card"><h2>اللي هيتغيّر <span class="hint">'+eff.length+' صنف</span></h2>'+(eff.length?'<div class="eff">'+eff.slice(0,40).map(e=>'<div class="e"><div class="t"><span>'+esc(skuName(e.sku))+'</span></div>'+e.ch.map(c=>'<div class="chg">'+LOC[c.l]+': دلوقتي <b>'+c.now+'</b> · هيبقى <b>'+c.after+'</b></div>').join('')+'</div>').join('')+'</div>':'<div class="empty">هيظهر هنا أثر العملية على كل صنف قبل التأكيد.</div>')+'</section>';
   }else{
     const phv=(d.type==='RCV'||d.type==='SHP')?'<div style="margin-top:12px">'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="صورة الورقة" style="width:100%;border-radius:10px;border:1px solid var(--line)">':'<div class="muted" style="font-size:12px">'+(d.photo?'صورة الورقة مش متاحة بعد إعادة التحميل.':'مفيش صورة.')+'</div>')+'<label class="f" style="margin-top:8px">'+(PH[d.id]?'تغيير صورة الورقة':'رفع صورة الورقة')+'<input type="file" accept="image/*" data-c="photo"></label></div>':'';
-    h+='<section class="card"><h2>الحالة</h2>'+(d.status==='done'?'<div class="msg good">اتأكدت وسجّلت '+d.nMoves+' حركة.</div>':'<div class="msg">العملية اتعكست.</div>')+(d.status==='done'?phv+'<div style="margin-top:12px"><button class="btn danger sm" data-a="reverse">عكس العملية</button><div class="muted" style="font-size:12px;margin-top:6px">بتسجّل حركة عكسية. السجل الأصلي بيفضل زي ما هو.</div></div>':'')+(UI.msg?'<div class="msg crit" style="margin-top:12px">'+UI.msg+'</div>':'')+'</section>';
+    h+='<section class="card"><h2>الحالة</h2>'+(d.status==='done'?'<div class="msg good">اتأكدت وسجّلت '+d.nMoves+' حركة.</div>':'<div class="msg">العملية اتعكست.</div>')+(d.status==='done'?phv:'')+(UI.msg?'<div class="msg crit" style="margin-top:12px">'+UI.msg+'</div>':'')+'</section>';
     h+='<section class="card"><h2>السجل</h2><div class="queue">'+d.log.slice().reverse().map(l=>'<div class="muted" style="font-size:13px"><span class="mono">'+timeOf(l.t)+'</span> · '+esc(l.by)+': '+esc(l.m)+'</div>').join('')+'</div></section>';
   }
   return h+'</aside></div>';
@@ -2752,7 +2761,7 @@ function vConfigOrig(){
   const stf=(f,l,u)=>'<label class="f">'+l+'<span class="row" style="gap:6px"><input type="number" min="0" value="'+rv(f)+'" data-c="st" data-f="'+f+'">'+(u?'<span class="muted">'+u+'</span>':'')+'</span></label>';
   let h=top('الإعدادات','حدود التنبيه وقواعد المستلزمات والتكلفة.','');
   h+='<div class="grid g2"><section class="card"><h2>التنبيهات</h2><div class="grid g2">'+stf('lookback','فترة حساب السحب','يوم')+stf('excess','زيادة عن اللازم بعد','يوم')+stf('leadW','مهلة المصنع (من الطلب للاستلام)','أسبوع')+stf('svc','مستوى الخدمة','%')+stf('safeW','أمان بديل (أقل من 7 أيام بيانات)','أسبوع')+stf('tgtW','نصنّع لحد تغطية','أسبوع')+'</div><p class="muted" style="margin-top:8px;font-size:12px">المهلة والأمان والهدف بيتستخدموا في تاب "معدل السحب" في التحليلات.</p><p class="muted" style="margin-top:4px;font-size:12px">حجم البيانات المحفوظة في المتصفح: <b class="n">'+fmt(storeKB())+'</b> KB من حوالي 5,000 KB.</p></section>';
-  h+='<section class="card"><h2>المستلزمات</h2><p class="muted" style="margin-bottom:10px">الاسم والوحدة والعبوة وحد التنبيه وقاعدة الخصم التلقائي لكل مستلزم. الاستلام والصرف والجرد من صفحة المستلزمات.</p><div class="tw"><table class="t-sm"><tbody>'+S.sup.items.map(i=>'<tr style="'+(i.arch?'opacity:.6':'')+'"><td><b>'+esc(i.name)+'</b>'+(i.arch?' '+pill('','مؤرشف'):'')+'</td><td class="muted">'+esc(ruleText(i))+'</td><td>'+(i.arch?'<button class="btn sm" data-a="suprestore" data-id="'+i.id+'">استرجاع</button>':'<button class="btn sm" data-a="supconf" data-id="'+i.id+'">تعديل</button>')+'</td></tr>').join('')+'</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn sm" data-a="supnew">+ إضافة مستلزم</button><button class="btn sm ghost" data-a="go" data-t="supplies">افتح صفحة المستلزمات</button></div></section>';
+  h+='<section class="card"><h2>المستلزمات</h2><p class="muted" style="margin-bottom:10px">الاسم والوحدة والعبوة وحد التنبيه وقاعدة الخصم التلقائي لكل مستلزم. الاستلام والصرف والجرد من صفحة المستلزمات.</p><div class="tw"><table class="t-sm"><tbody>'+S.sup.items.filter(i=>!i.arch).map(i=>'<tr style="'+(i.arch?'opacity:.6':'')+'"><td><b>'+esc(i.name)+'</b>'+(i.arch?' '+pill('','مؤرشف'):'')+'</td><td class="muted">'+esc(ruleText(i))+'</td><td>'+(i.arch?'<button class="btn sm" data-a="suprestore" data-id="'+i.id+'">استرجاع</button>':'<button class="btn sm" data-a="supconf" data-id="'+i.id+'">تعديل</button>')+'</td></tr>').join('')+'</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn sm" data-a="supnew">+ إضافة مستلزم</button><button class="btn sm ghost" data-a="go" data-t="supplies">افتح صفحة المستلزمات</button>'+(S.sup.items.some(i=>i.arch)?'<button class="btn sm ghost" data-a="suparchgo">المؤرشفة ('+S.sup.items.filter(i=>i.arch).length+')</button>':'')+'</div></section>';
   h+='<section class="card"><h2>المستخدمين</h2><label class="f">اسم المستخدم الحالي (يظهر في السجل)<input value="'+esc(S.actor)+'" data-c="actor"></label><p class="muted" style="margin-top:8px;font-size:12px">السيستم مفتوح للكل في فترة التجربة. الصلاحيات هتتفصل بعدين على مستويين بس.</p></section>';
   h+='<section class="card"><h2>البيانات</h2><p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. خد نسخة احتياطية بشكل دوري، لأن مسح بيانات المتصفح بيمسح كل حاجة.</p>'+backupBox()+'<div class="gh">رجوع للأصل</div>'+(UI.confirmReset?'<div class="msg crit">هتمسح كل العمليات والسكان وترجع للبيانات الأصلية. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="reset2">أيوه، امسح</button><button class="btn sm" data-a="reset">لأ</button></div></div>':'<button class="btn danger" data-a="reset">رجوع للبيانات الأصلية</button>')+'</section></div>';
   h+='<section class="card" style="margin-top:16px"><h2>التكلفة وسعر البيع <span class="hint">اختياري. بتحسب قيمة المخزون</span></h2><div class="tw" style="max-height:340px;overflow:auto"><table class="t-sm"><thead><tr><th>الموديل</th><th class="num">تكلفة القطعة (ج)</th><th class="num">سعر البيع (ج)</th><th class="num">هامش</th></tr></thead><tbody>'+MORDER.map(m=>{const c=S.costs[m]||{},mg=(+c.cost&&+c.price)?Math.round((c.price-c.cost)/c.price*100)+'%':'—';return '<tr><td><b class="mono">'+m+'</b> <span class="muted">'+esc(MODEL.get(m).name)+'</span></td><td class="num"><input type="number" min="0" value="'+(c.cost||'')+'" data-c="cost" data-m="'+m+'" data-f="cost"></td><td class="num"><input type="number" min="0" value="'+(c.price||'')+'" data-c="cost" data-m="'+m+'" data-f="price"></td><td class="num">'+mg+'</td></tr>'}).join('')+'</tbody></table></div></section>';
@@ -3323,7 +3332,6 @@ const ACT={
   backops:()=>{const d=curDoc();if(d&&d.status==='draft'&&!d.lines.length&&d.type!=='CNT'&&d.type!=='SCN'){S.docs=S.docs.filter(x=>x!==d);dirty()}UI.doc=null;render()},
   deldoc:()=>{const d=curDoc();S.docs=S.docs.filter(x=>x!==d);UI.doc=null;dirty();toast('اتحذفت المسودة');render()},
   confirm:()=>{const d=curDoc();if(confirmDoc(d)){toast('اتأكدت '+d.no);render()}else toast('مش قادر أأكّد. شوف البنود الحمرا')},
-  reverse:()=>{const d=curDoc(),r=reverseDoc(d);UI.msg=r.ok?null:'<b>مش هينفع تتعكس:</b><ul>'+r.err.slice(0,5).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul>';if(r.ok)toast('اتعكست العملية');render()},
   pq:el=>{const i=$('#pkq');i.value=Math.max(1,(+i.value||1)+(+el.dataset.d))},
   addline:()=>{
     const d=curDoc(),m=$('#pkm').value,id=IDX[m+'|'+$('#pkc').value+'|'+$('#pks').value];if(!id)return;
@@ -3383,8 +3391,6 @@ const ACT={
   scsave:()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===s.id),e=String(s.emp||'').trim();if(!e){s.err='اكتب اسم الموظف';render();return}
     if(e!==d.hdr.emp){const old=d.hdr.emp;d.hdr.emp=e;S.orders.forEach(o=>{if(o.sc&&o.sc.doc===d.no)o.sc.by=e});if(S.emps.indexOf(e)<0)S.emps.push(e);d.log.push(logE('اتغيّر اسم الموظف من '+old+' إلى '+e));dirty()}
     UI.sheet=null;toast('اتحفظ اسم الموظف');render()},
-  screv:()=>{UI.sheet.rev=!UI.sheet.rev;render()},
-  screv2:()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===s.id),r=reverseDoc(d);if(!r.ok){s.err=(r.err||[]).join('، ');s.rev=false;render();return}UI.sheet=null;toast('اتعكس الملف '+d.no);render()},
   of2:el=>go('orders',()=>{UI.o.f=el.dataset.v;UI.o.tab='list';UI.o.pk='';UI.o.n=60}),
   supedit:()=>{const s=UI.sheet;s.tab='edit';s.err='';s.arch=false;s.f=formOf(supItem(s.id));render()},
   supconf:el=>{const it=supItem(el.dataset.id);UI.sheet={kind:'sup',id:it.id,tab:'edit',act:'rcv',qty:'',mode:'unit',reason:'استخدام يدوي',note:'',f:formOf(it),err:'',arch:false,undo:null};render()},
@@ -3411,7 +3417,10 @@ const ACT={
   },
   suparch:()=>{UI.sheet.arch=!UI.sheet.arch;render()},
   suparch2:()=>{const it=supItem(UI.sheet.id);it.arch=true;dirty();UI.sheet=null;toast('اتأرشف: '+it.name);render()},
-  suprestore:el=>{const it=supItem(el.dataset.id);it.arch=false;dirty();if(!S.sup.items.some(i=>i.arch))UI.supArch=false;toast('اترجّع: '+it.name);render()},
+  suprestore:el=>{UI.supAsk=el.dataset.id;render()},
+  suprestoreyes:()=>{const it=supItem(UI.supAsk);UI.supAsk=null;if(!it)return;it.arch=false;dirty();if(!S.sup.items.some(i=>i.arch))UI.supArch=false;toast('اترجّع: '+it.name);render()},
+  suprestoreno:()=>{UI.supAsk=null;render()},
+  suparchgo:()=>{go('supplies',()=>{UI.supArch=true})},
   suplog:el=>{UI.sheet.logAll=el.dataset.v==='all';UI.sheet.undo=null;render()},
   suparchview:()=>{UI.supArch=!UI.supArch;render()},
   supundo:el=>{UI.sheet.undo=+el.dataset.id;render()},

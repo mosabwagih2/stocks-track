@@ -1,11 +1,11 @@
 /* ---------- v2: users, roles, permissions, day close ----------
    Honest scope: everything here runs in the browser, so it keeps honest people honest and builds the audit trail.
    Real enforcement needs a server (the Supabase version). */
-const PERMS=[['money','يشوف الفلوس والتكلفة'],['scan','شحن بالسكان'],['returns','استلام المرتجع'],['receive','استلام من المصنع'],['internal','هالك / غسيل / مفقود'],['ship','توريد للمحل'],['count','الجرد'],['pickup','رفع بيك أب'],['cancel','إلغاء أوردر'],['reverse','عكس عملية'],['catalog','تعديل الأصناف والموديلات'],['supplies','المستلزمات'],['close','قفل اليوم وفتحه'],['settings','الإعدادات'],['users','المستخدمين والصلاحيات']];
+const PERMS=[['money','يشوف الفلوس والتكلفة'],['scan','شحن بالسكان'],['returns','استلام المرتجع'],['receive','استلام من المصنع'],['internal','هالك / غسيل / مفقود'],['ship','توريد للمحل'],['count','الجرد'],['pickup','رفع بيك أب'],['cancel','إلغاء أوردر'],['catalog','تعديل الأصناف والموديلات'],['supplies','المستلزمات'],['close','قفل اليوم وفتحه'],['settings','الإعدادات'],['users','المستخدمين والصلاحيات']];
 const PERM_NAME=Object.fromEntries(PERMS);
 const ROLE_DEFAULT={
   admin:{name:'مدير',perms:PERMS.map(p=>p[0])},
-  sup:{name:'مشرف مخزن',perms:['scan','returns','receive','internal','ship','count','pickup','cancel','reverse','catalog','supplies','close']},
+  sup:{name:'مشرف مخزن',perms:['scan','returns','receive','internal','ship','count','pickup','cancel','catalog','supplies','close']},
   pack:{name:'موظف شحن',perms:['scan','returns']},
   view:{name:'مراجعة (قراءة فقط)',perms:['money']}
 };
@@ -14,7 +14,7 @@ const ACT_PERM={pksave:'pickup',pksave2:'pickup',pkdel:'pickup',pkdel2:'pickup',
   reset:'settings',reset2:'settings',demoask:'settings',demoload:'settings',demoreset:'settings',
   skuadd:'catalog',catedit:'catalog',catsave:'catalog',skusave:'catalog',modelrm:'catalog',modelarch:'catalog',modelarch2:'catalog',modelrestore:'catalog',skuarch:'catalog',skuarch2:'catalog',skurestore:'catalog',skuop:'catalog',
   supsave:'supplies',supnew:'supplies',supconf:'supplies',suparch:'supplies',suparch2:'supplies',supundo:'supplies',supundo2:'supplies',undoentry:'supplies',supact:'supplies',
-  usadd:'users',bkdl:'settings',bkyes:'settings',usdel:'users',clconfirm:'close',clopen:'close'};
+  usadd:'users',bkdl:'settings',bkyes:'settings',suprestoreyes:'supplies',suprestore:'supplies',usdel:'users',clconfirm:'close',clopen:'close'};
 const CLOSED_ACTS={pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
 const CHG_PERM={bkfile:'settings',cost:'settings',st:'settings',actor:'settings'};
 function cyrb(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)}

@@ -52,14 +52,23 @@ function rtnParcels(d,draft){
   h+=rtnManual(d,draft);
   return h;
 }
+function rtnFix(l){
+  const e=num(l.exp);
+  if(!l.mv){const fresh=l.r===''&&l.d===''&&l.x==='';l.d=num(l.d);l.x=num(l.x);l.m=fresh?0:Math.max(0,e-num(l.r)-l.d-l.x);l.mv=1}
+  l.d=num(l.d);l.x=num(l.x);l.m=num(l.m);
+  let over=l.d+l.x+l.m-e;if(over>0){const t=Math.min(l.m,over);l.m-=t;over-=t;const u=Math.min(l.x,over);l.x-=u;over-=u;l.d=Math.max(0,l.d-over)}
+  l.r=Math.max(0,e-l.d-l.x-l.m);
+}
 function rtnManual(d,draft){
-  const H=d.hdr,rows=d.lines.map((l,i)=>[l,i]).filter(x=>!x[0].par),ro=!draft;
+  const H=d.hdr,ro=!draft;d.lines.forEach(l=>{if(!l.par&&draft)rtnFix(l)});
+  const rows=d.lines.map((l,i)=>[l,i]).filter(x=>!x[0].par);
   if(ro&&!rows.length)return '';
   let h='<section class="card"><h2>جرد يدوي <span class="hint">من غير بوليصة</span></h2>';
-  if(draft)h+='<p class="muted" style="margin:0 0 10px;font-size:12.5px">اختار الموديل واللون والمقاس وكمية المتوقع، وبعدين اكتب اللي استلمته فعلًا في كل خانة. اللي ما رجعش بيتسجّل مفقود. لو رجع أكتر من المتوقع اكتب العدد الفعلي وهتتسجّل زيادة.</p>'+picker(d)+'<div style="height:12px"></div>';
+  if(draft)h+='<p class="muted" style="margin:0 0 10px;font-size:12.5px">اختار الصنف وكمية المتوقع. السليم بيتحسب لوحده، فاكتب بس اللي <b>مش سليم</b>: هالك نظافة، هالك نهائي، أو ناقص (ما رجعش). لو رجع أكتر من المتوقع زوّد المتوقع.</p>'+picker(d)+'<div style="height:12px"></div>';
   if(rows.length){
-    h+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">متوقع</th><th class="num">رجع سليم</th><th class="num">هالك نظافة</th><th class="num">هالك نهائي</th><th class="num">ناقص</th><th></th></tr></thead><tbody>'
-     +rows.map(([l,i])=>{const got=num(l.r)+num(l.d)+num(l.x),sh=num(l.exp)-got;return '<tr><td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(l.exp)+'</td>'+['r','d','x'].map(f=>'<td class="num"><input type="number" min="0" value="'+l[f]+'" data-c="ln" data-i="'+i+'" data-f="'+f+'" '+(ro?'disabled':'')+'></td>').join('')+'<td class="num" data-sync="sh'+i+'">'+(sh>0?pill('crit',sh):sh<0?pill('warn','+'+(-sh)):'<span class="muted">0</span>')+'</td><td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="حذف">حذف</button>')+'</td></tr>'}).join('')+'</tbody></table></div>'
+    const inp=(l,i,f)=>'<td class="num"><input type="number" min="0" max="'+num(l.exp)+'" value="'+(l[f]||'')+'" placeholder="0" data-c="rtnln" data-i="'+i+'" data-f="'+f+'" aria-label="'+({d:'هالك نظافة',x:'هالك نهائي',m:'ناقص'})[f]+'" '+(ro?'disabled':'')+'></td>';
+    h+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">متوقع</th><th class="num">هالك نظافة</th><th class="num">هالك نهائي</th><th class="num">ناقص</th><th class="num">سليم</th><th></th></tr></thead><tbody>'
+     +rows.map(([l,i])=>'<tr><td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(l.exp)+'</td>'+inp(l,i,'d')+inp(l,i,'x')+inp(l,i,'m')+'<td class="num">'+pill('good',N(num(l.r)))+'</td><td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="حذف">حذف</button>')+'</td></tr>').join('')+'</tbody></table></div>'
      +(draft?'<label class="row" style="margin-top:10px;gap:8px"><input type="checkbox" data-c="rtnmc" '+(H.mcounted?'checked':'')+'> خلّصت عدّ الأصناف اليدوية</label>':'');
   }else if(draft)h+='<div class="empty" style="padding:10px">لسه مفيش أصناف يدوية.</div>';
   return h+'</section>';
@@ -80,6 +89,7 @@ const ACT_RT={
   rtnsheetadd:()=>{const d=curDoc(),H=d.hdr;if(!d||d.status!=='draft'||!H.sheet)return;const codes=[];H.sheet.rows.forEach(r=>{const m=rtnMatch(d,r);if(m.k==='ok')codes.push(m.o.ref)});const n=rtnAddCodes(d,codes);if(n){d.log.push(logE('اتضافت '+n+' بوليصة من شيت الشحن'));toast('اتضاف '+n+' بوليصة. عدّ القطع بقى.')}render()}
 };
 const CHG_RT={
+  rtnln:el=>{const d=curDoc();if(!d||d.status!=='draft')return;const l=d.lines[+el.dataset.i];if(!l)return;l[el.dataset.f]=num(el.value);rtnFix(l);d.hdr.mcounted=false;rtnSync(d);dirty();clearTimeout(window.__rs);window.__rs=setTimeout(render,0)},
   rtnmc:el=>{const d=curDoc();if(!d||d.status!=='draft')return;d.hdr.mcounted=el.checked;rtnSync(d);dirty();render()}
 };
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='rtnwb'){e.preventDefault();ACT_RT.rtnadd()}});

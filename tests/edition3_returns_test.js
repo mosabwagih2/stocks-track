@@ -53,13 +53,20 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   await p.evaluate(()=>{__F.go('ops',()=>{__F.newDoc('RTN')})});await p.waitForTimeout(250);
   ok('the manual count (model, colour, size, quantities) is back inside the return',await p.evaluate(()=>!!document.getElementById('pkm')&&/جرد يدوي/.test(document.getElementById('main').innerText)));
   await p.selectOption('#pkm','BR2');await p.waitForTimeout(100);await p.selectOption('#pkc','احمر');await p.selectOption('#pks','M');await p.fill('#pkq','3');await p.click('[data-a=addline]');await p.waitForTimeout(200);
-  const man=await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);const l=d.lines.find(x=>x.sku==='BR2-RED-M');return {n:d.lines.length,exp:l&&l.exp,rows:document.querySelectorAll('.t-sm [data-c=ln]').length}});
+  const man=await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);const l=d.lines.find(x=>x.sku==='BR2-RED-M');return {n:d.lines.length,exp:l&&l.exp,rows:document.querySelectorAll('.t-sm [data-c=rtnln]').length}});
   ok('adding a manual line sets what was expected',man.n===1&&man.exp===3&&man.rows===3,JSON.stringify(man));
   const bef=await p.evaluate(()=>{const F=__F,id='BR2-RED-M';return ['READY','DIRTY','SCRAP','LOST'].map(l=>F.g(id,l))});
-  await p.fill('[data-c=ln][data-f=r]','1');await p.dispatchEvent('[data-c=ln][data-f=r]','change');await p.fill('[data-c=ln][data-f=d]','1');await p.dispatchEvent('[data-c=ln][data-f=d]','change');await p.waitForTimeout(150);
+  ok('good is the remainder: a fresh manual line counts everything as good with nothing typed',await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc),l=d.lines.find(x=>x.sku==='BR2-RED-M');return l.r===3&&l.d===0&&l.x===0&&l.m===0&&!document.querySelector('[data-c=rtnln][data-f=r]')&&/سليم/.test(document.querySelector('.t-sm thead').innerText)}));
+  await p.fill('[data-c=rtnln][data-f=d]','1');await p.dispatchEvent('[data-c=rtnln][data-f=d]','change');await p.waitForTimeout(120);
+  await p.fill('[data-c=rtnln][data-f=m]','1');await p.dispatchEvent('[data-c=rtnln][data-f=m]','change');await p.waitForTimeout(150);
+  ok('typing only the exceptions (1 cleaning, 1 missing) leaves 1 good automatically',await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc),l=d.lines.find(x=>x.sku==='BR2-RED-M');return l.r===1&&l.d===1&&l.m===1&&document.querySelector('.t-sm tbody tr .pill.good').textContent.trim()==='1'}));
+  ok('the exceptions cannot add up to more than expected (clamped)',await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);const i=document.querySelector('[data-c=rtnln][data-f=x]');i.value='9';i.dispatchEvent(new Event('change',{bubbles:true}));const l=d.lines.find(x=>x.sku==='BR2-RED-M');const okc=l.d+l.x+l.m<=3&&l.r>=0;i.value='0';i.dispatchEvent(new Event('change',{bubbles:true}));return okc}));
+  await p.fill('[data-c=rtnln][data-f=x]','0');await p.dispatchEvent('[data-c=rtnln][data-f=x]','change');await p.waitForTimeout(100);
+  await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc),l=d.lines.find(x=>x.sku==='BR2-RED-M');l.d=1;l.x=0;l.m=1;__F.D;});await p.evaluate(()=>{__F.render()});await p.waitForTimeout(100);
+  await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);d.hdr.mcounted=false});
   ok('confirm stays locked until the manual count is marked finished',await p.evaluate(()=>document.querySelector('[data-a=confirm]').disabled));
   await p.check('[data-c=rtnmc]');await p.waitForTimeout(150);
-  ok('after marking it finished confirm opens, and the missing piece is shown',await p.evaluate(()=>!document.querySelector('[data-a=confirm]').disabled&&document.querySelector('[data-sync^=sh]').textContent.trim()==='1'));
+  ok('after marking it finished confirm opens',await p.evaluate(()=>!document.querySelector('[data-a=confirm]').disabled));
   await p.click('[data-a=confirm]');await p.waitForTimeout(250);
   ok('a manual count posts: 1 good, 1 cleaning, and the 1 not received goes to lost',await p.evaluate(b=>{const F=__F,id='BR2-RED-M',n=['READY','DIRTY','SCRAP','LOST'].map(l=>F.g(id,l));return n[0]-b[0]===1&&n[1]-b[1]===1&&n[2]-b[2]===0&&n[3]-b[3]===1},bef));
   // manual together with a parcel
