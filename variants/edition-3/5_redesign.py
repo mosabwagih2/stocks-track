@@ -240,6 +240,8 @@ csh=r"""<style>
 .hms tr.hf td{padding-top:8px;text-align:center}
 .dot.hd{display:inline-block;width:9px;height:9px;border-radius:9px;margin-inline-end:5px}
 @media (max-width:820px){.hms{table-layout:fixed}.hms td.hmc{min-width:0;padding:7px 1px;font-size:11px}.hms th:first-child{width:58px}.hms th:last-child,.hms td:last-child{display:none}.tw:has(>table.hms){padding:4px;overflow-x:hidden!important}}
+.mxgrid .mx{width:100%;table-layout:fixed}.mxgrid .mx th:first-child,.mxgrid .mx td.cl{width:110px}.mxgrid .mx .cell{width:100%;min-width:0}.mxgrid .tw{padding:8px}
+@media (min-width:1180px){.mxgrid{display:grid!important;grid-template-columns:1fr 1fr;align-items:start;gap:14px}.mxgrid>.card{margin:0}}
 /* expanded matrix in the stock list fills the row */
 .stkl tr.mopen .tw{padding:8px}.stkl tr.mopen .mx{width:100%;table-layout:fixed}.stkl tr.mopen .mx th:first-child,.stkl tr.mopen .mx td.cl{width:120px}.stkl tr.mopen .mx .cell{width:100%;min-width:0}
 </style>
@@ -249,6 +251,7 @@ s=s[:i]+csh+s[i:]
 
 
 # ================= DEMO DATA + TOUR =================
+rep("""h+=none||('<div class="stack">'+ms.map(c=>'<section class="card">'""","""h+=none||('<div class="stack mxgrid">'+ms.map(c=>'<section class="card">'""")
 rep('<button aria-pressed="\'+(s.view===\'list\')+\'" data-a="sview" data-v="list">قائمة</button><button aria-pressed="\'+(s.view===\'heat\')+\'" data-a="sview" data-v="heat">خريطة</button><button aria-pressed="\'+(s.view===\'all\')+\'" data-a="sview" data-v="all">مصفوفات</button>','<button aria-pressed="\'+(s.view===\'all\')+\'" data-a="sview" data-v="all">مصفوفات</button><button aria-pressed="\'+(s.view===\'heat\')+\'" data-a="sview" data-v="heat">خريطة</button><button aria-pressed="\'+(s.view===\'list\')+\'" data-a="sview" data-v="list">قائمة</button>')
 ins_before("function vStock(){",(H/'redesign_demo.js').read_text(encoding='utf-8')+"\n")
 rep("{id:'AMAZON',name:'Amazon · أمازون',ok:false}]","{id:'AMAZON',name:'Amazon · أمازون',ok:false},{id:'SHOPIFY',name:'Shopify · المتجر',ok:false},{id:'FACEBOOK',name:'Facebook · فيسبوك',ok:false}]")
