@@ -103,7 +103,8 @@ function closeSheet(){
     h+='<div class="gh">المراجعة</div><div class="chk" style="margin-bottom:12px">'+(ck.list.length?ck.list.map(x=>'<div class="'+(x.lv==='block'?'no':'wn')+'"><span>'+(x.lv==='block'?'<b>لازم يتحل:</b> ':'تنبيه: ')+esc(x.t)+'</span></div>').join(''):'<div class="ok"><span>مفيش ملاحظات.</span></div>')+'</div>';
     h+='<div class="gh">مطابقة الرصيد: أول اليوم + دخل − خرج = آخر اليوم</div><div class="tw" style="margin-bottom:12px"><table class="t-sm"><thead><tr><th>الحالة</th><th class="num">أول اليوم</th><th class="num">دخل</th><th class="num">خرج</th><th class="num">آخر اليوم</th></tr></thead><tbody>'+INTERNAL.map(l=>{const r=s.L[l];return '<tr><td>'+LOC[l]+'</td><td class="num">'+fmt(r.open)+'</td><td class="num">'+(r.in?'+'+fmt(r.in):'·')+'</td><td class="num">'+(r.out?'−'+fmt(r.out):'·')+'</td><td class="num"><b class="n">'+fmt(r.open+r.in-r.out)+'</b></td></tr>'}).join('')+'<tr><td><b>الإجمالي</b></td><td class="num">'+fmt(sum(INTERNAL.map(l=>s.L[l].open)))+'</td><td class="num">'+fmt(sum(INTERNAL.map(l=>s.L[l].in)))+'</td><td class="num">'+fmt(sum(INTERNAL.map(l=>s.L[l].out)))+'</td><td class="num"><b class="n">'+fmt(sum(INTERNAL.map(l=>s.L[l].open+s.L[l].in-s.L[l].out)))+'</b></td></tr></tbody></table></div>';
     h+='<label class="f">ملاحظة التقفيل (اختياري)<input data-c="clnote" value="'+esc(cl.note||'')+'" placeholder="مثلًا: عجز في BR2 احمر L اتسجل في الجرد"></label>';
-    h+='<div class="row" style="margin-top:12px"><button class="btn pri" data-a="clconfirm" '+((ck.blockers||!can('close'))?'disabled':'')+'>قفّل '+(sel===S.date?'النهارده':sel)+'</button><span class="muted" style="font-size:12.5px">بعد التقفيل مفيش عملية بتتسجل في اليوم ده أو قبله إلا بعد ما المدير يفتحه.</span></div>';
+    if(ck.blockers)h+='<label class="row" style="gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" data-c="clforce" '+(cl.force?'checked':'')+' aria-label="قفّل برغم الملاحظات"> قفّل برغم الملاحظات اللي فوق (بتتسجل مع التقفيل)</label>';
+    h+='<div class="row" style="margin-top:12px"><button class="btn pri" data-a="clconfirm" '+(((ck.blockers&&!cl.force)||!can('close'))?'disabled':'')+'>قفّل '+(sel===S.date?'النهارده':sel)+'</button><span class="muted" style="font-size:12.5px">بعد التقفيل مفيش عملية بتتسجل في اليوم ده أو قبله إلا بعد ما المدير يفتحه.</span></div>';
   }else{
     h+='<div class="msg good">كل الأيام لحد النهارده مقفولة'+(last?' (آخر تقفيل: '+esc(last.date)+' بواسطة '+esc(last.by)+')':'')+'.</div>';
   }
@@ -143,7 +144,7 @@ function vAccess(){
   return h;
 }
 function recvSheet(){
-  const o=[['RCV','استلام من المصنع','قطع جديدة جت بورقة موقّعة','receive'],['FRC','استلام مغسول من المصنع','اللي اتبعت غسيل ورجع (والمرفوض بيتسجل هالك)','internal'],['RTN','استلام مرتجعات','اللي رجع من القنوات: سليم أو محتاج نضافة أو هالك','returns']];
+  const o=[['RCV','استلام من المصنع','قطع جديدة جت بورقة موقّعة','receive'],['RTN','استلام مرتجعات','اللي رجع من القنوات: سليم أو محتاج نضافة أو هالك','returns']];
   return {title:'استلام',body:'<div class="opgrid" style="grid-template-columns:1fr">'+o.map(x=>'<button class="op" data-a="recvgo" data-t="'+x[0]+'" '+(can(x[3])?'':'style="opacity:.55"')+'><span class="ic">'+ic(OT[x[0]].ic)+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join('')+'</div>'};
 }
 function firstDay(){let m=S.date;S.pickups.forEach(p=>{if(p.date<m)m=p.date});S.moves.forEach(x=>{if(x.date<m)m=x.date});return m}
@@ -158,7 +159,12 @@ function backupBox(){
    +(UI.bkAsk?'<div class="msg crit"><b>استرجاع '+esc(UI.bkAsk.name)+'</b><br>'+esc(UI.bkAsk.text)+'<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="bkyes">أيوه، استرجع</button><button class="btn sm" data-a="bkno">لأ</button></div></div>'
     :'<div class="row"><button class="btn pri" data-a="bkdl">نزّل نسخة احتياطية</button><label class="btn">استرجاع من ملف<input type="file" accept=".json,application/json" data-c="bkfile" hidden></label></div>')+(UI.bkErr?'<div class="msg crit" style="margin-top:8px">'+esc(UI.bkErr)+'</div>':'')+'</div>';
 }
+function scrapSheet(){
+  const o=[['CLN','تصنيف الحالة','قطعة بقت هالك نظافة أو هالك نهائي','internal'],['FSD','إرسال للمصنع','غسيل مجاني (هيرجع) أو هالك للتسليم','internal'],['FRC','استلام من المصنع','المغسول اللي رجع، والمرفوض بيتحول هالك نهائي','internal']];
+  return {title:'الهالك',body:'<div class="opgrid" style="grid-template-columns:1fr">'+o.map(x=>'<button class="op" data-a="recvgo" data-t="'+x[0]+'"><span class="ic">'+ic(OT[x[0]].ic)+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join('')+'</div>'};
+}
 const ACT_ACC={
+  scrapmenu:()=>{UI.sheet={kind:'scrap'};render()},
   bkdl:async()=>{const j=JSON.stringify({app:'femini-stock',v:3,at:Date.now(),state:S,photos:PH}),fn='femini-backup-'+S.date+'.json',blob=new Blob([j],{type:'application/json'}),done=()=>{S.bk=Date.now();audit('نسخة احتياطية ('+Math.round(j.length/1024)+' KB)');dirty();toast('اتنزّلت النسخة الاحتياطية');render()};
     let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null}catch(e){dl=null}
     if(dl){try{await dl.save({filename:fn,data:blob});done()}catch(e){toast(e&&e.code==='declined'?'اتلغى التنزيل':'التنزيل مش متاح هنا. افتح الصفحة في المتصفح العادي وجرّب تاني.')}return}
@@ -176,9 +182,9 @@ const ACT_ACC={
   clpick:el=>{UI.cl.date=el.dataset.d;render()},
   clconfirm:()=>{
     if(!can('close'))return deny('close');const days=unlockedDays(),sel=(UI.cl&&UI.cl.date&&days.indexOf(UI.cl.date)>=0)?UI.cl.date:days[days.length-1];if(!sel)return;
-    const ck=closeChecks(sel);if(ck.blockers){toast('فيه حاجات لازم تتحل الأول');return}
-    S.closes.push({id:'c'+(S.closes.length+1),date:sel,at:Date.now(),by:S.actor,note:(UI.cl.note||'').trim(),snap:{shipP:ck.snap.shipP,shipO:ck.snap.shipO,pcsIn:ck.snap.pcsIn,ordIn:ck.snap.ordIn,L:ck.snap.L,k:ck.snap.k,waiting:ck.snap.waiting,sup:ck.snap.sup},status:'closed'});
-    S.lock=sel;audit('تقفيل '+sel+(UI.cl.note?' · '+UI.cl.note:''));UI.cl={};dirty();toast('اتقفل '+(sel===S.date?'النهارده':sel));render()},
+    const ck=closeChecks(sel);if(ck.blockers&&!UI.cl.force){toast('علّم "قفّل برغم الملاحظات" لو عايز تكمّل');return}
+    S.closes.push({id:'c'+(S.closes.length+1),date:sel,at:Date.now(),by:S.actor,note:((UI.cl.note||'').trim()+(ck.blockers?' · اتقفل برغم '+ck.blockers+' ملاحظة':'')).trim(),snap:{shipP:ck.snap.shipP,shipO:ck.snap.shipO,pcsIn:ck.snap.pcsIn,ordIn:ck.snap.ordIn,L:ck.snap.L,k:ck.snap.k,waiting:ck.snap.waiting,sup:ck.snap.sup},status:'closed'});
+    S.lock=sel;audit('تقفيل '+sel+(UI.cl.note?' · '+UI.cl.note:'')+(ck.blockers?' · برغم '+ck.blockers+' ملاحظة':''));UI.cl={};dirty();toast('اتقفل '+(sel===S.date?'النهارده':sel));render()},
   clreopen:()=>{
     if(!can('reopen'))return deny('reopen');const reason=((UI.cl||{}).reason||'').trim();if(!reason)return;
     const last=S.closes.filter(x=>x.status==='closed').slice(-1)[0];if(!last)return;
@@ -192,6 +198,7 @@ const ACT_ACC={
   usdel:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');return}S.users=S.users.filter(x=>x!==u);audit('حذف مستخدم: '+u.name);dirty();render()}
 };
 const CHG_ACC={
+  clforce:el=>{UI.cl=UI.cl||{};UI.cl.force=el.checked;render()},
   bkfile:el=>{const f=el.files&&el.files[0];el.value='';if(!f)return;UI.bkErr=null;const r=new FileReader();r.onerror=()=>{UI.bkErr='مقدرتش أقرأ الملف.';render()};
     r.onload=()=>{try{const o=JSON.parse(r.result),st=o&&o.state;if(!o||o.app!=='femini-stock'||!st||st.v!==3||!Array.isArray(st.moves)||!Array.isArray(st.orders)||!Array.isArray(st.docs))throw new Error('الملف ده مش نسخة احتياطية من السيستم');
       const n=st.moves.length;UI.bkAsk={name:f.name,text:'فيها '+fmt(n)+' حركة و'+fmt(st.orders.length)+' أوردر و'+fmt(st.docs.length)+' عملية. ده هيستبدل كل اللي في المتصفح ده دلوقتي.'};UI._bk=o}catch(e){UI.bkErr=e.message;UI.bkAsk=null;UI._bk=null}render()};r.readAsText(f)},

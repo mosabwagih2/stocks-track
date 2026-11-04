@@ -94,3 +94,7 @@ The redesign copy has a stock heat map (Stock > خريطة): model x size, colou
 - New suites: `edition3_fuzz_test.js` (random operations, ledger/order/supply invariants after every step), `edition3_crawl_test.js` (every screen x light/dark x desktop/phone x empty/demo data, plus HTML-injection check), `edition3_prod_test.js` (reload persistence, PIN after reload, corrupt/old storage, quota, double submit, two tabs, midnight rollover, bad import files, backup/restore, speed).
 - Fixes from the audit: demo load left the catalog state unset (the "all items" view crashed), a document could be confirmed twice, two tabs could overwrite each other, accessibility labels in the users tab.
 - Added: backup download and restore (Settings, Data) with a reminder on Today.
+
+## Analytics merge (Brand 2)
+
+Six tabs became four: overview, demand, stock and manufacturing, blocked. Team moved into the overview, stock health into stock and manufacturing, governorates and top SKUs live only in demand. Stock-by-state and the duplicated stock value were dropped from analytics (they live on the Stock page and Today). Today also got a scrap menu (classify, send to factory, receive from factory) and lost its subtitle.

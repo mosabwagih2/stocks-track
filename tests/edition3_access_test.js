@@ -11,9 +11,10 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   const asUser=(role)=>p.evaluate(r=>{const S=__F.S();let u=S.users.find(x=>x.role===r);if(!u){u={id:'t_'+r,name:'ت_'+r,role:r,pin:null,on:true};S.users.push(u)}S.cur=u.id;S.actor=u.name;__F.render();return u.name},role);
   ok('default: one admin, everything allowed',await p.evaluate(()=>{const S=__F.S();return S.users.length===1&&S.users[0].role==='admin'&&!document.getElementById('lockscr')}));
   await p.evaluate(()=>{__F.go('today')});
-  ok('Today has a receive button that lists factory receipt, washed receipt and returns',await p.evaluate(()=>{const b=document.querySelector('.top [data-a=recvmenu]');if(!b)return false;b.click();return document.querySelectorAll('.sheet [data-a=recvgo]').length===3}));
-  await p.click('.sheet [data-a=recvgo][data-t=RTN]');await p.waitForTimeout(250);
+  ok('Today has a receive button (factory receipt, returns) and a scrap button (classify, send to factory, receive from factory)',await p.evaluate(()=>{const b=document.querySelector('.top [data-a=recvmenu]'),s=document.querySelector('.top [data-a=scrapmenu]');if(!b||!s)return false;b.click();const r=[...document.querySelectorAll('.sheet [data-a=recvgo]')].map(e=>e.dataset.t).join();__F.UI.sheet=null;__F.render();document.querySelector('.top [data-a=scrapmenu]').click();const c=[...document.querySelectorAll('.sheet [data-a=recvgo]')].map(e=>e.dataset.t).join();__F.UI.sheet=null;__F.render();return r==='RCV,RTN'&&c==='CLN,FSD,FRC'}));
+  await p.evaluate(()=>__F.ACT.recvmenu());await p.click('.sheet [data-a=recvgo][data-t=RTN]');await p.waitForTimeout(250);
   ok('choosing returns opens a new returns document in operations',await p.evaluate(()=>{const F=__F;return F.UI.tab==='ops'&&F.S().docs.some(d=>d.id===F.UI.doc&&d.type==='RTN'&&d.status==='draft')}));
+  const subs=await p.evaluate(()=>{__F.go('today');return [...document.querySelectorAll('.top .sub')].map(e=>e.outerHTML.slice(0,200))});ok('Today has no subtitle line under the title',subs.length===0,JSON.stringify(subs));
   await p.evaluate(()=>{const S=__F.S();S.docs=S.docs.filter(d=>d.status!=='draft');__F.go('today')});
   await p.evaluate(()=>{__F.go('today')});
   ok('Today title is "النهاردة" with the date chip beside it',await p.evaluate(()=>{const h=document.querySelector('.top h1');return /^النهاردة/.test(h.textContent.trim())&&!!h.querySelector('.tdate')&&/نوفمبر/.test(h.querySelector('.tdate').textContent)}));
@@ -58,6 +59,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   ok('Today shows the close bar',await p.evaluate(()=>!!document.querySelector('.dcb [data-a=closeday]')));
   await p.click('[data-a=closeday]');await p.waitForSelector('.sheet');
   ok('close sheet blocks on drafts and negative stock',await p.evaluate(()=>/لازم يتحل/.test(document.querySelector('.sheet').textContent)&&document.querySelector('[data-a=clconfirm]').disabled));
+  ok('blockers can be overridden with a tick (the manager decides), and the override is recorded',await p.evaluate(()=>{const b=document.querySelector('[data-a=clconfirm]');const f=document.querySelector('[data-c=clforce]');return !!f&&b.disabled}));
   const fixed=await p.evaluate(()=>{const F=__F,S=F.S();S.docs=S.docs.filter(d=>d.status!=='draft');F.D.skus.filter(k=>F.g(k.id,'READY')<0).forEach(k=>S.moves.push({id:S.mid++,t:1,date:S.date,sku:k.id,q:-F.g(k.id,'READY'),from:'EXT_ADJ',to:'READY',type:'CNT',doc:'T',by:'t',note:''}));F.dirty();F.render();return true});
   await p.waitForTimeout(150);
   ok('after fixing, reconciliation shows opening + in - out = closing for every state',await p.evaluate(()=>{const s=__F.S();const sn=document.querySelectorAll('.sheet tbody tr');return /مطابقة الرصيد/.test(document.querySelector('.sheet').textContent)&&!document.querySelector('[data-a=clconfirm]').disabled}));

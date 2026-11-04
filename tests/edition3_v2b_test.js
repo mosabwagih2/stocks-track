@@ -60,7 +60,7 @@ const fs=require('fs'),path=require('path');
   // ===== ANALYTICS =====
   await p.evaluate(()=>{__F.UI.vd=null;__F.UI.ins='over';__F.UI.insP='all';__F.go('insights')});await p.waitForTimeout(150);
   const tabs=await p.locator('.tabs button').allInnerTexts();
-  ok('analytics: six tabs, one per question',JSON.stringify(tabs.map(x=>x.trim()))===JSON.stringify(['لوحة القيادة','الطلب','التصنيع','المعطل','صحة المخزون','الفريق']),JSON.stringify(tabs));
+  ok('analytics: four tabs (overview, demand, stock and manufacturing, blocked) after merging duplicates',JSON.stringify(tabs.map(x=>x.trim()))===JSON.stringify(['نظرة عامة','الطلب','المخزون والتصنيع','المعطل']),JSON.stringify(tabs));
   ok('analytics: an old link to "overview" lands on the dashboard',await p.evaluate(()=>__F.UI.ins==='dash'));
   await p.evaluate(()=>{__F.UI.ins='rate';__F.go('insights')});await p.waitForTimeout(100);ok('analytics: an old link to "rate" lands on manufacturing',await p.evaluate(()=>__F.UI.ins==='plan'));
   const per={};for(const t of ['dash','demand','plan','stuck','health','team']){per[t]=await p.evaluate(t=>{__F.UI.ins=t;__F.go('insights');const s=document.querySelector('.top .seg[aria-label="الفترة"]');return {seg:!!s&&!s.hidden,pill:/لقطة دلوقتي/.test(document.querySelector('.top').textContent)}},t);await p.waitForTimeout(60)}
