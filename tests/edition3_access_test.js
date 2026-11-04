@@ -15,6 +15,14 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   await p.click('.sheet [data-a=recvgo][data-t=RTN]');await p.waitForTimeout(250);
   ok('choosing returns opens a new returns document in operations',await p.evaluate(()=>{const F=__F;return F.UI.tab==='ops'&&F.S().docs.some(d=>d.id===F.UI.doc&&d.type==='RTN'&&d.status==='draft')}));
   await p.evaluate(()=>{const S=__F.S();S.docs=S.docs.filter(d=>d.status!=='draft');__F.go('today')});
+  await p.evaluate(()=>{__F.go('today')});
+  ok('Today title is "النهاردة" with the date chip beside it',await p.evaluate(()=>{const h=document.querySelector('.top h1');return /^النهاردة/.test(h.textContent.trim())&&!!h.querySelector('.tdate')&&/نوفمبر/.test(h.querySelector('.tdate').textContent)}));
+  const pick=await p.evaluate(()=>{const F=__F,t=F.S().date,i=document.querySelector('.dnav input[type=date]');const prev=new Date(Date.parse(t)-3*864e5).toISOString().slice(0,10);i.value=prev;i.dispatchEvent(new Event('change',{bubbles:true}));return {t,prev,vd:F.UI.vd,title:document.querySelector('.top h1').textContent.includes('يوم سابق'),val:document.querySelector('.dnav input[type=date]').value}});
+  ok('picking an old date shows that day (read-only view) and keeps the picker on it',pick.vd===pick.prev&&pick.title&&pick.val===pick.prev,JSON.stringify(pick));
+  const st=await p.evaluate(()=>{const F=__F;document.querySelector('.dnav [data-a=vdstep][data-n="1"]').click();const a=F.UI.vd;document.querySelector('.dnav [data-a=vdstep][data-n="-1"]').click();const b=F.UI.vd;return {a,b,t:F.S().date}});
+  ok('arrows step a day forward and back',st.a&&st.b&&st.a>st.b);
+  ok('stepping past today returns to the live day',await p.evaluate(()=>{const F=__F;F.UI.vd=F.S().date.slice(0,8)+'01';F.go('today');for(let i=0;i<40&&F.UI.vd;i++)document.querySelector('.dnav [data-a=vdstep][data-n="1"]').click();return F.UI.vd==null&&/النهاردة/.test(document.querySelector('.top h1').textContent)}));
+  await p.evaluate(()=>{__F.UI.vd=null;__F.go('today')});
   // roles
   await asUser('pack');
   const pk=await p.evaluate(()=>({scan:__F.can('scan'),ret:__F.can('returns'),rcv:__F.can('receive'),cnt:__F.can('count'),set:__F.can('settings'),money:__F.can('money')}));

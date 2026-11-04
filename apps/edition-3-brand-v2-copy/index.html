@@ -613,6 +613,13 @@ button,[data-a],.chip,.nav{touch-action:manipulation;-webkit-tap-highlight-color
 .chk .wn::before{content:"!";color:var(--warn);font-weight:700;width:12px;text-align:center}
 </style>
 <style>
+.tdate{font:600 13px var(--f-ar)!important;vertical-align:middle;margin-inline-start:12px;position:relative;top:-3px}
+.dnav{display:inline-flex;align-items:center;gap:4px}
+.dnav input[type=date]{padding:6px 10px;font:500 13px var(--f-mono);border-radius:10px;min-height:0;direction:ltr}
+.dnav .btn.sm{padding:6px 11px;font-size:16px;line-height:1}
+@media (max-width:820px){.dnav{grid-column:1/-1;justify-content:center}.dnav input[type=date]{flex:1;font-size:15px;min-height:40px}.tdate{display:block;margin:6px 0 0;top:0;width:max-content}}
+</style>
+<style>
 /* Brand pass: same layout and components; only the logo and color tokens change. Everything derives from the logo purple #43316f. */
 :root{--page:#faf9fd;--surface:#ffffff;--lav:#f3f0f9;--ink:#1f1738;--accent:#43316f;--on-accent:#ffffff;--muted:#655e80;
   --line:#e5e0f0;--line2:#d3cbe6;--grid:#eeeaf6;--rail:#2b2150;--on-rail:#f1edfb;--rail-mute:#b9afdc;--shadow:0 1px 2px rgba(43,33,80,.07),0 10px 26px -14px rgba(43,33,80,.25);
@@ -1585,9 +1592,9 @@ function vToday(){
   const os=S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx'),done=os.filter(o=>o.st==='done'),open=os.filter(o=>o.st==='open'),blk=open.filter(o=>C.blocked[o.ref]);
   const pc=a=>a.reduce((x,o)=>x+o.lines.length,0),A=actions();
   const emp={};S.orders.forEach(o=>{if(o.st==='done'&&o.sc&&o.sc.date===date){const e=emp[o.sc.by]||(emp[o.sc.by]={o:0,p:0,a:o.sc.at,b:o.sc.at});e.o++;e.p+=o.lines.length;e.a=Math.min(e.a,o.sc.at);e.b=Math.max(e.b,o.sc.at)}});
-  const tools='<span class="pill '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn" data-a="recvmenu">استلام</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
+  const tools=dateNav(date,isToday)+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn" data-a="recvmenu">استلام</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
   const older=S.orders.filter(o=>o.st==='open'&&(S.pickups.find(p=>p.id===o.pk)||{date:S.date}).date<S.date),oldDay=older.length?older.map(o=>(S.pickups.find(p=>p.id===o.pk)||{}).date).sort()[0]:'';
-  let h=top(isToday?'النهارده':'يوم سابق','الطلب من القنوات، اللي اتشحن فعلًا، واللي معطل.'+(isToday?'':' العرض للقراءة بس. الرفع والتسجيل بيتم على النهارده.'),tools);
+  let h=top((isToday?'النهاردة':'يوم سابق')+'<span class="pill tdate '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>','الطلب من القنوات، اللي اتشحن فعلًا، واللي معطل.'+(isToday?'':' العرض للقراءة بس. الرفع والتسجيل بيتم على النهارده.'),tools);
   h+='<div class="stack">'+demoBanner()+dayCloseBar();
   if(isToday&&older.length)h+='<div class="msg warn row sp"><span>فيه <b>'+older.length+'</b> أوردر من أيام فاتت (من '+esc(oldDay)+') لسه ما اتشحنوش.</span><span class="row"><button class="btn sm" data-a="vdset" data-d="'+oldDay+'">اعرض يوم '+esc(oldDay)+'</button><button class="btn sm" data-a="of2" data-v="wait">افتحهم في الأوردرات</button></span></div>';
   const wait=open.filter(o=>!C.blocked[o.ref]),vv=a=>a.reduce((x,o)=>x+ordVal(o),0);
@@ -2360,7 +2367,13 @@ function recvSheet(){
   const o=[['RCV','استلام من المصنع','قطع جديدة جت بورقة موقّعة','receive'],['FRC','استلام مغسول من المصنع','اللي اتبعت غسيل ورجع (والمرفوض بيتسجل هالك)','internal'],['RTN','استلام مرتجعات','اللي رجع من القنوات: سليم أو محتاج نضافة أو هالك','returns']];
   return {title:'استلام',body:'<div class="opgrid" style="grid-template-columns:1fr">'+o.map(x=>'<button class="op" data-a="recvgo" data-t="'+x[0]+'" '+(can(x[3])?'':'style="opacity:.55"')+'><span class="ic">'+ic(OT[x[0]].ic)+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join('')+'</div>'};
 }
+function firstDay(){let m=S.date;S.pickups.forEach(p=>{if(p.date<m)m=p.date});S.moves.forEach(x=>{if(x.date<m)m=x.date});return m}
+function dateNav(date,isToday){
+  const lo=firstDay();
+  return '<span class="dnav" role="group" aria-label="اختيار اليوم"><button class="btn sm" data-a="vdstep" data-n="-1" '+(date<=lo?'disabled':'')+' aria-label="اليوم اللي قبله">›</button><input type="date" value="'+date+'" min="'+lo+'" max="'+S.date+'" data-c="vdpick" aria-label="اختار يوم"><button class="btn sm" data-a="vdstep" data-n="1" '+(isToday?'disabled':'')+' aria-label="اليوم اللي بعده">‹</button></span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>');
+}
 const ACT_ACC={
+  vdstep:el=>{const d=addDays(viewDate(),+el.dataset.n);if(d>=S.date)UI.vd=null;else if(d>=firstDay())UI.vd=d;render()},
   recvmenu:()=>{UI.sheet={kind:'recv'};render()},
   recvgo:el=>{const t=el.dataset.t,p=DOC_PERM[t];if(p&&!can(p)){deny(p);return}if(dayLocked(S.date)){toast('اليوم مقفول. لازم المدير يفتحه الأول');return}UI.sheet=null;go('ops',()=>{newDoc(t)})},
   whoami:()=>{UI.sheet={kind:'who'};render()},
@@ -2387,6 +2400,7 @@ const ACT_ACC={
   usdel:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');return}S.users=S.users.filter(x=>x!==u);audit('حذف مستخدم: '+u.name);dirty();render()}
 };
 const CHG_ACC={
+  vdpick:el=>{const v=el.value;if(!v||v>=S.date)UI.vd=null;else if(v>=firstDay())UI.vd=v;render()},
   usrole:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;if(u.role==='admin'&&el.value!=='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');render();return}u.role=el.value;if(u.id===S.cur&&!can('users')){UI.cfgTab='plan'}audit('تغيير دور '+u.name+' إلى '+roleName(u.role));dirty();render()},
   usron:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;if(!el.checked&&u.id===S.cur){toast('مينفعش توقف نفسك');render();return}if(!el.checked&&u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');render();return}u.on=el.checked;audit((u.on?'تشغيل ':'إيقاف ')+u.name);dirty();render()},
   usrpin:el=>{const u=S.users.find(x=>x.id===el.dataset.id),v=el.value.trim();if(!u||!v)return;if(v.length<4){toast('الرقم السري 4 أرقام على الأقل');el.value='';return}u.pin=pinHash(v);audit('رقم سري جديد: '+u.name);dirty();render()},

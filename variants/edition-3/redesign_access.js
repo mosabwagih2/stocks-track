@@ -144,7 +144,13 @@ function recvSheet(){
   const o=[['RCV','استلام من المصنع','قطع جديدة جت بورقة موقّعة','receive'],['FRC','استلام مغسول من المصنع','اللي اتبعت غسيل ورجع (والمرفوض بيتسجل هالك)','internal'],['RTN','استلام مرتجعات','اللي رجع من القنوات: سليم أو محتاج نضافة أو هالك','returns']];
   return {title:'استلام',body:'<div class="opgrid" style="grid-template-columns:1fr">'+o.map(x=>'<button class="op" data-a="recvgo" data-t="'+x[0]+'" '+(can(x[3])?'':'style="opacity:.55"')+'><span class="ic">'+ic(OT[x[0]].ic)+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join('')+'</div>'};
 }
+function firstDay(){let m=S.date;S.pickups.forEach(p=>{if(p.date<m)m=p.date});S.moves.forEach(x=>{if(x.date<m)m=x.date});return m}
+function dateNav(date,isToday){
+  const lo=firstDay();
+  return '<span class="dnav" role="group" aria-label="اختيار اليوم"><button class="btn sm" data-a="vdstep" data-n="-1" '+(date<=lo?'disabled':'')+' aria-label="اليوم اللي قبله">›</button><input type="date" value="'+date+'" min="'+lo+'" max="'+S.date+'" data-c="vdpick" aria-label="اختار يوم"><button class="btn sm" data-a="vdstep" data-n="1" '+(isToday?'disabled':'')+' aria-label="اليوم اللي بعده">‹</button></span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>');
+}
 const ACT_ACC={
+  vdstep:el=>{const d=addDays(viewDate(),+el.dataset.n);if(d>=S.date)UI.vd=null;else if(d>=firstDay())UI.vd=d;render()},
   recvmenu:()=>{UI.sheet={kind:'recv'};render()},
   recvgo:el=>{const t=el.dataset.t,p=DOC_PERM[t];if(p&&!can(p)){deny(p);return}if(dayLocked(S.date)){toast('اليوم مقفول. لازم المدير يفتحه الأول');return}UI.sheet=null;go('ops',()=>{newDoc(t)})},
   whoami:()=>{UI.sheet={kind:'who'};render()},
@@ -171,6 +177,7 @@ const ACT_ACC={
   usdel:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');return}S.users=S.users.filter(x=>x!==u);audit('حذف مستخدم: '+u.name);dirty();render()}
 };
 const CHG_ACC={
+  vdpick:el=>{const v=el.value;if(!v||v>=S.date)UI.vd=null;else if(v>=firstDay())UI.vd=v;render()},
   usrole:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;if(u.role==='admin'&&el.value!=='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');render();return}u.role=el.value;if(u.id===S.cur&&!can('users')){UI.cfgTab='plan'}audit('تغيير دور '+u.name+' إلى '+roleName(u.role));dirty();render()},
   usron:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;if(!el.checked&&u.id===S.cur){toast('مينفعش توقف نفسك');render();return}if(!el.checked&&u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');render();return}u.on=el.checked;audit((u.on?'تشغيل ':'إيقاف ')+u.name);dirty();render()},
   usrpin:el=>{const u=S.users.find(x=>x.id===el.dataset.id),v=el.value.trim();if(!u||!v)return;if(v.length<4){toast('الرقم السري 4 أرقام على الأقل');el.value='';return}u.pin=pinHash(v);audit('رقم سري جديد: '+u.name);dirty();render()},

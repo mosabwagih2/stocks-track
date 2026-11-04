@@ -37,3 +37,16 @@ rep("d.log.push(logE(\x27اتعكست\x27));","")
 
 rep("  }else if(s.kind==='close'){","  }else if(s.kind==='recv'){\n    const r=recvSheet();title=r.title;body=r.body;\n  }else if(s.kind==='close'){")
 rep("""'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button>""","""'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn" data-a="recvmenu">استلام</button>""")
+
+rep("""const tools='<span class="pill '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+""","""const tools=dateNav(date,isToday)+""")
+rep("""let h=top(isToday?'النهارده':'يوم سابق',""","""let h=top((isToday?'النهاردة':'يوم سابق')+'<span class="pill tdate '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>',""")
+csd2="""<style>
+.tdate{font:600 13px var(--f-ar)!important;vertical-align:middle;margin-inline-start:12px;position:relative;top:-3px}
+.dnav{display:inline-flex;align-items:center;gap:4px}
+.dnav input[type=date]{padding:6px 10px;font:500 13px var(--f-mono);border-radius:10px;min-height:0;direction:ltr}
+.dnav .btn.sm{padding:6px 11px;font-size:16px;line-height:1}
+@media (max-width:820px){.dnav{grid-column:1/-1;justify-content:center}.dnav input[type=date]{flex:1;font-size:15px;min-height:40px}.tdate{display:block;margin:6px 0 0;top:0;width:max-content}}
+</style>
+"""
+_i=s.index('<div id="app"></div>')
+s=s[:_i]+csd2+s[_i:]
