@@ -2384,7 +2384,10 @@ function backupBox(){
     :'<div class="row"><button class="btn pri" data-a="bkdl">نزّل نسخة احتياطية</button><label class="btn">استرجاع من ملف<input type="file" accept=".json,application/json" data-c="bkfile" hidden></label></div>')+(UI.bkErr?'<div class="msg crit" style="margin-top:8px">'+esc(UI.bkErr)+'</div>':'')+'</div>';
 }
 const ACT_ACC={
-  bkdl:()=>{const j=JSON.stringify({app:'femini-stock',v:3,at:Date.now(),state:S,photos:PH}),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([j],{type:'application/json'}));a.download='femini-backup-'+S.date+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);S.bk=Date.now();audit('نسخة احتياطية ('+Math.round(j.length/1024)+' KB)');dirty();toast('اتنزّلت النسخة الاحتياطية');render()},
+  bkdl:async()=>{const j=JSON.stringify({app:'femini-stock',v:3,at:Date.now(),state:S,photos:PH}),fn='femini-backup-'+S.date+'.json',blob=new Blob([j],{type:'application/json'}),done=()=>{S.bk=Date.now();audit('نسخة احتياطية ('+Math.round(j.length/1024)+' KB)');dirty();toast('اتنزّلت النسخة الاحتياطية');render()};
+    let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null}catch(e){dl=null}
+    if(dl){try{await dl.save({filename:fn,data:blob});done()}catch(e){toast(e&&e.code==='declined'?'اتلغى التنزيل':'التنزيل مش متاح هنا. افتح الصفحة في المتصفح العادي وجرّب تاني.')}return}
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);done()},
   bkno:()=>{UI.bkAsk=null;UI.bkErr=null;UI._bk=null;render()},
   bkyes:()=>{const o=UI._bk;if(!o)return;try{S=o.state;ensureSup(S);ensureCat(S);rebuildCatalog();phClear();Object.keys(o.photos||{}).forEach(k=>{PH[k]=o.photos[k];phPut(k,o.photos[k])});S.date=cairoToday();_bal=null;_ctx=null;UI.bkAsk=null;UI._bk=null;UI.doc=null;UI.sheet=null;UI.vd=null;UI.locked=S.users.some(u=>u.pin);audit('استرجاع نسخة احتياطية');save();toast('اتسترجعت النسخة');render()}catch(e){UI.bkErr='فشل الاسترجاع: '+e.message;render()}},
   vdstep:el=>{const d=addDays(viewDate(),+el.dataset.n);if(d>=S.date)UI.vd=null;else if(d>=firstDay())UI.vd=d;render()},
