@@ -33,3 +33,4 @@ _i=s.index('<div id="app"></div>')
 s=s[:_i]+csa+s[_i:]
 
 rep("window.__F={S:()=>S,","window.__F={can:(p)=>can(p),deny:(p)=>deny(p),curUser:()=>curUser(),closeSnap:(d)=>closeSnap(d),closeChecks:(d)=>closeChecks(d),dayLocked:(d)=>dayLocked(d),INTERNAL,S:()=>S,")
+rep("d.log.push(logE(\x27اتعكست\x27));","")

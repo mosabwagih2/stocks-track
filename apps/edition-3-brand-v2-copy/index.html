@@ -1075,7 +1075,7 @@ function reverseDoc(d){if(!can('reverse')){deny('reverse');return {ok:false,err:
     if(err.length)return {ok:false,err};
   }
   post(rev,{type:d.type,date:S.date,no:d.no+' (عكس)',id:d.id});
-  d.status='reversed';d.log.push(logE('اتعكست'));
+  d.status='reversed';
   if(d.type==='RTN')S.orders.forEach(o=>{if(o.rt&&o.rt.doc===d.no)delete o.rt});
   if(d.type==='SCN'){
     S.orders.forEach(o=>{if(o.sc&&o.sc.doc===d.no&&o.st==='done'&&!o.rt){o.st='open';o.sc=null}});
