@@ -67,9 +67,9 @@ const fs=require('fs'),path=require('path');
   await p.click('.sheet [data-a=oosplan]');await p.waitForTimeout(200);ok('sheet action opens the plan tab',await p.evaluate(()=>__F.UI.ins==='plan'&&!document.querySelector('.sheet')));
   // time always runs left (old) to right (new), in every time chart
   const dir=await p.evaluate(()=>{const F=__F;F.UI.ins='dash';F.UI.insP='30';F.dirty();F.go('insights');
-    const bars=[...document.querySelectorAll('#main .wk .g')].map(e=>e.getBoundingClientRect().left);
-    const pts=[...document.querySelectorAll('#main svg circle[data-tip]')].map(c=>({x:c.getBoundingClientRect().left,t:c.getAttribute('data-tip').slice(0,10)}));
-    const has=v=>!!document.querySelector('.tabs button[data-v="'+v+'"]');F.UI.ins=has('over')?'over':'demand';F.go('insights');const col=[...document.querySelectorAll('#main .col .b')].map(e=>e.getBoundingClientRect().left);
+    const bars=[...document.querySelectorAll('#main .wk .g,#main .cch .cb')].map(e=>e.getBoundingClientRect().left);
+    const pts=[...document.querySelectorAll('#main svg circle[data-tip],#main svg.lnc rect[data-tip]')].map(c=>({x:c.getBoundingClientRect().left,t:c.getAttribute('data-tip').slice(0,10)}));
+    const has=v=>!!document.querySelector('.tabs button[data-v="'+v+'"]');F.UI.ins=has('over')?'over':'demand';F.go('insights');const col=[...document.querySelectorAll('#main .col .b,#main .cch .cb')].map(e=>e.getBoundingClientRect().left);
     F.UI.ins=has('rate')?'rate':'plan';F.go('insights');const wk=[...document.querySelectorAll('#main .wk .g')].map(e=>e.getBoundingClientRect().left);
     const inc=a=>a.length>1&&a.every((v,i)=>i===0||v>a[i-1]);
     return {bars:inc(bars),line:inc(pts.map(p=>p.x))&&pts[0].t<pts[pts.length-1].t,col:inc(col),wk:inc(wk),nb:bars.length,np:pts.length}});

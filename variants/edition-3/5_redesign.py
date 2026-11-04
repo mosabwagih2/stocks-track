@@ -274,5 +274,33 @@ csd=r"""<style>
 i=s.index('<div id="app"></div>')
 s=s[:i]+csd+s[i:]
 
+
+# ================= MODERN CHARTS =================
+assert "function lineChart(pts,o){" in s
+assert "function trendChart(A){" in s
+FO=open("/home/user/stocks-track/variants/edition-3/flow_old.txt",encoding="utf-8").read();FN=open("/home/user/stocks-track/variants/edition-3/flow_new.txt",encoding="utf-8").read()
+assert FO in s
+s=s.replace(FO,FN,1)
+s=s.replace("function trendChart(A){","function trendChartOld(A){",1)
+s=s.replace("function lineChart(pts,o){","function lineChartOld(pts,o){",1)
+ins_before("function vStock(){",(H/'redesign_charts.js').read_text(encoding='utf-8')+"\n")
+cch=r"""<style>
+.lnc .hp .xh,.lnc .hp .xd{opacity:0;transition:opacity .12s}.lnc .hp:hover .xh,.lnc .hp:hover .xd{opacity:1}
+.lnc text{letter-spacing:0}
+.cch .cb{fill:transparent;transition:fill .12s}.cch .cg:hover .cb{fill:var(--lav)}
+.cch path{transition:opacity .12s}.cch:has(.cg:hover) .cg:not(:hover) path{opacity:.55}
+/* horizontal bars: slim rounded track with a soft gradient fill */
+.hb{padding:5px 6px;border-radius:10px;transition:background .12s}.hb:hover{background:var(--lav)}
+.hb .tr{height:7px;background:var(--grid);overflow:hidden}
+.hb .tr i{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 55%,var(--surface)),var(--accent));border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.hb .tr i.w{background:linear-gradient(90deg,color-mix(in srgb,var(--c-dirty) 55%,var(--surface)),var(--c-dirty))}
+.hb .tr i.c{background:linear-gradient(90deg,color-mix(in srgb,var(--c-scrap) 55%,var(--surface)),var(--c-scrap))}
+.hb .tr i.g{background:linear-gradient(90deg,color-mix(in srgb,var(--c-ready) 55%,var(--surface)),var(--c-ready))}
+.hb .v{color:var(--muted)}
+</style>
+"""
+i=s.index('<div id="app"></div>')
+s=s[:i]+cch+s[i:]
+
 (T/'base_v2.html').write_text(s,encoding='utf-8')
 print('5 ok')

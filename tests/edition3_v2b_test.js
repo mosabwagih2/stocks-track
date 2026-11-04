@@ -69,7 +69,7 @@ const fs=require('fs'),path=require('path');
   await p.evaluate(()=>{__F.UI.ins='demand';__F.UI.insP='all';__F.go('insights')});await p.waitForTimeout(150);
   const dm=await p.evaluate(()=>{const F=__F,S=F.S(),pk={};S.pickups.forEach(x=>pk[x.id]=x.date);const os=S.orders.filter(o=>o.st!=='cx'&&pk[o.pk]);const strip=[...document.querySelectorAll('.strip .si b')].map(e=>+e.textContent.replace(/[^\d.]/g,''));
     const sizes=[...document.querySelectorAll('#main .card')].find(c=>/^المقاسات/.test(c.querySelector('h2').textContent));const sum=[...sizes.querySelectorAll('.hb .v')].reduce((a,v)=>a+(+v.textContent.split('·')[0].replace(/,/g,'')||0),0);
-    return {o:strip[0],expO:os.length,sum,expP:os.reduce((a,o)=>a+o.lines.length,0),hasHeat:!!document.querySelector('.hm'),notes:document.querySelectorAll('.insn').length,trend:!!document.querySelector('.col')}});
+    return {o:strip[0],expO:os.length,sum,expP:os.reduce((a,o)=>a+o.lines.length,0),hasHeat:!!document.querySelector('.hm'),notes:document.querySelectorAll('.insn').length,trend:!!document.querySelector('.col,.cch')}});
   ok('demand: strip orders and the size bars add up to the real demand',dm.o===dm.expO&&dm.sum===dm.expP,JSON.stringify(dm));
   ok('demand: notes, daily chart and heat map are all on one page',dm.notes>=3&&dm.trend&&dm.hasHeat);
   // plan

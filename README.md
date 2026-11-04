@@ -76,3 +76,4 @@ The redesign copy has a stock heat map (Stock > خريطة): model x size, colou
 - `variants/edition-3/redesign_demo.js`: deterministic generator (`genDemo`) that fills the app with 28 days of operations through the real code paths (pickups, scans, returns, wash/factory, receipts, shop transfers, count, losses, cancellations, reversed scan, supplies) for Vendoor, Noon, Amazon, Shopify and Facebook. About 1.6 MB of browser storage.
 - Settings, "داتا تجريبية وجولة": load/reset buttons and a 12-card tour (problem, how the system solves it, live numbers, jump button). Today shows a banner while demo data is loaded.
 - Stock heat map now uses the same look as the demand heat map (purple intensity, corner dot for short/low/surplus). Test: `tests/edition3_heat_test.js`, `tests/edition3_demo_test.js`.
+- Analytics charts modernised in Brand 2 (`redesign_charts.js`): smooth gradient area lines with crosshair hover, SVG column charts with hairline grid, slim gradient bars.
