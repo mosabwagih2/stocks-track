@@ -33,7 +33,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   await p.evaluate(()=>__F.ACT.demoload());await p.waitForTimeout(600);
   await p.evaluate(k=>{const j=JSON.parse(localStorage.getItem(k));delete j.users;delete j.roles;delete j.closes;delete j.lock;delete j.audit;delete j.cur;localStorage.setItem(k,JSON.stringify(j))},key);
   await p.reload();await p.waitForSelector('.shell');await p.waitForTimeout(300);
-  ok('an older saved state (no users, roles or closes) migrates cleanly to a single admin',await p.evaluate(()=>{const S=__F.S();return S.users.length===1&&S.users[0].role==='admin'&&Array.isArray(S.closes)&&S.lock===''&&!document.getElementById('lockscr')})&&errs.length===0,errs.join('|'));
+  ok('an older saved state (no users, roles or closes) migrates cleanly to a single admin',await p.evaluate(()=>{const S=__F.S();return S.users.length===1&&S.users[0].role==='admin'&&Array.isArray(S.closes)&&S.lock<S.date&&!document.getElementById('lockscr')})&&errs.length===0,errs.join('|'));
   // quota exceeded
   await p.evaluate(()=>{window.__real=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw new DOMException('full','QuotaExceededError')};__F.dirty()});await p.waitForTimeout(500);
   await p.evaluate(()=>{__F.go('today')});

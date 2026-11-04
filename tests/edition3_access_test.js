@@ -98,7 +98,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   {const c2=await b.newContext({viewport:{width:1280,height:900}});const q=await c2.newPage();await q.goto('file://'+wrap);await q.waitForSelector('.shell');await q.evaluate(()=>__F.ACT.demoload());await q.waitForTimeout(500);
    await q.evaluate(()=>{const j=JSON.parse(localStorage.getItem('femini-stock-v3'));j.lock='2099-01-01';localStorage.setItem('femini-stock-v3',JSON.stringify(j))});
    await q.reload();await q.waitForSelector('.shell');await q.waitForTimeout(300);
-   ok('a lock dated in the future (bad data) is dropped on load',await q.evaluate(()=>__F.S().lock===''));await c2.close()}
+   ok('a lock dated in the future (bad data) is dropped on load (auto-close then locks only up to yesterday)',await q.evaluate(()=>__F.S().lock<__F.S().date));await c2.close()}
   ok('demo reload keeps the accounts',await p.evaluate(()=>{const n=__F.S().users.length;__F.ACT.demoload();return __F.S().users.length===n&&n>=2&&__F.S().users.some(u=>u.name==='سارة'&&u.pin)}));
   ok('no page errors',errs.length===0,errs.join('|'));
   const m=await open({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,userAgent:devices['iPhone 13'].userAgent});

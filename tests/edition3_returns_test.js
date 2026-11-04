@@ -29,7 +29,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   const exp=await p.evaluate(()=>{const F=__F,S=F.S(),d=S.docs.find(x=>x.id===F.UI.doc);return d.hdr.parcels.map(q=>({ref:q.ref,items:q.items.map(i=>i.sku)}))});
   const before=await p.evaluate(()=>{const F=__F,o={};F.D.skus.forEach(k=>{o[k.id]=['READY','DIRTY','SCRAP','LOST'].map(l=>F.g(k.id,l))});return o});
   await p.click('.rpc >> nth=0 >> .rpi >> nth=0 >> .rs-m');await p.click('.rpc >> nth=0 >> .rpi >> nth=1 >> .rs-d');await p.click('.rpc >> nth=0 >> .rpi >> nth=2 >> .rs-x');
-  await p.click('.rpc >> nth=0 >> [data-a=rtnall]');
+  if(await p.locator('.rpc >> nth=0 >> [data-a=rtnall]').count())await p.click('.rpc >> nth=0 >> [data-a=rtnall]');
   await p.click('[data-a=rtnallall]');await p.waitForTimeout(150);
   const diff=await p.evaluate(()=>{const t=document.querySelector('.msg.warn:not(.msg.crit)');const strip=document.querySelector('.strip').innerText;return {warn:[...document.querySelectorAll('.msg.warn')].some(m=>/فيه فرق/.test(m.textContent)),missing:/ناقص\s*\n?\s*1/.test(strip),confirm:!document.querySelector('[data-a=confirm]').disabled}});
   ok('the difference between shipped and received is shown per order, and confirm unlocks once everything is counted',diff.warn&&diff.confirm,JSON.stringify(diff));

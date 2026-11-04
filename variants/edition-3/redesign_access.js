@@ -70,6 +70,21 @@ function dayNotes(date){
   n.push(neg?{ok:false,t:fmt(neg)+' صنف رصيده بالسالب. الأفضل تعمل جرد ليه.'}:{ok:true,t:'مفيش أصناف بالسالب.'});
   return n;
 }
+/* ---------- automatic close at midnight ---------- */
+const autoOn=()=>!S.st||S.st.autoClose!==false;
+function dayHasActivity(d){return S.pickups.some(p=>p.date===d)||S.moves.some(m=>m.date===d)||S.orders.some(o=>o.sc&&o.sc.date===d)}
+function autoCloseTo(end){
+  if(!S.closes||!autoOn()||!end)return 0;
+  if(S.lock&&S.lock>=end)return 0;
+  let n=0;const start=(()=>{const a=S.lock?addDays(S.lock,1):addDays(end,-6),b=addDays(end,-6);return a>b?a:b})();
+  let stop=end;
+  for(let d=start;d<=end;d=addDays(d,1)){
+    if(S.closes.some(x=>x.date===d&&d===end&&x.status==='reopened')){stop=addDays(d,-1);break}
+    if(S.closes.some(x=>x.date===d)||!dayHasActivity(d))continue;
+    S.closes.push({id:'c'+(S.closes.length+1),date:d,at:Date.now(),by:'تلقائي',auto:true,snap:daySummary(d),status:'closed'});n++;
+  }
+  if(stop>(S.lock||''))S.lock=stop;if(n)audit('قفل تلقائي لـ '+n+' يوم لحد '+end);dirty();return n;
+}
 const closeBtn=()=>dayLocked(S.date)?'<button class="btn" data-a="closeday">✓ اليوم مقفول</button>':'<button class="btn" data-a="closeday">قفل اليوم</button>';
 function closeSheet(){
   const date=S.date,locked=dayLocked(date),sm=daySummary(date),last=S.closes.filter(x=>x.status==='closed').slice(-1)[0],todays=S.closes.filter(x=>x.date===date&&x.status==='closed').slice(-1)[0];
@@ -80,11 +95,12 @@ function closeSheet(){
     h+='<p class="muted" style="font-size:12.5px;margin:0 0 12px">التنبيهات دي للعلم بس، مش بتمنع القفل.</p>';
     h+=can('close')?'<button class="btn pri" data-a="clconfirm" style="width:100%;justify-content:center;padding:12px">قفل يوم '+esc(dayName(date))+'</button>':'<div class="msg warn">دورك مش بيسمح بقفل اليوم.</div>';
   }else{
-    h+='<div class="msg good" style="margin-bottom:12px">اتقفل '+(todays?timeOf(todays.at)+' بواسطة '+esc(todays.by):'')+'.</div>';
+    h+='<div class="msg good" style="margin-bottom:12px">'+(todays&&todays.auto?'اتقفل تلقائي':'اتقفل '+(todays?timeOf(todays.at)+' بواسطة '+esc(todays.by):''))+'.</div>';
     if(can('close')&&last&&last.date===S.lock)h+='<button class="btn" data-a="clopen" style="width:100%;justify-content:center;padding:12px">افتح اليوم تاني</button><p class="muted" style="font-size:12.5px;margin:8px 0 0">بعد ما تفتحه تسجّل اللي ناقص، وبعدين تقفله تاني.</p>';
   }
+  h+='<label class="row" style="gap:8px;margin-top:16px;font-size:13px"><input type="checkbox" data-c="autoclose" '+(autoOn()?'checked':'')+'> اقفل اليوم تلقائي الساعة 12 بالليل مع بداية اليوم الجديد</label>';
   const hist=S.closes.filter(x=>x.status==='closed'||x.reopened).slice(-7).reverse();
-  if(hist.length)h+='<div class="gh" style="margin-top:20px">آخر الأيام اللي اتقفلت</div><div class="tw"><table class="t-sm"><thead><tr><th>اليوم</th><th class="num">اتطلب</th><th class="num">اتشحن</th><th class="num">رجع</th><th>الحالة</th></tr></thead><tbody>'+hist.map(x=>'<tr><td>'+esc(x.date)+'</td><td class="num">'+fmt(x.snap.pcsIn)+'</td><td class="num">'+fmt(x.snap.shipP)+'</td><td class="num">'+fmt(x.snap.ret)+'</td><td>'+(x.status==='closed'?pill('good','مقفول'):pill('','اتفتح'))+'</td></tr>').join('')+'</tbody></table></div>';
+  if(hist.length)h+='<div class="gh" style="margin-top:20px">آخر الأيام اللي اتقفلت</div><div class="tw"><table class="t-sm"><thead><tr><th>اليوم</th><th class="num">اتطلب</th><th class="num">اتشحن</th><th class="num">رجع</th><th>الحالة</th></tr></thead><tbody>'+hist.map(x=>'<tr><td>'+esc(x.date)+'</td><td class="num">'+fmt(x.snap.pcsIn)+'</td><td class="num">'+fmt(x.snap.shipP)+'</td><td class="num">'+fmt(x.snap.ret)+'</td><td>'+(x.status==='closed'?pill('good',x.auto?'مقفول تلقائي':'مقفول'):pill('','اتفتح'))+'</td></tr>').join('')+'</tbody></table></div>';
   return {title:'قفل اليوم',body:h};
 }
 function backupNudge(){const a=bkAge();if(!S.moves.length||!(a==null||a>7)||S.demo)return '';return '<div class="msg warn row sp dcb"><span>'+(a==null?'لسه ما اتاخدتش نسخة احتياطية من البيانات.':'آخر نسخة احتياطية من <b>'+a+'</b> يوم.')+' البيانات متخزنة في المتصفح بس.</span><button class="btn sm" data-a="bkdl">نزّل نسخة دلوقتي</button></div>'}
@@ -161,6 +177,7 @@ const ACT_ACC={
   usdel:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');return}S.users=S.users.filter(x=>x!==u);audit('حذف مستخدم: '+u.name);dirty();render()}
 };
 const CHG_ACC={
+  autoclose:el=>{if(!can('close')){deny('close');render();return}S.st.autoClose=el.checked;audit('القفل التلقائي: '+(el.checked?'شغّال':'موقوف'));dirty();render()},
   bkfile:el=>{const f=el.files&&el.files[0];el.value='';if(!f)return;UI.bkErr=null;const r=new FileReader();r.onerror=()=>{UI.bkErr='مقدرتش أقرأ الملف.';render()};
     r.onload=()=>{try{const o=JSON.parse(r.result),st=o&&o.state;if(!o||o.app!=='femini-stock'||!st||st.v!==3||!Array.isArray(st.moves)||!Array.isArray(st.orders)||!Array.isArray(st.docs))throw new Error('الملف ده مش نسخة احتياطية من السيستم');
       const n=st.moves.length;UI.bkAsk={name:f.name,text:'فيها '+fmt(n)+' حركة و'+fmt(st.orders.length)+' أوردر و'+fmt(st.docs.length)+' عملية. ده هيستبدل كل اللي في المتصفح ده دلوقتي.'};UI._bk=o}catch(e){UI.bkErr=e.message;UI.bkAsk=null;UI._bk=null}render()};r.readAsText(f)},

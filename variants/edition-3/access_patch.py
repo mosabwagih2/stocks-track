@@ -58,3 +58,7 @@ rep("Object.assign(ACT,ACT_ACC);","Object.assign(ACT,ACT_ACC);ACT.reloadapp=()=>
 rep("const PERMS=[","let STALE=false;\nconst PERMS=[")
 
 rep("""<p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. ده نموذج تجريبي.</p>'+""","""<p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. خد نسخة احتياطية بشكل دوري، لأن مسح بيانات المتصفح بيمسح كل حاجة.</p>'+backupBox()+'<div class="gh">رجوع للأصل</div>'+""")
+
+# automatic close: when the day rolls over, and when the app is opened on a later day
+rep("  S.date=t;UI.vd=null;dirty();","  S.date=t;UI.vd=null;{const _n=autoCloseTo(addDays(t,-1));if(_n)setTimeout(()=>toast('اتقفل اليوم اللي فات تلقائي'),400)}dirty();")
+rep("S=s;S.date=cairoToday();ensureSup(S);ensureCat(S);rebuildCatalog();return}","S=s;S.date=cairoToday();ensureSup(S);ensureCat(S);rebuildCatalog();autoCloseTo(addDays(S.date,-1));return}")
