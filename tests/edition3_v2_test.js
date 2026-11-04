@@ -85,7 +85,7 @@ const fs=require('fs'),path=require('path');
   ok('supplies log: one row per operation (the scan is one row, not one per item)',sp.logRows===sp.groups,sp.logRows+' vs '+sp.groups);
   // ================= SETTINGS =================
   await p.evaluate(()=>__F.go('config'));await p.waitForTimeout(250);
-  ok('settings are split into five sections (incl. demo data)',(await p.locator('.tabs button').count())===5);
+  ok('settings are split into six sections (users, data, demo)',(await p.locator('.tabs button').count())===6);
   await p.click('.tabs button[data-v=cost]');await p.waitForTimeout(150);
   const cr=await p.evaluate(()=>({rows:document.querySelectorAll('.stack tbody tr').length,scrollBox:[...document.querySelectorAll('.stack .tw')].some(t=>/max-height/.test(t.getAttribute('style')||''))}));
   ok('costs tab lists every model without an inner scroll box',cr.rows>=27&&!cr.scrollBox,JSON.stringify(cr));

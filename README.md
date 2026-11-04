@@ -82,3 +82,9 @@ The redesign copy has a stock heat map (Stock > خريطة): model x size, colou
 
 - `variants/edition-3/studio.css` + `6_studio.py` build `apps/edition-3-brand-v2-copy` on top of Brand 2: warm ivory ground, aubergine ink, one accent, segmented controls, quiet tables, larger numbers, hairline cards.
 - The demo tab opens with a 9-second looping stage (stageshow-style: a cursor scans, the order flips, the balance rolls, the supplies tick). It shows the end state when reduced motion is on.
+
+## Brand 2: users, roles, permissions, day close
+
+- `variants/edition-3/redesign_access.js` (+ `access_patch.py`): users with roles (admin, supervisor, packer, read-only), editable permission matrix, optional PIN lock screen, audit log, money masking, per-action and core-function permission guards.
+- Day close: checklist (blockers and warnings), opening + in - out = closing reconciliation per state, locks every day up to the closed date (documents, cancellations, supplies), admin reopen with a logged reason. Test: `tests/edition3_access_test.js`.
+- Scope: this is browser-side (localStorage, hashed PINs), so it prevents mistakes and keeps an audit trail. Real enforcement needs the server (Supabase) version.

@@ -1,4 +1,4 @@
-  h+='<div class="stack">'+demoBanner();
+  h+='<div class="stack">'+demoBanner()+dayCloseBar();
   if(isToday&&older.length)h+='<div class="msg warn row sp"><span>فيه <b>'+older.length+'</b> أوردر من أيام فاتت (من '+esc(oldDay)+') لسه ما اتشحنوش.</span><span class="row"><button class="btn sm" data-a="vdset" data-d="'+oldDay+'">اعرض يوم '+esc(oldDay)+'</button><button class="btn sm" data-a="of2" data-v="wait">افتحهم في الأوردرات</button></span></div>';
   const wait=open.filter(o=>!C.blocked[o.ref]),vv=a=>a.reduce((x,o)=>x+ordVal(o),0);
   const shipDay={};S.moves.forEach(m=>{if(m.type==='SCN'){const q=m.from==='READY'&&m.to==='EXT_CH'?m.q:m.from==='EXT_CH'&&m.to==='READY'?-m.q:0;if(q)shipDay[m.date]=(shipDay[m.date]||0)+q}});
