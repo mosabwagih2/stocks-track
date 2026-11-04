@@ -49,12 +49,26 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   // done document is read-only
   await p.evaluate(r=>{const d=__F.S().docs.find(x=>x.type==='RTN'&&x.status==='done'&&x.hdr.parcels&&x.hdr.parcels.length>=3);__F.go('ops',()=>{__F.UI.doc=d.id})},null);await p.waitForTimeout(250);
   ok('a confirmed return shows its parcels read-only (buttons disabled, no waybill box)',await p.evaluate(()=>!document.getElementById('rtnwb')&&[...document.querySelectorAll('.rps button')].every(b=>b.disabled)&&document.querySelectorAll('.rpc').length>=3));
-  // extra piece
+  // manual count (no waybill), alone and together with a parcel
   await p.evaluate(()=>{__F.go('ops',()=>{__F.newDoc('RTN')})});await p.waitForTimeout(250);
-  const o4=await p.evaluate(()=>{const o=__F.S().orders.find(o=>o.st==='done'&&!o.rt&&o.lines.length>=2);return {wb:o.wb+'',n:o.lines.length}});
-  await send(o4.wb);await p.click('.rpc >> [data-a=rtnall]');
-  await p.fill('[data-c=rtnextra]','BR2 · احمر · M');await p.dispatchEvent('[data-c=rtnextra]','change');await p.waitForTimeout(150);
-  ok('a piece that was not in any order can be added as extra and is flagged',await p.evaluate(()=>/زيادة/.test(document.querySelector('.strip').innerText)&&document.querySelectorAll('.rpi').length>=3&&[...document.querySelectorAll('.msg.warn')].some(m=>/زيادة 1 قطعة/.test(m.textContent))));
+  ok('the manual count (model, colour, size, quantities) is back inside the return',await p.evaluate(()=>!!document.getElementById('pkm')&&/جرد يدوي/.test(document.getElementById('main').innerText)));
+  await p.selectOption('#pkm','BR2');await p.waitForTimeout(100);await p.selectOption('#pkc','احمر');await p.selectOption('#pks','M');await p.fill('#pkq','3');await p.click('[data-a=addline]');await p.waitForTimeout(200);
+  const man=await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);const l=d.lines.find(x=>x.sku==='BR2-RED-M');return {n:d.lines.length,exp:l&&l.exp,rows:document.querySelectorAll('.t-sm [data-c=ln]').length}});
+  ok('adding a manual line sets what was expected',man.n===1&&man.exp===3&&man.rows===3,JSON.stringify(man));
+  const bef=await p.evaluate(()=>{const F=__F,id='BR2-RED-M';return ['READY','DIRTY','SCRAP','LOST'].map(l=>F.g(id,l))});
+  await p.fill('[data-c=ln][data-f=r]','1');await p.dispatchEvent('[data-c=ln][data-f=r]','change');await p.fill('[data-c=ln][data-f=d]','1');await p.dispatchEvent('[data-c=ln][data-f=d]','change');await p.waitForTimeout(150);
+  ok('confirm stays locked until the manual count is marked finished',await p.evaluate(()=>document.querySelector('[data-a=confirm]').disabled));
+  await p.check('[data-c=rtnmc]');await p.waitForTimeout(150);
+  ok('after marking it finished confirm opens, and the missing piece is shown',await p.evaluate(()=>!document.querySelector('[data-a=confirm]').disabled&&document.querySelector('[data-sync^=sh]').textContent.trim()==='1'));
+  await p.click('[data-a=confirm]');await p.waitForTimeout(250);
+  ok('a manual count posts: 1 good, 1 cleaning, and the 1 not received goes to lost',await p.evaluate(b=>{const F=__F,id='BR2-RED-M',n=['READY','DIRTY','SCRAP','LOST'].map(l=>F.g(id,l));return n[0]-b[0]===1&&n[1]-b[1]===1&&n[2]-b[2]===0&&n[3]-b[3]===1},bef));
+  // manual together with a parcel
+  await p.evaluate(()=>{__F.go('ops',()=>{__F.newDoc('RTN')})});await p.waitForTimeout(250);
+  const o5=await p.evaluate(()=>{const o=__F.S().orders.find(o=>o.st==='done'&&!o.rt&&o.lines.length>=2);return o.wb+''});
+  await send(o5);await p.click('.rpc >> [data-a=rtnall]');
+  await p.selectOption('#pkm','BR2');await p.waitForTimeout(100);await p.selectOption('#pkc','احمر');await p.selectOption('#pks','M');await p.click('[data-a=addline]');await p.waitForTimeout(150);
+  const both=await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);return {parcelLines:d.lines.filter(l=>l.par).length,manual:d.lines.filter(l=>!l.par).length,locked:document.querySelector('[data-a=confirm]').disabled}});
+  ok('parcels and a manual line live together in one return; the manual count must be marked finished too',both.parcelLines>=1&&both.manual===1&&both.locked,JSON.stringify(both));
   await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);__F.S().docs=__F.S().docs.filter(x=>x!==d);__F.UI.doc=null});
   ok('no page errors',errs.length===0,errs.join('|'));
   const m=await b.newContext({...devices['iPhone 13']});const mp=await m.newPage();const me=[];mp.on('pageerror',e=>me.push(e.message));

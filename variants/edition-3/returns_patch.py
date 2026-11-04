@@ -6,8 +6,9 @@ rep("const o=orderByRef(ref);if(o&&!o.rt)o.rt={doc:d.no,date:d.date}});","const 
 a=s.index("  if(d.type==='RTN'&&draft)h+='<section class=\"card\"><h2>المتوقع رجوعه</h2>")
 b=s.index("\n",a)
 s=s[:a]+s[b+1:]
-rep("""    h+='<section class="card"><h2>الأصناف</h2>'+(draft?picker(d)+'<div style="height:12px"></div>':'')+lineTable(d)+'</section>';""","""    h+=(d.type==='RTN'&&!(d.lines.length&&!(d.hdr.parcels&&d.hdr.parcels.length))?rtnParcels(d,draft):'<section class="card"><h2>الأصناف</h2>'+(draft?picker(d)+'<div style="height:12px"></div>':'')+lineTable(d)+'</section>');""")
-rep("""    if(d.type==='RTN')h+='<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" data-c="rtncounted" '""","""    if(d.type==='RTN'&&!(H.parcels&&H.parcels.length))h+='<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" data-c="rtncounted" '""")
+rep("""    h+='<section class="card"><h2>الأصناف</h2>'+(draft?picker(d)+'<div style="height:12px"></div>':'')+lineTable(d)+'</section>';""","""    h+=(d.type==='RTN'?rtnParcels(d,draft):'<section class="card"><h2>الأصناف</h2>'+(draft?picker(d)+'<div style="height:12px"></div>':'')+lineTable(d)+'</section>');""")
+rep("""    if(d.type==='RTN')h+='<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" data-c="rtncounted" '""","""    if(d.type==='RTN'&&false)h+='<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" data-c="rtncounted" '""")
+rep("q=Math.max(1,+q||1);const l=d.lines.find(x=>x.sku===sku);","q=Math.max(1,+q||1);const l=d.lines.find(x=>x.sku===sku&&!x.par);")
 rep("return pill('warn','اتشحن · رجع','رجع في '+o.rt.doc+' ('+o.rt.date+')');","return pill(o.rt.miss?'crit':'warn',o.rt.miss?'اتشحن · رجع ناقص '+o.rt.miss:'اتشحن · رجع','رجع في '+o.rt.doc+' ('+o.rt.date+')'+(o.rt.exp!=null?' · استلمنا '+o.rt.got+' من '+o.rt.exp:''));")
 rep("    if(o.st==='open')body+='<div class=\"row\"><button class=\"btn danger sm\" data-a=\"cxorder\"","    if(o.rt)body+=rtnOrderBlock(o);\n    if(o.st==='open')body+='<div class=\"row\"><button class=\"btn danger sm\" data-a=\"cxorder\"")
 rep("Object.assign(ACT,ACT_ACC,ACT_LG);Object.assign(CHG,CHG_LG);","Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT);Object.assign(CHG,CHG_LG,CHG_RT);")
@@ -26,3 +27,5 @@ csr="""<style>
 """
 _i=s.index('<div id="app"></div>')
 s=s[:_i]+csr+s[_i:]
+rep("addLine(d,id,+$('#pkq').value);dirty();render();","addLine(d,id,+$('#pkq').value);if(d.type==='RTN'){d.hdr.mcounted=false;rtnSync(d)}dirty();render();")
+rep("const d=curDoc();d.lines.splice(+el.dataset.i,1);dirty();render()","const d=curDoc();d.lines.splice(+el.dataset.i,1);if(d.type==='RTN'){d.hdr.mcounted=false;rtnSync(d)}dirty();render()")

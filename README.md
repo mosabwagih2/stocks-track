@@ -110,3 +110,5 @@ Two views instead of three tabs that looked alike: "اللي حصل" (one feed o
 ## Returns by waybill (Brand 2)
 
 A return document now works parcel by parcel: scan or type a waybill (or order code), the system finds the original order and lists every piece that was shipped, the employee marks each piece good / cleaning / scrap / missing, and the difference between shipped and received is shown per order. Posting is unchanged (good to ready, cleaning, scrap, missing to lost), plus each order keeps "received x of y". Test: `tests/edition3_returns_test.js`.
+
+> Returns: the manual count by model, colour and size is back inside the return document (a separate card, "جرد يدوي"), and can be used alone or together with waybill parcels.
