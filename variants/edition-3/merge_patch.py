@@ -22,3 +22,25 @@ rep("""<button class="btn" data-a="recvmenu">استلام</button>""","""<button
 rep("  }else if(s.kind==='recv'){","  }else if(s.kind==='scrap'){\n    const r=scrapSheet();title=r.title;body=r.body;\n  }else if(s.kind==='recv'){")
 
 rep("""<button class="btn" data-a="scrapmenu">الهالك</button>""","""<button class="btn" data-a="scrapmenu">الهالك</button>'+closeBtn()+'""")
+
+rep("function vLedger(){","function vLedgerOld(){")
+rep("function ledRows(){return UI.led.tab==='docs'?ledgerDocs():ledRowsOrig()}","function ledRowsOld(){return UI.led.tab==='docs'?ledgerDocs():ledRowsOrig()}")
+ins_before("function vStock(){",(H/'redesign_ledger.js').read_text(encoding='utf-8')+"\n")
+rep("Object.assign(ACT,ACT_ACC);","Object.assign(ACT,ACT_ACC,ACT_LG);Object.assign(CHG,CHG_LG);Object.assign(INP,INP_LG);")
+csl="""<style>
+.lgbar{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.lgbar select,.lgbar input[type=date]{padding:7px 10px;font-size:13px;border-radius:10px;min-height:0}
+.lgday{margin-bottom:12px;padding:16px 18px}.lgday h2{margin-bottom:6px!important}
+.lgl{display:grid}
+.lge{border-top:1px solid var(--grid)}.lge:first-child{border-top:0}
+.lgr{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 4px;cursor:pointer;border-radius:12px}
+.lgr:not([data-a]){cursor:default}.lgr[data-a]:hover{background:var(--lav)}.lgr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.lgt{display:grid;gap:1px;min-width:0}.lgt b{font-weight:600;line-height:1.5}.lgt small{font-size:12px}
+.lgp{display:grid;justify-items:end;line-height:1.2}.lgp b{font-size:16px}.lgp small{font-size:11px}
+.lge .chev{color:var(--muted);transition:transform .2s;width:18px;text-align:center}.lge.open .chev{transform:rotate(-90deg);color:var(--accent)}
+.lgd{padding:4px 8px 14px 8px;display:grid;gap:6px}.lgmeta{font-size:12.5px}
+@media (max-width:820px){.lgbar,.lgbar>*{min-width:0;max-width:100%}.lgbar .chips.scrollx{margin-inline:0;padding-inline:0}.lgday{padding:12px 12px;min-width:0}.lgl,.lge,.lgd{min-width:0}.lgd{overflow-x:auto}.lgr{gap:10px}.lgd{padding-inline:0}.lgm{grid-template-columns:1fr}}
+</style>
+"""
+_i=s.index('<div id="app"></div>')
+s=s[:_i]+csl+s[_i:]

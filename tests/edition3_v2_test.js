@@ -54,27 +54,39 @@ const fs=require('fs'),path=require('path');
   ok('every row shows its own order value',od.valBad===0&&od.nRows>0,String(od.valBad));
   // ================= LEDGER =================
   await p.evaluate(()=>__F.go('ledger'));await p.waitForTimeout(250);
-  const lg=await p.evaluate(()=>{const F=__F,S=F.S();const G={};S.moves.forEach(m=>{const k=m.date+'|'+m.doc+'|'+m.type;(G[k]||(G[k]={n:0,q:0})).q+=m.q;G[k].n++});
-    const rows=[...document.querySelectorAll('.ledt tr.lrow')];const bad=rows.filter(r=>{const k=r.dataset.k,g=G[k];return !g||+r.querySelector('td.num').textContent.replace(/,/g,'')!==g.q}).length;
-    return {tab:F.UI.led.tab,docs:Object.keys(G).length,rows:rows.length,moves:S.moves.length,bad}});
-  ok('ledger opens on documents: one row per document instead of one per move',lg.tab==='docs'&&lg.rows===lg.docs&&lg.rows<lg.moves/5,JSON.stringify(lg));
-  ok('each document row shows exactly its pieces',lg.bad===0);
-  const dayChk=await p.evaluate(()=>{const S=__F.S();return [...document.querySelectorAll('.ledt tr.grp')].every(g=>{const d=g.textContent.match(/\d{4}-\d{2}-\d{2}/)[0],ms=S.moves.filter(m=>m.date===d),out=ms.filter(m=>m.from==='READY'&&String(m.to).indexOf('EXT_')===0).reduce((a,m)=>a+m.q,0),inn=ms.filter(m=>m.to==='READY'&&String(m.from).indexOf('EXT_')===0).reduce((a,m)=>a+m.q,0),t=g.textContent.replace(/,/g,'');return (!out||t.includes('خرج'+' '+out)||t.includes('خرج '+out))&&(!inn||t.includes('دخل '+inn)||t.includes('دخل'+' '+inn))})});
-  ok('day headers show the right in/out totals',dayChk);
-  await p.click('.ledt tr.lrow >> nth=0');await p.waitForTimeout(150);
-  const ex=await p.evaluate(()=>{const row=document.querySelector('.ledt tr.lrow.open'),open=row.nextElementSibling,tot=[...open.querySelectorAll('.lgx')].reduce((a,t)=>a+[...t.querySelectorAll('td.tt .n')].reduce((x,n)=>x+(+n.textContent||0),0),0),chips=[...open.querySelectorAll('.lgc .lc')].reduce((a,c)=>a+(+c.querySelector('.n').textContent.replace('×','')||0),0);
-    return {docQ:+row.querySelector('td.num').textContent.replace(/,/g,''),tot:tot+chips,matrices:open.querySelectorAll('.lgx').length}});
-  ok('opening a document shows per-model colour × size grids that add up to the document total',ex.tot===ex.docQ&&ex.matrices>0,JSON.stringify(ex));
+  const lg=await p.evaluate(()=>{const F=__F,S=F.S();const G={};S.moves.forEach(m=>{if(m.type==='CXL')return;const k='d'+m.date+'|'+m.doc+'|'+m.type;(G[k]||(G[k]={n:0,q:0})).q+=m.q;G[k].n++});
+    const rows=[...document.querySelectorAll('.lgr[data-a=ldoc]')].filter(r=>r.dataset.k[0]==='d');const bad=rows.filter(r=>{const g=G[r.dataset.k];return !g||+r.querySelector('.lgp .n').textContent.replace(/,/g,'')!==g.q}).length;
+    return {tab:F.UI.led.tab,rows:rows.length,moves:S.moves.length,bad,segs:[...document.querySelectorAll('.lgseg button')].map(b=>b.textContent.trim())}});
+  ok('the log has two plain views: what happened, and one item\'s journey',JSON.stringify(lg.segs)===JSON.stringify(['اللي حصل','تتبّع صنف']),JSON.stringify(lg.segs));
+  ok('the feed shows one row per operation instead of one per move',lg.tab==='feed'&&lg.rows>0&&lg.rows<lg.moves/5,JSON.stringify(lg));
+  ok('each operation row shows exactly its pieces',lg.bad===0,JSON.stringify(lg));
+  const who=await p.evaluate(()=>{const r=[...document.querySelectorAll('.lgr')].slice(0,12);return r.every(x=>/·/.test(x.querySelector('.lgt small').textContent))&&r.length>0});
+  ok('every row names the person and the time',who);
+  const dayChk=await p.evaluate(()=>{const S=__F.S();return [...document.querySelectorAll('.lgday')].every(sec=>{const d=sec.querySelector('h2').textContent,out=(d.match(/شحن ([\d,]+) قطعة/)||[])[1];if(!out)return true;const day=[...sec.querySelectorAll('.lgr[data-a=ldoc]')];const keys=day.map(r=>r.dataset.k.slice(1).split('|')[0])[0];const exp=S.moves.filter(m=>m.date===keys&&m.type==='SCN'&&m.to==='EXT_CH'&&!/عكس/.test(m.doc)).reduce((a,m)=>a+m.q,0);return +out.replace(/,/g,'')===exp})});
+  ok('day headers show the right shipped total',dayChk);
+  await p.click('.lgr[data-a=ldoc] >> nth=0');await p.waitForTimeout(150);
+  const ex=await p.evaluate(()=>{const e=document.querySelector('.lge.open'),det=e.querySelector('.lgd'),tot=[...det.querySelectorAll('.lgx')].reduce((a,t)=>a+[...t.querySelectorAll('td.tt .n')].reduce((x,n)=>x+(+n.textContent||0),0),0),chips=[...det.querySelectorAll('.lgc .lc')].reduce((a,c)=>a+(+c.querySelector('.n').textContent.replace('×','')||0),0);
+    return {docQ:+e.querySelector('.lgp .n').textContent.replace(/,/g,''),tot:tot+chips,matrices:det.querySelectorAll('.lgx').length}});
+  ok('opening an operation shows per-model colour x size grids that add up to its total',ex.tot===ex.docQ&&ex.matrices>0,JSON.stringify(ex));
   await p.fill('#lq','BR2 احمر');await p.waitForTimeout(150);
-  const ls=await p.evaluate(()=>{const S=__F.S(),hit=m=>{const k=m.sku.split('-');return k[0]==='BR2'&&k[1]==='RED'};const G={};S.moves.filter(hit).forEach(m=>{const k=m.date+'|'+m.doc+'|'+m.type;G[k]=(G[k]||0)+m.q});
-    const rows=[...document.querySelectorAll('.ledt tr.lrow')];return {n:rows.length,exp:Object.keys(G).length,bad:rows.filter(r=>+r.querySelector('td.num').textContent.replace(/,/g,'')!==G[r.dataset.k]).length}});
-  ok('ledger search keeps only matching documents and counts only the matching pieces',ls.n===ls.exp&&ls.n>0&&ls.bad===0,JSON.stringify(ls));
-  await p.fill('#lq','');await p.evaluate(()=>{__F.UI.led.q='';__F.render()});
-  await p.evaluate(()=>{__F.UI.led.tab='moves';__F.render()});ok('the raw moves tab is still there',(await p.locator('#ledres table').count())>0);
-  await p.evaluate(()=>{__F.UI.led.tab='docs';__F.render()});
+  const ls=await p.evaluate(()=>{const S=__F.S(),hit=m=>{const k=m.sku.split('-');return k[0]==='BR2'&&k[1]==='RED'&&m.type!=='CXL'};const G={};S.moves.filter(hit).forEach(m=>{G['d'+m.date+'|'+m.doc+'|'+m.type]=1});
+    const rows=[...document.querySelectorAll('.lgr[data-a=ldoc]')].filter(r=>r.dataset.k[0]==='d').map(r=>r.dataset.k);return {n:rows.length,exp:Object.keys(G).length,bad:rows.filter(k=>!G[k]).length}});
+  ok('log search keeps only operations that touched that item',ls.n>0&&ls.bad===0,JSON.stringify(ls));
+  await p.evaluate(()=>{__F.UI.led.q='';__F.render()});
+  const flt=await p.evaluate(()=>{const F=__F,S=F.S();const names=[...document.querySelectorAll('[data-c=lwho] option')].map(o=>o.value).filter(Boolean);const who=names[0];const sel=document.querySelector('[data-c=lwho]');sel.value=who;sel.dispatchEvent(new Event('change',{bubbles:true}));const rows=[...document.querySelectorAll('.lgr .lgt small')].map(e=>e.textContent);return {who,n:rows.length,allWho:rows.every(t=>t.indexOf(who)===0),chips:document.querySelectorAll('.lgbar .chip').length}});
+  ok('the person filter shows only that person\'s rows',flt.n>0&&flt.allWho&&flt.chips===8,JSON.stringify(flt));
+  await p.evaluate(()=>{__F.ACT.lclear()});
+  await p.evaluate(()=>{__F.ACT.lgrp({dataset:{v:'out'}})});
+  ok('the type chips filter (shipping only)',await p.evaluate(()=>{const r=[...document.querySelectorAll('.lgr[data-a=ldoc]')];return r.length>0&&r.every(x=>/شحن|توريد/.test(x.textContent))}));
+  await p.evaluate(()=>{__F.ACT.lclear()});
+  // item journey
+  await p.evaluate(()=>{__F.UI.led.tab='sku';__F.UI.led.sq='BR2 احمر L';__F.UI.led.sku=null;__F.render()});await p.waitForTimeout(150);
+  const jr=await p.evaluate(()=>{const F=__F,S=F.S(),id='BR2-RED-L',n=S.moves.filter(m=>m.sku===id).length,rows=[...document.querySelectorAll('#ledres tbody tr')],first=rows[0];return {n,rows:rows.length,expectRows:Math.min(n,40),firstBal:+first.children[4].querySelector('b').textContent.replace(/,/g,''),ready:F.g(id,'READY'),head:/BR2/.test(document.querySelector('#ledres .card').textContent)}});
+  ok('an item journey lists every move with the ready balance after it, and the newest balance equals the real balance',jr.rows===jr.expectRows&&jr.firstBal===jr.ready&&jr.head,JSON.stringify(jr));
+  await p.evaluate(()=>{__F.UI.led.tab='feed';__F.UI.led.sq='';__F.UI.led.sku=null;__F.render()});
   // reversal appears as a reversal
   await p.evaluate(()=>{const F=__F,S=F.S();const d=S.docs.find(x=>x.type==='RTN'&&x.status==='done');F.reverseDoc(d);F.dirty();F.render()});await p.waitForTimeout(100);
-  ok('a reversed document is flagged in the feed',(await p.locator('.ledt tr.lrow .pill.crit').count())>=1);
+  ok('a reversed document is flagged in the feed',(await p.locator('.lgr .pill').filter({hasText:/تراجع|اتلغت/}).count())>=1);
   // ================= SUPPLIES =================
   await p.evaluate(()=>__F.go('supplies'));await p.waitForTimeout(250);
   const sp=await p.evaluate(()=>{const F=__F,S=F.S();const items=S.sup.items.filter(i=>!i.arch);const rows=document.querySelectorAll('.supt tbody tr').length;
@@ -105,7 +117,7 @@ const fs=require('fs'),path=require('path');
   const m=await open({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,userAgent:devices['iPhone 13'].userAgent});
   await m.p.evaluate(()=>{const F=__F,S=F.S();const open=S.orders.filter(o=>o.st==='open'&&!o.bad.length).slice(0,30);const d=F.newDoc('SCN');d.hdr={emp:'t',src:'t',refs:open.map(o=>o.ref),times:{}};F.confirmDoc(d);F.dirty()});
   const bad=[];for(const t of ['today','stock','supplies','ops','orders','ledger','files','config','insights']){
-    await m.p.evaluate(t=>{__F.UI.s.open={BR2:1,PAN3:1};__F.UI.led.open={};__F.go(t);if(t==='ledger')setTimeout(()=>{const r=document.querySelector('.lrow');if(r)r.click()},30)},t);await m.p.waitForTimeout(220);
+    await m.p.evaluate(t=>{__F.UI.s.open={BR2:1,PAN3:1};__F.UI.led.open={};__F.go(t);if(t==='ledger')setTimeout(()=>{const r=document.querySelector('.lgr[data-a=ldoc]');if(r)r.click()},30)},t);await m.p.waitForTimeout(220);
     const o=await m.p.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth}));if(o.sw>o.cw)bad.push(t+':'+o.sw)}
   ok('phone: no sideways page scroll on any redesigned page (with rows expanded)',bad.length===0,bad.join());
   ok('phone: no page errors',m.errs.length===0,m.errs.join(' | '));

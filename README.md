@@ -102,3 +102,7 @@ Six tabs became four: overview, demand, stock and manufacturing, blocked. Team m
 > Day close was removed from Brand 2 (it confused the daily flow). Old saved states that had a locked day open unlocked. Users, roles, PIN lock and backups stay.
 
 > Day close is back in Brand 2 in a simple form: a Today button, one sheet (plain explanation, six numbers, short checklist that never blocks, one button), a green line when closed, one-click reopen, no reason asked. It covers only the current day.
+
+## The log, redesigned (Brand 2)
+
+Two views instead of three tabs that looked alike: "اللي حصل" (one feed of operations, cancellations, supply entries and system events, grouped by day, each with person and time, filters by type, person, day and search) and "تتبّع صنف" (one item's full journey with the ready balance after each move). Raw move tables and the separate audit tab are gone; their data lives in these two.
