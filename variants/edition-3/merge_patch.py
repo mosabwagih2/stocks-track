@@ -20,3 +20,5 @@ rep("""'الطلب من القنوات، اللي اتشحن فعلًا، وال
 # --- Today: scrap button + menu, factory receipt moves there
 rep("""<button class="btn" data-a="recvmenu">استلام</button>""","""<button class="btn" data-a="recvmenu">استلام</button><button class="btn" data-a="scrapmenu">الهالك</button>""")
 rep("  }else if(s.kind==='recv'){","  }else if(s.kind==='scrap'){\n    const r=scrapSheet();title=r.title;body=r.body;\n  }else if(s.kind==='recv'){")
+
+rep("""<button class="btn" data-a="scrapmenu">الهالك</button>""","""<button class="btn" data-a="scrapmenu">الهالك</button>'+closeBtn()+'""")

@@ -1,11 +1,11 @@
 /* ---------- v2: users, roles, permissions, day close ----------
    Honest scope: everything here runs in the browser, so it keeps honest people honest and builds the audit trail.
    Real enforcement needs a server (the Supabase version). */
-const PERMS=[['money','يشوف الفلوس والتكلفة'],['scan','شحن بالسكان'],['returns','استلام المرتجع'],['receive','استلام من المصنع'],['internal','هالك / غسيل / مفقود'],['ship','توريد للمحل'],['count','الجرد'],['pickup','رفع بيك أب'],['cancel','إلغاء أوردر'],['reverse','عكس عملية'],['catalog','تعديل الأصناف والموديلات'],['supplies','المستلزمات'],['settings','الإعدادات'],['users','المستخدمين والصلاحيات']];
+const PERMS=[['money','يشوف الفلوس والتكلفة'],['scan','شحن بالسكان'],['returns','استلام المرتجع'],['receive','استلام من المصنع'],['internal','هالك / غسيل / مفقود'],['ship','توريد للمحل'],['count','الجرد'],['pickup','رفع بيك أب'],['cancel','إلغاء أوردر'],['reverse','عكس عملية'],['catalog','تعديل الأصناف والموديلات'],['supplies','المستلزمات'],['close','قفل اليوم وفتحه'],['settings','الإعدادات'],['users','المستخدمين والصلاحيات']];
 const PERM_NAME=Object.fromEntries(PERMS);
 const ROLE_DEFAULT={
   admin:{name:'مدير',perms:PERMS.map(p=>p[0])},
-  sup:{name:'مشرف مخزن',perms:['scan','returns','receive','internal','ship','count','pickup','cancel','reverse','catalog','supplies']},
+  sup:{name:'مشرف مخزن',perms:['scan','returns','receive','internal','ship','count','pickup','cancel','reverse','catalog','supplies','close']},
   pack:{name:'موظف شحن',perms:['scan','returns']},
   view:{name:'مراجعة (قراءة فقط)',perms:['money']}
 };
@@ -14,7 +14,7 @@ const ACT_PERM={pksave:'pickup',pksave2:'pickup',pkdel:'pickup',pkdel2:'pickup',
   reset:'settings',reset2:'settings',demoask:'settings',demoload:'settings',demoreset:'settings',
   skuadd:'catalog',catedit:'catalog',catsave:'catalog',skusave:'catalog',modelrm:'catalog',modelarch:'catalog',modelarch2:'catalog',modelrestore:'catalog',skuarch:'catalog',skuarch2:'catalog',skurestore:'catalog',skuop:'catalog',
   supsave:'supplies',supnew:'supplies',supconf:'supplies',suparch:'supplies',suparch2:'supplies',supundo:'supplies',supundo2:'supplies',undoentry:'supplies',supact:'supplies',
-  usadd:'users',bkdl:'settings',bkyes:'settings',usdel:'users'};
+  usadd:'users',bkdl:'settings',bkyes:'settings',usdel:'users',clconfirm:'close',clopen:'close'};
 const CLOSED_ACTS={pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
 const CHG_PERM={bkfile:'settings',cost:'settings',st:'settings',actor:'settings'};
 function cyrb(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)}
@@ -23,7 +23,7 @@ const navList=()=>NAV.filter(n=>n[0]!=='config'||can('settings')||can('users'));
 function ensureAcc(s){
   if(!s.roles){s.roles={};Object.keys(ROLE_DEFAULT).forEach(k=>s.roles[k]={name:ROLE_DEFAULT[k].name,perms:ROLE_DEFAULT[k].perms.slice()})}
   if(!s.users||!s.users.length){s.users=[{id:'u1',name:s.actor||'مصعب',role:'admin',pin:null,on:true}];s.cur='u1'}
-  if(!s.audit)s.audit=[];if(!s.closes)s.closes=[];s.lock='';
+  if(!s.audit)s.audit=[];if(!s.closes)s.closes=[];if(s.lock==null)s.lock='';if(s.lock&&s.lock>cairoToday())s.lock='';
   if(!s.users.some(u=>u.id===s.cur))s.cur=s.users[0].id;
   s.actor=(s.users.find(u=>u.id===s.cur)||{}).name||s.actor;
 }
@@ -32,7 +32,7 @@ function can(p){const u=curUser(),r=S.roles&&S.roles[u.role];return u.role==='ad
 function audit(m){S.audit.push({t:Date.now(),by:S.actor,m});if(S.audit.length>300)S.audit.splice(0,S.audit.length-300);dirty()}
 function deny(p){toast('مش مسموح لدورك ('+curUser().role+'): '+(PERM_NAME[p]||p));return false}
 const roleName=id=>(S.roles[id]||{name:id}).name;
-const dayLocked=()=>false; /* day close was removed: nothing is ever locked by it */
+const dayLocked=d=>!!S.lock&&d<=S.lock;
 function gateAct(el){
   const a=el.dataset.a;let p=ACT_PERM[a];
   if(a==='go'&&el.dataset.t==='config'&&!can('settings')&&!can('users'))return deny('settings');
@@ -40,7 +40,7 @@ function gateAct(el){
   if(a==='upload')p=el.dataset.t==='scan'?'scan':'pickup';
   if(a==='confirm'){const d=curDoc();p=d&&DOC_PERM[d.type]}
   if(p&&!can(p))return deny(p);
-  if(CLOSED_ACTS[a]&&dayLocked(S.date)){toast('اليوم مقفول. لازم المدير يفتحه الأول');return false}
+  if(CLOSED_ACTS[a]&&dayLocked(S.date)){toast('اليوم مقفول. افتحه من شاشة النهارده (زرار "افتح اليوم")');return false}
   return true;
 }
 /* ---------- lock screen ---------- */
@@ -54,8 +54,44 @@ function lockScreen(){
   const i=document.getElementById('lgpin');if(i)i.focus();
 }
 function unlockApp(u){S.cur=u.id;S.actor=u.name;UI.locked=false;UI.lg=null;audit('دخول: '+u.name+' ('+roleName(u.role)+')');const el=document.getElementById('lockscr');if(el)el.remove();_L.rail=_L.main=_L.sheet=null;render()}
+/* ---------- close the day: simple, one button, reversible ---------- */
+function daySummary(date){
+  const pk=S.pickups.filter(p=>p.date===date).map(p=>p.id),ordIn=S.orders.filter(o=>pk.indexOf(o.pk)>=0&&o.st!=='cx'),shipped=S.orders.filter(o=>o.sc&&o.sc.date===date);
+  const k={ret:0,rcv:0,bad:0,wash:0};let ready=0;
+  S.moves.forEach(m=>{if(m.to==='READY'&&m.date<=date)ready+=m.q;if(m.from==='READY'&&m.date<=date)ready-=m.q;if(m.date!==date)return;
+    if(m.type==='RTN'&&m.from==='EXT_CH')k.ret+=m.q;else if(m.type==='RCV')k.rcv+=m.q;else if(m.to==='SCRAP'||m.to==='LOST')k.bad+=m.q;else if(m.type==='FSD'&&m.to==='FACTORY')k.wash+=m.q});
+  return {date,ordIn:ordIn.length,pcsIn:ordIn.reduce((a,o)=>a+o.lines.length,0),shipO:shipped.length,shipP:shipped.reduce((a,o)=>a+o.lines.length,0),ret:k.ret,rcv:k.rcv,bad:k.bad,wash:k.wash,ready};
+}
+function dayNotes(date){
+  const C=ctx(),n=[],open=S.orders.filter(o=>o.st==='open'),bl=Object.keys(C.blocked).length,dr=S.docs.filter(d=>d.status==='draft').length,neg=D.skus.filter(k=>g(k.id,'READY')<0).length;
+  if(open.length-bl>0)n.push({ok:false,t:fmt(open.length-bl)+' أوردر لسه ما اتشحنش. هيفضلوا مفتوحين ويتشحنوا في يوم تاني.'});else n.push({ok:true,t:'كل الأوردرات اللي ينفع تتشحن اتشحنت.'});
+  if(bl)n.push({ok:false,t:fmt(bl)+' أوردر معطل بسبب رصيد ناقص.'});
+  n.push(dr?{ok:false,t:fmt(dr)+' عملية مسودة لسه ما اتأكدتش. مش بتتحسب في أرقام اليوم.'}:{ok:true,t:'مفيش مسودات معلّقة.'});
+  n.push(neg?{ok:false,t:fmt(neg)+' صنف رصيده بالسالب. الأفضل تعمل جرد ليه.'}:{ok:true,t:'مفيش أصناف بالسالب.'});
+  return n;
+}
+const closeBtn=()=>dayLocked(S.date)?'<button class="btn" data-a="closeday">✓ اليوم مقفول</button>':'<button class="btn" data-a="closeday">قفل اليوم</button>';
+function closeSheet(){
+  const date=S.date,locked=dayLocked(date),sm=daySummary(date),last=S.closes.filter(x=>x.status==='closed').slice(-1)[0],todays=S.closes.filter(x=>x.date===date&&x.status==='closed').slice(-1)[0];
+  let h='<p class="muted" style="line-height:1.9;margin:0 0 12px">'+(locked?'<b>اليوم ده مقفول.</b> أرقامه متثبّتة في التقرير تحت، ومفيش حد يقدر يسجّل فيه عمليات جديدة. بكرة بيبدأ يوم جديد مفتوح لوحده.':'قفل اليوم معناه إنك خلّصت شغل النهارده. بيثبّت أرقام اليوم في تقرير، وبيمنع تسجيل أي عملية جديدة بتاريخ اليوم ده بالغلط. تقدر تفتحه تاني بضغطة لو نسيت حاجة.')+'</p>';
+  h+='<div class="kpis" style="margin-bottom:14px">'+kpi('اتطلب',N(sm.pcsIn),sm.ordIn+' أوردر')+kpi('اتشحن',N(sm.shipP),sm.shipO+' أوردر','good')+kpi('رجع من القنوات',N(sm.ret),'قطعة')+kpi('اتسلّم من المصنع',N(sm.rcv),'قطعة')+kpi('هالك ومفقود',N(sm.bad),'قطعة',sm.bad?'warn':'')+kpi('جاهز للبيع',N(sm.ready),'آخر اليوم')+'</div>';
+  if(!locked){
+    h+='<div class="gh">قبل ما تقفل</div><div class="chk" style="margin-bottom:14px">'+dayNotes(date).map(x=>'<div class="'+(x.ok?'ok':'wn')+'"><span>'+esc(x.t)+'</span></div>').join('')+'</div>';
+    h+='<p class="muted" style="font-size:12.5px;margin:0 0 12px">التنبيهات دي للعلم بس، مش بتمنع القفل.</p>';
+    h+=can('close')?'<button class="btn pri" data-a="clconfirm" style="width:100%;justify-content:center;padding:12px">قفل يوم '+esc(dayName(date))+'</button>':'<div class="msg warn">دورك مش بيسمح بقفل اليوم.</div>';
+  }else{
+    h+='<div class="msg good" style="margin-bottom:12px">اتقفل '+(todays?timeOf(todays.at)+' بواسطة '+esc(todays.by):'')+'.</div>';
+    if(can('close')&&last&&last.date===S.lock)h+='<button class="btn" data-a="clopen" style="width:100%;justify-content:center;padding:12px">افتح اليوم تاني</button><p class="muted" style="font-size:12.5px;margin:8px 0 0">بعد ما تفتحه تسجّل اللي ناقص، وبعدين تقفله تاني.</p>';
+  }
+  const hist=S.closes.filter(x=>x.status==='closed'||x.reopened).slice(-7).reverse();
+  if(hist.length)h+='<div class="gh" style="margin-top:20px">آخر الأيام اللي اتقفلت</div><div class="tw"><table class="t-sm"><thead><tr><th>اليوم</th><th class="num">اتطلب</th><th class="num">اتشحن</th><th class="num">رجع</th><th>الحالة</th></tr></thead><tbody>'+hist.map(x=>'<tr><td>'+esc(x.date)+'</td><td class="num">'+fmt(x.snap.pcsIn)+'</td><td class="num">'+fmt(x.snap.shipP)+'</td><td class="num">'+fmt(x.snap.ret)+'</td><td>'+(x.status==='closed'?pill('good','مقفول'):pill('','اتفتح'))+'</td></tr>').join('')+'</tbody></table></div>';
+  return {title:'قفل اليوم',body:h};
+}
 function backupNudge(){const a=bkAge();if(!S.moves.length||!(a==null||a>7)||S.demo)return '';return '<div class="msg warn row sp dcb"><span>'+(a==null?'لسه ما اتاخدتش نسخة احتياطية من البيانات.':'آخر نسخة احتياطية من <b>'+a+'</b> يوم.')+' البيانات متخزنة في المتصفح بس.</span><button class="btn sm" data-a="bkdl">نزّل نسخة دلوقتي</button></div>'}
-function dayCloseBar(){return backupNudge()}
+function dayCloseBar(){
+  const lock=dayLocked(S.date)?'<div class="msg good row sp dcb"><span><b>✓ اليوم مقفول.</b> أرقامه متثبّتة ومفيش تسجيل جديد فيه. بكرة يوم جديد مفتوح لوحده.</span><span class="row" style="gap:8px"><button class="btn sm" data-a="closeday">التقرير</button>'+(can('close')?'<button class="btn sm" data-a="clopen">افتح اليوم</button>':'')+'</span></div>':'';
+  return lock+backupNudge();
+}
 function whoSheet(){
   const u=curUser();
   return {title:'حسابي',body:'<div class="row" style="gap:12px"><span class="lku1 me"><i>'+esc(u.name.slice(0,1))+'</i></span><div><b>'+esc(u.name)+'</b><div class="muted">'+esc(roleName(u.role))+'</div></div></div>'
@@ -98,6 +134,11 @@ function scrapSheet(){
   return {title:'الهالك',body:'<div class="opgrid" style="grid-template-columns:1fr">'+o.map(x=>'<button class="op" data-a="recvgo" data-t="'+x[0]+'"><span class="ic">'+ic(OT[x[0]].ic)+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join('')+'</div>'};
 }
 const ACT_ACC={
+  closeday:()=>{UI.sheet={kind:'close'};render()},
+  clconfirm:()=>{if(!can('close'))return deny('close');if(dayLocked(S.date))return;const sm=daySummary(S.date);
+    S.closes.push({id:'c'+(S.closes.length+1),date:S.date,at:Date.now(),by:S.actor,snap:sm,status:'closed'});S.lock=S.date;audit('قفل يوم '+S.date);dirty();toast('اتقفل اليوم');render()},
+  clopen:()=>{if(!can('close'))return deny('close');const last=S.closes.filter(x=>x.status==='closed').slice(-1)[0];if(!last)return;
+    last.status='reopened';last.reopened={at:Date.now(),by:S.actor};const rest=S.closes.filter(x=>x.status==='closed');S.lock=rest.length?rest[rest.length-1].date:'';audit('فتح يوم '+last.date);dirty();toast('اتفتح اليوم');render()},
   scrapmenu:()=>{UI.sheet={kind:'scrap'};render()},
   bkdl:async()=>{const j=JSON.stringify({app:'femini-stock',v:3,at:Date.now(),state:S,photos:PH}),fn='femini-backup-'+S.date+'.json',blob=new Blob([j],{type:'application/json'}),done=()=>{S.bk=Date.now();audit('نسخة احتياطية ('+Math.round(j.length/1024)+' KB)');dirty();toast('اتنزّلت النسخة الاحتياطية');render()};
     let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null}catch(e){dl=null}
@@ -107,7 +148,7 @@ const ACT_ACC={
   bkyes:()=>{const o=UI._bk;if(!o)return;try{S=o.state;ensureSup(S);ensureCat(S);rebuildCatalog();phClear();Object.keys(o.photos||{}).forEach(k=>{PH[k]=o.photos[k];phPut(k,o.photos[k])});S.date=cairoToday();_bal=null;_ctx=null;UI.bkAsk=null;UI._bk=null;UI.doc=null;UI.sheet=null;UI.vd=null;UI.locked=S.users.some(u=>u.pin);audit('استرجاع نسخة احتياطية');save();toast('اتسترجعت النسخة');render()}catch(e){UI.bkErr='فشل الاسترجاع: '+e.message;render()}},
   vdstep:el=>{const d=addDays(viewDate(),+el.dataset.n);if(d>=S.date)UI.vd=null;else if(d>=firstDay())UI.vd=d;render()},
   recvmenu:()=>{UI.sheet={kind:'recv'};render()},
-  recvgo:el=>{const t=el.dataset.t,p=DOC_PERM[t];if(p&&!can(p)){deny(p);return}if(dayLocked(S.date)){toast('اليوم مقفول. لازم المدير يفتحه الأول');return}UI.sheet=null;go('ops',()=>{newDoc(t)})},
+  recvgo:el=>{const t=el.dataset.t,p=DOC_PERM[t];if(p&&!can(p)){deny(p);return}if(dayLocked(S.date)){toast('اليوم مقفول. افتحه من شاشة النهارده (زرار "افتح اليوم")');return}UI.sheet=null;go('ops',()=>{newDoc(t)})},
   whoami:()=>{UI.sheet={kind:'who'};render()},
   lockapp:()=>{UI.sheet=null;UI.locked=true;UI.lg=null;audit('قفل الشاشة');render()},
   lgpick:el=>{UI.lg=el.dataset.id?{id:el.dataset.id}:null;lockScreen()},

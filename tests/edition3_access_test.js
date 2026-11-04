@@ -1,4 +1,4 @@
-// Users, roles, permissions and PIN lock (day close was removed).
+// Users, roles, permissions, PIN lock and the simple day close.
 const {chromium,devices}=require('playwright');const fs=require('fs');
 const app=process.env.APP||'apps/edition-3-brand-v2/index.html';let pass=0,fail=0;
 const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  -> '+(x||'')))};
@@ -53,22 +53,41 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   ok('wrong PIN is refused',await p.evaluate(()=>/غلط/.test(document.getElementById('lockscr').textContent)&&__F.UI.locked===true));
   await p.fill('#lgpin','1234');await p.click('[data-a=lgdo]');await p.waitForTimeout(250);
   ok('right PIN signs in, actions are logged under that name',await p.evaluate(()=>!document.getElementById('lockscr')&&__F.S().actor==='سارة'&&__F.S().audit.some(a=>/دخول: سارة/.test(a.m))));
-  // day close was removed: no button, no lock, and an old locked state is unlocked on load
-  await p.evaluate(()=>{__F.go('today')});
-  ok('no day-close button or bar anywhere on Today',await p.evaluate(()=>!document.querySelector('[data-a=closeday]')&&!/تقفيل/.test(document.getElementById('main').innerText)));
-  ok('operations are never refused because of a closed day',await p.evaluate(()=>{const F=__F;const d=F.newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'t'};const k=F.D.skus.find(k=>F.g(k.id,'READY')>2);d.lines.push({sku:k.id,q:1});const r=F.build(d);const c=F.confirmDoc(d);return c===true&&!r.checks.some(x=>!x.ok&&/مقفول/.test(x.t))}));
+  // close the day: one button, plain summary, locks the day, one-click reopen
+  await p.evaluate(()=>{const S=__F.S();S.docs=S.docs.filter(d=>d.status!=='draft');__F.go('today')});
+  ok('Today has a clear "قفل اليوم" button',await p.evaluate(()=>{const b=document.querySelector('.top [data-a=closeday]');return !!b&&/قفل اليوم/.test(b.textContent)}));
+  await p.click('.top [data-a=closeday]');await p.waitForSelector('.sheet');
+  const sheet=await p.evaluate(()=>{const t=document.querySelector('.sheet').innerText;return {explain:/قفل اليوم معناه/.test(t),kpis:document.querySelectorAll('.sheet .kpi').length,notes:document.querySelectorAll('.sheet .chk > div').length,btn:!!document.querySelector('.sheet [data-a=clconfirm]'),enabled:!document.querySelector('.sheet [data-a=clconfirm]').disabled}});
+  ok('the close sheet explains itself, shows the day in six numbers, a short checklist, and one enabled button',sheet.explain&&sheet.kpis===6&&sheet.notes>=3&&sheet.btn&&sheet.enabled,JSON.stringify(sheet));
+  const sm=await p.evaluate(()=>{const F=__F,S=F.S(),d=S.date,sh=S.orders.filter(o=>o.sc&&o.sc.date===d);const k=[...document.querySelectorAll('.sheet .kpi')].map(e=>e.querySelector('b').textContent.replace(/,/g,''));return {shown:+k[1],truth:sh.reduce((a,o)=>a+o.lines.length,0)}});
+  ok('the shipped number in the report equals the real pieces shipped today',sm.shown===sm.truth,JSON.stringify(sm));
+  await p.click('[data-a=clconfirm]');await p.waitForTimeout(250);
+  const cl=await p.evaluate(()=>({lock:__F.S().lock,date:__F.S().date,n:__F.S().closes.length,btn:document.querySelector('.top [data-a=closeday]').textContent.trim()}));
+  ok('closing locks today and records who and when; the button now says it is closed',cl.lock===cl.date&&cl.n===1&&/مقفول/.test(cl.btn),JSON.stringify(cl));
+  await p.evaluate(()=>{__F.UI.sheet=null;__F.go('today')});
+  ok('Today shows a plain green line with report and reopen buttons',await p.evaluate(()=>{const b=document.querySelector('.dcb');return !!b&&/اليوم مقفول/.test(b.textContent)&&!!b.querySelector('[data-a=clopen]')&&!!b.querySelector('[data-a=closeday]')}));
+  const locked=await p.evaluate(()=>{const F=__F,d=F.newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'t'};const k=F.D.skus.find(k=>F.g(k.id,'READY')>2);d.lines.push({sku:k.id,q:1});const r=F.build(d),c=F.confirmDoc(d),o=F.S().orders.find(o=>o.st==='open'),cx=F.cxApply({code:o.ref,photo:'x',reason:'t',ret:false}),rv=F.reverseDoc(F.S().docs.find(x=>x.status==='done'&&x.id!==d.id));F.S().docs=F.S().docs.filter(x=>x!==d);return {c,msg:r.checks.filter(x=>!x.ok).map(x=>x.t).join('|'),cx,rv:rv.ok,rvmsg:(rv.err||[])[0]}});
+  ok('a closed day refuses confirmed operations, cancellations and reversals, with a plain message',locked.c===false&&/مقفول/.test(locked.msg)&&locked.cx===false&&locked.rv===false&&/مقفول/.test(locked.rvmsg),JSON.stringify(locked));
+  ok('the receive and scrap menus also refuse on a closed day',await p.evaluate(()=>{__F.ACT.recvmenu();const b=document.querySelector('.sheet [data-a=recvgo][data-t=RCV]');const n=__F.S().docs.length;b.click();return __F.S().docs.length===n&&__F.UI.tab==='today'}));
+  await p.evaluate(()=>{__F.UI.sheet=null;__F.render()});
+  ok('tomorrow starts open by itself (the lock only covers closed dates)',await p.evaluate(()=>{const F=__F;return F.dayLocked(F.S().date)&&!F.dayLocked(new Date(Date.parse(F.S().date)+864e5).toISOString().slice(0,10))}));
+  await p.click('.dcb [data-a=clopen]');await p.waitForTimeout(200);
+  ok('one click reopens the day, no reason asked, and the history keeps it',await p.evaluate(()=>{const S=__F.S();return S.lock===''&&S.closes[0].status==='reopened'&&!__F.dayLocked(S.date)}));
+  ok('after reopening, operations work again',await p.evaluate(()=>{const F=__F,d=F.newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'t'};const k=F.D.skus.find(k=>F.g(k.id,'READY')>2);d.lines.push({sku:k.id,q:1});return F.confirmDoc(d)}));
+  ok('a packer cannot close the day',await (async()=>{await asUser('pack');const r=await p.evaluate(()=>{__F.ACT.closeday();const bt=document.querySelector('.sheet [data-a=clconfirm]');return !bt&&/مش بيسمح/.test(document.querySelector('.sheet').innerText)});await p.evaluate(()=>{__F.UI.sheet=null});return r})());
+  await p.evaluate(()=>{const S=__F.S();S.cur=S.users[0].id;S.actor=S.users[0].name;__F.UI.sheet=null;__F.render()});
   {const c2=await b.newContext({viewport:{width:1280,height:900}});const q=await c2.newPage();await q.goto('file://'+wrap);await q.waitForSelector('.shell');await q.evaluate(()=>__F.ACT.demoload());await q.waitForTimeout(500);
-   await q.evaluate(()=>{const j=JSON.parse(localStorage.getItem('femini-stock-v3'));j.lock='2099-01-01';j.closes=[{date:'2026-11-01',status:'closed'}];localStorage.setItem('femini-stock-v3',JSON.stringify(j))});
+   await q.evaluate(()=>{const j=JSON.parse(localStorage.getItem('femini-stock-v3'));j.lock='2099-01-01';localStorage.setItem('femini-stock-v3',JSON.stringify(j))});
    await q.reload();await q.waitForSelector('.shell');await q.waitForTimeout(300);
-   ok('a state saved earlier with a locked day opens unlocked and operations work',await q.evaluate(()=>{const F=__F;const d=F.newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'t'};const k=F.D.skus.find(k=>F.g(k.id,'READY')>2);d.lines.push({sku:k.id,q:1});return F.S().lock===''&&F.confirmDoc(d)===true}));await c2.close()}
+   ok('a lock dated in the future (bad data) is dropped on load',await q.evaluate(()=>__F.S().lock===''));await c2.close()}
   ok('demo reload keeps the accounts',await p.evaluate(()=>{const n=__F.S().users.length;__F.ACT.demoload();return __F.S().users.length===n&&n>=2&&__F.S().users.some(u=>u.name==='سارة'&&u.pin)}));
   ok('no page errors',errs.length===0,errs.join('|'));
   const m=await open({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,userAgent:devices['iPhone 13'].userAgent});
   await m.p.evaluate(()=>{__F.ACT.lockapp()});await m.p.waitForTimeout(200);
   ok('phone: lock screen fits',await m.p.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth&&!!document.querySelector('#lockscr .lkc')));
   await m.p.evaluate(()=>{const S=__F.S();document.getElementById('lockscr')&&0;__F.ACT.lgpick({dataset:{id:S.users[0].id}});__F.ACT.lgdo()});await m.p.waitForTimeout(200);
-  await m.p.evaluate(()=>{__F.ACT.whoami();});await m.p.waitForTimeout(300);
-  ok('phone: account sheet has no sideways scroll',await m.p.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth));
+  await m.p.evaluate(()=>{__F.ACT.closeday();});await m.p.waitForTimeout(300);
+  ok('phone: close sheet has no sideways scroll',await m.p.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth));
   ok('phone: no errors',m.errs.length===0,m.errs.join('|'));
   console.log(`\n${pass} passed, ${fail} failed`);await b.close();process.exit(fail?1:0);
 })();

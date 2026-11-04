@@ -100,3 +100,5 @@ The redesign copy has a stock heat map (Stock > خريطة): model x size, colou
 Six tabs became four: overview, demand, stock and manufacturing, blocked. Team moved into the overview, stock health into stock and manufacturing, governorates and top SKUs live only in demand. Stock-by-state and the duplicated stock value were dropped from analytics (they live on the Stock page and Today). Today also got a scrap menu (classify, send to factory, receive from factory) and lost its subtitle.
 
 > Day close was removed from Brand 2 (it confused the daily flow). Old saved states that had a locked day open unlocked. Users, roles, PIN lock and backups stay.
+
+> Day close is back in Brand 2 in a simple form: a Today button, one sheet (plain explanation, six numbers, short checklist that never blocks, one button), a green line when closed, one-click reopen, no reason asked. It covers only the current day.
