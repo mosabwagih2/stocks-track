@@ -21,3 +21,5 @@ rep("""+' قطعة</span></button>'}).join('')+'</div>':'<div class="card"><div 
 rep("""<div class="row"><button class="btn sm" data-a="order" data-ref="'+esc(o.ref)+'">تفاصيل</button>""","""<div class="row">'+(u?flBtn('cx:'+o.ref,{name:'cancel-'+o.ref+'.jpg'},'تنزيل الصورة'):'')+'<button class="btn sm" data-a="order" data-ref="'+esc(o.ref)+'">تفاصيل</button>""")
 rep("phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})","s.pfile=f;phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})")
 rep("PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);","PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);if(s.pfile)flPut('cx:'+o.ref,s.pfile);")
+# sheet body is a grid: scroll containers inside it (tables) were squeezed to a few pixels instead of letting the sheet scroll
+rep(".sheet>div.body{padding:18px;",".sheet>div.body>*{min-height:min-content}.sheet>div.body{padding:18px;")
