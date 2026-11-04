@@ -140,7 +140,13 @@ function vAccess(){
   h+='<section class="card"><h2>سجل النشاط <span class="hint">آخر 25</span></h2>'+(S.audit.length?'<div class="tl">'+S.audit.slice(-25).reverse().map(a=>'<div class="tli" style="grid-template-columns:minmax(0,1fr) auto"><span class="tt"><b>'+esc(a.m)+'</b><small class="muted">'+esc(a.by)+'</small></span><span class="muted" style="font-size:12px">'+timeOf(a.t)+'</span></div>').join('')+'</div>':'<div class="muted">لسه مفيش.</div>')+'</section>';
   return h;
 }
+function recvSheet(){
+  const o=[['RCV','استلام من المصنع','قطع جديدة جت بورقة موقّعة','receive'],['FRC','استلام مغسول من المصنع','اللي اتبعت غسيل ورجع (والمرفوض بيتسجل هالك)','internal'],['RTN','استلام مرتجعات','اللي رجع من القنوات: سليم أو محتاج نضافة أو هالك','returns']];
+  return {title:'استلام',body:'<div class="opgrid" style="grid-template-columns:1fr">'+o.map(x=>'<button class="op" data-a="recvgo" data-t="'+x[0]+'" '+(can(x[3])?'':'style="opacity:.55"')+'><span class="ic">'+ic(OT[x[0]].ic)+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join('')+'</div>'};
+}
 const ACT_ACC={
+  recvmenu:()=>{UI.sheet={kind:'recv'};render()},
+  recvgo:el=>{const t=el.dataset.t,p=DOC_PERM[t];if(p&&!can(p)){deny(p);return}if(dayLocked(S.date)){toast('اليوم مقفول. لازم المدير يفتحه الأول');return}UI.sheet=null;go('ops',()=>{newDoc(t)})},
   whoami:()=>{UI.sheet={kind:'who'};render()},
   lockapp:()=>{UI.sheet=null;UI.locked=true;UI.lg=null;audit('قفل الشاشة');render()},
   lgpick:el=>{UI.lg=el.dataset.id?{id:el.dataset.id}:null;lockScreen()},

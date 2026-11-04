@@ -10,6 +10,11 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   await p.evaluate(()=>__F.ACT.demoload());await p.waitForTimeout(400);
   const asUser=(role)=>p.evaluate(r=>{const S=__F.S();let u=S.users.find(x=>x.role===r);if(!u){u={id:'t_'+r,name:'ت_'+r,role:r,pin:null,on:true};S.users.push(u)}S.cur=u.id;S.actor=u.name;__F.render();return u.name},role);
   ok('default: one admin, everything allowed',await p.evaluate(()=>{const S=__F.S();return S.users.length===1&&S.users[0].role==='admin'&&!document.getElementById('lockscr')}));
+  await p.evaluate(()=>{__F.go('today')});
+  ok('Today has a receive button that lists factory receipt, washed receipt and returns',await p.evaluate(()=>{const b=document.querySelector('.top [data-a=recvmenu]');if(!b)return false;b.click();return document.querySelectorAll('.sheet [data-a=recvgo]').length===3}));
+  await p.click('.sheet [data-a=recvgo][data-t=RTN]');await p.waitForTimeout(250);
+  ok('choosing returns opens a new returns document in operations',await p.evaluate(()=>{const F=__F;return F.UI.tab==='ops'&&F.S().docs.some(d=>d.id===F.UI.doc&&d.type==='RTN'&&d.status==='draft')}));
+  await p.evaluate(()=>{const S=__F.S();S.docs=S.docs.filter(d=>d.status!=='draft');__F.go('today')});
   // roles
   await asUser('pack');
   const pk=await p.evaluate(()=>({scan:__F.can('scan'),ret:__F.can('returns'),rcv:__F.can('receive'),cnt:__F.can('count'),set:__F.can('settings'),money:__F.can('money')}));

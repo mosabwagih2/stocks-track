@@ -34,3 +34,6 @@ s=s[:_i]+csa+s[_i:]
 
 rep("window.__F={S:()=>S,","window.__F={can:(p)=>can(p),deny:(p)=>deny(p),curUser:()=>curUser(),closeSnap:(d)=>closeSnap(d),closeChecks:(d)=>closeChecks(d),dayLocked:(d)=>dayLocked(d),INTERNAL,S:()=>S,")
 rep("d.log.push(logE(\x27اتعكست\x27));","")
+
+rep("  }else if(s.kind==='close'){","  }else if(s.kind==='recv'){\n    const r=recvSheet();title=r.title;body=r.body;\n  }else if(s.kind==='close'){")
+rep("""'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button>""","""'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn" data-a="recvmenu">استلام</button>""")

@@ -1478,7 +1478,7 @@ function vToday(){
   const os=S.orders.filter(o=>ids.indexOf(o.pk)>=0&&o.st!=='cx'),done=os.filter(o=>o.st==='done'),open=os.filter(o=>o.st==='open'),blk=open.filter(o=>C.blocked[o.ref]);
   const pc=a=>a.reduce((x,o)=>x+o.lines.length,0),A=actions();
   const emp={};S.orders.forEach(o=>{if(o.st==='done'&&o.sc&&o.sc.date===date){const e=emp[o.sc.by]||(emp[o.sc.by]={o:0,p:0,a:o.sc.at,b:o.sc.at});e.o++;e.p+=o.lines.length;e.a=Math.min(e.a,o.sc.at);e.b=Math.max(e.b,o.sc.at)}});
-  const tools='<span class="pill '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
+  const tools='<span class="pill '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn" data-a="recvmenu">استلام</button><button class="btn pri" data-a="upload" data-t="scan">رفع ملف السكان</button>';
   const older=S.orders.filter(o=>o.st==='open'&&(S.pickups.find(p=>p.id===o.pk)||{date:S.date}).date<S.date),oldDay=older.length?older.map(o=>(S.pickups.find(p=>p.id===o.pk)||{}).date).sort()[0]:'';
   let h=top(isToday?'النهارده':'يوم سابق','الطلب من القنوات، اللي اتشحن فعلًا، واللي معطل.'+(isToday?'':' العرض للقراءة بس. الرفع والتسجيل بيتم على النهارده.'),tools);
   h+='<div class="stack">'+demoBanner()+dayCloseBar();
@@ -1714,6 +1714,8 @@ function sheetHTML(){
   }else if(s.kind==='oos'){
     const Dd=dashData();title='أصناف خلصت وعليها طلب ('+Dd.oos.length+')';
     body=Dd.oos.length?'<div class="msg">دي أصناف رصيدها صفر أو بالسالب وبتتباع (أو عليها طلب مفتوح). "ضايع/أسبوع" = معدل السحب × 7، يعني الطلب اللي هيتأخر لحد ما ترجع.</div><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">طلب مفتوح</th><th class="num">ضايع/أسبوع</th></tr></thead><tbody>'+Dd.oos.slice(0,60).map(x=>'<tr data-a="sku" data-sku="'+x.id+'"><td>'+thumb(SKU.get(x.id).m,26)+' '+sw(SKU.get(x.id).c)+' '+esc(skuName(x.id))+'</td><td class="num">'+N(x.dm)+'</td><td class="num">'+N(Math.round(x.rd*7))+'</td></tr>').join('')+'</tbody></table></div><button class="btn pri" data-a="oosplan">افتح اقتراح التصنيع</button>':'<div class="msg good">مفيش أصناف خلصت وعليها طلب.</div>';
+  }else if(s.kind==='recv'){
+    const r=recvSheet();title=r.title;body=r.body;
   }else if(s.kind==='close'){
     const r=closeSheet();title=r.title;body=r.body;
   }else if(s.kind==='who'){
@@ -2238,7 +2240,13 @@ function vAccess(){
   h+='<section class="card"><h2>سجل النشاط <span class="hint">آخر 25</span></h2>'+(S.audit.length?'<div class="tl">'+S.audit.slice(-25).reverse().map(a=>'<div class="tli" style="grid-template-columns:minmax(0,1fr) auto"><span class="tt"><b>'+esc(a.m)+'</b><small class="muted">'+esc(a.by)+'</small></span><span class="muted" style="font-size:12px">'+timeOf(a.t)+'</span></div>').join('')+'</div>':'<div class="muted">لسه مفيش.</div>')+'</section>';
   return h;
 }
+function recvSheet(){
+  const o=[['RCV','استلام من المصنع','قطع جديدة جت بورقة موقّعة','receive'],['FRC','استلام مغسول من المصنع','اللي اتبعت غسيل ورجع (والمرفوض بيتسجل هالك)','internal'],['RTN','استلام مرتجعات','اللي رجع من القنوات: سليم أو محتاج نضافة أو هالك','returns']];
+  return {title:'استلام',body:'<div class="opgrid" style="grid-template-columns:1fr">'+o.map(x=>'<button class="op" data-a="recvgo" data-t="'+x[0]+'" '+(can(x[3])?'':'style="opacity:.55"')+'><span class="ic">'+ic(OT[x[0]].ic)+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join('')+'</div>'};
+}
 const ACT_ACC={
+  recvmenu:()=>{UI.sheet={kind:'recv'};render()},
+  recvgo:el=>{const t=el.dataset.t,p=DOC_PERM[t];if(p&&!can(p)){deny(p);return}if(dayLocked(S.date)){toast('اليوم مقفول. لازم المدير يفتحه الأول');return}UI.sheet=null;go('ops',()=>{newDoc(t)})},
   whoami:()=>{UI.sheet={kind:'who'};render()},
   lockapp:()=>{UI.sheet=null;UI.locked=true;UI.lg=null;audit('قفل الشاشة');render()},
   lgpick:el=>{UI.lg=el.dataset.id?{id:el.dataset.id}:null;lockScreen()},
