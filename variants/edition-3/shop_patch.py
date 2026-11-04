@@ -1,5 +1,9 @@
 # executed from 5_redesign.py (uses s, rep, ins_before, H)
-ins_before("function vStock(){",(H/'redesign_shop.js').read_text(encoding='utf-8')+"\n")
+import base64 as _b64,io as _io
+from PIL import Image as _Im
+_im=_Im.open(str(H/'assets'/'femini-logo.png')).convert('RGBA');_w=360;_im=_im.resize((_w,int(_im.size[1]*_w/_im.size[0])),_Im.LANCZOS);_bf=_io.BytesIO();_im.quantize(64,method=_Im.FASTOCTREE).save(_bf,'PNG',optimize=True)
+_logo='data:image/png;base64,'+_b64.b64encode(_bf.getvalue()).decode()
+ins_before("function vStock(){",(H/'redesign_shop.js').read_text(encoding='utf-8').replace('__SHP_LOGO__',_logo)+"\n")
 rep("""if(d.type==='SHP')h+='<label class="f">ملاحظة<input value="'+esc(H.note)+'" data-c="h" data-f="note" '+dis+'></label>';""","""if(d.type==='SHP')h+='<label class="f">المحل<input list="shopsl" value="'+esc(H.shop||'')+'" data-c="h" data-f="shop" placeholder="اسم المحل أو الفرع" '+dis+'></label><datalist id="shopsl">'+(S.shops||[]).map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist><label class="f">ملاحظة (اختياري)<input value="'+esc(H.note)+'" data-c="h" data-f="note" '+dis+'></label>';""")
 rep("if(draft&&(d.type==='RCV'||d.type==='SHP'))h+=","if(draft&&d.type==='RCV')h+=")
 rep("""    L.forEach(l=>add(l.sku,num(l.q),'READY','EXT_SHOP','توريد للمحل'+(H.note?' · '+H.note:'')));
