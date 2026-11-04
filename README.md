@@ -106,3 +106,7 @@ Six tabs became four: overview, demand, stock and manufacturing, blocked. Team m
 ## The log, redesigned (Brand 2)
 
 Two views instead of three tabs that looked alike: "اللي حصل" (one feed of operations, cancellations, supply entries and system events, grouped by day, each with person and time, filters by type, person, day and search) and "تتبّع صنف" (one item's full journey with the ready balance after each move). Raw move tables and the separate audit tab are gone; their data lives in these two.
+
+## Returns by waybill (Brand 2)
+
+A return document now works parcel by parcel: scan or type a waybill (or order code), the system finds the original order and lists every piece that was shipped, the employee marks each piece good / cleaning / scrap / missing, and the difference between shipped and received is shown per order. Posting is unchanged (good to ready, cleaning, scrap, missing to lost), plus each order keeps "received x of y". Test: `tests/edition3_returns_test.js`.

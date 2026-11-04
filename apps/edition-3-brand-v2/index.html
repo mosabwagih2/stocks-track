@@ -634,6 +634,18 @@ button,[data-a],.chip,.nav{touch-action:manipulation;-webkit-tap-highlight-color
 @media (max-width:820px){.lgbar,.lgbar>*{min-width:0;max-width:100%}.lgbar .chips.scrollx{margin-inline:0;padding-inline:0}.lgday{padding:12px 12px;min-width:0}.lgl,.lge,.lgd{min-width:0}.lgd{overflow-x:auto}.lgr{gap:10px}.lgd{padding-inline:0}.lgm{grid-template-columns:1fr}}
 </style>
 <style>
+.rpc{padding:16px 18px;margin-bottom:12px}.rpl{display:grid;gap:2px}
+.rpi{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--grid);flex-wrap:wrap}.rpi:first-child{border-top:0}
+.rpn{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.rps button{padding:6px 11px;font-size:12.5px}
+.rps button[aria-pressed=true].rs-r{background:var(--good-bg);color:var(--good);box-shadow:0 0 0 1px var(--good-line)}
+.rps button[aria-pressed=true].rs-d{background:var(--warn-bg);color:var(--warn);box-shadow:0 0 0 1px var(--warn-line)}
+.rps button[aria-pressed=true].rs-x{background:var(--crit-bg);color:var(--crit);box-shadow:0 0 0 1px var(--crit-line)}
+.rps button[aria-pressed=true].rs-m{background:var(--lost-bg);color:var(--lost);box-shadow:0 0 0 1px var(--lost-bg)}
+.rps button:disabled{cursor:default}
+@media (max-width:820px){.rpi{flex-direction:column;align-items:stretch}.rps{display:flex}.rps button{flex:1;text-align:center;min-height:38px}}
+</style>
+<style>
 /* Brand pass: same layout and components; only the logo and color tokens change. Everything derives from the logo purple #43316f. */
 :root{--page:#faf9fd;--surface:#ffffff;--lav:#f3f0f9;--ink:#1f1738;--accent:#43316f;--on-accent:#ffffff;--muted:#655e80;
   --line:#e5e0f0;--line2:#d3cbe6;--grid:#eeeaf6;--rail:#2b2150;--on-rail:#f1edfb;--rail-mute:#b9afdc;--shadow:0 1px 2px rgba(43,33,80,.07),0 10px 26px -14px rgba(43,33,80,.25);
@@ -887,7 +899,7 @@ function newDoc(type,pre){
   pre=pre||{};
   const d={id:'d'+(S.did++),type,status:'draft',no:null,date:S.date,by:S.actor,hdr:{},lines:[],log:[logE('اتفتحت مسودة')]};
   if(type==='RCV')d.hdr={ref:'',declared:''};
-  if(type==='RTN')d.hdr={channel:'VENDOOR',codes:'',counted:false,unk:[],refs:[],sheet:null};
+  if(type==='RTN')d.hdr={channel:'VENDOOR',codes:'',counted:false,unk:[],refs:[],sheet:null,parcels:[],extra:[],msgs:[]};
   if(type==='SHP')d.hdr={note:''};
   if(type==='CLN')d.hdr={from:'READY',to:'DIRTY',reason:''};
   if(type==='FSD')d.hdr={kind:'wash'};
@@ -977,7 +989,7 @@ function confirmDoc(d){if(d.status!=='draft')return false;const _p=DOC_PERM[d.ty
     Object.keys(agg).forEach(k=>supPush(k,agg[k],'auto','سكان '+d.hdr.emp.trim()+': '+nOrd+' أوردر',d.no,d.date));
     const e=d.hdr.emp.trim();if(e&&S.emps.indexOf(e)<0)S.emps.push(e);
   }
-  if(d.type==='RTN')(d.hdr.refs||[]).forEach(ref=>{const o=orderByRef(ref);if(o&&!o.rt)o.rt={doc:d.no,date:d.date}});
+  if(d.type==='RTN')(d.hdr.refs||[]).forEach(ref=>{const o=orderByRef(ref);if(o&&!o.rt)o.rt=rtnOutcome(d,o)});
   d.log.push(logE('اتأكدت وسجّلت '+r.mv.length+' حركة'));dirty();return true;
 }
 function reverseDoc(d){if(!can('reverse')){deny('reverse');return {ok:false,err:['مش مسموح لدورك']}}if(dayLocked(S.date))return {ok:false,err:['اليوم مقفول. افتحه من شاشة النهارده الأول.']}
@@ -1552,7 +1564,7 @@ function stateBar(){
 function ordPill(o){
   const C=ctx();
   if(o.st==='cx')return pill('lost','ملغي',o.cx?('اتلغى '+o.cx.date+' بواسطة '+o.cx.by+(o.cx.reason?'\n'+o.cx.reason:'')):'');
-  if(o.st==='done'&&o.rt)return pill('warn','اتشحن · رجع','رجع في '+o.rt.doc+' ('+o.rt.date+')');
+  if(o.st==='done'&&o.rt)return pill(o.rt.miss?'crit':'warn',o.rt.miss?'اتشحن · رجع ناقص '+o.rt.miss:'اتشحن · رجع','رجع في '+o.rt.doc+' ('+o.rt.date+')'+(o.rt.exp!=null?' · استلمنا '+o.rt.got+' من '+o.rt.exp:''));
   if(o.st==='done')return pill('good','اتشحن · '+esc(o.sc.by),'سجّله '+o.sc.by+' الساعة '+timeOf(o.sc.at)+(o.sc.doc?' · '+o.sc.doc:''));
   if(o.bad&&o.bad.length)return pill('warn','كود غير مربوط');
   const b=C.blocked[o.ref];
@@ -1720,6 +1732,7 @@ function sheetHTML(){
     body+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">في الأوردر</th><th class="num">جاهز دلوقتي</th></tr></thead><tbody>'+Object.keys(cnt).sort(skuSort).map(x=>{const R=g(x,'READY');return '<tr><td>'+thumb(SKU.get(x).m,26)+' '+sw(SKU.get(x).c)+' '+esc(skuName(x))+'</td><td class="num">'+N(cnt[x])+'</td><td class="num">'+(R<cnt[x]&&o.st==='open'?pill('crit',R):N(R))+'</td></tr>'}).join('')+'</tbody></table></div>';
     if(o.bad&&o.bad.length)body+='<div class="msg warn">أصناف مش مربوطة: '+o.bad.map(b=>esc(b[0]+' '+b[2]+' '+b[1])).join('، ')+'</div>';
     if(o.st==='done')body+='<div class="msg good">اتشحن بواسطة '+esc(o.sc.by)+' يوم '+esc(o.sc.date)+' الساعة '+timeOf(o.sc.at)+' · '+esc(o.sc.doc)+'</div>';
+    if(o.rt)body+=rtnOrderBlock(o);
     if(o.st==='open')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">إلغاء الأوردر (بصورة البوليصة)</button></div>';
     if(o.st==='done')body+='<div class="row"><button class="btn danger sm" data-a="cxorder" data-ref="'+esc(o.ref)+'">طلب إلغاء بعد الشحن</button></div>';
     if(o.st==='cx'){const c=o.cx||{};body+='<div class="msg warn">اتلغى '+esc(c.date||'')+(c.by?' بواسطة '+esc(c.by):'')+(c.reason?' · '+esc(c.reason):'')+(c.returned?'<br>القطع رجعت للمخزون ('+esc(c.doc)+')':(c.was==='done'?'<br>كان اتشحن، والقطع ما رجعتش للمخزون.':''))+'</div>'+(PH[cxKey(o.ref)]?'<img src="'+PH[cxKey(o.ref)]+'" alt="صورة البوليصة" style="width:100%;border-radius:10px;border:1px solid var(--line)">':'')+'<div class="row"><button class="btn sm" data-a="uncx" data-ref="'+esc(o.ref)+'">رجّع الأوردر</button></div>'}
@@ -2475,6 +2488,85 @@ const INP_LG={
 };
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target&&e.target.classList&&e.target.classList.contains('lgr')){e.preventDefault();e.target.click()}});
 
+/* ---------- v2: returns by waybill. A parcel = one order, counted piece by piece against what was shipped. ---------- */
+const RT_ST=[['r','سليم','good'],['d','نضافة','warn'],['x','هالك','crit'],['m','ناقص','lost']];
+const rtnFind=c=>{const k=String(c||'').trim().replace(/[#\s]/g,'').toLowerCase();if(!k)return null;return S.orders.find(o=>String(o.ref).toLowerCase()===k||String(o.wb).replace(/\s/g,'')===k)||null};
+function rtnSync(d){
+  const H=d.hdr,P=H.parcels||[],m={},L=sku=>m[sku]||(m[sku]={sku,exp:0,r:0,d:0,x:0});
+  P.forEach(p=>p.items.forEach(it=>{const l=L(it.sku);l.exp++;if(it.st==='r')l.r++;else if(it.st==='d')l.d++;else if(it.st==='x')l.x++}));
+  (H.extra||[]).forEach(e=>{const l=L(e.sku);if(e.st==='r')l.r++;else if(e.st==='d')l.d++;else if(e.st==='x')l.x++});
+  d.lines=Object.keys(m).sort(skuSort).map(k=>m[k]);H.refs=P.map(p=>p.ref);H.counted=P.length>0&&P.every(p=>p.items.every(i=>i.st));
+}
+function rtnAddCodes(d,codes){
+  const H=d.hdr;H.parcels=H.parcels||[];H.msgs=[];let n=0;
+  codes.forEach(c=>{const o=rtnFind(c);
+    if(!o){H.msgs.push({k:'crit',t:'البوليصة '+c+': مش لاقي أوردر بالرقم ده في الأوردرات.'});return}
+    if(H.parcels.some(p=>p.ref===o.ref)){H.msgs.push({k:'warn',t:'البوليصة '+o.wb+' (أوردر '+o.ref+') مضافة هنا بالفعل.'});return}
+    if(o.st==='cx'){H.msgs.push({k:'crit',t:'أوردر '+o.ref+' ملغي. مينفعش يتسجّل مرتجع.'});return}
+    if(o.st==='open'){H.msgs.push({k:'crit',t:'أوردر '+o.ref+' ما اتشحنش لسه (مفيش سكان ليه)، فمفيش حاجة مفروض ترجع.'});return}
+    if(o.rt){H.msgs.push({k:'warn',t:'أوردر '+o.ref+' اتسجّل مرتجع قبل كده في '+o.rt.doc+'.'});return}
+    const other=S.docs.find(x=>x.id!==d.id&&x.type==='RTN'&&x.status==='draft'&&(x.hdr.parcels||[]).some(p=>p.ref===o.ref));
+    if(other){H.msgs.push({k:'warn',t:'أوردر '+o.ref+' موجود في مسودة مرتجع تانية.'});return}
+    if(!H.parcels.length){const pk=S.pickups.find(p=>p.id===o.pk);if(pk&&pk.channel)H.channel=pk.channel}
+    H.parcels.push({id:'p'+(Date.now().toString(36))+H.parcels.length,ref:o.ref,wb:o.wb,items:o.lines.map(sku=>({sku,st:''}))});n++});
+  rtnSync(d);dirty();return n;
+}
+function rtnStats(d){
+  const P=(d.hdr.parcels||[]),it=[].concat(...P.map(p=>p.items)),ex=d.hdr.extra||[];
+  const c=s=>it.filter(i=>i.st===s).length;
+  return {parcels:P.length,exp:it.length,r:c('r'),d:c('d'),x:c('x'),m:c('m'),pending:it.filter(i=>!i.st).length,extra:ex.length,got:c('r')+c('d')+c('x')};
+}
+function rtnOutcome(d,o){
+  const p=((d.hdr||{}).parcels||[]).find(x=>x.ref===o.ref);if(!p)return {doc:d.no,date:d.date};
+  const exp=p.items.length,got=p.items.filter(i=>i.st==='r'||i.st==='d'||i.st==='x').length;return {doc:d.no,date:d.date,exp,got,miss:exp-got};
+}
+function rtnParcels(d,draft){
+  const H=d.hdr,P=H.parcels||[],st=rtnStats(d),dis=draft?'':' disabled';
+  let h='';
+  if(draft){
+    h+='<section class="card"><h2>رقم البوليصة <span class="hint">اسكن أو اكتب، وهتظهر الأوردر وقطعه</span></h2><div class="row" style="gap:8px;flex-wrap:nowrap"><input id="rtnwb" type="text" inputmode="numeric" autocomplete="off" placeholder="رقم البوليصة أو كود الأوردر" aria-label="رقم البوليصة" style="flex:1;min-width:0;font-size:16px"><button class="btn pri" data-a="rtnadd">أضف</button></div>'
+     +'<p class="muted" style="margin:8px 0 0;font-size:12.5px">كل بوليصة = أوردر. السيستم بيعرف إيه اللي اتشحن فيه، وانت بتعدّ اللي رجع قطعة قطعة. تقدر تلزق كذا رقم مرة واحدة.</p>'
+     +((H.msgs||[]).length?'<div style="display:grid;gap:6px;margin-top:10px">'+H.msgs.map(m=>'<div class="msg '+m.k+'">'+esc(m.t)+'</div>').join('')+'</div>':'')+'</section>';
+  }
+  if(P.length||!draft){
+    h+='<div class="strip" style="margin-bottom:14px">'+[si('بوالص',N(st.parcels),''),si('متوقع',N(st.exp),'قطعة'),si('استلمنا',N(st.got),'قطعة · سليم '+st.r+' · نضافة '+st.d+' · هالك '+st.x,'good'),si('ناقص',N(st.m),'قطعة',st.m?'crit':'good'),si(draft?'لسه ما اتعدش':'زيادة',N(draft?st.pending:st.extra),'قطعة',(draft?st.pending:st.extra)?'warn':'')].concat(draft&&st.extra?[si('زيادة',N(st.extra),'قطعة','warn')]:[]).join('')+'</div>';
+    const diff=P.map(p=>{const m=p.items.filter(i=>i.st==='m'),e=0;return m.length?{p,m}:null}).filter(Boolean);
+    if(st.m||st.extra){h+='<div class="msg warn" style="margin-bottom:14px"><b>فيه فرق بين اللي اتشحن واللي استلمناه:</b><ul style="margin:6px 0 0;padding-inline-start:18px">'+diff.map(x=>'<li>أوردر <b class="mono">'+esc(x.p.ref)+'</b> (بوليصة '+esc(x.p.wb)+'): ناقص '+x.m.map(i=>esc(skuName(i.sku))).join('، ')+'</li>').join('')+(st.extra?'<li>زيادة '+st.extra+' قطعة مش من الأوردرات</li>':'')+'</ul><div style="margin-top:6px;font-size:12.5px">الناقص بيتسجّل <b>مفقود</b> ومربوط بالقناة والأوردر.</div></div>'}
+    if(draft&&st.pending)h+='<div class="row" style="margin-bottom:12px"><button class="btn" data-a="rtnallall">كل اللي لسه ما اتعدّش: سليم ('+st.pending+')</button></div>';
+  }
+  h+=P.map(p=>{const o=orderByRef(p.ref),pend=p.items.filter(i=>!i.st).length,mis=p.items.filter(i=>i.st==='m').length,got=p.items.filter(i=>'rdx'.indexOf(i.st)>=0&&i.st).length;
+    const pill_=pend?pill('','لسه ما اتعدّش'):mis?pill('crit','ناقص '+mis+' من '+p.items.length):pill('good','مطابق ✓');
+    return '<section class="card rpc"><div class="row sp" style="margin-bottom:8px"><span><b class="mono">'+esc(p.wb)+'</b> <span class="muted">· أوردر</span> <span class="mono">'+esc(p.ref)+'</span>'+(o&&o.gov?' <span class="muted">· '+esc(o.gov)+'</span>':'')+(o?' <span class="muted">· '+EGP(ordVal(o))+'</span>':'')+'</span><span class="row" style="gap:8px">'+pill_+(draft?'<button class="btn sm ghost" data-a="rtnrm" data-p="'+p.id+'" aria-label="شيل البوليصة">✕</button>':'')+'</span></div>'
+     +'<div class="rpl">'+p.items.map((it,i)=>'<div class="rpi"><span class="rpn">'+thumb(SKU.get(it.sku).m,26)+' '+sw(SKU.get(it.sku).c)+' '+esc(skuName(it.sku))+'</span><span class="seg rps" role="group" aria-label="حالة القطعة">'+RT_ST.map(s=>'<button aria-pressed="'+(it.st===s[0])+'" data-a="rtnst" data-p="'+p.id+'" data-i="'+i+'" data-v="'+s[0]+'" class="rs-'+s[0]+'"'+dis+'>'+s[1]+'</button>').join('')+'</span></div>').join('')+'</div>'
+     +(draft&&pend?'<div style="margin-top:8px"><button class="btn sm" data-a="rtnall" data-p="'+p.id+'">كله سليم</button></div>':'')+'</section>'}).join('');
+  if(draft){
+    h+='<section class="card"><h2>قطع زيادة <span class="hint">اختياري · رجعت من غير ما تكون في الأوردر</span></h2><input data-c="rtnextra" list="rtnsk" placeholder="اكتب الصنف: BR2 احمر L" aria-label="صنف زيادة" style="width:100%;max-width:360px"><datalist id="rtnsk">'+D.skus.map(k=>'<option value="'+esc(skuName(k.id))+'">').join('')+'</datalist>'
+     +((H.extra||[]).length?'<div style="display:grid;gap:6px;margin-top:10px">'+H.extra.map((e,i)=>'<div class="rpi"><span class="rpn">'+sw(SKU.get(e.sku).c)+' '+esc(skuName(e.sku))+'</span><span class="row" style="gap:6px"><span class="seg rps">'+RT_ST.slice(0,3).map(s=>'<button aria-pressed="'+(e.st===s[0])+'" data-a="rtnxst" data-i="'+i+'" data-v="'+s[0]+'" class="rs-'+s[0]+'">'+s[1]+'</button>').join('')+'</span><button class="btn sm ghost" data-a="rtnxrm" data-i="'+i+'" aria-label="شيل">✕</button></span></div>').join('')+'</div>':'')+'</section>';
+  }else if((H.extra||[]).length)h+='<section class="card"><h2>قطع زيادة</h2>'+H.extra.map(e=>'<div>'+esc(skuName(e.sku))+' · '+esc((RT_ST.find(s=>s[0]===e.st)||[])[1]||'')+'</div>').join('')+'</section>';
+  return h;
+}
+function rtnOrderBlock(o){
+  if(!o.rt)return '';const doc=S.docs.find(x=>x.no===o.rt.doc),p=doc&&(doc.hdr.parcels||[]).find(x=>x.ref===o.ref);
+  let h='<div class="msg '+(o.rt.miss?'warn':'good')+'"><b>المرتجع</b> · '+esc(o.rt.doc)+' · '+esc(o.rt.date||'')+(o.rt.exp!=null?'<br>استلمنا '+o.rt.got+' من '+o.rt.exp+' قطعة'+(o.rt.miss?' · ناقص '+o.rt.miss+' (اتسجّل مفقود)':' · مطابق'):'')+'</div>';
+  if(p)h+='<div class="tw"><table class="t-sm"><tbody>'+p.items.map(i=>'<tr><td>'+sw(SKU.get(i.sku).c)+' '+esc(skuName(i.sku))+'</td><td>'+esc((RT_ST.find(s=>s[0]===i.st)||[,'—'])[1])+'</td></tr>').join('')+'</tbody></table></div>';
+  return h;
+}
+const ACT_RT={
+  rtnadd:()=>{const d=curDoc(),i=document.getElementById('rtnwb');if(!d||d.status!=='draft')return;const codes=String(i?i.value:'').split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);if(!codes.length)return;rtnAddCodes(d,codes);render();setTimeout(()=>{const x=document.getElementById('rtnwb');if(x){x.value='';x.focus()}},30)},
+  rtnfill:()=>{const d=curDoc();if(!d||d.status!=='draft')return;rtnAddCodes(d,String(d.hdr.codes||'').split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean));render()},
+  rtnst:el=>{const d=curDoc();if(!d||d.status!=='draft')return;const p=d.hdr.parcels.find(x=>x.id===el.dataset.p);if(!p)return;const it=p.items[+el.dataset.i];it.st=it.st===el.dataset.v?'':el.dataset.v;rtnSync(d);dirty();render()},
+  rtnall:el=>{const d=curDoc(),p=d&&d.hdr.parcels.find(x=>x.id===el.dataset.p);if(!p)return;p.items.forEach(i=>{if(!i.st)i.st='r'});rtnSync(d);dirty();render()},
+  rtnallall:()=>{const d=curDoc();if(!d)return;d.hdr.parcels.forEach(p=>p.items.forEach(i=>{if(!i.st)i.st='r'}));rtnSync(d);dirty();render()},
+  rtnrm:el=>{const d=curDoc();if(!d)return;d.hdr.parcels=d.hdr.parcels.filter(x=>x.id!==el.dataset.p);rtnSync(d);dirty();render()},
+  rtnxst:el=>{const d=curDoc();if(!d)return;const e=d.hdr.extra[+el.dataset.i];if(e)e.st=el.dataset.v;rtnSync(d);dirty();render()},
+  rtnxrm:el=>{const d=curDoc();if(!d)return;d.hdr.extra.splice(+el.dataset.i,1);rtnSync(d);dirty();render()},
+  rtnsheetadd:()=>{const d=curDoc(),H=d.hdr;if(!d||d.status!=='draft'||!H.sheet)return;const codes=[];H.sheet.rows.forEach(r=>{const m=rtnMatch(d,r);if(m.k==='ok')codes.push(m.o.ref)});const n=rtnAddCodes(d,codes);if(n){d.log.push(logE('اتضافت '+n+' بوليصة من شيت الشحن'));toast('اتضاف '+n+' بوليصة. عدّ القطع بقى.')}render()}
+};
+const CHG_RT={
+  rtnextra:el=>{const d=curDoc();if(!d||d.status!=='draft')return;const k=D.skus.find(k=>skuName(k.id)===el.value.trim());el.value='';if(!k)return;d.hdr.extra=d.hdr.extra||[];d.hdr.extra.push({sku:k.id,st:'r'});rtnSync(d);dirty();render()}
+};
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='rtnwb'){e.preventDefault();ACT_RT.rtnadd()}});
+
 function vStock(){
   const s=UI.s;
   const tools='<div class="seg"><button aria-pressed="'+(s.view==='all')+'" data-a="sview" data-v="all">مصفوفات</button><button aria-pressed="'+(s.view==='heat')+'" data-a="sview" data-v="heat">خريطة</button><button aria-pressed="'+(s.view==='list')+'" data-a="sview" data-v="list">قائمة</button><button aria-pressed="'+(s.view==='matrix')+'" data-a="sview" data-v="matrix">موديل واحد</button><button aria-pressed="'+(s.view==='table')+'" data-a="sview" data-v="table">كل الأصناف</button></div>';
@@ -2589,7 +2681,6 @@ function vDoc(d){
   if(draft&&(d.type==='RCV'||d.type==='SHP'))h+='<div style="margin-top:12px"><label class="f">صورة الورقة الموقّعة من الطرفين<input type="file" accept="image/*" data-c="photo"></label>'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="الورقة" style="margin-top:8px;max-height:140px;border-radius:10px;border:1px solid var(--line)">':'')+'</div>';
   h+='</section>';
   if(d.type==='RTN'&&(draft||d.hdr.sheet))h+=rtnSheetCard(d,draft);
-  if(d.type==='RTN'&&draft)h+='<section class="card"><h2>المتوقع رجوعه</h2><label class="f">أكواد الأوردرات المرتجعة (لو الشيت فيه أكواد)<textarea data-c="rtncodes" placeholder="كود في كل سطر">'+esc(H.codes)+'</textarea></label><div class="row" style="margin-top:8px"><button class="btn sm" data-a="rtnfill">املا المتوقع من الأكواد</button><span class="muted" style="font-size:12px">بيدوّر في الأوردرات اللي اتشحنت بس. أو ضيف الأصناف يدويًا تحت.</span></div>'+(H.unk&&H.unk.length?'<div class="msg warn" style="margin-top:8px">أكواد مش متشحنة أو مش موجودة: <span class="mono">'+H.unk.slice(0,10).map(esc).join('، ')+'</span></div>':'')+(H.dupr&&H.dupr.length?'<div class="msg warn" style="margin-top:8px">أوردرات اتسجّلت مرتجع قبل كده ومش هتتضاف تاني: <span class="mono">'+H.dupr.slice(0,10).map(esc).join('، ')+'</span></div>':'')+'</section>';
   if(d.type==='CNT'){
     h+='<section class="card"><h2>الجرد</h2>';
     if(draft&&!H.started){h+='<div class="chips" style="margin-bottom:10px">'+MORDER.map(c=>'<button class="chip" aria-pressed="'+(H.models.indexOf(c)>=0)+'" data-a="cntm" data-m="'+c+'">'+c+'</button>').join('')+'</div><button class="btn pri" data-a="cntstart" '+(H.models.length?'':'disabled')+'>ابدأ الجرد ('+H.models.length+' موديل)</button>'}
@@ -2598,7 +2689,7 @@ function vDoc(d){
     const refs=H.refs;h+='<section class="card"><h2>الأوردرات ('+refs.length+')</h2><div class="tw"><table class="t-sm"><thead><tr><th>الكود</th><th class="num">قطع</th><th>الحالة</th></tr></thead><tbody>'+refs.map(rf=>{const o=orderByRef(rf);return '<tr data-a="order" data-ref="'+esc(rf)+'"><td class="mono">'+esc(rf)+'</td><td class="num">'+N(o?o.lines.length:0)+'</td><td>'+(o?ordPill(o):'')+'</td></tr>'}).join('')+'</tbody></table></div></section>';
     h+='<section class="card"><h2>الخارج حسب الصنف</h2>'+lineTable({lines:scnLines(d),status:'done',type:'SCN',hdr:H,id:d.id})+'</section>';
   }else{
-    h+='<section class="card"><h2>الأصناف</h2>'+(draft?picker(d)+'<div style="height:12px"></div>':'')+lineTable(d)+'</section>';
+    h+=(d.type==='RTN'&&!(d.lines.length&&!(d.hdr.parcels&&d.hdr.parcels.length))?rtnParcels(d,draft):'<section class="card"><h2>الأصناف</h2>'+(draft?picker(d)+'<div style="height:12px"></div>':'')+lineTable(d)+'</section>');
   }
   h+='</div><aside class="sum">';
   if(draft){
@@ -2606,7 +2697,7 @@ function vDoc(d){
     h+='<section class="card lift"><h2>قبل ما تأكّد</h2><div class="chk">'+r.checks.map(c=>'<div class="'+(c.ok?'ok':'no')+'"><span>'+c.t+'</span></div>').join('')+'</div>';
     if(r.err.length)h+='<div class="msg crit" style="margin-top:12px"><b>مش هينفع:</b><ul>'+r.err.slice(0,6).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul></div>';
     if(r.warn.length)h+='<div class="msg warn" style="margin-top:12px"><ul style="margin:0">'+r.warn.slice(0,5).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul></div>';
-    if(d.type==='RTN')h+='<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" data-c="rtncounted" '+(H.counted?'checked':'')+'> خلّصت عدّ كل الأصناف</label>';
+    if(d.type==='RTN'&&!(H.parcels&&H.parcels.length))h+='<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" data-c="rtncounted" '+(H.counted?'checked':'')+'> خلّصت عدّ كل الأصناف</label>';
     if(d.type==='CNT'&&H.started){h+='<div class="row" style="margin-top:12px"><button class="btn sm" data-a="cntreveal">اكشف الفروق</button>';
       if(H.reveal&&r.checks.some(c=>!c.ok&&/اتغيّر/.test(c.t)))h+='<label class="row" style="gap:8px"><input type="checkbox" data-c="cntack" '+(H.ack?'checked':'')+'> موافق</label>';h+='</div>'}
     h+='<div style="margin-top:14px" class="row"><button class="btn pri" data-a="confirm" '+(r.ok?'':'disabled')+'>تأكيد وتسجيل '+fmt(r.mv.reduce((a,m)=>a+m.q,0))+' قطعة</button><button class="btn danger sm" data-a="deldoc">حذف المسودة</button></div></section>';
@@ -3389,7 +3480,7 @@ const INP={
   lq:el=>{UI.led.q=el.value;$('#ledres').innerHTML=ledRows();_L.main=null},
   upemp:el=>{const s=UI.sheet;s.emp=el.value;const b=$('[data-a=scansave]');if(b&&s.res)b.disabled=!(s.res.matched.length&&el.value.trim())}
 };
-Object.assign(ACT,ACT_ACC,ACT_LG);Object.assign(CHG,CHG_LG);Object.assign(INP,INP_LG);ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});Object.assign(CHG,CHG_ACC);Object.assign(INP,INP_ACC);
+Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT);Object.assign(CHG,CHG_LG,CHG_RT);Object.assign(INP,INP_LG);ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});Object.assign(CHG,CHG_ACC);Object.assign(INP,INP_ACC);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   if(el.tagName==='TR'&&e.target.closest('input,[data-nodrill]'))return;
