@@ -1,4 +1,4 @@
-// Users, roles, permissions, PIN lock, day close and reopen.
+// Users, roles, permissions and PIN lock (day close was removed).
 const {chromium,devices}=require('playwright');const fs=require('fs');
 const app=process.env.APP||'apps/edition-3-brand-v2/index.html';let pass=0,fail=0;
 const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  -> '+(x||'')))};
@@ -37,7 +37,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   await asUser('view');
   ok('viewer: sees money, cannot do anything',await p.evaluate(()=>__F.can('money')&&!__F.can('scan')&&!__F.can('close')));
   await asUser('sup');
-  ok('supervisor: operations and closing, no settings or money',await p.evaluate(()=>__F.can('close')&&__F.can('count')&&!__F.can('settings')&&!__F.can('reopen')&&!__F.can('money')));
+  ok('supervisor: operations, no settings or money',await p.evaluate(()=>__F.can('count')&&__F.can('scan')&&!__F.can('settings')&&!__F.can('money')));
   // admin
   await p.evaluate(()=>{const S=__F.S();S.cur=S.users[0].id;S.actor=S.users[0].name;__F.render()});
   // user management
@@ -53,40 +53,22 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   ok('wrong PIN is refused',await p.evaluate(()=>/غلط/.test(document.getElementById('lockscr').textContent)&&__F.UI.locked===true));
   await p.fill('#lgpin','1234');await p.click('[data-a=lgdo]');await p.waitForTimeout(250);
   ok('right PIN signs in, actions are logged under that name',await p.evaluate(()=>!document.getElementById('lockscr')&&__F.S().actor==='سارة'&&__F.S().audit.some(a=>/دخول: سارة/.test(a.m))));
-  // day close
-  const d0=await p.evaluate(()=>({date:__F.S().date,drafts:__F.S().docs.filter(d=>d.status==='draft').length}));
+  // day close was removed: no button, no lock, and an old locked state is unlocked on load
   await p.evaluate(()=>{__F.go('today')});
-  ok('Today shows the close bar',await p.evaluate(()=>!!document.querySelector('.dcb [data-a=closeday]')));
-  await p.click('[data-a=closeday]');await p.waitForSelector('.sheet');
-  ok('close sheet blocks on drafts and negative stock',await p.evaluate(()=>/لازم يتحل/.test(document.querySelector('.sheet').textContent)&&document.querySelector('[data-a=clconfirm]').disabled));
-  ok('blockers can be overridden with a tick (the manager decides), and the override is recorded',await p.evaluate(()=>{const b=document.querySelector('[data-a=clconfirm]');const f=document.querySelector('[data-c=clforce]');return !!f&&b.disabled}));
-  const fixed=await p.evaluate(()=>{const F=__F,S=F.S();S.docs=S.docs.filter(d=>d.status!=='draft');F.D.skus.filter(k=>F.g(k.id,'READY')<0).forEach(k=>S.moves.push({id:S.mid++,t:1,date:S.date,sku:k.id,q:-F.g(k.id,'READY'),from:'EXT_ADJ',to:'READY',type:'CNT',doc:'T',by:'t',note:''}));F.dirty();F.render();return true});
-  await p.waitForTimeout(150);
-  ok('after fixing, reconciliation shows opening + in - out = closing for every state',await p.evaluate(()=>{const s=__F.S();const sn=document.querySelectorAll('.sheet tbody tr');return /مطابقة الرصيد/.test(document.querySelector('.sheet').textContent)&&!document.querySelector('[data-a=clconfirm]').disabled}));
-  const rec=await p.evaluate(()=>{const F=__F,S=F.S();const snap=(()=>{let ok=true;F.INTERNAL?0:0;return ok})();let good=true;['READY','DIRTY','FACTORY','SCRAP','LOST'].forEach(l=>{const cur=F.D.skus.reduce((a,k)=>a+F.g(k.id,l),0);const row=[...document.querySelectorAll('.sheet tbody tr')].find(r=>r.children[0].textContent===({READY:'جاهز للبيع',DIRTY:'هالك نظافة',FACTORY:'عند المصنع',SCRAP:'هالك نهائي',LOST:'مفقود'})[l]);const v=+row.children[4].textContent.replace(/,/g,'');if(v!==cur)good=false});return good});
-  ok('closing balance in the sheet equals the live ledger balance',rec);
-  await p.click('[data-a=clconfirm]');await p.waitForTimeout(250);
-  const cl=await p.evaluate(()=>({lock:__F.S().lock,date:__F.S().date,n:__F.S().closes.length,by:__F.S().closes[0]&&__F.S().closes[0].by}));
-  ok('closing locks the day and records who closed it',cl.lock===cl.date&&cl.n===1&&cl.by==='سارة',JSON.stringify(cl));
-  ok('Today says the day is closed',await p.evaluate(()=>{__F.UI.sheet=null;__F.go('today');return /اليوم مقفول/.test(document.querySelector('.dcb').textContent)}));
-  const afterLock=await p.evaluate(()=>{const F=__F,d=F.newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'t'};const k=F.D.skus.find(k=>F.g(k.id,'READY')>2);d.lines.push({sku:k.id,q:1});const r=F.build(d);const c=F.confirmDoc(d);F.S().docs=F.S().docs.filter(x=>x!==d);return {c,checks:r.checks.filter(x=>!x.ok).map(x=>x.t)}});
-  ok('a closed day refuses new confirmed operations',afterLock.c===false&&afterLock.checks.some(t=>/مقفول/.test(t)),JSON.stringify(afterLock));
-  ok('a closed day refuses scans and cancellations',await p.evaluate(()=>{const F=__F,o=F.S().orders.find(o=>o.st==='open');return F.cxApply({code:o.ref,photo:'x',reason:'t',ret:false})===false}));
-  ok('supervisor cannot reopen (no permission)',await p.evaluate(()=>!__F.can('reopen')));
-  await p.evaluate(()=>{const S=__F.S();S.cur=S.users[0].id;S.actor=S.users[0].name;__F.UI.sheet={kind:'close'};__F.render()});await p.waitForTimeout(150);
-  await p.fill('[data-c=clreason]','عجز اتسجل غلط');await p.waitForTimeout(80);
-  ok('admin sees reopen, and it needs a reason',await p.evaluate(()=>!document.querySelector('[data-a=clreopen]').disabled));
-  await p.click('[data-a=clreopen]');await p.waitForTimeout(200);
-  ok('reopening unlocks, keeps the history and logs the reason',await p.evaluate(()=>{const S=__F.S();return S.lock===''&&S.closes[0].status==='reopened'&&S.audit.some(a=>/عجز اتسجل غلط/.test(a.m))}));
-  ok('after reopening, operations work again',await p.evaluate(()=>{const F=__F,d=F.newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'t'};const k=F.D.skus.find(k=>F.g(k.id,'READY')>2);d.lines.push({sku:k.id,q:1});return F.confirmDoc(d)}));
+  ok('no day-close button or bar anywhere on Today',await p.evaluate(()=>!document.querySelector('[data-a=closeday]')&&!/تقفيل/.test(document.getElementById('main').innerText)));
+  ok('operations are never refused because of a closed day',await p.evaluate(()=>{const F=__F;const d=F.newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'t'};const k=F.D.skus.find(k=>F.g(k.id,'READY')>2);d.lines.push({sku:k.id,q:1});const r=F.build(d);const c=F.confirmDoc(d);return c===true&&!r.checks.some(x=>!x.ok&&/مقفول/.test(x.t))}));
+  {const c2=await b.newContext({viewport:{width:1280,height:900}});const q=await c2.newPage();await q.goto('file://'+wrap);await q.waitForSelector('.shell');await q.evaluate(()=>__F.ACT.demoload());await q.waitForTimeout(500);
+   await q.evaluate(()=>{const j=JSON.parse(localStorage.getItem('femini-stock-v3'));j.lock='2099-01-01';j.closes=[{date:'2026-11-01',status:'closed'}];localStorage.setItem('femini-stock-v3',JSON.stringify(j))});
+   await q.reload();await q.waitForSelector('.shell');await q.waitForTimeout(300);
+   ok('a state saved earlier with a locked day opens unlocked and operations work',await q.evaluate(()=>{const F=__F;const d=F.newDoc('CLN');d.hdr={from:'READY',to:'DIRTY',reason:'t'};const k=F.D.skus.find(k=>F.g(k.id,'READY')>2);d.lines.push({sku:k.id,q:1});return F.S().lock===''&&F.confirmDoc(d)===true}));await c2.close()}
   ok('demo reload keeps the accounts',await p.evaluate(()=>{const n=__F.S().users.length;__F.ACT.demoload();return __F.S().users.length===n&&n>=2&&__F.S().users.some(u=>u.name==='سارة'&&u.pin)}));
   ok('no page errors',errs.length===0,errs.join('|'));
   const m=await open({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,userAgent:devices['iPhone 13'].userAgent});
   await m.p.evaluate(()=>{__F.ACT.lockapp()});await m.p.waitForTimeout(200);
   ok('phone: lock screen fits',await m.p.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth&&!!document.querySelector('#lockscr .lkc')));
   await m.p.evaluate(()=>{const S=__F.S();document.getElementById('lockscr')&&0;__F.ACT.lgpick({dataset:{id:S.users[0].id}});__F.ACT.lgdo()});await m.p.waitForTimeout(200);
-  await m.p.evaluate(()=>{__F.ACT.closeday();});await m.p.waitForTimeout(300);
-  ok('phone: close sheet has no sideways scroll',await m.p.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth));
+  await m.p.evaluate(()=>{__F.ACT.whoami();});await m.p.waitForTimeout(300);
+  ok('phone: account sheet has no sideways scroll',await m.p.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth));
   ok('phone: no errors',m.errs.length===0,m.errs.join('|'));
   console.log(`\n${pass} passed, ${fail} failed`);await b.close();process.exit(fail?1:0);
 })();

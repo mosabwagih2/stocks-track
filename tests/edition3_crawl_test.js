@@ -15,7 +15,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
     ['ledger',`__F.UI.led.type='';__F.go('ledger')`],['files',`__F.go('files')`],
     ...['plan','sup','cost','acc','sys','demo'].map(t=>['config-'+t,`__F.UI.cfgTab='${t}';__F.go('config')`])
   ];
-  const SHEETS=[`__F.ACT.closeday()`,`__F.ACT.recvmenu()`,`__F.ACT.whoami()`,`__F.ACT.upload({dataset:{t:'pickup'}})`,`__F.ACT.upload({dataset:{t:'scan'}})`,`__F.ACT.cxopen({dataset:{}})`,`__F.ACT.more()`];
+  const SHEETS=[`__F.ACT.recvmenu()`,`__F.ACT.whoami()`,`__F.ACT.upload({dataset:{t:'pickup'}})`,`__F.ACT.upload({dataset:{t:'scan'}})`,`__F.ACT.cxopen({dataset:{}})`,`__F.ACT.more()`];
   const OPS=['RCV','RTN','SHP','CLN','FSD','FRC','CNT','LOS'];
   const scan=async(p,label)=>{
     const bad=[];

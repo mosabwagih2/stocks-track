@@ -14,7 +14,7 @@ rep("function render(){","function render(){if(UI.locked==null)UI.locked=S.users
 rep("+NAV.map(n=>'<button class=\"nav'","+navList().map(n=>'<button class=\"nav'")
 rep("NAV.filter(n=>SEC[n[0]]).map(n=>'<button class=\"op mini\"","navList().filter(n=>SEC[n[0]]).map(n=>'<button class=\"op mini\"")
 rep("<span>'+esc(S.actor)+' · نسخة تجريبية</span>","<button class=\"tbtn\" data-a=\"whoami\">👤 '+esc(S.actor)+' · '+esc(roleName(curUser().role))+'</button>")
-rep("  }else if(s.kind==='hcell'){","  }else if(s.kind==='close'){\n    const r=closeSheet();title=r.title;body=r.body;\n  }else if(s.kind==='who'){\n    const r=whoSheet();title=r.title;body=r.body;\n  }else if(s.kind==='hcell'){")
+rep("  }else if(s.kind==='hcell'){","  }else if(s.kind==='who'){\n    const r=whoSheet();title=r.title;body=r.body;\n  }else if(s.kind==='hcell'){")
 rep("['sys','المستخدمين والبيانات',['المستخدمين','البيانات']],['demo','داتا تجريبية وجولة',[]]]","['acc','المستخدمين والصلاحيات',[]],['sys','البيانات',['البيانات']],['demo','داتا تجريبية وجولة',[]]]")
 rep("(tab[0]==='demo'?vDemo():'')","(tab[0]==='demo'?vDemo():tab[0]==='acc'?vAccess():'')")
 csa="""<style>
@@ -32,10 +32,10 @@ csa="""<style>
 _i=s.index('<div id="app"></div>')
 s=s[:_i]+csa+s[_i:]
 
-rep("window.__F={S:()=>S,","window.__F={can:(p)=>can(p),deny:(p)=>deny(p),curUser:()=>curUser(),closeSnap:(d)=>closeSnap(d),closeChecks:(d)=>closeChecks(d),dayLocked:(d)=>dayLocked(d),INTERNAL,S:()=>S,")
+rep("window.__F={S:()=>S,","window.__F={can:(p)=>can(p),deny:(p)=>deny(p),curUser:()=>curUser(),dayLocked:(d)=>dayLocked(d),INTERNAL,S:()=>S,")
 rep("d.log.push(logE(\x27اتعكست\x27));","")
 
-rep("  }else if(s.kind==='close'){","  }else if(s.kind==='recv'){\n    const r=recvSheet();title=r.title;body=r.body;\n  }else if(s.kind==='close'){")
+rep("  }else if(s.kind==='who'){","  }else if(s.kind==='recv'){\n    const r=recvSheet();title=r.title;body=r.body;\n  }else if(s.kind==='who'){")
 rep("""'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button>""","""'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+'<button class="btn" data-a="upload" data-t="pickup">رفع بيك أب</button><button class="btn" data-a="recvmenu">استلام</button>""")
 
 rep("""const tools='<span class="pill '+(isToday?'good':'warn')+'">'+(isToday?'النهارده · ':'بتعرض يوم سابق · ')+esc(dayName(date))+'</span>'+(isToday?'':'<button class="btn sm" data-a="vdtoday">رجوع للنهارده</button>')+""","""const tools=dateNav(date,isToday)+""")

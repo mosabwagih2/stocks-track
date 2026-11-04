@@ -1833,8 +1833,6 @@ function sheetHTML(){
     const r=scrapSheet();title=r.title;body=r.body;
   }else if(s.kind==='recv'){
     const r=recvSheet();title=r.title;body=r.body;
-  }else if(s.kind==='close'){
-    const r=closeSheet();title=r.title;body=r.body;
   }else if(s.kind==='who'){
     const r=whoSheet();title=r.title;body=r.body;
   }else if(s.kind==='hcell'){
@@ -2228,11 +2226,11 @@ function trendChart(A){
    Honest scope: everything here runs in the browser, so it keeps honest people honest and builds the audit trail.
    Real enforcement needs a server (the Supabase version). */
 let STALE=false;
-const PERMS=[['money','يشوف الفلوس والتكلفة'],['scan','شحن بالسكان'],['returns','استلام المرتجع'],['receive','استلام من المصنع'],['internal','هالك / غسيل / مفقود'],['ship','توريد للمحل'],['count','الجرد'],['pickup','رفع بيك أب'],['cancel','إلغاء أوردر'],['reverse','عكس عملية'],['catalog','تعديل الأصناف والموديلات'],['supplies','المستلزمات'],['close','تقفيل اليوم'],['reopen','فتح يوم مقفول'],['settings','الإعدادات'],['users','المستخدمين والصلاحيات']];
+const PERMS=[['money','يشوف الفلوس والتكلفة'],['scan','شحن بالسكان'],['returns','استلام المرتجع'],['receive','استلام من المصنع'],['internal','هالك / غسيل / مفقود'],['ship','توريد للمحل'],['count','الجرد'],['pickup','رفع بيك أب'],['cancel','إلغاء أوردر'],['reverse','عكس عملية'],['catalog','تعديل الأصناف والموديلات'],['supplies','المستلزمات'],['settings','الإعدادات'],['users','المستخدمين والصلاحيات']];
 const PERM_NAME=Object.fromEntries(PERMS);
 const ROLE_DEFAULT={
   admin:{name:'مدير',perms:PERMS.map(p=>p[0])},
-  sup:{name:'مشرف مخزن',perms:['scan','returns','receive','internal','ship','count','pickup','cancel','reverse','catalog','supplies','close']},
+  sup:{name:'مشرف مخزن',perms:['scan','returns','receive','internal','ship','count','pickup','cancel','reverse','catalog','supplies']},
   pack:{name:'موظف شحن',perms:['scan','returns']},
   view:{name:'مراجعة (قراءة فقط)',perms:['money']}
 };
@@ -2241,7 +2239,7 @@ const ACT_PERM={pksave:'pickup',pksave2:'pickup',pkdel:'pickup',pkdel2:'pickup',
   reset:'settings',reset2:'settings',demoask:'settings',demoload:'settings',demoreset:'settings',
   skuadd:'catalog',catedit:'catalog',catsave:'catalog',skusave:'catalog',modelrm:'catalog',modelarch:'catalog',modelarch2:'catalog',modelrestore:'catalog',skuarch:'catalog',skuarch2:'catalog',skurestore:'catalog',skuop:'catalog',
   supsave:'supplies',supnew:'supplies',supconf:'supplies',suparch:'supplies',suparch2:'supplies',supundo:'supplies',supundo2:'supplies',undoentry:'supplies',supact:'supplies',
-  usadd:'users',bkdl:'settings',bkyes:'settings',usdel:'users',clreopen:'reopen'};
+  usadd:'users',bkdl:'settings',bkyes:'settings',usdel:'users'};
 const CLOSED_ACTS={pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
 const CHG_PERM={bkfile:'settings',cost:'settings',st:'settings',actor:'settings'};
 function cyrb(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)}
@@ -2250,7 +2248,7 @@ const navList=()=>NAV.filter(n=>n[0]!=='config'||can('settings')||can('users'));
 function ensureAcc(s){
   if(!s.roles){s.roles={};Object.keys(ROLE_DEFAULT).forEach(k=>s.roles[k]={name:ROLE_DEFAULT[k].name,perms:ROLE_DEFAULT[k].perms.slice()})}
   if(!s.users||!s.users.length){s.users=[{id:'u1',name:s.actor||'مصعب',role:'admin',pin:null,on:true}];s.cur='u1'}
-  if(!s.audit)s.audit=[];if(!s.closes)s.closes=[];if(s.lock==null)s.lock='';
+  if(!s.audit)s.audit=[];if(!s.closes)s.closes=[];s.lock='';
   if(!s.users.some(u=>u.id===s.cur))s.cur=s.users[0].id;
   s.actor=(s.users.find(u=>u.id===s.cur)||{}).name||s.actor;
 }
@@ -2259,7 +2257,7 @@ function can(p){const u=curUser(),r=S.roles&&S.roles[u.role];return u.role==='ad
 function audit(m){S.audit.push({t:Date.now(),by:S.actor,m});if(S.audit.length>300)S.audit.splice(0,S.audit.length-300);dirty()}
 function deny(p){toast('مش مسموح لدورك ('+curUser().role+'): '+(PERM_NAME[p]||p));return false}
 const roleName=id=>(S.roles[id]||{name:id}).name;
-const dayLocked=d=>!!S.lock&&d<=S.lock;
+const dayLocked=()=>false; /* day close was removed: nothing is ever locked by it */
 function gateAct(el){
   const a=el.dataset.a;let p=ACT_PERM[a];
   if(a==='go'&&el.dataset.t==='config'&&!can('settings')&&!can('users'))return deny('settings');
@@ -2281,74 +2279,8 @@ function lockScreen(){
   const i=document.getElementById('lgpin');if(i)i.focus();
 }
 function unlockApp(u){S.cur=u.id;S.actor=u.name;UI.locked=false;UI.lg=null;audit('دخول: '+u.name+' ('+roleName(u.role)+')');const el=document.getElementById('lockscr');if(el)el.remove();_L.rail=_L.main=_L.sheet=null;render()}
-/* ---------- day close ---------- */
-function closeSnap(date){
-  const L={};INTERNAL.forEach(l=>L[l]={open:0,in:0,out:0});
-  const k={ship:0,ret:{r:0,d:0,x:0,lost:0},rcv:0,shop:0,adjP:0,adjM:0,off:0,wash:0,back:0,rej:0,cxBack:0};
-  S.moves.forEach(m=>{
-    INTERNAL.forEach(l=>{if(m.to===l){if(m.date<date)L[l].open+=m.q;else if(m.date===date)L[l].in+=m.q}if(m.from===l){if(m.date<date)L[l].open-=m.q;else if(m.date===date)L[l].out+=m.q}});
-    if(m.date!==date)return;
-    if(m.type==='SCN'){if(m.to==='EXT_CH')k.ship+=m.q;else if(m.from==='EXT_CH')k.ship-=m.q}
-    else if(m.type==='RTN'){if(m.to==='READY')k.ret.r+=m.q;else if(m.to==='DIRTY')k.ret.d+=m.q;else if(m.to==='SCRAP')k.ret.x+=m.q;else if(m.to==='LOST')k.ret.lost+=m.q}
-    else if(m.type==='RCV')k.rcv+=m.q;else if(m.type==='SHP')k.shop+=m.q;
-    else if(m.type==='CNT'){if(m.from==='EXT_ADJ')k.adjP+=m.q;else if(m.to==='EXT_ADJ')k.adjM+=m.q}
-    else if(m.type==='LOS'&&m.to==='EXT_OFF')k.off+=m.q;
-    else if(m.type==='FSD'&&m.to==='FACTORY')k.wash+=m.q;
-    else if(m.type==='FRC'){if(m.to==='READY')k.back+=m.q;else if(m.to==='SCRAP')k.rej+=m.q}
-    else if(m.type==='CXL')k.cxBack+=m.q;
-  });
-  INTERNAL.forEach(l=>L[l].close=L[l].open+L[l].in-L[l].out);
-  const pk=S.pickups.filter(p=>p.date===date),ids=pk.map(p=>p.id),ordIn=S.orders.filter(o=>ids.indexOf(o.pk)>=0),shipped=S.orders.filter(o=>o.sc&&o.sc.date===date);
-  const pkD=Object.fromEntries(S.pickups.map(p=>[p.id,p.date])),waiting=S.orders.filter(o=>o.st==='open'&&pkD[o.pk]<=date).length;
-  const sup={};S.sup.items.forEach(i=>{sup[i.id]=S.sup.log.reduce((a,e)=>a+(e.item===i.id&&e.date<=date?e.q:0),0)});
-  const cx=S.orders.filter(o=>o.cx&&o.cx.date===date).length,docs=S.docs.filter(d=>d.status==='done'&&d.date===date).length;
-  return {date,L,k,ordIn:ordIn.length,pcsIn:ordIn.reduce((a,o)=>a+o.lines.length,0),shipO:shipped.length,shipP:shipped.reduce((a,o)=>a+o.lines.length,0),waiting,sup,cx,docs,pickups:pk.length};
-}
-function closeChecks(date){
-  const c=[],snap=closeSnap(date),C=ctx();
-  const dr=S.docs.filter(d=>d.status==='draft'&&d.date<=date).length;
-  if(dr)c.push({lv:'block',t:dr+' عملية مسودة لسه ما اتأكدتش. أكّدها أو احذفها.'});
-  if(date===S.date){const neg=D.skus.filter(k=>g(k.id,'READY')<0);if(neg.length)c.push({lv:'block',t:neg.length+' صنف رصيده بالسالب ('+neg.slice(0,3).map(k=>skuName(k.id)).join('، ')+'). اعمل جرد وصحّحه.'})}
-  if(date>S.date)c.push({lv:'block',t:'مينفعش تقفّل يوم في المستقبل.'});
-  if(snap.waiting&&date===S.date){const bl=Object.keys(C.blocked).length;if(snap.waiting-bl>0)c.push({lv:'warn',t:(snap.waiting-bl)+' أوردر لسه مستني السكان.'});if(bl)c.push({lv:'warn',t:bl+' أوردر معطل بسبب الرصيد.'})}
-  const bad=S.orders.filter(o=>o.st==='open'&&o.bad&&o.bad.length).length;if(bad)c.push({lv:'warn',t:bad+' أوردر فيه كود غير مربوط.'});
-  const sl=S.sup.items.filter(s=>!s.arch&&supStatus(s)!=='good');if(sl.length)c.push({lv:'warn',t:'مستلزمات قربت تخلص: '+sl.map(s=>s.name).join('، ')+'.'});
-  if(!snap.docs&&!snap.shipO&&!snap.pickups)c.push({lv:'warn',t:'مفيش أي حركة في اليوم ده.'});
-  return {snap,list:c,blockers:c.filter(x=>x.lv==='block').length};
-}
-function unlockedDays(){const out=[];for(let i=0;i<8;i++){const d=addDays(S.date,-i);if(dayLocked(d))break;out.push(d)}return out.reverse()}
-function closeSheet(){
-  const days=unlockedDays(),cl=UI.cl||(UI.cl={}),sel=cl.date&&days.indexOf(cl.date)>=0?cl.date:days[days.length-1];
-  const last=S.closes.filter(x=>x.status==='closed').slice(-1)[0];
-  let h='';
-  if(!can('close'))h+='<div class="msg warn">دورك مش بيسمح بتقفيل اليوم. تقدر تشوف بس.</div>';
-  if(sel){
-    const ck=closeChecks(sel),s=ck.snap,sum=a=>a.reduce((x,y)=>x+y,0);
-    h+='<div class="chips" style="margin-bottom:12px">'+days.map(d=>'<button class="chip" aria-pressed="'+(d===sel)+'" data-a="clpick" data-d="'+d+'">'+(d===S.date?'النهارده':d.slice(5))+'</button>').join('')+'</div>';
-    if(days.length>1&&sel!==days[0])h+='<div class="msg info" style="margin-bottom:10px">تقفيل '+sel+' هيقفل كمان '+(days.indexOf(sel))+' يوم قبله.</div>';
-    h+='<div class="kpis" style="margin-bottom:12px">'+kpi('اتطلب',N(s.pcsIn),s.ordIn+' أوردر')+kpi('اتشحن',N(s.shipP),s.shipO+' أوردر','good')+kpi('مرتجع داخل',N(s.k.ret.r+s.k.ret.d+s.k.ret.x+s.k.ret.lost),'سليم '+s.k.ret.r+' · نضافة '+s.k.ret.d)+kpi('مستني السكان',N(s.waiting),'في آخر اليوم',s.waiting?'warn':'')+'</div>';
-    h+='<div class="gh">المراجعة</div><div class="chk" style="margin-bottom:12px">'+(ck.list.length?ck.list.map(x=>'<div class="'+(x.lv==='block'?'no':'wn')+'"><span>'+(x.lv==='block'?'<b>لازم يتحل:</b> ':'تنبيه: ')+esc(x.t)+'</span></div>').join(''):'<div class="ok"><span>مفيش ملاحظات.</span></div>')+'</div>';
-    h+='<div class="gh">مطابقة الرصيد: أول اليوم + دخل − خرج = آخر اليوم</div><div class="tw" style="margin-bottom:12px"><table class="t-sm"><thead><tr><th>الحالة</th><th class="num">أول اليوم</th><th class="num">دخل</th><th class="num">خرج</th><th class="num">آخر اليوم</th></tr></thead><tbody>'+INTERNAL.map(l=>{const r=s.L[l];return '<tr><td>'+LOC[l]+'</td><td class="num">'+fmt(r.open)+'</td><td class="num">'+(r.in?'+'+fmt(r.in):'·')+'</td><td class="num">'+(r.out?'−'+fmt(r.out):'·')+'</td><td class="num"><b class="n">'+fmt(r.open+r.in-r.out)+'</b></td></tr>'}).join('')+'<tr><td><b>الإجمالي</b></td><td class="num">'+fmt(sum(INTERNAL.map(l=>s.L[l].open)))+'</td><td class="num">'+fmt(sum(INTERNAL.map(l=>s.L[l].in)))+'</td><td class="num">'+fmt(sum(INTERNAL.map(l=>s.L[l].out)))+'</td><td class="num"><b class="n">'+fmt(sum(INTERNAL.map(l=>s.L[l].open+s.L[l].in-s.L[l].out)))+'</b></td></tr></tbody></table></div>';
-    h+='<label class="f">ملاحظة التقفيل (اختياري)<input data-c="clnote" value="'+esc(cl.note||'')+'" placeholder="مثلًا: عجز في BR2 احمر L اتسجل في الجرد"></label>';
-    if(ck.blockers)h+='<label class="row" style="gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" data-c="clforce" '+(cl.force?'checked':'')+' aria-label="قفّل برغم الملاحظات"> قفّل برغم الملاحظات اللي فوق (بتتسجل مع التقفيل)</label>';
-    h+='<div class="row" style="margin-top:12px"><button class="btn pri" data-a="clconfirm" '+(((ck.blockers&&!cl.force)||!can('close'))?'disabled':'')+'>قفّل '+(sel===S.date?'النهارده':sel)+'</button><span class="muted" style="font-size:12.5px">بعد التقفيل مفيش عملية بتتسجل في اليوم ده أو قبله إلا بعد ما المدير يفتحه.</span></div>';
-  }else{
-    h+='<div class="msg good">كل الأيام لحد النهارده مقفولة'+(last?' (آخر تقفيل: '+esc(last.date)+' بواسطة '+esc(last.by)+')':'')+'.</div>';
-  }
-  const hist=S.closes.slice().reverse().slice(0,12);
-  h+='<div class="gh" style="margin-top:18px">سجل التقفيلات</div>'+(hist.length?'<div class="tw"><table class="t-sm"><thead><tr><th>اليوم</th><th>بواسطة</th><th class="num">اتشحن</th><th>الحالة</th></tr></thead><tbody>'+hist.map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.by)+' <span class="muted">· '+timeOf(x.at)+'</span></td><td class="num">'+fmt(x.snap.shipP)+'</td><td>'+(x.status==='closed'?pill('good','مقفول'):pill('warn','اتفتح: '+esc((x.reopened||{}).reason||'')))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="muted">لسه مفيش تقفيلات.</div>');
-  if(last&&can('reopen'))h+='<div class="msg warn" style="margin-top:14px"><b>فتح آخر يوم مقفول ('+esc(last.date)+')</b><label class="f" style="margin-top:8px">السبب (بيتسجل)<input data-c="clreason" value="'+esc(cl.reason||'')+'"></label><div style="margin-top:8px"><button class="btn danger" data-a="clreopen" '+((cl.reason||'').trim()?'':'disabled')+'>افتح اليوم</button></div></div>';
-  return {title:'تقفيل اليوم',body:h};
-}
 function backupNudge(){const a=bkAge();if(!S.moves.length||!(a==null||a>7)||S.demo)return '';return '<div class="msg warn row sp dcb"><span>'+(a==null?'لسه ما اتاخدتش نسخة احتياطية من البيانات.':'آخر نسخة احتياطية من <b>'+a+'</b> يوم.')+' البيانات متخزنة في المتصفح بس.</span><button class="btn sm" data-a="bkdl">نزّل نسخة دلوقتي</button></div>'}
-function dayCloseBar(){return dayCloseBar0()+backupNudge()}
-function dayCloseBar0(){
-  if(!S.closes)return '';
-  const un=unlockedDays(),past=un.filter(d=>d<S.date&&(S.pickups.some(p=>p.date===d)||S.moves.some(m=>m.date===d)));
-  if(dayLocked(S.date)){const c=S.closes.filter(x=>x.status==='closed').slice(-1)[0];return '<div class="msg good row sp dcb"><span><b>اليوم مقفول</b>'+(c?' · '+esc(c.by)+' '+timeOf(c.at):'')+'. العمليات متوقفة لحد ما المدير يفتحه.</span><button class="btn sm" data-a="closeday">تفاصيل التقفيل</button></div>'}
-  if(past.length)return '<div class="msg warn row sp dcb"><span>فيه <b>'+past.length+'</b> '+(past.length>1?'أيام':'يوم')+' فاتوا من غير تقفيل.</span><button class="btn sm" data-a="closeday">قفّلهم</button></div>';
-  return '<div class="row sp dcb"><span class="muted" style="font-size:12.5px">'+(S.lock?'آخر تقفيل: '+esc(S.lock):'لسه مفيش تقفيل')+'</span><button class="btn sm" data-a="closeday">تقفيل اليوم</button></div>';
-}
+function dayCloseBar(){return backupNudge()}
 function whoSheet(){
   const u=curUser();
   return {title:'حسابي',body:'<div class="row" style="gap:12px"><span class="lku1 me"><i>'+esc(u.name.slice(0,1))+'</i></span><div><b>'+esc(u.name)+'</b><div class="muted">'+esc(roleName(u.role))+'</div></div></div>'
@@ -2405,18 +2337,6 @@ const ACT_ACC={
   lockapp:()=>{UI.sheet=null;UI.locked=true;UI.lg=null;audit('قفل الشاشة');render()},
   lgpick:el=>{UI.lg=el.dataset.id?{id:el.dataset.id}:null;lockScreen()},
   lgdo:()=>{const u=S.users.find(x=>x.id===(UI.lg||{}).id);if(!u)return;const i=document.getElementById('lgpin');if(u.pin&&(!i||pinHash(i.value)!==u.pin)){UI.lg.err='الرقم السري غلط';lockScreen();audit('محاولة دخول فاشلة: '+u.name);return}unlockApp(u)},
-  closeday:()=>{UI.sheet={kind:'close'};UI.cl=UI.cl||{};render()},
-  clpick:el=>{UI.cl.date=el.dataset.d;render()},
-  clconfirm:()=>{
-    if(!can('close'))return deny('close');const days=unlockedDays(),sel=(UI.cl&&UI.cl.date&&days.indexOf(UI.cl.date)>=0)?UI.cl.date:days[days.length-1];if(!sel)return;
-    const ck=closeChecks(sel);if(ck.blockers&&!UI.cl.force){toast('علّم "قفّل برغم الملاحظات" لو عايز تكمّل');return}
-    S.closes.push({id:'c'+(S.closes.length+1),date:sel,at:Date.now(),by:S.actor,note:((UI.cl.note||'').trim()+(ck.blockers?' · اتقفل برغم '+ck.blockers+' ملاحظة':'')).trim(),snap:{shipP:ck.snap.shipP,shipO:ck.snap.shipO,pcsIn:ck.snap.pcsIn,ordIn:ck.snap.ordIn,L:ck.snap.L,k:ck.snap.k,waiting:ck.snap.waiting,sup:ck.snap.sup},status:'closed'});
-    S.lock=sel;audit('تقفيل '+sel+(UI.cl.note?' · '+UI.cl.note:'')+(ck.blockers?' · برغم '+ck.blockers+' ملاحظة':''));UI.cl={};dirty();toast('اتقفل '+(sel===S.date?'النهارده':sel));render()},
-  clreopen:()=>{
-    if(!can('reopen'))return deny('reopen');const reason=((UI.cl||{}).reason||'').trim();if(!reason)return;
-    const last=S.closes.filter(x=>x.status==='closed').slice(-1)[0];if(!last)return;
-    last.status='reopened';last.reopened={at:Date.now(),by:S.actor,reason};const rest=S.closes.filter(x=>x.status==='closed');S.lock=rest.length?rest[rest.length-1].date:'';
-    audit('فتح يوم '+last.date+' · '+reason);UI.cl={};dirty();toast('اتفتح يوم '+last.date);render()},
   mypin:()=>{const i=document.getElementById('mypin'),v=i?i.value.trim():'';if(v.length<4){toast('الرقم السري 4 أرقام على الأقل');return}curUser().pin=pinHash(v);audit('تغيير رقم سري: '+S.actor);dirty();toast('اتحفظ');render()},
   mypinoff:()=>{curUser().pin=null;audit('إلغاء رقم سري: '+S.actor);dirty();render()},
   usadd:()=>{const n=(document.getElementById('nu_name').value||'').trim(),r=document.getElementById('nu_role').value,p=(document.getElementById('nu_pin').value||'').trim();
@@ -2425,7 +2345,6 @@ const ACT_ACC={
   usdel:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');return}S.users=S.users.filter(x=>x!==u);audit('حذف مستخدم: '+u.name);dirty();render()}
 };
 const CHG_ACC={
-  clforce:el=>{UI.cl=UI.cl||{};UI.cl.force=el.checked;render()},
   bkfile:el=>{const f=el.files&&el.files[0];el.value='';if(!f)return;UI.bkErr=null;const r=new FileReader();r.onerror=()=>{UI.bkErr='مقدرتش أقرأ الملف.';render()};
     r.onload=()=>{try{const o=JSON.parse(r.result),st=o&&o.state;if(!o||o.app!=='femini-stock'||!st||st.v!==3||!Array.isArray(st.moves)||!Array.isArray(st.orders)||!Array.isArray(st.docs))throw new Error('الملف ده مش نسخة احتياطية من السيستم');
       const n=st.moves.length;UI.bkAsk={name:f.name,text:'فيها '+fmt(n)+' حركة و'+fmt(st.orders.length)+' أوردر و'+fmt(st.docs.length)+' عملية. ده هيستبدل كل اللي في المتصفح ده دلوقتي.'};UI._bk=o}catch(e){UI.bkErr=e.message;UI.bkAsk=null;UI._bk=null}render()};r.readAsText(f)},
@@ -2435,10 +2354,7 @@ const CHG_ACC={
   usrpin:el=>{const u=S.users.find(x=>x.id===el.dataset.id),v=el.value.trim();if(!u||!v)return;if(v.length<4){toast('الرقم السري 4 أرقام على الأقل');el.value='';return}u.pin=pinHash(v);audit('رقم سري جديد: '+u.name);dirty();render()},
   rolep:el=>{const r=S.roles[el.dataset.r],p=el.dataset.p;if(!r||el.dataset.r==='admin')return;const i=r.perms.indexOf(p);if(el.checked&&i<0)r.perms.push(p);if(!el.checked&&i>=0)r.perms.splice(i,1);audit('صلاحية '+(PERM_NAME[p]||p)+' للدور '+r.name+': '+(el.checked?'مفتوحة':'مقفولة'));dirty()}
 };
-const INP_ACC={
-  clnote:el=>{UI.cl=UI.cl||{};UI.cl.note=el.value},
-  clreason:el=>{UI.cl=UI.cl||{};UI.cl.reason=el.value;const b=document.querySelector('[data-a=clreopen]');if(b)b.disabled=!el.value.trim()}
-};
+const INP_ACC={};
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='lgpin'){e.preventDefault();ACT_ACC.lgdo()}});
 
 /* ---------- v2: merged analytics (4 tabs): each number lives in one place ---------- */
@@ -3454,7 +3370,7 @@ const h0=(location.hash||'').slice(1);if(VIEWS[h0])UI.tab=h0;
 document.documentElement.lang='ar';document.documentElement.dir='rtl';
 render();
 idbOpen().then(db=>{IDBH=db;return phLoad()}).then(()=>{if(Object.keys(PH).length)render()});
-window.__F={can:(p)=>can(p),deny:(p)=>deny(p),curUser:()=>curUser(),closeSnap:(d)=>closeSnap(d),closeChecks:(d)=>closeChecks(d),dayLocked:(d)=>dayLocked(d),INTERNAL,S:()=>S,UI,go,ctx,g,dirty,render,rollCheck,newDoc,addLine,confirmDoc,reverseDoc,build,cxApply,planRows,lowList,consumption,supStatus,orderByRef,actions,locSum,info,rateData,stateBar,ACT,dashData,D,SKU};
+window.__F={can:(p)=>can(p),deny:(p)=>deny(p),curUser:()=>curUser(),dayLocked:(d)=>dayLocked(d),INTERNAL,S:()=>S,UI,go,ctx,g,dirty,render,rollCheck,newDoc,addLine,confirmDoc,reverseDoc,build,cxApply,planRows,lowList,consumption,supStatus,orderByRef,actions,locSum,info,rateData,stateBar,ACT,dashData,D,SKU};
 })();
 
 </script>
