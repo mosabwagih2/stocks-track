@@ -59,6 +59,9 @@ final class Client
     public function call(string $method, string $path, mixed $body = null, ?array $multipart = null, array $extraHeaders = []): array
     {
         $ch = curl_init("http://127.0.0.1:{$this->port}$path");
+        if ($this->autoDoc && $path === '/api/sync/push' && is_array($body)) {
+            $body = $this->attachDocs($body);
+        }
         $headers = array_merge(['X-CSRF-Token: ' . $this->csrf], $extraHeaders);
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => false,
@@ -75,6 +78,25 @@ final class Client
         $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         return [$status, json_decode($raw, true), $raw];
+    }
+
+    public bool $autoDoc = true;
+    public string $userName = '';
+
+    /** Moves must belong to a confirmed document in the same push: give bare test moves one. */
+    private function attachDocs(array $b): array
+    {
+        foreach ($b['moves'] ?? [] as $i => $m) {
+            if (($m['type'] ?? '') === 'OPN') {
+                continue;
+            }
+            // one confirmed document per move, numbered after the move id (so a re-sent move maps to the same document)
+            $no = $m['type'] . '-T' . $m['id'];
+            $b['moves'][$i]['doc'] = $no;
+            $b['coll']['docs']['up'][] = ['id' => 'auto-' . $no, 'type' => $m['type'], 'status' => 'done', 'no' => $no, 'date' => $m['date'], 'by' => $this->userName,
+                                          'hdr' => ['emp' => 'e', 'refs' => []], 'lines' => [], 'log' => [], 'nMoves' => 1];
+        }
+        return $b;
     }
 
     /** The raw response headers of a GET (lower-cased names). */
@@ -110,6 +132,7 @@ final class Client
     {
         [$s, $j] = $this->call('POST', '/api/auth/login', ['username' => $u, 'password' => $p]);
         if ($s === 200) {
+            $this->userName = (string)($j['user']['name'] ?? '');
             $this->csrf = $j['csrf'];
         }
         return $s;
@@ -223,7 +246,7 @@ ok('but the delivery proof can still be recorded', $s === 200, $j);
 $rev6 = $j['rev'];
 [$s, $j] = $sup->call('POST', '/api/sync/push', ['since' => $rev6, 'coll' => ['docs' => ['gone' => ['d1']]]]);
 ok('a confirmed document cannot be archived', $s === 409, $j);
-$draft = ['id' => 'd2', 'type' => 'CLN', 'status' => 'draft', 'no' => null, 'date' => date('Y-m-d'), 'hdr' => [], 'lines' => [], 'log' => []];
+$draft = ['id' => 'd2', 'type' => 'CLN', 'status' => 'draft', 'no' => null, 'date' => date('Y-m-d'), 'by' => 'مشرف', 'hdr' => [], 'lines' => [], 'log' => []];
 [$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $rev6, 'coll' => ['docs' => ['up' => [$draft]]]]);
 ok('packer cannot even draft a status-change document (403)', $s === 403, $j);
 [$s, $j] = $sup->call('POST', '/api/sync/push', ['since' => $rev6, 'coll' => ['docs' => ['up' => [$draft]]]]);
@@ -295,7 +318,7 @@ ok('supervisor uploads a signed-note photo', $s === 201 && $j['file']['hasThumb'
 $fid = $j['file']['id'] ?? 0;
 [$s, $j] = $up($sup, $tmp . '/note.png', 'doc_photo', 'إذن.png', 'image/png');
 ok('the same file for the same owner is not stored twice', $s === 201 && $j['file']['id'] === $fid, $j);
-[$s, $j] = $up($sup, $tmp . '/evil.php', 'other', 'evil.php', 'image/png');
+[$s, $j] = $up($sup, $tmp . '/evil.php', 'pickup', 'evil.php', 'image/png');
 ok('a PHP file renamed as an image is refused (415)', $s === 415, $j);
 [$s, $j] = $up($packer, $tmp . '/note.png', 'pickup', 'x.png', 'image/png');
 ok('packer may not upload a pickup file (403)', $s === 403, $j);
@@ -314,7 +337,7 @@ ok('files are listed per owner', $s === 200 && count($j['files']) === 2, $j);
 
 // ================= JSON fidelity: empty objects must stay objects (the browser app depends on it)
 $rev = (int)Database::value('SELECT rev FROM sync_state');
-$rawPush = '{"since":' . $rev . ',"coll":{"docs":{"up":[{"id":"d9","type":"CLN","status":"draft","no":null,"date":"' . $today . '","hdr":{},"lines":[],"log":[]}]}},"meta":{"alias":{},"costs":{}}}';
+$rawPush = '{"since":' . $rev . ',"coll":{"docs":{"up":[{"id":"d9","type":"CLN","status":"draft","no":null,"date":"' . $today . '","by":"المدير","hdr":{},"lines":[],"log":[]}]}},"meta":{"alias":{},"costs":{}}}';
 $rawRes = static function (Client $c, string $path, string $raw) use ($port): array {
     $r = new ReflectionClass($c);
     $jar = $r->getProperty('jar');
@@ -380,7 +403,7 @@ ok('disabling a user ends their open session on the very next request', $s === 2
 $admin->call('POST', '/api/users', ['username' => 'aged1', 'name' => 'قديم', 'role' => 'pack', 'password' => 'Aged-Pelican-83']);
 $aged = new Client($port);
 $aged->login('aged1', 'Aged-Pelican-83');
-$sf = rtrim((string)(session_save_path() ?: sys_get_temp_dir()), '/') . '/sess_' . $aged->sessionId();
+$sf = $tmp . '/storage/sessions/sess_' . $aged->sessionId();   // the app keeps sessions in its own folder
 $data = (string)@file_get_contents($sf);
 ok('the session file exists for the ageing test', $data !== '' && str_contains($data, 'seen|i:'), $sf);
 file_put_contents($sf, preg_replace('/seen\|i:\d+;/', 'seen|i:' . (time() - 13 * 3600) . ';', $data));
@@ -436,6 +459,96 @@ ok('the preflight check runs and sees the database', ($names['الاتصال ب�
 $log = (string)@file_get_contents($tmp . '/server.log');
 ok('the server log has no PHP warnings, notices or deprecations', !preg_match('/(Warning|Notice|Deprecated|Fatal error)/', $log), substr($log, -600));
 
+// ================= review fixes: actors, read-only accounts, admin-only actions, move validation, thumbnails
+$revNow = static fn() => (int)Database::value('SELECT rev FROM sync_state');
+// the actor of a move is the signed-in user, whatever the browser says
+$midNext = (int)Database::value('SELECT MAX(id) FROM moves') + 1;
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [array_merge(mv($midNext), ['by' => 'FORGED NAME'])], 'meta' => ['mid' => $midNext + 1]]);
+ok('a move pushed with a forged author is accepted but stamped with the real user', $s === 200 && Database::value('SELECT by_name FROM moves WHERE id = ?', [$midNext]) === 'موظف شحن', $j);
+// documents cannot be filed under somebody else's name
+$forged = ['id' => 'd77', 'type' => 'CLN', 'status' => 'draft', 'no' => null, 'date' => date('Y-m-d'), 'by' => 'المدير', 'hdr' => [], 'lines' => [], 'log' => []];
+[$s, $j] = $sup->call('POST', '/api/sync/push', ['since' => $revNow(), 'coll' => ['docs' => ['up' => [$forged]]]]);
+ok('a document created in somebody else\'s name is refused (403 forged_actor)', $s === 403 && $j['error'] === 'forged_actor', $j);
+// correcting the employee on a confirmed scan sheet still works (the app lets you do it), editing its lines does not
+$scn = ['id' => 'd78', 'type' => 'SCN', 'status' => 'done', 'no' => 'SCN-0078', 'date' => date('Y-m-d'), 'by' => 'مشرف', 'hdr' => ['emp' => 'عبدالله', 'refs' => []], 'lines' => [], 'log' => []];
+[$s, $j] = $sup->call('POST', '/api/sync/push', ['since' => $revNow(), 'coll' => ['docs' => ['up' => [$scn]]]]);
+ok('a scan document is confirmed', $s === 200, $j);
+$renamed = $scn;
+$renamed['hdr']['emp'] = 'محمود';
+$renamed['log'][] = ['m' => 'اتغيّر اسم الموظف'];
+[$s, $j] = $sup->call('POST', '/api/sync/push', ['since' => $revNow(), 'coll' => ['docs' => ['up' => [$renamed]]]]);
+ok('the employee name on a confirmed scan sheet can still be corrected', $s === 200, $j);
+// read-only accounts cannot write anything
+$admin->call('POST', '/api/users', ['username' => 'viewer1', 'name' => 'مراجع', 'role' => 'view', 'password' => 'Viewer-Cactus-64']);
+$viewer = new Client($port);
+$viewer->login('viewer1', 'Viewer-Cactus-64');
+[$s, $j] = $viewer->call('POST', '/api/sync/push', ['since' => $revNow(), 'coll' => ['emps' => ['up' => ['x']]], 'audit' => [['t' => 1, 'm' => 'spam']]]);
+ok('a read-only (view) account cannot push anything (403)', $s === 403 && $j['error'] === 'read_only', $j);
+[$s, $j] = $up($viewer, $tmp . '/note.png', 'doc_photo', 'v.png', 'image/png');
+ok('and cannot upload files (403)', $s === 403, $j);
+[$s] = $viewer->call('GET', '/api/sync/pull?since=0');
+ok('but it can read', $s === 200);
+[$s, $j] = $up($sup, $tmp . '/note.png', 'other', 'v.png', 'image/png');
+ok('the anonymous "other" upload kind no longer exists (422)', $s === 422, $j);
+// logins are only visible to people who manage users
+[$s, $j] = $packer->call('GET', '/api/sync/pull?since=0');
+ok('a packer does not receive other people\'s login names', $s === 200 && !array_filter($j['users'], static fn($u) => isset($u['username'])), $j['users'][0] ?? null);
+[$s, $j] = $admin->call('GET', '/api/sync/pull?since=0');
+ok('an admin does', $s === 200 && isset($j['users'][0]['username']));
+// move validation
+foreach ([['sku', 'bad sku!'], ['sku', str_repeat('A', 41)], ['q', 5000000], ['id', 0]] as [$field, $value]) {
+    $bad = mv($midNext + 5);
+    $bad[$field] = $value;
+    [$s] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$bad]]);
+    ok("a move with a bad $field is refused (422)", $s === 422, $s);
+}
+// the "users" permission is not enough to become admin
+$admin->call('PUT', '/api/roles/sup', ['perms' => ['scan', 'returns', 'users']]);
+$adminId = (string)Database::value("SELECT id FROM users WHERE username = 'admin'");
+$supId = (string)Database::value("SELECT id FROM users WHERE username = 'sup'");
+[$s, $j] = $sup->call('PATCH', "/api/users/$supId", ['role' => 'admin']);
+ok('a user manager cannot promote themselves to admin (403)', $s === 403 && $j['error'] === 'admin_only', $j);
+[$s, $j] = $sup->call('POST', "/api/users/$adminId/password", ['password' => 'Takeover-Walrus-19']);
+ok('nor reset the admin\'s password (403)', $s === 403 && $j['error'] === 'admin_only', $j);
+[$s, $j] = $sup->call('PATCH', "/api/users/$adminId", ['active' => false]);
+ok('nor disable the admin (403)', $s === 403, $j);
+[$s, $j] = $sup->call('PUT', '/api/roles/pack', ['perms' => ['scan', 'returns', 'close']]);
+ok('nor edit what roles can do (403)', $s === 403 && $j['error'] === 'admin_only', $j);
+[$s, $j] = $sup->call('POST', '/api/users', ['username' => 'madebysup', 'name' => 'اتعمل', 'role' => 'admin', 'password' => 'Sneaky-Admin-Role-23']);
+ok('nor create a new admin (403)', $s === 403, $j);
+[$s, $j] = $sup->call('POST', '/api/users', ['username' => 'madebysup', 'name' => 'اتعمل', 'role' => 'pack', 'password' => 'Honest-Packer-Role-23']);
+ok('but can create ordinary users (that is what the permission is for)', $s === 201, $j);
+$admin->call('PUT', '/api/roles/sup', ['perms' => ['scan', 'returns', 'receive', 'internal', 'ship', 'count', 'pickup', 'cancel', 'catalog', 'supplies', 'close']]);
+[$s, $j] = $admin->call('PATCH', "/api/users/$supId", ['name' => '   ']);
+ok('a blank name is refused (422)', $s === 422, $j);
+// thumbnails: a huge image must not crash the server (the original is kept, no display copy)
+$w = 30000; $h = 30000;
+$ihdr = pack('N', $w) . pack('N', $h) . "\x08\x00\x00\x00\x00";
+$chunk = static fn(string $type, string $data) => pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
+file_put_contents($tmp . '/huge.png', "\x89PNG\r\n\x1a\n" . $chunk('IHDR', $ihdr) . $chunk('IDAT', gzcompress(str_repeat("\x00", 64))) . $chunk('IEND', ''));
+[$s, $j] = $up($sup, $tmp . '/huge.png', 'doc_photo', 'huge.png', 'image/png');
+ok('a gigantic image is stored without a display copy instead of crashing the server', $s === 201 && $j['file']['hasThumb'] === false, $j);
+[$s, $body, $raw] = $sup->call('GET', '/api/files/' . ($j['file']['id'] ?? 0));
+ok('and the original is still downloadable', $s === 200 && str_starts_with($raw, "\x89PNG"), $s);
+
+// a phone photo taken in portrait carries EXIF "rotate 90°": the display copy must come out upright
+if (function_exists('exif_read_data')) {
+    $im = imagecreatetruecolor(40, 20);
+    imagefill($im, 0, 0, imagecolorallocate($im, 200, 30, 30));
+    ob_start();
+    imagejpeg($im);
+    $jpg = (string)ob_get_clean();
+    $tiff = "II*\x00\x08\x00\x00\x00" . pack('v', 1) . pack('v', 0x0112) . pack('v', 3) . pack('V', 1) . pack('v', 6) . "\x00\x00" . pack('V', 0);
+    $app1 = "\xFF\xE1" . pack('n', 2 + 6 + strlen($tiff)) . "Exif\x00\x00" . $tiff;
+    file_put_contents($tmp . '/portrait.jpg', substr($jpg, 0, 2) . $app1 . substr($jpg, 2));
+    [$s, $j] = $up($sup, $tmp . '/portrait.jpg', 'doc_photo', 'portrait.jpg', 'image/jpeg');
+    [$s2, $b2, $raw2] = $sup->call('GET', '/api/files/' . ($j['file']['id'] ?? 0) . '?thumb=1');
+    $dim = @getimagesizefromstring($raw2);
+    ok('an EXIF-rotated phone photo gets an upright display copy (40x20 landscape → 20x40)', $s === 201 && $dim !== false && $dim[0] === 20 && $dim[1] === 40, $dim);
+} else {
+    echo "SKIP exif orientation test (exif extension missing)\n";
+}
+
 // ================= snapshot
 $u = Femini\Auth\Auth::class;
 $snap = Femini\Sync\Snapshot::build(['id' => $adminId, 'name' => 'المدير', 'perms' => ['*']]);
@@ -443,6 +556,30 @@ $S = $snap['state'];
 ok('snapshot has the app state shape', $S['v'] === 3 && count($S['orders']) === 3 && $S['mid'] >= 9 && $S['roles']['admin']['perms'] && count($S['users']) >= 3 && $S['cur'] === $adminId && $S['lock'] === $yesterday && !$snap['empty'], array_keys($S));
 ok('snapshot never contains password hashes', !str_contains(json_encode($S), '$2y$') && !str_contains(json_encode($S), 'pass_hash'));
 ok('archived docs are not in the snapshot', !in_array('d2', array_column($S['docs'], 'id'), true));
+
+
+// ================= moves belong to documents (round 2)
+$packer->autoDoc = false;
+$nid = (int)Database::value('SELECT MAX(id) FROM moves') + 1;
+$m1 = mv($nid, 'SCN');
+$m1['doc'] = 'SCN-0900';
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$m1], 'meta' => ['mid' => $nid + 1]]);
+ok('a stock move with no document behind it is refused (409 orphan_moves)', $s === 409 && $j['error'] === 'orphan_moves', $j);
+ok('and nothing was written', (int)Database::value('SELECT COUNT(*) FROM moves WHERE id = ?', [$nid]) === 0);
+$d900 = ['id' => 'd900', 'type' => 'SCN', 'status' => 'done', 'no' => 'SCN-0900', 'date' => date('Y-m-d'), 'by' => 'موظف شحن', 'hdr' => ['emp' => 'e', 'refs' => []], 'lines' => [], 'log' => [], 'nMoves' => 2];
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$m1], 'coll' => ['docs' => ['up' => [$d900]]], 'meta' => ['mid' => $nid + 1]]);
+ok('a document that declares 2 moves but arrives with 1 is refused', $s === 409 && $j['error'] === 'orphan_moves', $j);
+$d900['nMoves'] = 1;
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$m1], 'coll' => ['docs' => ['up' => [$d900]]], 'meta' => ['mid' => $nid + 1]]);
+ok('the same move together with its confirmed document is accepted', $s === 200, $j);
+$m2 = mv($nid + 1, 'SCN');
+$m2['doc'] = 'SCN-0900';
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$m2], 'meta' => ['mid' => $nid + 2]]);
+ok('later moves cannot be added to an already confirmed document', $s === 409 && $j['error'] === 'orphan_moves', $j);
+// small rows: the "by" of a log entry is the signed-in user
+[$s, $j] = $sup->call('POST', '/api/sync/push', ['since' => $revNow(), 'coll' => ['sup_log' => ['up' => [['id' => 'lg-forge', 'by' => 'المدير', 'item' => 'FLY', 'q' => 1, 'kind' => 'man']]]]]);
+ok('a supply-log entry written in the admin\'s name is refused', $s === 403 && $j['error'] === 'forged_actor', $j);
+$packer->autoDoc = true;
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

@@ -51,7 +51,7 @@ final class Snapshot
             'archDocs' => $live($data['coll']['archDocs']),
             'audit'    => array_slice($data['audit'], -300),
             'roles'    => self::rolesForApp(),
-            'users'    => self::usersForApp(),
+            'users'    => self::usersForApp($user),
             'cur'      => $user['id'],
             'actor'    => $user['name'],
         ];
@@ -65,12 +65,13 @@ final class Snapshot
     }
 
     /** Users and roles are managed by the server (UsersController), never by sync. */
-    public static function usersForApp(): array
+    public static function usersForApp(array $viewer): array
     {
+        $showLogin = Permissions::can($viewer, 'users');   // login names are only needed on the users screen
         return array_map(static fn(array $u) => [
             'id' => $u['id'], 'name' => $u['name'], 'role' => $u['role'], 'pin' => null,
-            'on' => $u['active'] && !$u['arch'], 'arch' => $u['arch'], 'username' => $u['username'],
-        ], UserRepository::all());
+            'on' => $u['active'] && !$u['arch'], 'arch' => $u['arch'],
+        ] + ($showLogin ? ['username' => $u['username']] : []), UserRepository::all());
     }
 
     public static function rolesForApp(): array

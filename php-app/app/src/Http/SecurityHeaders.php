@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Femini\Http;
 
-/** Browser security headers. The API gets the strictest policy; the app page needs inline scripts and a few CDNs. */
+/** Browser security headers. The API gets the strictest policy; the app page gets a nonce-based one. */
 final class SecurityHeaders
 {
     public static function api(Request $req): void
@@ -13,14 +13,18 @@ final class SecurityHeaders
         header('Cache-Control: no-store');
     }
 
-    public static function page(Request $req): void
+    /**
+     * The app page. Scripts: only same-origin files and the inline blocks that carry this request's nonce (no 'unsafe-inline',
+     * no CDN: SheetJS, html2canvas, jsPDF and the fonts are served from /assets). Styles keep 'unsafe-inline' because the app
+     * sets style="" attributes everywhere.
+     */
+    public static function page(Request $req, string $nonce): void
     {
         self::common($req);
-        // The app is one file with inline script/style. It loads SheetJS / html2canvas / jsPDF from cdnjs and fonts from Google.
         header("Content-Security-Policy: default-src 'self'; "
-            . "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
-            . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            . "font-src 'self' https://fonts.gstatic.com data:; "
+            . "script-src 'self' 'nonce-$nonce'; "
+            . "style-src 'self' 'unsafe-inline'; "
+            . "font-src 'self' data:; "
             . "img-src 'self' data: blob:; connect-src 'self'; "
             . "frame-src 'self' blob: about:; worker-src 'self' blob:; "
             . "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");

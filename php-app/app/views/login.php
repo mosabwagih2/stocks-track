@@ -34,7 +34,7 @@
     <div id="err" role="alert"></div>
   </form>
 </main>
-<script>
+<script nonce="<?= htmlspecialchars($nonce, ENT_QUOTES) ?>">
 document.getElementById('f').addEventListener('submit', async function (e) {
   e.preventDefault();
   var b = document.getElementById('b'), err = document.getElementById('err');

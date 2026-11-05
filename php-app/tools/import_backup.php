@@ -63,7 +63,7 @@ foreach (['mid' => $S->mid ?? null, 'did' => $S->did ?? null, 'seq' => $S->seq ?
 }
 $req->audit = $list($S->audit ?? []);
 
-$result = (new SyncService($user))->push($req);
+$result = (new SyncService($user, true))->push($req);
 printf("Imported: %d moves, %d docs, %d orders, %d pickups (revision %d)\n",
     count($req->moves), count($req->coll->docs->up), count($req->coll->orders->up), count($req->coll->pickups->up), $result['rev']);
 

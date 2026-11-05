@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Femini\Controllers;
 
 use Femini\Auth\Auth;
+use Femini\Auth\Permissions;
 use Femini\Auth\UserRepository;
 use Femini\Http\HttpError;
 use Femini\Http\Request;
@@ -18,18 +19,34 @@ final class UsersController
         Response::json(['ok' => true, 'users' => UserRepository::all(), 'roles' => UserRepository::roles()]);
     }
 
+    /** Managing the admin role, or an admin account, is for admins only (the "users" permission is not enough). */
+    private static function guardAdminTarget(array $me, ?string $targetUserId, ?string $newRole): void
+    {
+        if (Permissions::isAdmin($me)) {
+            return;
+        }
+        if (($newRole !== null && UserRepository::isAdminRole($newRole)) || ($targetUserId !== null && UserRepository::isAdminUser($targetUserId))) {
+            throw new HttpError(403, 'admin_only', 'ده للمدير بس.');
+        }
+    }
+
     public static function create(Request $req): never
     {
-        Auth::requirePermission(Auth::requireUser(), 'users');
+        $me = Auth::requireUser();
+        Auth::requirePermission($me, 'users');
         $b = $req->json();
+        self::guardAdminTarget($me, null, (string)($b['role'] ?? 'pack'));
         $id = UserRepository::create((string)($b['username'] ?? ''), (string)($b['name'] ?? ''), (string)($b['role'] ?? 'pack'), isset($b['password']) ? (string)$b['password'] : null);
         Response::json(['ok' => true, 'id' => $id], 201);
     }
 
     public static function update(Request $req, array $p): never
     {
-        Auth::requirePermission(Auth::requireUser(), 'users');
-        UserRepository::update($p['id'], $req->json());
+        $me = Auth::requireUser();
+        Auth::requirePermission($me, 'users');
+        $b = $req->json();
+        self::guardAdminTarget($me, $p['id'], isset($b['role']) ? (string)$b['role'] : null);
+        UserRepository::update($p['id'], $b);
         Response::json(['ok' => true]);
     }
 
@@ -48,6 +65,7 @@ final class UsersController
             }
         } else {
             Auth::requirePermission($me, 'users');
+            self::guardAdminTarget($me, $p['id'], null);
         }
         $version = UserRepository::setPassword($p['id'], (string)($b['password'] ?? ''));
         if ($self) {
@@ -59,7 +77,10 @@ final class UsersController
     /** PUT /api/roles/{id} {perms:[...]} */
     public static function role(Request $req, array $p): never
     {
-        Auth::requirePermission(Auth::requireUser(), 'users');
+        $me = Auth::requireUser();
+        if (!Permissions::isAdmin($me)) {      // changing what a role may do is an admin decision
+            throw new HttpError(403, 'admin_only', 'تعديل صلاحيات الأدوار للمدير بس.');
+        }
         UserRepository::setRolePerms($p['id'], (array)($req->json()['perms'] ?? []));
         Response::json(['ok' => true]);
     }

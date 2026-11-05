@@ -177,6 +177,19 @@ const ok = (l, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + l + (c ? '' : ' 
     ok('confirming the delivery is saved on the (frozen) document: only the delivery proof changed', !!st.coll.docs.find(x => x.k === shpId).row.hdr.delivered);
     ok('the photo is shown from the server in the screen', await A.evaluate(() => { const i = document.querySelector('#main img[alt="الإذن الموقّع"]'); return !!i && /\/api\/files\/\d+\?thumb=1$|^data:/.test(i.getAttribute('src')); }));
 
+    // ---- exports work under the strict CSP with the self-hosted libraries (no CDN)
+    await A.evaluate(id => { __F.ACT.shpnote({ dataset: { id } }); }, shpId);
+    await A.waitForSelector('.sheet [data-a=shppdf]');
+    const grab = async (act) => { const [d] = await Promise.all([A.waitForEvent('download', { timeout: 30000 }), A.evaluate(a => __F.ACT[a](), act)]); return require('fs').readFileSync(await d.path()); };
+    const pdf = await grab('shppdf');
+    ok('PDF export of the delivery note works (self-hosted html2canvas + jsPDF)', pdf.slice(0, 4).toString() === '%PDF' && pdf.length > 3000, pdf.slice(0, 8).toString());
+    const png = await grab('shppng');
+    ok('PNG export works', png.slice(1, 4).toString() === 'PNG' && png.length > 3000, png.length);
+    const xls = await grab('shpxls');
+    ok('Excel export works (self-hosted SheetJS)', xls.slice(0, 2).toString() === 'PK' && xls.length > 1000, xls.length);
+    ok('no external host is contacted by the app (everything is served from this origin)', await A.evaluate(() => performance.getEntriesByType('resource').every(r => new URL(r.name).origin === location.origin)), '');
+    await A.evaluate(() => { __F.UI.sheet = null; __F.render(); });
+
     // ---- users screen is server-backed
     await A.evaluate(() => { __F.UI.cfgTab = 'acc'; __F.go('config'); });
     await A.waitForTimeout(400);

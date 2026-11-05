@@ -16,7 +16,8 @@
 | POST | `/api/users` | `users` | `{username,name,role,password}` |
 | PATCH | `/api/users/{id}` | `users` | `{name?,role?,active?,arch?}`. مفيش حذف، بس أرشفة. لازم يفضل مدير شغّال |
 | POST | `/api/users/{id}/password` | `users` أو نفس المستخدم | `{password}` (8 حروف+) |
-| POST | `/api/files` | حسب `kind` | multipart: `file, kind, owner_type, owner_id` |
+| PUT | `/api/roles/{id}` | المدير | `{perms:[...]}` (دور المدير ثابت) |
+| POST | `/api/files` | حسب `kind` | multipart: `file, kind (pickup/scan/doc_photo/cancel/model_img), owner_type, owner_id` |
 | GET | `/api/files?owner_type=&owner_id=` | مسجّل | قايمة ملفات صاحب معيّن |
 | GET | `/api/files/{id}[?thumb=1]` | مسجّل | تنزيل الأصل (أو النسخة المصغّرة) بنفس الاسم الأصلي |
 
@@ -42,6 +43,9 @@
 - **العدّادات** (`mid`, `did`, `sup_eid`, `seq`) ما ترجعش لورا (منع تكرار الأرقام).
 - **المفاتيح المسموحة** في `meta` و`coll` محدودة. أي حاجة تانية ← 422.
 - **المستخدمين** مش بيتكتبوا عن طريق الـ sync أبدًا.
+- **حساب القراءة فقط** (صلاحية `money` بس): أي push أو رفع ← 403 `read_only`.
+- **المنفّذ:** الحركات بتتسجّل باسم المستخدم المسجّل، والمستند الجديد لازم `by` فيه = اسمك وإلا 403 `forged_actor`.
+- **المدير بس:** تعيين دور المدير، التعامل مع حساب مدير (تعديل/تعطيل/إعادة كلمة سر)، وتعديل صلاحيات الأدوار ← 403 `admin_only` لغير المدير.
 
 ### التعارض (concurrency)
 لو أي صف الـ push بيكتبه اتغيّر على السيرفر بعد `since` (حد تاني عدّله) ← **409 `stale` ومفيش ولا تغيير بيتطبّق**، والرد فيه `conflicts`. المتصفح بيعمل reload ويعرض اللي على السيرفر.

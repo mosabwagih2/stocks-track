@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Femini\Auth;
 
+use Femini\Config;
 use Femini\Database;
 use Femini\Http\HttpError;
 use Femini\Http\Request;
@@ -16,6 +17,8 @@ final class Auth
 {
     private const MAX_FAILURES = 5;      // per username or per IP
     private const WINDOW_MINUTES = 15;
+    /** A valid bcrypt hash of a random string: unknown usernames are verified against it so timing does not reveal them. */
+    private const DUMMY_HASH = '$2y$12$R4dLSBVXmkqMeuSyAvUohumOWjaQhTuFcOEncYBuGaBAMpniQ3ccG';
     private const IDLE_SECONDS = 12 * 3600;        // signed out after 12 hours without a request
     private const ABSOLUTE_SECONDS = 7 * 86400;    // and always after 7 days
 
@@ -27,6 +30,11 @@ final class Auth
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
         ini_set('session.gc_maxlifetime', (string)self::ABSOLUTE_SECONDS);
+        // Own session folder: on shared hosting the default one is shared with other sites, whose cleanup would delete our sessions.
+        $dir = rtrim((string)Config::get('app.storage_path', ''), '/') . '/sessions';
+        if ($dir !== '/sessions' && (is_dir($dir) || @mkdir($dir, 0700, true))) {
+            session_save_path($dir);
+        }
         session_name('femini');
         session_set_cookie_params([
             'lifetime' => 0,
@@ -128,13 +136,10 @@ final class Auth
         self::assertNotLocked($username, $ip);
 
         $row = Database::one('SELECT id, pass_hash, pw_version, active, arch FROM users WHERE username = ?', [$username]);
-        // Always run a hash check (against a dummy when the user is unknown) so timing does not reveal valid usernames.
-        $hash = $row['pass_hash'] ?? Passwords::hash('timing-dummy');
-        $valid = $row !== null && $row['pass_hash'] !== null && password_verify($password, $hash)
-            && (int)$row['active'] === 1 && (int)$row['arch'] === 0;
-        if (!$valid && $row === null) {
-            password_verify($password, $hash);
-        }
+        // Exactly one password_verify() on every path (a dummy hash when the user is unknown or has no password yet).
+        $hash = $row['pass_hash'] ?? self::DUMMY_HASH;
+        $match = password_verify($password, $hash);
+        $valid = $match && $row !== null && $row['pass_hash'] !== null && (int)$row['active'] === 1 && (int)$row['arch'] === 0;
 
         Database::run('INSERT INTO login_attempts (username, ip, ok, at) VALUES (?,?,?,UTC_TIMESTAMP())', [$username, $ip, $valid ? 1 : 0]);
         if (!$valid) {
@@ -166,14 +171,18 @@ final class Auth
         }
     }
 
+    /**
+     * Throttling: 5 failures for the same username FROM THE SAME IP, 15 from one IP in total, 50 on one username overall.
+     * (Locking by username alone would let anyone lock the real admin out just by typing wrong passwords.)
+     */
     private static function assertNotLocked(string $username, string $ip): void
     {
         $since = sprintf('DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d MINUTE)', self::WINDOW_MINUTES);
-        $byUser = (int)Database::value("SELECT COUNT(*) FROM login_attempts WHERE username = ? AND ok = 0 AND at > $since", [$username]);
+        $pair = (int)Database::value("SELECT COUNT(*) FROM login_attempts WHERE username = ? AND ip = ? AND ok = 0 AND at > $since", [$username, $ip]);
         $byIp = (int)Database::value("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND ok = 0 AND at > $since", [$ip]);
-        if ($byUser >= self::MAX_FAILURES || $byIp >= self::MAX_FAILURES * 3) {
+        $byUser = (int)Database::value("SELECT COUNT(*) FROM login_attempts WHERE username = ? AND ok = 0 AND at > $since", [$username]);
+        if ($pair >= self::MAX_FAILURES || $byIp >= self::MAX_FAILURES * 3 || $byUser >= self::MAX_FAILURES * 10) {
             throw new HttpError(429, 'too_many_attempts', 'محاولات كتير غلط. جرّب بعد ' . self::WINDOW_MINUTES . ' دقيقة.');
         }
     }
-
 }

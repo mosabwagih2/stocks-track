@@ -54,6 +54,17 @@ final class Permissions
         return false;
     }
 
+    /** True for anyone who may change something at all ("view" users hold only the read-only "money" permission). */
+    public static function canWrite(array $user): bool
+    {
+        foreach ($user['perms'] ?? [] as $p) {
+            if ($p === '*' || ($p !== 'money' && isset(self::ALL[$p]))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static function isAdmin(array $user): bool
     {
         return in_array('*', $user['perms'] ?? [], true);

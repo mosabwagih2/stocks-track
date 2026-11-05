@@ -87,6 +87,20 @@ rep("""<div id="app"></div>
 (function(){
 'use strict';""")
 
+# 8. Self-hosted libraries and fonts: no third-party host is contacted, so the CSP can be strict and nothing loads from a CDN.
+rep('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'assets/vendor/xlsx.full.min.js')
+rep('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'assets/vendor/html2canvas.min.js')
+rep('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'assets/vendor/jspdf.umd.min.js')
+import re as _re
+_font = _re.search(r'<link rel="stylesheet" href="https://fonts\.googleapis\.com[^>]*>', s)
+assert _font and len(_re.findall(r'fonts\.googleapis\.com', s)) == 1
+s = s.replace(_font.group(0), '<link rel="stylesheet" href="assets/fonts/fonts.css">')
+
+# 9. Every inline <script> carries the per-request nonce (public/index.php fills it in): the CSP then allows NO other inline script.
+_inline = s.count('<script>')
+assert _inline == 4, _inline
+s = s.replace('<script>', '<script nonce="__CSP_NONCE__">')
+
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(s, encoding='utf-8')
 print(f'wrote {OUT.relative_to(ROOT)} ({len(s):,} bytes)')

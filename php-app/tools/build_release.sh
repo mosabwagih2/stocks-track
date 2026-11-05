@@ -36,6 +36,7 @@ with zipfile.ZipFile(name, 'w', zipfile.ZIP_DEFLATED) as z:
         z.write(p, 'femini/' + str(p.relative_to(root)))
     z.write(root / 'docs' / 'DEPLOY.md', 'femini/DEPLOY.md')
     z.write(root / 'docs' / 'SECURITY.md', 'femini/SECURITY.md')
+    z.write(root / 'docs' / 'REVIEW.md', 'femini/REVIEW.md')
     z.write(root / 'README.md', 'femini/README.md')
 digest = hashlib.sha256(name.read_bytes()).hexdigest()
 print(f"{name.relative_to(root)}  {name.stat().st_size/1024:.0f} KB  {len(files)+3} files")

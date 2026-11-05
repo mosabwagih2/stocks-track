@@ -17,10 +17,10 @@ final class SyncController
         $user = Auth::requireUser();
         $since = max(0, (int)($req->query['since'] ?? 0));
         $data = (new SyncService($user))->pull($since);
-        $data["ok"] = true;
-        $data["meta"] = (object)$data["meta"];   // an empty map must be {} in JSON
+        $data['ok'] = true;
+        $data['meta'] = (object)$data['meta'];   // an empty map must be {} in JSON
         $data['files'] = FileStore::index(max(0, (int)($req->query['fileSince'] ?? 0)));
-        $data['users'] = Snapshot::usersForApp();
+        $data['users'] = Snapshot::usersForApp($user);
         $data['roles'] = Snapshot::rolesForApp();
         Response::json($data);
     }

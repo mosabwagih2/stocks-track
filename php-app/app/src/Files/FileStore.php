@@ -28,13 +28,12 @@ final class FileStore
     private const KIND_PERM = [
         'pickup' => ['pickup'], 'scan' => ['scan'], 'cancel' => ['cancel'], 'model_img' => ['catalog'],
         'doc_photo' => ['ship', 'receive', 'internal', 'returns', 'count'],   // the signed paper / photo of a document
-        'other' => [],
     ];
 
     /** Browser key prefix => [kind, owner type]. The browser addresses a file as "ph:d12", "pk:P3", "dc:d7", "cx:ed4298". */
     public const KEYS = ['ph' => ['doc_photo', 'doc'], 'pk' => ['pickup', 'pickup'], 'dc' => ['scan', 'doc'], 'cx' => ['cancel', 'order']];
 
-    /** @return array<int,string> permissions, any one of which allows the upload ([] = any signed-in user) */
+    /** @return array<int,string> permissions, any one of which allows the upload */
     public static function permissionsFor(string $kind): array
     {
         if (!array_key_exists($kind, self::KIND_PERM)) {
@@ -164,23 +163,54 @@ final class FileStore
         return mb_substr($name === '' ? 'file' : $name, 0, 200);
     }
 
-    /** A display copy (max 1400px, JPEG). The original is kept untouched. */
+    /**
+     * A display copy (max 1400px, JPEG, rotated upright from the EXIF orientation). The original is kept untouched.
+     * Skipped (null) when the image would not fit in memory: the app then shows the original instead.
+     */
     private static function makeThumb(string $abs, string $rel): ?string
     {
-        if (!function_exists('imagecreatefromstring')) {
+        if (!function_exists('imagecreatefromstring') || !function_exists('getimagesize')) {
             return null;
         }
-        $img = @imagecreatefromstring((string)file_get_contents($abs));
-        if ($img === false) {
+        $info = @getimagesize($abs);
+        if ($info === false) {
             return null;
         }
-        [$w, $h] = [imagesx($img), imagesy($img)];
-        $k = min(1.0, 1400 / max($w, $h));
-        $dst = imagecreatetruecolor((int)round($w * $k), (int)round($h * $k));
-        imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
-        imagecopyresampled($dst, $img, 0, 0, 0, 0, imagesx($dst), imagesy($dst), $w, $h);
-        $thumbRel = preg_replace('/\.\w+$/', '', $rel) . '_t.jpg';
-        $ok = imagejpeg($dst, self::absolute($thumbRel), 82);
-        return $ok ? $thumbRel : null;
+        [$w, $h] = $info;
+        // GD keeps ~5 bytes per pixel for the source and the same again for the copy: refuse what memory_limit cannot hold.
+        $limit = self::bytes((string)ini_get('memory_limit'));
+        $need = (int)($w * $h * 5 * 1.6) + (int)($w * $h * 0.6 * 4);
+        if ($w < 1 || $h < 1 || ($limit > 0 && $need > $limit - memory_get_usage(true) - 8 * 1048576)) {
+            return null;
+        }
+        try {
+            $img = @imagecreatefromstring((string)file_get_contents($abs));
+            if ($img === false) {
+                return null;
+            }
+            if (($info['mime'] ?? '') === 'image/jpeg' && function_exists('exif_read_data')) {
+                $orientation = (int)(@exif_read_data($abs)['Orientation'] ?? 1);
+                $angle = [3 => 180, 6 => -90, 8 => 90][$orientation] ?? 0;
+                if ($angle !== 0 && ($rot = imagerotate($img, $angle, 0)) !== false) {
+                    $img = $rot;
+                }
+            }
+            [$w, $h] = [imagesx($img), imagesy($img)];
+            $k = min(1.0, 1400 / max($w, $h));
+            $dst = imagecreatetruecolor(max(1, (int)round($w * $k)), max(1, (int)round($h * $k)));
+            imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
+            imagecopyresampled($dst, $img, 0, 0, 0, 0, imagesx($dst), imagesy($dst), $w, $h);
+            $thumbRel = preg_replace('/\.\w+$/', '', $rel) . '_t.jpg';
+            return imagejpeg($dst, self::absolute($thumbRel), 82) ? $thumbRel : null;
+        } catch (\Throwable $e) {
+            error_log('[femini] thumbnail failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private static function bytes(string $v): int
+    {
+        $n = (int)$v;
+        return match (strtolower(substr(trim($v), -1))) { 'g' => $n << 30, 'm' => $n << 20, 'k' => $n << 10, default => $n };
     }
 }

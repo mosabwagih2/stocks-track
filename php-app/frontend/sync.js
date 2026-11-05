@@ -53,6 +53,7 @@
   let again = false;         // more changes arrived while busy
   let readOnly = false;      // empty server and not an admin: nothing to write yet
   let banner = '';
+  let retryTimer = null;     // one pending retry at most while the connection is down
 
   // ---- files: originals (Excel/CSV/photos) and the display copies of photos live on the server
   const FILES = {};          // browser key ("ph:d12", "pk:P3", "dc:d7", "cx:ed4298") -> newest file {id,name,size,mime,hasThumb}
@@ -66,6 +67,7 @@
     const prefix = f.key.slice(0, 2), id = f.key.slice(3);
     const phKey = prefix === 'ph' ? id : prefix === 'cx' ? H.cxKey(id) : null;
     if (phKey && f.hasThumb) H.PH[phKey] = '/api/files/' + f.id + '?thumb=1';
+    else if (phKey && /^image\//.test(f.mime || '')) H.PH[phKey] = '/api/files/' + f.id;     // no display copy (huge image): show the original
   }
 
   async function putFile(key, blob) {
@@ -177,6 +179,7 @@
     const req = diff(getS());
     if (!req) return;
     busy = true;
+    const bannerBefore = banner;
     try {
       const { status, data } = await api('POST', '/api/sync/push', req);
       if (status === 200) {
@@ -193,10 +196,10 @@
       }
     } catch (e) {
       banner = '<div class="msg crit" style="margin-bottom:14px"><b>مفيش اتصال بالسيرفر.</b> التغييرات لسه ما اتحفظتش. متقفلش الصفحة، هحاول تاني لوحدي.</div>';
-      setTimeout(push, 5000);
+      if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = null; push(); }, 5000);
     } finally {
       busy = false;
-      H && H.render();
+      if (H && banner !== bannerBefore) H.render();      // re-render only when the message changed (never disturb typing)
       if (again) { again = false; push(); }
     }
   }
@@ -204,8 +207,19 @@
   /** The server said no: show why, then reload so the screen matches the database. */
   function refused(data) {
     const msg = data.message || 'السيرفر رفض العملية.';
-    banner = '<div class="msg crit" style="margin-bottom:14px"><b>' + H.esc(msg) + '</b> بيتم تحديث البيانات من السيرفر…</div>';
+    // Reload to show the server's truth, but never loop: after 3 refusals within a minute, stop and say so.
+    let recent = [];
+    try { recent = JSON.parse(sessionStorage.getItem('femRefused') || '[]').filter(t => Date.now() - t < 60000); } catch (e) { /* no storage */ }
+    recent.push(Date.now());
+    try { sessionStorage.setItem('femRefused', JSON.stringify(recent)); } catch (e) { /* no storage */ }
     H.toast(msg);
+    if (recent.length >= 3) {
+      readOnly = true;
+      banner = '<div class="msg crit" style="margin-bottom:14px"><b>' + H.esc(msg) + '</b> السيرفر بيرفض الحفظ بشكل متكرر، فوقّفت الحفظ التلقائي. حدّث الصفحة، ولو المشكلة فضلت كلّم المدير.</div>';
+      H.render();
+      return;
+    }
+    banner = '<div class="msg crit" style="margin-bottom:14px"><b>' + H.esc(msg) + '</b> بيتم تحديث البيانات من السيرفر…</div>';
     setTimeout(() => location.reload(), 2200);
   }
 

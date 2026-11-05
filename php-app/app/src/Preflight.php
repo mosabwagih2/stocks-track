@@ -18,8 +18,9 @@ final class Preflight
         };
 
         $add('PHP 8.1 أو أحدث', version_compare(PHP_VERSION, '8.1.0', '>=') ? 'ok' : 'fail', PHP_VERSION);
-        foreach (['pdo_mysql' => 'fail', 'mbstring' => 'fail', 'fileinfo' => 'fail', 'json' => 'fail', 'gd' => 'warn'] as $ext => $level) {
-            $add("إضافة PHP: $ext", extension_loaded($ext) ? 'ok' : $level, $ext === 'gd' && !extension_loaded($ext) ? 'من غيرها مفيش صور مصغّرة' : '');
+        foreach (['pdo_mysql' => 'fail', 'mbstring' => 'fail', 'fileinfo' => 'fail', 'json' => 'fail', 'gd' => 'warn', 'exif' => 'warn'] as $ext => $level) {
+            $why = ['gd' => 'من غيرها مفيش صور مصغّرة', 'exif' => 'من غيرها الصور الطولية من الموبايل ممكن تظهر مقلوبة في النسخة المصغّرة'][$ext] ?? '';
+            $add("إضافة PHP: $ext", extension_loaded($ext) ? 'ok' : $level, extension_loaded($ext) ? '' : $why);
         }
 
         $debug = (bool)Config::get('app.debug', false);
@@ -34,7 +35,7 @@ final class Preflight
         try {
             $pdo = Database::pdo();
             $ver = (string)$pdo->query('SELECT VERSION()')->fetchColumn();
-            $add('الاتصال بقاعدة البيانات', 'ok', $ver);
+            $add('الاتصال بقاعدة البيانات', 'ok', $viaWeb ? '' : $ver);   // versions and paths are not shown to the public installer page
             $charset = (string)$pdo->query("SELECT DEFAULT_CHARACTER_SET_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()")->fetchColumn();
             $add('ترميز القاعدة utf8mb4', str_starts_with($charset, 'utf8mb4') ? 'ok' : 'warn', $charset ?: 'غير معروف');
             $packet = (int)$pdo->query("SELECT @@max_allowed_packet")->fetchColumn();
@@ -60,7 +61,7 @@ final class Preflight
         $storage = rtrim((string)Config::get('app.storage_path', ''), '/');
         $files = $storage . '/files';
         $okDir = $storage !== '' && (is_dir($files) || @mkdir($files, 0750, true)) && is_writable($files);
-        $add('فولدر الملفات قابل للكتابة', $okDir ? 'ok' : 'fail', $storage);
+        $add('فولدر الملفات قابل للكتابة', $okDir ? 'ok' : 'fail', $viaWeb ? '' : $storage);
         $docRootRaw = (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
         $docRoot = $docRootRaw !== '' ? (realpath($docRootRaw) ?: '') : '';   // unknown on the command line
         $real = realpath($storage) ?: $storage;
@@ -71,7 +72,7 @@ final class Preflight
         $max = (int)Config::get('app.max_upload', 20 * 1048576);
         $ini = min(self::bytes((string)ini_get('upload_max_filesize')), self::bytes((string)ini_get('post_max_size')));
         $add('حد الرفع في PHP', $ini >= $max ? 'ok' : 'warn', 'PHP: ' . round($ini / 1048576) . ' MB، التطبيق: ' . round($max / 1048576) . ' MB' . ($ini < $max ? ' (زوّد upload_max_filesize و post_max_size)' : ''));
-        $add('session.save_path قابل للكتابة', is_writable(session_save_path() ?: sys_get_temp_dir()) ? 'ok' : 'fail', session_save_path() ?: sys_get_temp_dir());
+        $add('session.save_path قابل للكتابة', is_writable(session_save_path() ?: sys_get_temp_dir()) || is_writable($storage . '/sessions') || is_writable($storage) ? 'ok' : 'fail', $viaWeb ? '' : ($storage . '/sessions'));
         $add('عرض الأخطاء للزوار مقفول', in_array(strtolower((string)ini_get('display_errors')), ['0', '', 'off', 'stderr'], true) ? 'ok' : 'warn');
 
         if ($viaWeb) {
