@@ -1,119 +1,378 @@
-# stocks-track
+# Fémini Stock · نظام تتبّع مخزن فيميني
 
-Warehouse tracking prototypes for **Fémini** (women's underwear brand, Egypt): every piece in and out by SKU (model × color × size), with states, transfers, returns, stocktakes, lost-item handling and stock reports.
+نظام مخزن لعلامة **Fémini** (ملابس داخلية نسائية، مصر). بيتتبّع كل قطعة بالصنف (**موديل × لون × مقاس**) من دخولها لحد خروجها: استلام من المصنع، شحن للعملاء بالسكان، مرتجعات، غسيل، هالك، مفقود، توريد للمحل، جرد، ومستلزمات التغليف. الواجهة عربي RTL بالكامل، وبتشتغل على الموبايل والكمبيوتر، فاتح وغامق.
 
-This repository is the **design and brainstorming state** of the project, to be handed over to the real build. Nothing here is production software: both prototypes are single HTML files that keep their data in the browser only (no backend, no real photo storage).
+> **الصورة الحالية:** التطبيق اللي بنكمّل عليه هو **Fémini Stock · Brand 2** (`apps/edition-3-brand-v2/index.html`)، ملف HTML واحد، منشور كـ Artifact على claude.ai. بياناته حاليًا بتتخزن في **متصفح كل جهاز** (localStorage + IndexedDB). الخطوة الجاية المقررة: نقل التخزين لسيرفر حقيقي (**cPanel + MySQL**). التفاصيل في [قسم قاعدة البيانات](#12-خطة-قاعدة-البيانات-cpanel--mysql).
 
-## Production app
-`web/` is the real build: **React + TypeScript + Tailwind CSS + Supabase** (database functions enforce the rules; the ledger is append-only). `supabase/` has the migrations, the seed generated from the real data, and SQL tests that run on a throw-away Postgres. See [`web/README.md`](web/README.md). The single-file prototypes below stay as design references.
+---
 
-## Start here
-- [`docs/LOVABLE_BRIEF.md`](docs/LOVABLE_BRIEF.md): the full handoff brief (problem, real data, decisions, open questions, build plan, acceptance scenarios).
+## المحتويات
+1. [الروابط والحالة](#1-الروابط-والحالة)
+2. [المشكلة والقرارات الأساسية](#2-المشكلة-والقرارات-الأساسية)
+3. [نموذج المخزون: الحالات والعمليات](#3-نموذج-المخزون-الحالات-والعمليات)
+4. [الصفحات والميزات بالتفصيل](#4-الصفحات-والميزات-بالتفصيل)
+5. [الأدوار والصلاحيات وقفل اليوم](#5-الأدوار-والصلاحيات-وقفل-اليوم)
+6. [مفيش مسح: الأرشفة فقط](#6-مفيش-مسح-الأرشفة-فقط)
+7. [البيانات والتخزين](#7-البيانات-والتخزين)
+8. [هيكل المشروع وخط البناء](#8-هيكل-المشروع-وخط-البناء)
+9. [الاختبارات](#9-الاختبارات)
+10. [التشغيل والتطوير والنشر](#10-التشغيل-والتطوير-والنشر)
+11. [المحددات المعروفة](#11-المحددات-المعروفة)
+12. [خطة قاعدة البيانات: cPanel + MySQL](#12-خطة-قاعدة-البيانات-cpanel--mysql)
+13. [Git وسير العمل](#13-git-وسير-العمل)
+14. [البيانات الحقيقية والخصوصية](#14-البيانات-الحقيقية-والخصوصية)
+15. [خط زمني مختصر للنسخ](#15-خط-زمني-مختصر-للنسخ)
+16. [ملفات أخرى في المستودع](#16-ملفات-أخرى-في-المستودع)
 
-## What is inside
-| Path | What |
+---
+
+## 1) الروابط والحالة
+
+| إيه | فين |
 |---|---|
-| `apps/standard-edition/index.html` | **Recommended base.** Odoo/Oracle-style terminology: Overview with operation types, Transfers (Draft, Waiting, Ready, Done), Backorders, Returns, Inventory Adjustments, locations, Stock / Moves / Replenishment / ABC / Kits reports. English labels with Arabic hints. |
-| `apps/edition-3/index.html` | **Edition 3 (full redesign).** Built from the data and lessons of the first two: Today (control tower + action queue), Orders (pickup vs scanned, stuck orders, pick list), Inventory (model matrix + all variants), Operations (9 operation types, live effect panel), Supplies (flyers, packaging S/M/L, cups, auto-consumed by scans), Insights (manufacturing suggestion, demand, bundles, team, stock health), Ledger and audit, Configuration (thresholds, supply rules, costs). Rebuild with `python3 src/edition-3/build.py`; test in `tests/edition3_flow_test.js` (32 + 26 supplies checks). |
-| `apps/task-first-edition/index.html` | First prototype, task-first and fully Arabic ("what did you do?"), with the stock desk, effect preview before confirming, analytics. **Now also has the Scanned Orders flow** (pickup = demand, scanned = actual out, stuck orders, per-employee counts); this is the version the user will most likely continue with. |
-| `src/task-first-edition/` | Source of the first prototype (`app.src.html` + `data.json`). Rebuild with `python3 src/task-first-edition/build.py`. |
-| `tests/task_first_scan_test.js` | Playwright test (28 checks) for the scan flow. It uses `data/QRbot_202611021914566_scanned_orders.csv` and expects `apps/task-first-edition/index.html` (check the paths at the top of the file). |
-| `src/standard-edition/` | Source parts of the standard edition. Rebuild with `python3 src/standard-edition/build.py`. |
-| `data/femini_master_skus.csv` | Cleaned master: 626 variants, English names, legacy min alert, opening stock (physical count of 2026-10-29). |
-| `data/QRbot_202611021914566_scanned_orders.csv` | Real scanner export of 2026-11-02 (28 scanned orders; the QR holds the order code). |
-| `data/vendoor_pickups_2026-11-02_lines.csv` | One real day of Vendoor pickup lines (92 orders, 1,070 pieces), without customer personal data. |
+| **التطبيق الحالي (Brand 2)** | https://claude.ai/artifact/JrF2eTKZGLWi7kWK5EFmhV (آخر نشر: النسخة 45) |
+| Edition 3 الأصلي | https://claude.ai/artifact/NTfeBHSHKHY1qbMQdArs9e |
+| Edition 3 Brand (ألوان فيميني) | https://claude.ai/artifact/52YQ424L6TWjPPskESzjay |
+| Brand 2 (Copy) تجربة تصميم "Studio" متوقفة | https://claude.ai/artifact/HcKh15ro83Lgvn8L67XFSY |
+| فرع التطوير | `claude/amazing-cori-85ztzd` |
+| Pull Request (Draft) | https://github.com/mosabwagih2/stocks-track/pull/1 |
 
-## Running the prototypes
-Open an `index.html` in a browser. No server or build is needed. Excel import (pickup sheets, count sheets) runs in the browser through the SheetJS library loaded from a CDN.
-To reset the demo data: standard edition, Configuration, Data, Reset demo data.
+الـ Artifacts خاصة (مش متاحة غير للمالك إلا لو اتشاركت من قائمة Share). ملف `apps/edition-3-brand-v2/index.html` هو نفس اللي بيتنشر.
 
-## Data and privacy
-- Customer names, phone numbers and addresses are never imported or stored.
-- The demo data is the real data: real order codes and waybill numbers of 2026-11-02, so importing the same Vendoor sheet again is detected as duplicates.
-- Stock quantities and demand figures are real business data of the brand.
+---
 
-## Key rules decided so far
-- Stock is a ledger of immutable moves between locations; balances are derived, never typed.
-- Five states: ready, needs cleaning, scrap (final), at factory (pending), lost. Washing and waste are the only things sent to the factory.
-- A return sheet gives expected pieces; expected minus received becomes lost automatically.
-- Permissions are intentionally postponed; the system is open during testing.
+## 2) المشكلة والقرارات الأساسية
 
-See the brief for everything else (open questions: bundles, cups, lead times, channel formats, costing).
+**المشكلة:** المخزون كان بيتتابع في Excel برقم واحد لكل صنف، فمفيش فرق بين القطعة الجاهزة للبيع والقطعة اللي محتاجة غسيل أو عند المصنع أو مفقودة، ومفيش ربط بين اللي اتطلب (بيك أب Vendoor) واللي خرج فعلًا (سكان)، والأوردر اللي واقف بسبب قطعة ناقصة مش بيبان.
 
-## Edition 3 variants (`variants/edition-3`)
+**القرارات اللي اتبنى عليها كل حاجة:**
+- **المخزون دفتر حركات ثابت (immutable ledger).** كل تغيير هو حركة من مكان لمكان (`S.moves`). الرصيد **بيتحسب** من الحركات ومش بيتكتب بإيد. مفيش تعديل على حركة قديمة.
+- **خمس حالات للقطعة** (جاهز، هالك نظافة، عند المصنع، هالك نهائي، مفقود). الغسيل والهالك هما الحاجتين الوحيدتين اللي بتروح للمصنع.
+- **البيك أب = الطلب، والسكان = الخروج الفعلي.** الفرق بينهم هو الأوردرات الواقفة.
+- **الأوردر بيتبعت كامل.** لو أي قطعة فيه ناقصة بيتعتبر "معطل" ومبيتشحنش.
+- **المرتجع بيتربط برقم البوليصة.** المتوقع ناقص المستلَم = مفقود تلقائيًا.
+- **مفيش مسح في السيستم.** الإجراء المكافئ هو الأرشفة، والتصحيح بحركة عكسية أو تعديل مسودة (اتشال زر "عكس العملية" نهائيًا من الواجهة).
+- **الاستخدام اليومي لازم يكون بسيط.** الموظف غالبًا هو المدير، فمفيش شاشات تعقيد بدون داعي.
 
-`apps/edition-3/index.html` and `apps/edition-3-brand/index.html` are built from `variants/edition-3/base.html` (the previous Edition 3) by `variants/edition-3/build.sh`:
+---
 
-1. `1_state.py`: clearer "needs washing" / "at factory" states, clickable rows with a detail sheet (SKUs, quantities, days since sent) and a prefilled draft action.
-2. `2_returns_sheet.py`: upload the shipping company's return sheet inside Customer Returns; matches by order code and fills the expected list.
-3. `3_toggle.py`: sidebar toggle with a short animation (Ctrl+B).
-4. `1d_integrity.py` (runs after step 2): one reorder engine for alerts, plan and rate tab; returns linked to orders; safe cancel/reverse; net shipped; storage warning.
-5. `1e_mobile.py`: phone layout (bottom bar with a More sheet, compact matrix, one-line tables); desktop is unchanged.
-6. `1f_search.py`: stock search bar shared by the three views.
-7. `1g_dashboard.py` (+ `dashboard.js`): the command-center tab in Analytics (money, movement, stock health, trends, top SKUs, governorates), period based.
-8. `1h_motion.py`: purposeful motion (press feedback, sheet enter/exit, drag-to-dismiss on phones, page enter, tooltip delay, toast, changed-value pulse) that switches off with prefers-reduced-motion.
-9. `4_brand.py`: the Fémini logo and a palette derived from the logo purple #43316f. This is the comparison copy.
+## 3) نموذج المخزون: الحالات والعمليات
 
-`src/edition-3/build.py` still builds the older Edition 3 and would overwrite `apps/edition-3`. Rebuild with `variants/edition-3/build.sh` afterwards, or port the changes into `src/edition-3`.
+### الأماكن (`LOC`)
+| الكود | الاسم في الواجهة | الوصف |
+|---|---|---|
+| `READY` | جاهز للبيع | الرصيد المتاح للشحن |
+| `DIRTY` | هالك نظافة | محتاجة غسيل، بتروح المصنع وترجع |
+| `FACTORY` | عند المصنع | مبعوتة وبتستنى الرجوع (غسيل أو تسليم هالك) |
+| `SCRAP` | هالك نهائي | قطعة خلصت |
+| `LOST` | مفقود | ناقص من مرتجع أو جرد |
+| `EXT_CH` | الشحن | الخروج للعميل أو القناة (كان اسمها "القناة / العميل") |
+| `EXT_SHOP` | المحل | التوريد للمحل |
+| `EXT_FACTORY` | المصنع | مصدر الاستلام |
+| `EXT_OPEN` / `EXT_ADJ` / `EXT_OFF` | رصيد افتتاحي / تسوية جرد / شطب نهائي | أماكن خارجية للحركات التقنية |
 
-`tests/edition3_integrity_test.js` runs a full cycle (ship, return, cancel, reverse, supplies, alerts, reload) and checks the ledger, supplies and cross-page totals. Run with `node tests/edition3_integrity_test.js` (set `APP=` to test another build).
-`tests/edition3_mobile_test.js` checks the 390px phone layout (no sideways scroll, bottom bar, matrix fit, tap sizes, 16px fields) and that the desktop layout is unchanged.
-`tests/edition3_search_test.js` covers the stock search bar (all views, matching rules, focus, clear, phone).
-`tests/edition3_dashboard_test.js` checks every dashboard number against an independent calculation on a 100-day synthetic history (periods, previous-period comparison, ledger replay for stock level, top 10, blocked value, costs, live scan/return).
-`tests/edition3_motion_test.js` checks the motion behaviour, reduced motion and drag-to-dismiss (21 checks).
+### أنواع العمليات (`OT`)
+| الكود | الاسم | الاتجاه | الغرض |
+|---|---|---|---|
+| `RCV` | استلام توريد | دخول | قطع جت من المصنع بورقة موقّعة |
+| `RTN` | مرتجعات العملاء | دخول | اللي رجع من القنوات: جاهز أو هالك، والناقص بيتسجل مفقود |
+| `SCN` | أوردرات اتشحنت | خروج | الخروج الفعلي من ملف السكان |
+| `SHP` | توريد للمحل | خروج | قطع للمحل، وبتطلع إذن تسليم |
+| `CLN` | تصنيف حالة | داخلي | قطعة بقت هالك نظافة أو هالك نهائي |
+| `FSD` | إرسال للمصنع | داخلي | غسيل (هيرجع) أو هالك للتسليم |
+| `FRC` | استلام من المصنع | داخلي | المغسول اللي رجع، وفيه المرفوض |
+| `CNT` | جرد | رقابة | عدّ فعلي ومقارنة بالسيستم |
+| `LOS` | معالجة المفقود | رقابة | لقيناه ولا نشطبه |
+| `CXL` | إلغاء أوردر | تقني | بيتولد من إلغاء الأوردر |
+| `OPN` | رصيد افتتاحي | تقني | رصيد البداية (جرد 29-10-2026) |
 
-### Redesign copy (`apps/edition-3-brand-v2`)
+### دورة حياة العملية
+`مسودة` (draft) ← `build()` بيفحص شروط (`chk(...)`) وبيحسب الحركات ← **تأكيد** (`confirmDoc`) بيكتب الحركات في السجل (`post`) وبيدّي رقم (`SCN-0001`، `RCV-0002`...). المسودة ممكن تتأرشف. العملية المؤكدة ثابتة.
 
-Built by `variants/edition-3/5_redesign.py` (with `redesign_stock.js` and `redesign_rest.js`) from the same base, so logic and data are identical. It only changes how data is organised: stock as a grouped list with the matrix on demand, orders grouped by pickup with value, the ledger as a document feed by day, supplies as a table with operations grouped, settings in sections, operations as a launcher with pinned drafts. `tests/edition3_v2_test.js` checks every figure against the raw data (31 checks).
+---
 
-The redesign copy also rebuilds Today (hero with ring, next action, activity timeline) and Analytics (six tabs by question; demand and manufacturing pages merge what used to be spread over four tabs). `tests/edition3_v2b_test.js` covers both (24 checks).
+## 4) الصفحات والميزات بالتفصيل
 
-The redesign copy has a stock heat map (Stock > خريطة): model x size, coloured by shortage / below reorder point / enough / surplus, from the same per-SKU engine as the alerts. `tests/edition3_heat_test.js` checks colours and labels against hand-computed values (15 checks).
+### النهارده
+- بطاقة رئيسية: حلقة تقدّم (اتشحن / مستني / معطل)، قيمة المطلوب والمشحون والواقف، ورسم مصغّر لشحن آخر 7 أيام، وأزرار الإجراء التالي.
+- كروت الحالة (المطلوب، اتشحن، مستني، معطل) كل واحد بيفتح نافذة بتفاصيل الأوردرات والأصناف الناقصة، **مع صف إجمالي** تحت كل جدول (عدد الأصناف والأوردرات ومجموع القطع والناقص).
+- **محتاج تدخّل:** قايمة تنبيهات (رصيد بالسالب، أوردرات معطلة، مسودات، مستلزمات خلصانة، تذكير نسخة احتياطية).
+- **حصل إيه النهارده:** كل حدث بيفتح نافذة: مين سجّله ومتى، وكروت لكل موديل فيها اللون والمقاسات والكميات، وزر لفتح المستند.
+- قائمة الهالك: تصنيف الحالة، إرسال للمصنع، استلام من المصنع.
+- شريط **قفل اليوم** (انظر القسم 5). الانتقال بين الأيام وعرض يوم سابق للقراءة.
+- بيتحدّث تلقائي مع نص الليل (`rollCheck`).
 
+### المخزون
+- أربع طرق عرض: **مصفوفات** (الافتراضي: موديل × لون × مقاس مع طلب مفتوح)، **خريطة** (موديل × مقاس، ألوان درجة واحدة بنفسجي، ترتيب بالأكثر سحبًا أو أبجدي)، **قائمة**، **كل الأصناف**.
+- فلتر الحالة: جاهز، هالك نظافة، عند المصنع، هالك نهائي، مفقود (بيعرض بس الموديلات اللي فيها قطع في الحالة دي).
+- شريط الحالات (ناقص، تحت نقطة الطلب، تمام، زيادة): **كل كارت بيفتح نافذة** فيها الخانات (موديل × مقاس) في الحالة دي، وتحت كل خانة صف لكل لون: متاح، طلب مفتوح، عند المصنع، يتصنّع، سحب/أسبوع، وحالة اللون. فيها إجمالي في الآخر.
+- بحث موحّد (كود/موديل/لون/مقاس). صورة الموديل بتتكبّر وتتغيّر (مفيش إزالة، بس تغيير).
+- تعديل الكتالوج: موديل جديد، ألوان جديدة بـ**اختيار درجة اللون** (أو تخمين من الاسم عربي: أخضر، ذهبي، عنابي...، بتتخزن في `S.cat.hex`)، مقاسات جديدة، أرشفة موديل بشرط مفيش رصيد ولا طلب. التسمية بتتحدد من حقل نص (ممكن تكتب تصنيف جديد)، والمجموعات (بانتي، برا، شورت، موديلات تانية) بتتحدد من بداية الكود (`PAN` / `BR` / `SH`).
 
-## Edition 3 Brand 2: demo data and tour
+### الأوردرات
+- مرفوعة من ملف Vendoor Excel (أعمدة: كود الأوردر العشوائي، بوليصة الشحن، حالة الأوردر الجزئية، المحافظة، المبلغ توتال بالشحن، المنتجات المطلوبة). التكرار بيتكشف بكود الأوردر.
+- مجمّعة بالبيك أب، الأحدث أولًا. حالات: مستني، معطل، اتشحن، مرتجع، ملغي. شريط الأوردر المعطل بيكتب **الصنف الناقص كامل** (مثلًا `معطل · ناقص BR2 · رمادي · XL`).
+- **السكان:** رفع ملف QRbot (CSV/Excel، الكود في QR هو كود الأوردر)، المطابقة، الأوردرات غير المعروفة، وتوقيع العملية باسم حساب المستخدم الداخل. بيخصم `READY → الشحن` ويخصم المستلزمات تلقائي.
+- إلغاء أوردر بصورة البوليصة المشطوبة (بيرجّع القطع لو اتشحنت).
+- ملف البيك أب والسكان الأصلي بيتحفظ وينزّل (انظر الملفات).
 
-- `variants/edition-3/redesign_demo.js`: deterministic generator (`genDemo`) that fills the app with 28 days of operations through the real code paths (pickups, scans, returns, wash/factory, receipts, shop transfers, count, losses, cancellations, reversed scan, supplies) for Vendoor, Noon, Amazon, Shopify and Facebook. About 1.6 MB of browser storage.
-- Settings, "داتا تجريبية وجولة": load/reset buttons and a 12-card tour (problem, how the system solves it, live numbers, jump button). Today shows a banner while demo data is loaded.
-- Stock heat map now uses the same look as the demand heat map (purple intensity, corner dot for short/low/surplus). Test: `tests/edition3_heat_test.js`, `tests/edition3_demo_test.js`.
-- Analytics charts modernised in Brand 2 (`redesign_charts.js`): smooth gradient area lines with crosshair hover, SVG column charts with hairline grid, slim gradient bars.
+### العمليات
+- شاشة تشغيل مقسّمة: دخول، خروج، داخلي، رقابة. مسودات محتاجة تكمل فوق.
+- كل عملية فيها لوحة أثر لحظية (إيه اللي هيتغيّر قبل التأكيد) وفحوص بتمنع التأكيد لو ناقص حاجة.
+- **المرتجعات بالبوليصة:** اكتب أو الصق بوليصة، السيستم يلاقي الأوردر الأصلي ويعرض كل قطعة اتشحنت، والموظف يعلّم كل قطعة (سليم / نضافة / هالك / ناقص). الفرق بين المشحون والمستلَم بيظهر لكل أوردر. فيه كمان **جرد يدوي** بالموديل واللون والمقاس للاستخدام لوحده أو مع البوليصات.
+- **توريد للمحل (SHP):** اسم المحل إجباري، اليوم والوقت بيتسجلوا. بعد التأكيد بيطلع **إذن تسليم** بتصميم A4 ثابت (الهيدر والتوقيعات ثابتة، والأصناف بتنزل صفحات) بألوان فيميني واللوجو، بتوقيعين (مستلم الاستور / أمين المخزن)، وبتصدّره: طباعة، **PDF**، **صورة PNG**، HTML، Excel. تبويب "توريدات المحل" لتتبّع كل توريد وفلترة بالمحل والحالة.
+  - **تأكيد التسليم للمحل:** الزر مقفول لحد ما تترفع **صورة الإذن الموقّع**، ورسالة بتشرح إن الصورة إجبارية (الإثبات). الـ action نفسه بيرفض من غير الصورة. بعد التأكيد الصورة بتتثبّت ومش بتتغيّر.
+- الغسيل والمصنع: `CLN` / `FSD` / `FRC`. الجرد `CNT`. معالجة المفقود `LOS`.
 
-## Brand 2 (Copy): Studio redesign
+### السجل
+- ثلاث تبويبات: **اللي حصل** (فيد واحد: عمليات، إلغاءات، حركات مستلزمات، أحداث النظام، مجمّع بالأيام مع الشخص والوقت، فلاتر بالنوع والشخص واليوم والبحث)، **تتبّع صنف** (رحلة صنف واحد مع الرصيد بعد كل حركة)، و**المؤرشف** (انظر القسم 6).
+- كل حدث بيتفتح بتصميم كروت لكل موديل: صف لكل لون فيه المقاسات كشرائح وإجمالي اللون. زر "افتح المستند" بيروح للعملية فعلًا.
 
-- `variants/edition-3/studio.css` + `6_studio.py` build `apps/edition-3-brand-v2-copy` on top of Brand 2: warm ivory ground, aubergine ink, one accent, segmented controls, quiet tables, larger numbers, hairline cards.
-- The demo tab opens with a 9-second looping stage (stageshow-style: a cursor scans, the order flips, the balance rolls, the supplies tick). It shows the end state when reduced motion is on.
+### التحليلات
+أربع تبويبات: لوحة القيادة، الطلب، المخزون والتصنيع، الأوردرات الواقفة.
+- لوحة القيادة (بفترة: كل البيانات، آخر 7/14/30...، النهارده): قسم **فلوس** (أوردرات مفتوحة، اتشحن، متوسط الأوردر، مرتجع، قيمة المخزون) وقسم **حركة القطع** (طلب، اتشحن، رجع، اتسلّم من المصنع، هالك ومفقود)، ورسوم (تدفق الطلب والشحن، مستوى المخزون، قيمة المخزون، أعلى 10 أصناف، المحافظات).
+- **كل كارت بيفتح نافذة بتفاصيل الرقم:** الأوردرات اللي وراه، توزيع حسب المحافظة أو البيك أب أو الموديل، المتوسط والوسيط، عمليات الاستلام، الحركات...
+- محرك إعادة الطلب: معدل السحب من آخر N يوم، مهلة المصنع، مستوى الخدمة، أمان بديل، هدف التغطية. بيطلع **اقتراح تصنيع** لكل صنف. الإعدادات قابلة للتعديل.
+- رسوم SVG حديثة (خطوط بتدرّج، أعمدة بخط شبكة رفيع، دونات).
 
-## Brand 2: users, roles, permissions, day close
+### المستلزمات
+عبوات وفلايرز وكاسات. كل مستلزم له قاعدة خصم تلقائي مع كل أوردر بيتشحن (مثلًا 1 لكل أوردر، أو لكل N قطع، أو حسب موديل)، حد تنبيه، وتغطية بالأيام. استلام وصرف وجرد، وسجل مع تراجع بتأكيد. الأرشفة بتتجمع في **السجل ← المؤرشف** (مفيش صفحة مؤرشف منفصلة).
 
-- `variants/edition-3/redesign_access.js` (+ `access_patch.py`): users with roles (admin, supervisor, packer, read-only), editable permission matrix, optional PIN lock screen, audit log, money masking, per-action and core-function permission guards.
-- Day close: checklist (blockers and warnings), opening + in - out = closing reconciliation per state, locks every day up to the closed date (documents, cancellations, supplies), admin reopen with a logged reason. Test: `tests/edition3_access_test.js`.
-- Scope: this is browser-side (localStorage, hashed PINs), so it prevents mistakes and keeps an audit trail. Real enforcement needs the server (Supabase) version.
+### الملفات
+بيك أب، سكان، صور المستندات، إلغاءات. كل ملف اترفع **محفوظ بنسخته الأصلية** وينزّل بنفس الاسم بزر ⬇. تفاصيل التخزين في القسم 7.
 
-## Production audit (Brand 2)
+### الإعدادات
+حدود التنبيه، قواعد المستلزمات، التكلفة وسعر البيع (قيمة المخزون)، المستخدمين والصلاحيات، النسخة الاحتياطية (تنزيل واسترجاع)، الداتا التجريبية.
 
-- New suites: `edition3_fuzz_test.js` (random operations, ledger/order/supply invariants after every step), `edition3_crawl_test.js` (every screen x light/dark x desktop/phone x empty/demo data, plus HTML-injection check), `edition3_prod_test.js` (reload persistence, PIN after reload, corrupt/old storage, quota, double submit, two tabs, midnight rollover, bad import files, backup/restore, speed).
-- Fixes from the audit: demo load left the catalog state unset (the "all items" view crashed), a document could be confirmed twice, two tabs could overwrite each other, accessibility labels in the users tab.
-- Added: backup download and restore (Settings, Data) with a reminder on Today.
+### داتا تجريبية وجولة
+- `genDemo` مولّد حتمي (deterministic) بيملّى السيستم بـ 28 يوم تشغيل كامل عبر نفس مسارات الكود الحقيقية: بيك أب وسكان ومرتجعات وغسيل ومصنع واستلام وتوريد للمحل وجرد ومفقودات وإلغاءات ومستلزمات، لخمس قنوات (Vendoor، Noon، Amazon، Shopify، Facebook). حوالي 1.6MB تخزين.
+- جولة من 12 كارت (المشكلة، الحل، أرقام حية، زر انتقال).
+- **تحميل الداتا التجريبية بيحفظ نسخة من شغلك الأول** (`femini-stock-v3-pre-demo`)، وزر "رجوع لبياناتي اللي قبل التجريبية" بيرجّعها. لو مفيش مساحة كفاية للنسخة، التحميل **بيترفض** من غير ما يغيّر حاجة.
 
-## Analytics merge (Brand 2)
+---
 
-Six tabs became four: overview, demand, stock and manufacturing, blocked. Team moved into the overview, stock health into stock and manufacturing, governorates and top SKUs live only in demand. Stock-by-state and the duplicated stock value were dropped from analytics (they live on the Stock page and Today). Today also got a scrap menu (classify, send to factory, receive from factory) and lost its subtitle.
+## 5) الأدوار والصلاحيات وقفل اليوم
 
-> Day close was removed from Brand 2 (it confused the daily flow). Old saved states that had a locked day open unlocked. Users, roles, PIN lock and backups stay.
+### المستخدمين والأدوار
+| الدور | الصلاحيات الافتراضية |
+|---|---|
+| مدير (`admin`) | كل حاجة |
+| مشرف مخزن (`sup`) | سكان، مرتجعات، استلام، هالك/غسيل/مفقود، توريد للمحل، جرد، بيك أب، إلغاء، كتالوج، مستلزمات، قفل اليوم |
+| موظف شحن (`pack`) | سكان، مرتجعات |
+| مراجعة (`view`) | يشوف الفلوس والتكلفة فقط (قراءة) |
 
-> Day close is back in Brand 2 in a simple form: a Today button, one sheet (plain explanation, six numbers, short checklist that never blocks, one button), a green line when closed, one-click reopen, no reason asked. It covers only the current day.
+14 صلاحية قابلة للتعديل من مصفوفة (`PERMS`): الفلوس، السكان، المرتجع، الاستلام، الداخلي، التوريد للمحل، الجرد، البيك أب، الإلغاء، الكتالوج، المستلزمات، قفل اليوم، الإعدادات، المستخدمين. كل نوع عملية له صلاحية (`DOC_PERM`). فيه **قفل شاشة بـ PIN** اختياري لكل مستخدم، وسجل مراجعة (audit) لكل تغيير، وإخفاء الأسعار لمن ليس له صلاحية الفلوس. المستخدم مش بيتمسح، بيتأرشف.
 
-## The log, redesigned (Brand 2)
+> **تنبيه مهم:** الصلاحيات والـ PIN دلوقتي **حماية في المتصفح** (localStorage وتجزئة PIN) بتمنع الغلط وبتسجّل مين عمل إيه، لكنها **مش حماية أمنية** لأن أي حد بيفتح أدوات المتصفح يقدر يتخطّاها. الحماية الحقيقية هتيجي مع السيرفر (قسم 12).
 
-Two views instead of three tabs that looked alike: "اللي حصل" (one feed of operations, cancellations, supply entries and system events, grouped by day, each with person and time, filters by type, person, day and search) and "تتبّع صنف" (one item's full journey with the ready balance after each move). Raw move tables and the separate audit tab are gone; their data lives in these two.
+### قفل اليوم
+- زر "قفل اليوم" في النهارده يفتح شيت: شرح بسيط، ست أرقام (اتطلب، اتشحن، رجع، اتسلّم من المصنع، جاهز للبيع، هالك ومفقود)، وقايمة "قبل ما تقفل" تنبيهات للعلم بس **مبتمنعش** القفل. القفل بيثبّت أرقام اليوم في تقرير ويمنع أي عملية جديدة بتاريخ اليوم ده (مستندات، إلغاءات، مستلزمات، رفع ملفات).
+- فتح اليوم تاني بضغطة من شيت التقرير بس، من غير سؤال.
+- **قفل تلقائي 12 بالليل:** مع بداية اليوم الجديد (توقيت القاهرة)، أو أول ما التطبيق يتفتح في يوم أحدث، اليوم اللي فات بيتقفل لوحده ويتسجل "مقفول تلقائي". بيرجع لحد 7 أيام، ويقفل الأيام اللي فيها حركة بس. اليوم اللي المدير فتحه يدوي في نفس اليوم مبيتقفلش تاني لحد اليوم اللي بعده. فيه مفتاح تشغيل/إيقاف جوه الشيت. **النتيجة:** بعد نص الليل مش هتقدر تسجّل مستند بتاريخ إمبارح إلا لو المدير فتح آخر يوم مقفول.
 
-## Returns by waybill (Brand 2)
+---
 
-A return document now works parcel by parcel: scan or type a waybill (or order code), the system finds the original order and lists every piece that was shipped, the employee marks each piece good / cleaning / scrap / missing, and the difference between shipped and received is shown per order. Posting is unchanged (good to ready, cleaning, scrap, missing to lost), plus each order keeps "received x of y". Test: `tests/edition3_returns_test.js`.
+## 6) مفيش مسح: الأرشفة فقط
 
-> Returns: the manual count by model, colour and size is back inside the return document (a separate card, "جرد يدوي"), and can be used alone or together with waybill parcels.
+كل حاجة كانت "حذف" بقت "أرشفة"، والأرشيف كله مجمّع في **السجل ← المؤرشف** في جدول واحد بعمود **"جاية منين"**:
 
-## Shop supplies and the stock state filter (Brand 2)
+| النوع | بيتأرشف إزاي | بيترجع إزاي |
+|---|---|---|
+| بيك أب (وأوردراته المفتوحة) | شيت البيك أب، بشرط مفيش أوردر اتشحن منه | تبويب المؤرشف |
+| مسودة عملية | زر "أرشفة المسودة" | تبويب المؤرشف |
+| مستلزم | من إعدادات المستلزمات | تبويب المؤرشف (بسؤال تأكيد) |
+| موديل / أصناف | شيت الموديل، بشرط مفيش رصيد ولا طلب | تبويب المؤرشف |
+| مستخدم | الإعدادات ← المستخدمين | تبويب المؤرشف |
 
-- Choosing a state chip on the Stock page (cleaning, factory, scrap, lost) lists only the models and items that have pieces in that state (list, matrices and all-items views).
-- Shop supply (SHP): no photo is required before saving. A shop name is required; the day and time are kept. A confirmed supply gets a delivery note (two copies: shop and warehouse, signature block, optional prices) to print or download as HTML or Excel, a "delivered" step with the receiver's name, and an optional signed-paper photo afterwards. Operations has a new tab, "توريدات المحل", with filters, per-shop totals and a re-print button. Test: `tests/edition3_shop_test.js`.
+الاسترجاع **دايمًا بيسأل "متأكد؟"**. ملف البيك أب الأصلي بيفضل محفوظ مع المؤرشف. اتشال زر "رجوع للبيانات الأصلية" وزر إزالة صورة الموديل. (شيل **بند** من مسودة لسه مش مؤكدة لسه ممكن، لأنه تعديل مسودة مش مسح بيانات.)
+
+---
+
+## 7) البيانات والتخزين
+
+التطبيق كله حاليًا **على جهاز المستخدم**:
+
+| المخزن | المحتوى |
+|---|---|
+| `localStorage["femini-stock-v3"]` | الحالة كلها `S` كـ JSON (الحد حوالي 5MB، التطبيق بيعرض الحجم وتحذير لو قرّب) |
+| `localStorage["femini-stock-v3-pre-demo"]` | نسخة من شغلك قبل تحميل الداتا التجريبية |
+| IndexedDB `femini-v3` ← store `ph` | صور المستندات والإلغاء (مضغوطة حتى 1400px كـ data URL) |
+| IndexedDB `femini-v3` ← store `fl` | **الملفات الأصلية** كـ Blob: `pk:<id>` ملف بيك أب، `dc:<doc>` ملف سكان، `ph:<doc>` صورة إذن أصلية، `cx:<ref>` صورة إلغاء أصلية |
+
+### شكل الحالة `S` (أهم المفاتيح)
+`moves` (دفتر الحركات)، `docs` (العمليات والمسودات، فيها `hdr` و`lines` و`status` و`log`)، `orders` و`pickups`، `cat` (كتالوج: موديلات وألوان جديدة، `arch` للأصناف المؤرشفة، `hex` لدرجات الألوان)، `sup` (المستلزمات: `items` و`log`)، `costs`، `st` (إعدادات المحرك والتنبيه، `autoClose`)، `users` و`roles` و`cur` و`audit`، `shops`، `closes` و`lock` (قفل اليوم)، `img` (صور الموديلات)، `archPk` و`archDocs` (المؤرشف)، `demo`، `bk` (آخر نسخة احتياطية).
+
+### النسخ الاحتياطي
+تنزيل JSON (الحالة + الصور) واسترجاع بتأكيد. **الملفات الأصلية (`fl`) مش داخلة في النسخة الاحتياطية** عشان الحجم. فيه تذكير على صفحة النهارده. التطبيق بيكتشف لو الحالة اتغيّرت من تبويب تاني ويوقف الحفظ عشان ميمسحش شغله (`STALE`).
+
+### التنزيلات
+جوه عارض الـ Artifact بنستخدم capability `downloads` (`window.claude.use('downloads').save`)، وخارجه بنرجع لرابط `<a download>`.
+
+### مكتبات بتتحمّل من CDN (محتاجة إنترنت)
+SheetJS (قراءة وكتابة Excel)، `html2canvas` 1.4.1 و`jsPDF` 2.5.1 (PDF وPNG لإذن التسليم)، بتتحمّل أول مرة بس عند الاستخدام.
+
+---
+
+## 8) هيكل المشروع وخط البناء
+
+```
+apps/
+  edition-3-brand-v2/     ← التطبيق الحالي (الملف اللي بيتنشر)
+  edition-3-brand-v2-copy/← تجربة تصميم Studio (متوقفة)
+  edition-3-brand/        ← Edition 3 بألوان فيميني
+  edition-3/              ← Edition 3 الأصلي
+  standard-edition/, task-first-edition/  ← النماذج الأولى
+variants/edition-3/       ← مصدر وخط بناء التطبيق الحالي
+tests/                    ← اختبارات Playwright
+data/                     ← الداتا الحقيقية (CSV)
+docs/                     ← LOVABLE_BRIEF.md + أرشيف README القديم
+web/, supabase/           ← محاولة React+Supabase (متوقفة، للمرجع)
+src/                      ← مصادر النماذج الأولى
+```
+
+### خط بناء Brand 2 (`variants/edition-3/build.sh`)
+المشروع مبني كـ **سلسلة تحويلات على ملف أساسي** (`base.html`) بدل ملف مصدر واحد:
+1. `1_state.py` … `1h_motion.py` + `2_returns_sheet.py` + `3_toggle.py`: تحسينات النسخة الأصلية (حالات أوضح، معدلات إعادة الطلب، سلامة البيانات، موبايل، بحث، لوحة قيادة، حركة).
+2. `4_brand.py`: اللوجو وألوان فيميني (بنفسجي `#43316f`).
+3. **`5_redesign.py`** بيبني `base_v2.html` ثم بيشغّل `4_brand.py` عليه لإنتاج `apps/edition-3-brand-v2`. بيشغّل بالترتيب ملفات patch بتعدّل النص الناتج:
+   `access_patch.py` ← `merge_patch.py` ← `returns_patch.py` ← `tweaks_patch.py` ← `shop_patch.py` ← `files_patch.py`.
+4. `6_studio.py` بيبني نسخة Studio.
+
+**آلية الـ patch:** كل ملف بيستخدم `rep(old, new)` (بيتأكد إن النص القديم موجود **مرة واحدة بالظبط**، وإلا البناء يفشل) و`ins_before(anchor, code)`. أجزاء JavaScript جديدة بتتحط في ملفات `redesign_*.js` وبتتدخل قبل `function vStock(){`، وبتتسجّل بـ `Object.assign(ACT, …)` و`CHG` و`INP`.
+
+| ملف | مسؤوليته |
+|---|---|
+| `redesign_stock.js` | المخزون: القائمة، الخريطة، كروت الحالة `hstSheet` |
+| `redesign_rest.js` / `redesign_today_body.js` | الأوردرات والعمليات والنهارده |
+| `redesign_analytics.js` / `redesign_merge.js` / `redesign_charts.js` / `dashboard.js` | التحليلات والرسوم |
+| `redesign_kpi.js` | نوافذ كروت لوحة القيادة (`dkSheet`) |
+| `redesign_ledger.js` | السجل: الفيد، تتبّع الصنف، كروت التفاصيل |
+| `redesign_returns.js` | المرتجعات بالبوليصة |
+| `redesign_shop.js` | توريد المحل، إذن التسليم، PDF/PNG |
+| `redesign_access.js` | المستخدمين، PIN، audit، نسخ احتياطي، قفل اليوم والقفل التلقائي |
+| `redesign_files.js` | الملفات الأصلية، المؤرشف الموحّد، ألوان، نافذة أحداث النهارده |
+| `redesign_demo.js` | مولّد الداتا التجريبية والجولة |
+
+**لإضافة ميزة:** اكتب الدالة في `redesign_*.js` (أو ملف جديد)، اربطها بـ patch في `files_patch.py` (`rep` على موضع فريد)، سجّل الـ ACT، ثم `./build.sh` وشغّل الاختبارات. **مش بنعدّل `apps/*/index.html` بإيد**، بتتولّد.
+
+---
+
+## 9) الاختبارات
+
+اختبارات **Playwright** (Node) على التطبيق الحقيقي في Chromium، شغّالة على `apps/edition-3-brand-v2/index.html` (غير `flow` و`mobile` على النسخة الأصلية).
+
+```bash
+cd variants/edition-3 && ./build.sh                 # يحتاج python3 و Pillow
+cd ../..
+export NODE_PATH=$(npm root -g)                      # playwright
+node tests/edition3_v2_test.js                       # أي ملف
+APP=apps/edition-3/index.html node tests/edition3_flow_test.js
+```
+
+| الملف | بيغطي (عدد الفحوصات وقت الكتابة) |
+|---|---|
+| `access` | مستخدمين، أدوار، PIN، audit، نسخ احتياطي، قفل اليوم (52) |
+| `autoclose` | القفل التلقائي: نص الليل، فتح بعد أيام، الفتح اليدوي، التعطيل، تداخل الشيتات (14) |
+| `archive` | نوافذ الكروت + الأرشفة والاسترجاع في كل الأنواع + مفيش زر حذف (22) |
+| `originals` | حفظ الملفات الأصلية وتنزيلها مطابقة بالبايت وبعد reload (10) |
+| `polish` | فلتر العمليات، "افتح المستند"، نوافذ النهارده، ألوان، كروت المخزون، صف الإجمالي، حماية الداتا التجريبية (24) |
+| `shop` | توريد المحل، إذن التسليم، تأكيد التسليم بصورة، صفحة المحل (33) |
+| `returns` | المرتجعات بالبوليصة والجرد اليدوي (27) |
+| `supplies` | المستلزمات (28) · `cancel` (20) · `catalog` (21) · `day` (17) |
+| `v2` / `v2b` | الصفحات والتجميع والتحليلات (36 / 28) · `heat` (16) · `insights` (10) · `dashboard` (28) |
+| `integrity` | دورة كاملة: شحن، مرتجع، إلغاء، مستلزمات، تنبيهات، reload (27) |
+| `fuzz` | عمليات عشوائية والتحقق من ثوابت الدفتر والأوردرات (3) |
+| `crawl` | كل شاشة × فاتح/غامق × كمبيوتر/موبايل × فاضي/داتا + حقن HTML (9) |
+| `prod` | استمرارية بعد reload، تخزين تالف وقديم، امتلاء المساحة، تبويبين، نص الليل (20) |
+| `files` · `search` · `popup` · `motion` · `demo` · `mobile` | الملفات، البحث، النوافذ، الحركة، الداتا التجريبية، الموبايل |
+
+**ملاحظات تشغيل:** بعض الاختبارات بتعمل `route` لمكتبات CDN وتتوقع نسخ محلية في `/tmp` (`xlsx.min.js` و`html2canvas.min.js` و`jspdf.umd.min.js`، حمّلها من cdnjs). اختبار `motion` بيفشل أحيانًا تحت حمل عالي ونجح لوحده. التاريخ في بعض الاختبارات مثبّت بإستبدال `Date` عشان الثبات.
+
+---
+
+## 10) التشغيل والتطوير والنشر
+
+- **التشغيل المحلي:** افتح `apps/edition-3-brand-v2/index.html` في المتصفح مباشرة (مفيش سيرفر). للـ `file://` الأحسن تلفّه في صفحة فيها `<meta name="viewport">` زي ما بتعمل الاختبارات.
+- **اختبار على الموبايل:** Playwright بـ `devices['Pixel 7']` أو DevTools.
+- **النشر كـ Artifact:** بـ Artifact tool من نفس الملف ونفس الـ URL (بيحافظ على الرابط وعلى `capabilities: {downloads: true}`).
+- **متطلبات البناء:** `python3` (+ `Pillow` لتضمين اللوجو)، Node + Playwright للاختبارات.
+
+---
+
+## 11) المحددات المعروفة
+
+1. **التخزين على الجهاز:** مفيش مشاركة بين أجهزة أو موظفين، وسقف حوالي 5MB، وبيانات المتصفح لو اتمسحت تضيع. النسخ الاحتياطي اليدوي هو الحماية الوحيدة (والملفات الأصلية مش داخلة فيها).
+2. **الصلاحيات في الواجهة بس** (قسم 5): مفيهاش قيمة أمنية.
+3. **الاعتماد على CDN** لـ SheetJS وPDF/PNG: من غير إنترنت التصدير والاستيراد مش هيشتغل.
+4. **الحجم:** ملف واحد حوالي 640KB، وكل الحالة بتتسجّل كـ JSON واحد، فمع تراكم سنين من الحركات هيحتاج سيرفر.
+5. **الطباعة والتنزيل جوه عارض الـ Artifact** ممكن تتصرف مختلف عن المتصفح العادي. جرّبها على جهازك.
+6. **حساب الوقت** بتوقيت القاهرة (`cairoToday`) بالاعتماد على ساعة الجهاز.
+7. القفل التلقائي بينفّذ لما التطبيق يتفتح أو يكون مفتوح وقت 12، مفيش شغل في الخلفية.
+
+---
+
+## 12) خطة قاعدة البيانات: cPanel + MySQL
+
+**القرار:** نقل التخزين لسيرفر على استضافة cPanel فيها PHP وMySQL/MariaDB. **لسه ما اتبناش**، ده المخطط.
+
+### ليه
+- **Transactions حقيقية:** رصيد المخزون لازم يتحدّث بشكل ذرّي لما موظفين يسكنوا في نفس الوقت.
+- **دفتر append-only بجد:** مستخدم القاعدة يملك `INSERT` فقط على جدول الحركات (مفيش `UPDATE` ولا `DELETE`)، ده بيطبّق "مفيش مسح" على مستوى القاعدة.
+- **صلاحيات حقيقية:** تسجيل دخول بباسورد مشفّر (`password_hash`) والسيرفر هو اللي بيقرر.
+- **ملكية البيانات والـ backup** عند صاحب المشروع، ومفيش سقف عدد مستندات.
+
+### البدائل اللي اتقيّمت
+| الخيار | الرأي |
+|---|---|
+| قاعدة بيانات الـ Artifact المدمجة (`db`) | سريعة البداية بدون إعداد، لكن: مستند 256KB، قاعدة 25,000 مستند، **مفيش transactions** (آخر كتابة بتكسب)، السجل مش append-only على السيرفر، 3 مستويات صلاحية بس. مناسبة لتجربة، مش للتشغيل الجدّي. |
+| Supabase | قوي ومناسب، لكن cPanel متاح ومألوف وأرخص في الصيانة. المحاولة السابقة (`web/` + `supabase/`) موجودة للمرجع ومتوقفة. |
+| cPanel + MySQL | **المختار.** |
+
+### الخطة المقترحة
+1. **المخطط (schema) وملف SQL:** `users`, `roles`, `catalog` (models, colors, skus), `pickups`, `orders`, `docs`, **`moves` (append-only)**, `files`, `audit`, `day_closes`, `shops`, `supplies` + `supply_log`, `settings`.
+2. **API بـ PHP (PDO + prepared statements):** تسجيل دخول، جلب الحالة، تسجيل عملية داخل transaction، رفع وتنزيل الملفات.
+3. **تعديل طبقة الحفظ في التطبيق** (`load` / `save`) عشان تشتغل على الـ API، مع الحفاظ على كل الميزات. الرصيد وحالة الأوردر بيتحسبوا من العمليات (event-sourcing) زي دلوقتي. التحديث بـ polling كل 10 إلى 20 ثانية (استضافة مشتركة).
+4. **سكريبت استيراد** للبيانات الحالية من النسخة الاحتياطية JSON.
+5. **تأمين:** HTTPS، حماية من brute force، ملفات حساسة خارج المسار العام، backup دوري (`mysqldump` بـ cron + نسخ cPanel)، ودليل نشر خطوة خطوة.
+
+**المطلوب من صاحب المشروع للبدء:** نسخة PHP وMySQL من cPanel، الدومين أو الدومين الفرعي (مع HTTPS)، وعدد الموظفين (وهل بيشتغلوا في نفس الوقت). **بيانات الاتصال (باسورد القاعدة) متتبعتش في أي محادثة أو commit**، بتتحط في `config.php` على السيرفر بس.
+
+---
+
+## 13) Git وسير العمل
+
+- فرع التطوير `claude/amazing-cori-85ztzd`، والـ PR #1 (Draft) مفتوح. **مفيش merge تلقائي.**
+- رسائل الـ commit بتنتهي بسطر الـ `Co-Authored-By` ورابط الجلسة.
+- الـ `apps/*/index.html` ملفات ناتجة من البناء بس بتتسجّل في Git (هي اللي بتتنشر).
+- بعد أي تعديل: `./build.sh` ← الاختبارات ← commit ← push ← نشر الـ Artifact.
+
+---
+
+## 14) البيانات الحقيقية والخصوصية
+
+- `data/femini_master_skus.csv`: 626 صنف نضيف (أسماء إنجليزي، حد التنبيه القديم، الرصيد الافتتاحي من الجرد الفعلي 29-10-2026).
+- `data/QRbot_202611021914566_scanned_orders.csv`: تصدير سكانر حقيقي (28 أوردر).
+- `data/vendoor_pickups_2026-11-02_lines.csv`: يوم بيك أب Vendoor حقيقي (92 أوردر، 1,070 قطعة) بدون بيانات شخصية.
+- **مفيش اسم عميل ولا تليفون ولا عنوان بيتستورد أو بيتخزن في أي مكان.** أكواد الأوردرات وأرقام البوالص حقيقية، فاستيراد نفس الملف تاني بيتكشف كتكرار.
+- أرقام المخزون والطلب بيانات حقيقية للعلامة، فالمستودع والـ Artifacts يفضلوا خاصين.
+
+---
+
+## 15) خط زمني مختصر للنسخ
+
+- **النماذج الأولى:** `task-first-edition` (عربي بالكامل، الجرد والسكان)، `standard-edition` (مصطلحات Odoo).
+- **Edition 3:** إعادة تصميم كاملة (النهارده، الأوردرات، المخزون، العمليات، المستلزمات، التحليلات، السجل). ثم لوحة القيادة، الموبايل، البحث، الحركة، ألوان فيميني.
+- **Brand 2:** إعادة تنظيم الصفحات، خريطة المخزون، رسوم حديثة، داتا تجريبية وجولة، تجميع التحليلات في 4 تبويبات.
+- **الصلاحيات وقفل اليوم**، المراجعة الإنتاجية (fuzz / crawl / prod)، نسخ احتياطي.
+- **السجل المعاد تصميمه**، المرتجعات بالبوليصة، الجرد اليدوي، توريد المحل وإذن التسليم (PDF/PNG)، فلتر الحالة في المخزون.
+- **النسخ 33 إلى 45:** قفل تلقائي 12 بالليل، حفظ الملفات الأصلية، إثبات تسليم المحل بصورة إجبارية، إصلاح تداخل الشيتات، المخزون يفتح على المصفوفات، نوافذ لكل كروت التحليلات والمخزون والنهارده، **الأرشفة بدل المسح** والمؤرشف الموحّد في السجل، اختيار درجة اللون، صف الإجمالي، شريط الأوردر المعطل بالصنف كامل، وتصليحات المراجعة الشاملة.
+- **الخطوة الجاية:** نقل التخزين لـ cPanel + MySQL (قسم 12).
+
+---
+
+## 16) ملفات أخرى في المستودع
+
+- [`variants/edition-3/README.md`](variants/edition-3/README.md): ملاحظات تفصيلية لكل ميزة اتضافت في Brand 2 بالترتيب.
+- [`docs/LOVABLE_BRIEF.md`](docs/LOVABLE_BRIEF.md): ملف تسليم المشروع الأصلي (المشكلة، الداتا، القرارات، الأسئلة المفتوحة).
+- [`docs/ARCHIVE_EARLY_PROTOTYPES.md`](docs/ARCHIVE_EARLY_PROTOTYPES.md): README القديم بوصف النماذج الأولى.
+- [`web/README.md`](web/README.md) و`supabase/`: نسخة React + TypeScript + Tailwind + Supabase (دوال قاعدة بيانات للكتابة، سجل append-only). **متوقفة** ومحفوظة كمرجع.
