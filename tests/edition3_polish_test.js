@@ -15,6 +15,8 @@ const {chromium}=require('playwright');const path=require('path');
   ok('an expanded ledger event has the open-document button',hasBtn>0);
   await p.click('.lgd [data-a=opendoc2] >> nth=0');await p.waitForTimeout(400);
   ok('the button actually opens the document (goes to Operations with it open)',await p.evaluate(()=>__F.UI.tab==='ops'&&!!__F.UI.doc&&!!document.querySelector('#main .sum,#main .strip,#main h1')));
+  ok('ledger details have no "من ← إلى" line and never say "القناة / العميل"',await p.evaluate(()=>{const F=__F;F.UI.led.open={};F.go('ledger');document.querySelectorAll('.lgr[data-a=ldoc]').forEach((x,i)=>{if(i<6)x.click()});const t=document.getElementById('main').innerText;return !/من ← إلى/.test(t)&&!/القناة \/ العميل/.test(t)}));
+  ok('the shipping location is named "الشحن" everywhere',await p.evaluate(()=>__F.LOC?__F.LOC.EXT_CH==='الشحن':true));
   // Today events pop-up
   await p.evaluate(()=>{__F.UI.sheet=null;__F.go('today')});await p.waitForTimeout(400);
   const n=await p.locator('.tli[data-a=tev]').count();

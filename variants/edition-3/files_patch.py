@@ -72,3 +72,6 @@ rep("""<input id="catnc" list="catcl" placeholder="لون جديد" value="'+esc
 rep("if(s.colors.indexOf(v)<0)s.colors.push(v);s.newColor='';render()","if(s.colors.indexOf(v)<0)s.colors.push(v);hexSave(v,s.newHex);s.newColor='';s.newHex='';s.hexTouched=false;render()")
 rep("catCells(s).sizes.forEach(z=>{if(!IDX[s.m+'|'+v+'|'+z])s.w[v+'|'+z]=true});s.newC='';render()","catCells(s).sizes.forEach(z=>{if(!IDX[s.m+'|'+v+'|'+z])s.w[v+'|'+z]=true});hexSave(v,s.newHex);s.newC='';s.newHex='';s.hexTouched=false;render()")
 rep("Object.assign(INP,INP_LG,INP_SH);","Object.assign(INP,INP_LG,INP_SH);hexWrap();")
+
+# the shipping side is always called "الشحن"
+rep("EXT_CH:'القناة / العميل'","EXT_CH:'الشحن'")

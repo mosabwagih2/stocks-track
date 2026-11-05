@@ -83,7 +83,7 @@ const fs=require('fs'),path=require('path');
   await p.evaluate(()=>{__F.ACT.lclear()});
   // item journey
   await p.evaluate(()=>{__F.UI.led.tab='sku';__F.UI.led.sq='BR2 احمر L';__F.UI.led.sku=null;__F.render()});await p.waitForTimeout(150);
-  const jr=await p.evaluate(()=>{const F=__F,S=F.S(),id='BR2-RED-L',n=S.moves.filter(m=>m.sku===id).length,rows=[...document.querySelectorAll('#ledres tbody tr')],first=rows[0];return {n,rows:rows.length,expectRows:Math.min(n,40),firstBal:+first.children[4].querySelector('b').textContent.replace(/,/g,''),ready:F.g(id,'READY'),head:/BR2/.test(document.querySelector('#ledres .card').textContent)}});
+  const jr=await p.evaluate(()=>{const F=__F,S=F.S(),id='BR2-RED-L',n=S.moves.filter(m=>m.sku===id).length,rows=[...document.querySelectorAll('#ledres tbody tr')],first=rows[0];return {n,rows:rows.length,expectRows:Math.min(n,40),firstBal:+first.children[3].querySelector('b').textContent.replace(/,/g,''),ready:F.g(id,'READY'),head:/BR2/.test(document.querySelector('#ledres .card').textContent)}});
   ok('an item journey lists every move with the ready balance after it, and the newest balance equals the real balance',jr.rows===jr.expectRows&&jr.firstBal===jr.ready&&jr.head,JSON.stringify(jr));
   await p.evaluate(()=>{__F.UI.led.tab='feed';__F.UI.led.sq='';__F.UI.led.sku=null;__F.render()});
   // reversal appears as a reversal
