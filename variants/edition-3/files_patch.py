@@ -25,3 +25,8 @@ rep("PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);","PH[cxKey(o.ref)]=s.
 rep(".sheet>div.body{padding:18px;",".sheet>div.body{grid-auto-rows:max-content;padding:18px;")
 # deleting a pickup also deletes its stored original; a delivered note's proof photo can no longer be swapped
 rep("S.pickups=S.pickups.filter(x=>x!==p);UI.o.pk='';","S.pickups=S.pickups.filter(x=>x!==p);flDel('pk:'+p.id);UI.o.pk='';")
+# stock: open on the matrices by default, bigger product pictures
+rep("s:{m:'BR2',state:'READY',q:'',view:'list'}","s:{m:'BR2',state:'READY',q:'',view:'all'}")
+rep("thumb(m.code,64)+'</button>","thumb(m.code,104)+'</button>")
+rep("return '<button class=\"mi\" aria-current=\"'+(c===m.code)+'\" data-a=\"smodel\" data-m=\"'+c+'\">'+thumb(c,34)","return '<button class=\"mi\" aria-current=\"'+(c===m.code)+'\" data-a=\"smodel\" data-m=\"'+c+'\">'+thumb(c,48)")
+rep("'+thumb(c,34)+'<span><b class=\"mono\">'+c+'</b> <span class=\"muted\">'+esc(MODEL.get(c).nam","'+thumb(c,56)+'<span><b class=\"mono\">'+c+'</b> <span class=\"muted\">'+esc(MODEL.get(c).nam")

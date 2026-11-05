@@ -894,7 +894,7 @@ const IP={files:'<path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/>',today:'<pa
 const ic=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(IP[n]||'')+'</svg>';
 
 /* ---------- documents ---------- */
-const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'list'},fl:'pk',opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'docs',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'dash',insP:'all',insL:'all'};
+const UI={tab:'today',o:{f:'all',q:'',n:60,tab:'list'},s:{m:'BR2',state:'READY',q:'',view:'all'},fl:'pk',opF:'all',doc:null,sheet:null,led:{q:'',type:'',tab:'docs',n:150},sel:{},msg:null,pk:{m:'BR2'},ins:'dash',insP:'all',insL:'all'};
 const PH={};
 const viewDate=()=>UI.vd||S.date;
 const logE=m=>({t:Date.now(),by:S.actor,m});
@@ -1822,7 +1822,7 @@ function matrixHTML(m){
   return h+'</tbody></table></div>';
 }
 const matrixLegend='<div class="legend" style="margin-top:10px"><span><i class="dot" style="background:var(--crit)"></i>الطلب أكبر من الجاهز</span><span><i class="dot" style="background:var(--warn)"></i>قرب يخلص</span><span><i class="dot" style="background:var(--c-dirty)"></i>فيه هالك نظافة</span></div>';
-function modelHead(m){return '<div class="row sp" style="margin-bottom:12px"><div class="row" style="flex-wrap:nowrap;gap:14px"><button class="imgbtn" data-a="img" data-m="'+m.code+'" aria-label="صورة '+m.code+'" data-tip="اضغط لعرض الصورة أو تغييرها">'+thumb(m.code,64)+'</button><div><h2 style="margin:0">'+esc(mName(m.code))+'</h2><span class="muted">'+LOC[UI.s.state]+': <b class="n">'+fmt(mSum(m.code,UI.s.state))+'</b> قطعة · طلب مفتوح <span class="n">'+fmt(D.skus.reduce((a,k)=>a+(k.m===m.code?(ctx().demand[k.id]||0):0),0))+'</span></span>'+rateChip(m.code)+'</div></div>'+'<span class="row">'+pill('',ctx().abc[m.code]?'فئة '+ctx().abc[m.code]+' (حسب السحب)':'مفيش سحب')+'</span></div>'}
+function modelHead(m){return '<div class="row sp" style="margin-bottom:12px"><div class="row" style="flex-wrap:nowrap;gap:14px"><button class="imgbtn" data-a="img" data-m="'+m.code+'" aria-label="صورة '+m.code+'" data-tip="اضغط لعرض الصورة أو تغييرها">'+thumb(m.code,104)+'</button><div><h2 style="margin:0">'+esc(mName(m.code))+'</h2><span class="muted">'+LOC[UI.s.state]+': <b class="n">'+fmt(mSum(m.code,UI.s.state))+'</b> قطعة · طلب مفتوح <span class="n">'+fmt(D.skus.reduce((a,k)=>a+(k.m===m.code?(ctx().demand[k.id]||0):0),0))+'</span></span>'+rateChip(m.code)+'</div></div>'+'<span class="row">'+pill('',ctx().abc[m.code]?'فئة '+ctx().abc[m.code]+' (حسب السحب)':'مفيش سحب')+'</span></div>'}
 function ordM(){const hm=ctx().hm;return UI.s.sort==='alpha'?MORDER.slice():MORDER.slice().sort((a,b)=>(hm[b]||0)-(hm[a]||0)||mIdx[a]-mIdx[b])}
 /* ---------- v2: shared pieces ---------- */
 const strip=items=>'<div class="strip">'+items.join('')+'</div>';
@@ -1849,7 +1849,7 @@ function stockList(){
     const g_=groups[l].slice().sort(cmp),att=g_.filter(c=>by[c].k==='crit'||by[c].k==='warn').length,sum=g_.reduce((a,c)=>a+sv(c),0);
     h+='<tr class="grp"><td colspan="7"><span class="row sp"><span><b>'+esc(l)+'</b> <span class="muted">· '+g_.length+' موديل</span></span><span class="muted">'+(att?'<span class="pill warn" style="margin-inline-end:8px">'+att+' محتاج انتباه</span>':'')+'<span class="n">'+fmt(sum)+'</span> قطعة</span></span></td></tr>';
     g_.forEach(c=>{const r=by[c],op=!!s.open[c],cov=r.cover;
-      h+='<tr class="mrow'+(op?' open':'')+'" data-a="mexp" data-m="'+c+'" role="button" aria-expanded="'+op+'"><td><span class="row" style="flex-wrap:nowrap;gap:10px">'+thumb(c,34)+'<span><b class="mono">'+c+'</b> <span class="muted">'+esc(MODEL.get(c).name)+'</span>'+(r.label==='—'?'':'<span class="mo sdt">'+sd(r.k)+esc(r.label)+'</span>')+'</span></span></td>'
+      h+='<tr class="mrow'+(op?' open':'')+'" data-a="mexp" data-m="'+c+'" role="button" aria-expanded="'+op+'"><td><span class="row" style="flex-wrap:nowrap;gap:10px">'+thumb(c,56)+'<span><b class="mono">'+c+'</b> <span class="muted">'+esc(MODEL.get(c).name)+'</span>'+(r.label==='—'?'':'<span class="mo sdt">'+sd(r.k)+esc(r.label)+'</span>')+'</span></span></td>'
        +'<td class="num"><b class="n">'+fmt(sv(c))+'</b></td><td class="num">'+(r.dm?N(r.dm):'<span class="muted">0</span>')+'</td><td class="num">'+(r.rate>0?N(Math.round(r.rate)):'<span class="muted">—</span>')+'</td>'
        +'<td>'+(cov==null?'<span class="muted">—</span>':'<span class="cvr">'+bar(cov,12,r.k==='crit'?'c':r.k==='warn'?'w':'g')+'<span class="n">'+(cov>=99?'99+':cov.toFixed(1))+'</span><span class="muted" style="font-size:11px"> أسبوع</span></span>')+'</td>'
        +'<td>'+(r.label==='—'?'':sd(r.k)+'<span class="sdt">'+esc(r.label)+'</span>')+'</td><td class="chev" aria-hidden="true">‹</td></tr>';
@@ -2805,7 +2805,7 @@ function stockBody(){
   if(none)return h+none;
   h+='<div class="'+(showList?'wh':'')+'">';
   if(showList)h+='<nav class="card flat mlist" aria-label="الموديلات">'+LINE_ORDER.filter(l=>groups[l]).map(l=>'<div class="mgrp">'+l+'</div>'+groups[l].map(c=>{const r=mSum(c,'READY'),low=D.skus.some(k=>k.m===c&&info(k.id).cls==='c');
-    return '<button class="mi" aria-current="'+(c===m.code)+'" data-a="smodel" data-m="'+c+'">'+thumb(c,34)+'<b>'+c+'</b><small>'+esc(MODEL.get(c).name)+'</small><span class="n">'+(low?'<i class="dot" style="background:var(--c-scrap)"></i> ':'')+fmt(s.state==='READY'?r:mSum(c,s.state))+'</span></button>'}).join('')).join('')+'</nav>';
+    return '<button class="mi" aria-current="'+(c===m.code)+'" data-a="smodel" data-m="'+c+'">'+thumb(c,48)+'<b>'+c+'</b><small>'+esc(MODEL.get(c).name)+'</small><span class="n">'+(low?'<i class="dot" style="background:var(--c-scrap)"></i> ':'')+fmt(s.state==='READY'?r:mSum(c,s.state))+'</span></button>'}).join('')).join('')+'</nav>';
   h+='<section class="card">'+modelHead(m)+matrixHTML(m)+matrixLegend+'</section></div>';
   return h;
 }

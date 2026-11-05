@@ -17,6 +17,8 @@ const fs=require('fs'),path=require('path');
     const r=F.newDoc('RTN');r.hdr.codes=open[0].ref+' '+open[1].ref;F.ACT.rtnfill();r.hdr.counted=true;r.lines.forEach(l=>l.r=l.exp);F.confirmDoc(r);F.dirty()});
   // ================= STOCK =================
   await p.evaluate(()=>__F.go('stock'));await p.waitForTimeout(250);
+  ok('stock opens on the matrices by default, with big model pictures',await p.evaluate(()=>__F.UI.s.view==='all'&&!!document.querySelector('.mxgrid')&&document.querySelector('.mxgrid .imgbtn .th').offsetWidth>=100));
+  await p.evaluate(()=>{__F.UI.s.view='list';__F.render()});await p.waitForTimeout(250);
   const st=await p.evaluate(()=>{const F=__F,S=F.S();const rows=[...document.querySelectorAll('.stkl tr.mrow')],grps=[...document.querySelectorAll('.stkl tr.grp')];
     const ready={};S.moves.forEach(m=>{const k=m.sku.split('-')[0];ready[k]=(ready[k]||0)+(m.to==='READY'?m.q:0)-(m.from==='READY'?m.q:0)});
     const bad=rows.filter(r=>{const c=r.dataset.m,shown=+r.children[1].textContent.replace(/,/g,'');return shown!==(ready[c]||0)}).map(r=>r.dataset.m);
