@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Neutral surfaces (faint violet tint) + the Fémini purple as the only accent. Signal colors are one pastel family. */
+:root {
+  --page: #faf9fc; --surface: #ffffff; --lav: #f3f1f8; --ink: #1f1b2e; --accent: #5e4394; --on-accent: #ffffff;
+  --muted: #645e78; --line: #e6e2ef; --line2: #d3cde3; --grid: #efecf5; --rail: #231c3d; --on-rail: #f4f1fb; --rail-mute: #b4abd4;
+  --crit: #a4262c; --crit-bg: #fdecee; --crit-line: #f4c4c8; --warn: #8a5a00; --warn-bg: #fdf3dc; --warn-line: #f0d9a0;
+  --good: #17663f; --good-bg: #e8f5ee; --good-line: #bfe2cf; --info: #2457a6; --info-bg: #e8f0fb; --info-line: #bdd2f0; --lost: #6b3fa0; --lost-bg: #f1eafa;
+  --ready: #3a9d7a; --dirty: #d9a03a; --scrap: #d4545c; --factory: #5b8fd6; --lostc: #9b7bc4;
+  --shadow: 0 1px 2px rgba(35,28,61,.06), 0 8px 22px -12px rgba(35,28,61,.18);
+  color-scheme: light;
+}
+.dark {
+  --page: #14111f; --surface: #1c1830; --lav: #251f3d; --ink: #ece9f6; --accent: #b9a4f0; --on-accent: #1a1330;
+  --muted: #a8a1c2; --line: #2f2950; --line2: #463e6c; --grid: #2a2446; --rail: #0f0c1a; --on-rail: #ece9f6; --rail-mute: #9d94c2;
+  --crit: #ff9aa1; --crit-bg: #3a1a20; --crit-line: #6b2c35; --warn: #f2c066; --warn-bg: #33270f; --warn-line: #6b501c;
+  --good: #6fd3a2; --good-bg: #12302a; --good-line: #246650; --info: #8db8f5; --info-bg: #14283f; --info-line: #274d7a; --lost: #d3b6ee; --lost-bg: #2c1d44;
+  --ready: #46b690; --dirty: #e3aa44; --scrap: #e0646c; --factory: #6a9ee6; --lostc: #b093d6;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 22px -12px rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --font-display: "Readex Pro", "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
+  --color-page: var(--page); --color-surface: var(--surface); --color-lav: var(--lav); --color-ink: var(--ink);
+  --color-accent: var(--accent); --color-on-accent: var(--on-accent); --color-muted: var(--muted);
+  --color-line: var(--line); --color-line2: var(--line2); --color-grid: var(--grid);
+  --color-rail: var(--rail); --color-on-rail: var(--on-rail); --color-rail-mute: var(--rail-mute);
+  --color-crit: var(--crit); --color-crit-bg: var(--crit-bg); --color-crit-line: var(--crit-line);
+  --color-warn: var(--warn); --color-warn-bg: var(--warn-bg); --color-warn-line: var(--warn-line);
+  --color-good: var(--good); --color-good-bg: var(--good-bg); --color-good-line: var(--good-line);
+  --color-info: var(--info); --color-info-bg: var(--info-bg); --color-info-line: var(--info-line);
+  --color-lost: var(--lost); --color-lost-bg: var(--lost-bg);
+  --color-ready: var(--ready); --color-dirty: var(--dirty); --color-scrap: var(--scrap); --color-factory: var(--factory); --color-lostc: var(--lostc);
+  --shadow-card: var(--shadow);
+}
+
+@layer base {
+  html { direction: rtl; -webkit-text-size-adjust: 100%; }
+  body { @apply bg-page text-ink font-sans antialiased; font-size: 14px; line-height: 1.6; margin: 0; }
+  h1, h2, h3 { text-wrap: balance; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  input, select, textarea { @apply bg-surface border border-line2 rounded-lg px-2.5 py-2 min-w-0 max-w-full text-ink; }
+  input[type="number"] { font-family: var(--font-mono); direction: ltr; text-align: center; }
+  input[type="checkbox"] { @apply size-4 p-0; accent-color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; }
+}
+@layer utilities {
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; display: inline-block; }
+  .pb-safe { padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+}
+@keyframes sheet-in { from { transform: translateX(-24px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) { .sheet-in { animation: sheet-in .18s ease-out; } }

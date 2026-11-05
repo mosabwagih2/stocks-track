@@ -1,0 +1,27 @@
+/* Brand variant: every color is derived from the logo purple #43316f (hue ~255deg).
+   Applied only when <html data-brand> is set (VITE_BRAND=1). Layout and components are untouched. */
+html[data-brand] {
+  --page: #faf9fd; --surface: #ffffff; --lav: #f3f0f9; --ink: #1f1738; --accent: #43316f; --on-accent: #ffffff;
+  --muted: #655e80; --line: #e5e0f0; --line2: #d3cbe6; --grid: #eeeaf6;
+  --rail: #2b2150; --on-rail: #f1edfb; --rail-mute: #b9afdc;
+  --crit: #9e2f3a; --crit-bg: #fbeaec; --crit-line: #f0c5ca;
+  --warn: #86581a; --warn-bg: #fbf1dd; --warn-line: #ecd7a8;
+  --good: #1d6a4a; --good-bg: #e9f4ef; --good-line: #c3e0d2;
+  --info: #3b5aa8; --info-bg: #ebeffa; --info-line: #c4cfec;
+  --lost: #8f3768; --lost-bg: #f8e8f1;
+  --ready: #3b9e84; --dirty: #d4a04a; --scrap: #cd5b66; --factory: #6a7fd1; --lostc: #b26a9b;
+  --shadow: 0 1px 2px rgba(43,33,80,.07), 0 10px 26px -14px rgba(43,33,80,.25);
+}
+html[data-brand].dark {
+  --page: #130f20; --surface: #1b1630; --lav: #241d3d; --ink: #ece8f8; --accent: #bfaff0; --on-accent: #1d1438;
+  --muted: #a9a2c4; --line: #2d2649; --line2: #453c6a; --grid: #292241;
+  --rail: #0f0b1d; --on-rail: #f1edfb; --rail-mute: #9f96c6;
+  --crit: #f4a0a8; --crit-bg: #3a1a22; --crit-line: #6b2d38;
+  --warn: #efc27a; --warn-bg: #33270f; --warn-line: #6b501c;
+  --good: #73d3a5; --good-bg: #12302a; --good-line: #246650;
+  --info: #9db4f0; --info-bg: #16224a; --info-line: #2d4488;
+  --lost: #e3a9cb; --lost-bg: #35172b;
+  --ready: #4cb897; --dirty: #e0ad56; --scrap: #df6d78; --factory: #7a8fe0; --lostc: #c47fae;
+}
+/* primary buttons and selected chips use the logo purple; a hairline gradient ties the rail to it */
+html[data-brand]:not(.dark) nav[aria-label="التنقل"] { background-image: linear-gradient(180deg, #2f2457 0%, #2b2150 55%, #241a45 100%); }

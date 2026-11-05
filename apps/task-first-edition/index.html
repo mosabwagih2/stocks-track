@@ -370,18 +370,18 @@ var INTERNAL=['READY','DIRTY','DAMAGED','FACTORY','LOST'];
 var WH=['READY','DIRTY','DAMAGED'];
 var SC={READY:'c-ready',DIRTY:'c-dirty',DAMAGED:'c-damaged',FACTORY:'c-factory',LOST:'c-lost'};
 var BL={SUPPLIER:'المصنع (توريد)',SHOP:'المحل',WASTE:'هالك للمصنع',ADJ:'تسوية جرد',WRITEOFF:'شطب'};
-var TYPES={PKP:'بيك أب',RCV:'استلام توريد',RTN:'مرتجع',SHP:'توريد المحل',STS:'تغيير حالة',FSD:'إرسال للمصنع',FRC:'استلام مغسول',CNT:'جرد',LST:'تسوية مفقود',REV:'تصحيح',OPN:'رصيد افتتاحي'};
+var TYPES={PKP:'بيك أب',SCN:'تسجيل بالسكان',RCV:'استلام توريد',RTN:'مرتجع',SHP:'توريد المحل',STS:'تغيير حالة',FSD:'إرسال للمصنع',FRC:'استلام مغسول',CNT:'جرد',LST:'تسوية مفقود',REV:'تصحيح',OPN:'رصيد افتتاحي'};
 var STS_OK={READY:['DIRTY','DAMAGED','LOST'],DIRTY:['DAMAGED','LOST'],DAMAGED:['LOST'],LOST:['READY','DIRTY']};
 var CH_ORDER_COLS={ref:'كود الاوردر العشوائي',wb:'بوليصة الشحن',ty:'حالة الاوردر الجزئية',gov:'المحافظة',total:'المبلغ توتال بالشحن للاوردر',pcs:'عدد القطع اللي في الاوردر',items:'المنتجات المطلوبة في الاوردر'};
 
 /* ---------- state ---------- */
-var KEY='femini-wms-mvp-1', S, BAL=null;
+var KEY='femini-wms-mvp-2', S, BAL=null;
 function seed(){
   var moves=[],id=1;
   D.skus.forEach(function(k){if(k.open>0)moves.push({i:id++,doc:'OPN-0001',ty:'OPENING',s:k.id,q:k.open,f:'ADJ',t:'READY',d:D.asOf,by:'نظام'})});
   var docs=[{id:'d1',type:'OPN',status:'confirmed',no:'OPN-0001',date:D.asOf,by:'نظام',hdr:{note:'رصيد افتتاحي من جرد 29/10، كله جاهز'},lines:[]}];
   D.pickups.forEach(function(p,i){docs.push({id:'d'+(i+2),type:'PKP',status:'draft',no:null,date:D.today,by:'استيراد',hdr:{channel:'CH_VENDOOR',label:p.label,src:'ملف فيندور 2-11-2026',orders:JSON.parse(JSON.stringify(p.orders)),prep:{},cx:{}},lines:[]})});
-  return {v:1,moves:moves,docs:docs,did:D.pickups.length+2,mid:id,seq:{OPN:1},alias:{},channels:[{id:'CH_VENDOOR',name:'فيندور'}],actor:'مصعب',settings:{lookback:14,cover:14,excess:60,dead:30}};
+  return {v:1,moves:moves,docs:docs,did:D.pickups.length+2,mid:id,seq:{OPN:1},alias:{},channels:[{id:'CH_VENDOOR',name:'فيندور'}],actor:'مصعب',emps:[],settings:{lookback:14,cover:14,excess:60,dead:30}};
 }
 function load(){try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);if(o&&o.v===1){S=o;S.settings=Object.assign({lookback:14,cover:14,excess:60,dead:30},S.settings||{});return}}}catch(e){}S=seed()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -414,6 +414,10 @@ function pct(a,b){return b?Math.round(a/b*100)+'%':'—'}
 
 /* ---------- analysis context (rebuilt on every render) ---------- */
 var CTX=null;
+function pkOrders(d){return d.hdr.orders.filter(function(o){return !d.hdr.cx[o.ref]})}
+function pkDone(d){if(d.status!=='draft')return true;var os=pkOrders(d);return os.length>0&&os.every(function(o){return !!o.sc})}
+function pkCounts(d){var c={total:0,scanned:0,pending:0,pendPieces:0,scanPieces:0};pkOrders(d).forEach(function(o){var n=o.lines.length;c.total++;if(o.sc||d.status!=='draft'){c.scanned++;c.scanPieces+=n}else{c.pending++;c.pendPieces+=n}});return c}
+function lastEmp(){return (S.emps&&S.emps.length)?S.emps[S.emps.length-1]:''}
 function dayPicks(date){return S.docs.filter(function(d){return d.type==='PKP'&&d.date===date})}
 function buildCtx(){
   var st=S.settings,end=UI.date,hist=[],dset={},lastAll={};
@@ -439,17 +443,25 @@ function buildCtx(){
   Object.keys(vel).forEach(function(s){vel[s]=vel[s]/span});
   var abc={},tot=0,cum=0;Object.keys(hm).forEach(function(m){tot+=hm[m]});
   Object.keys(hm).sort(function(a,b){return hm[b]-hm[a]}).forEach(function(m){abc[m]=cum/(tot||1)<.8?'A':cum/(tot||1)<.95?'B':'C';cum+=hm[m]});
-  var open={},rem={},strip=[];
-  dayPicks(end).forEach(function(d){
-    var info={d:d,req:0,alloc:0,orders:d.hdr.orders.filter(function(o){return !d.hdr.cx[o.ref]}).length},r=pkReq(d);
-    Object.keys(r).forEach(function(s){
-      info.req+=r[s];
-      if(d.status==='draft'){open[s]=(open[s]||0)+r[s];var have=rem[s]==null?g(s,'READY'):rem[s],a=Math.min(r[s],Math.max(0,have));rem[s]=have-a;info.alloc+=a}
-      else info.alloc+=pkPrep(d,s,r[s]);
+  var open={},rem={},strip=[],blocked={},pend=[];
+  var remOf=function(s){if(rem[s]==null)rem[s]=g(s,'READY');return rem[s]};
+  S.docs.filter(function(d){return d.type==='PKP'&&d.status==='draft'}).forEach(function(d){
+    d.hdr.orders.forEach(function(o){
+      if(d.hdr.cx[o.ref]||o.sc)return;
+      var need={};o.lines.forEach(function(s){need[s]=(need[s]||0)+1});
+      Object.keys(need).forEach(function(s){open[s]=(open[s]||0)+need[s]});
+      var miss=Object.keys(need).filter(function(s){return remOf(s)<need[s]});
+      if(miss.length)blocked[o.ref]={doc:d.id,label:d.hdr.label,pcs:o.lines.length,miss:miss.map(function(s){return [s,need[s]-Math.max(0,remOf(s))]})};
+      else Object.keys(need).forEach(function(s){rem[s]-=need[s]});
+      pend.push({d:d,o:o,blk:!!miss.length});
     });
-    strip.push(info);
   });
-  return {hist:hist,dayList:dayList,win:win,span:span,velOK:wdl.length>=3,wdays:wdl.length,vel:vel,hm:hm,hs:hs,hc:hc,hg:hg,hms:hms,lastAll:lastAll,abc:abc,pcs:pcs,types:types,chs:chs,open:open,strip:strip};
+  dayPicks(end).forEach(function(d){
+    var c=pkCounts(d),bl=0,bp=0;
+    if(d.status==='draft')d.hdr.orders.forEach(function(o){if(!d.hdr.cx[o.ref]&&!o.sc&&blocked[o.ref]){bl++;bp+=o.lines.length}});
+    strip.push({d:d,c:c,blocked:bl,blockedPieces:bp,done:pkDone(d)});
+  });
+  return {hist:hist,dayList:dayList,win:win,span:span,velOK:wdl.length>=3,wdays:wdl.length,vel:vel,hm:hm,hs:hs,hc:hc,hg:hg,hms:hms,lastAll:lastAll,abc:abc,pcs:pcs,types:types,chs:chs,open:open,strip:strip,blocked:blocked,pend:pend};
 }
 function cellInfo(s){
   var C=CTX,k=SKU.get(s),R=g(s,'READY'),O=C.open[s]||0,v=C.vel[s]||0,th=C.velOK?Math.ceil(v*S.settings.cover):(k.min||0),after=R-O,cls='';
@@ -457,18 +469,20 @@ function cellInfo(s){
   return {R:R,O:O,v:v,th:th,after:after,cls:cls,cov:v>0?R/v:null};
 }
 function exceptions(C){
-  var mk=function(){return {k:new Set(),p:0}},A={short:mk(),low:mk(),act:mk()},mt={},dp=0,lp=0;
+  var mk=function(){return {k:new Set(),p:0}},A={short:mk(),low:mk(),act:mk(),neg:mk()},mt={},dp=0,lp=0;
   D.skus.forEach(function(k){mt[k.m]=(mt[k.m]||0)+g(k.id,'READY')});
   D.skus.forEach(function(k){
     var s=k.id,i=cellInfo(s);
+    if(i.R<0)A.neg.k.add(s);
     if(i.O>i.R){A.short.k.add(s);A.short.p+=i.O-i.R}
     else if(mt[k.m]>0&&i.th>0&&(i.R===0||i.cls==='w'))A.low.k.add(s);
     var dd=g(s,'DIRTY'),ll=g(s,'LOST');
     if(dd>0||ll>0){A.act.k.add(s);dp+=dd;lp+=ll}
   });
-  var unm=S.docs.filter(function(d){return d.type==='PKP'&&d.status==='draft'&&pkBad(d)>0}).length,drafts=S.docs.filter(function(d){return d.status==='draft'}).length;
+  var unm=S.docs.filter(function(d){return d.type==='PKP'&&d.status==='draft'&&pkBad(d)>0}).length,drafts=S.docs.filter(function(d){return d.status==='draft'&&!(d.type==='PKP'&&pkDone(d))}).length;
   return [
-    {id:'short',sev:'crit',t:'البيك أب مش هيتغطى',d:'ناقص '+fmt(A.short.p)+' قطعة عن المطلوب',set:A.short.k},
+    {id:'neg',sev:'crit',t:'رصيد بالسالب',d:'اتسكان أكتر من الجاهز. راجع الجرد',set:A.neg.k},
+    {id:'short',sev:'crit',t:'البيك أب مش هيتغطى',d:'ناقص '+fmt(A.short.p)+' قطعة · هيوقف '+Object.keys(C.blocked).length+' أوردر',set:A.short.k},
     {id:'low',sev:'warn',t:'قرب يخلص أو خلص',d:C.velOK?'تحت '+S.settings.cover+' يوم سحب':'تحت الحد الأدنى القديم',set:A.low.k},
     {id:'act',sev:'warn',t:'قطع محتاجة إجراء',d:'هالك نظافة '+fmt(dp)+' · مفقود '+fmt(lp),set:A.act.k},
     {id:'drafts',sev:'info',t:'عمليات لسه ما اتأكدتش',d:unm?unm+' بيك أب محتاج ربط أكواد':'كمّلها أو احذفها',n:drafts,go:'docs'}
@@ -585,16 +599,23 @@ function buildMoves(d){
       else add('LOST_WRITEOFF',l.s,l.q,'LOST','WRITEOFF',(+l.amt>0?'تعويض '+fmt(l.amt)+' ج':'شطب'));
     });
   }
+  if(d.type==='SCN'){
+    var ag={},nO=0;
+    (h.matched||[]).forEach(function(m){var pk=S.docs.find(function(x){return x.id===m.pk}),o=pk&&pk.hdr.orders.find(function(q){return q.ref===m.ref});if(!o||o.sc)return;nO++;o.lines.forEach(function(s){ag[s]=(ag[s]||0)+1})});
+    Object.keys(ag).forEach(function(s){add('PICKUP',s,ag[s],'READY',h.channel,'سكان: '+(h.emp||'')+' ('+nO+' أوردر)')});
+    if(!nO)err.push('مفيش أوردرات جديدة في الملف ده');
+    if(!String(h.emp||'').trim())err.push('اكتب اسم الموظف');
+  }
   return {mv:mv,err:err};
 }
 function confirmDoc(d){
   var r=buildMoves(d);
   if(r.err.length){msg('bad','مش هينفع تأكّد العملية',r.err);return}
-  var off=offenders(r.mv);
+  var off=d.type==='SCN'?[]:offenders(r.mv);
   if(off.length&&!d.override){msg('bad','الرصيد مش كفاية (الرصيد بالسالب ممنوع)',off.slice(0,12).concat(off.length>12?['... و'+(off.length-12)+' غيرهم']:[]).concat(['لو لازم تكمل: علّم "تجاوز بسبب" واكتب السبب في المستند']));return}
   if(off.length&&d.override&&!String(d.overrideWhy||'').trim()){msg('bad','اكتب سبب التجاوز',[]);return}
-  commit(d,r.mv);
-  msg('ok','اتسجّلت العملية '+d.no,[fmt(r.mv.reduce(function(a,m){return a+m.q},0))+' قطعة في '+r.mv.length+' حركة']);
+  commit(d,r.mv);var _ng=d.type==='SCN'?scnApply(d):[];
+  msg('ok','اتسجّلت العملية '+d.no,[fmt(r.mv.reduce(function(a,m){return a+m.q},0))+' قطعة في '+r.mv.length+' حركة']);if(_ng.length)msg('warn','اتسجّلت '+d.no+' لكن فيه رصيد بالسالب',_ng.slice(0,8).concat(['السكان ما بيتمنعش. راجع الجرد أو الاستلام اللي ناقص.']));
 }
 function reverseDoc(d){
   var orig=S.moves.filter(function(m){return m.doc===d.no});
@@ -602,7 +623,7 @@ function reverseDoc(d){
   var off=offenders(mv);
   if(off.length){msg('bad','مش هينفع تلغي العملية دي: الرصيد اتحرك بعدها',off.slice(0,10));return}
   var rd={id:'d'+(S.did++),type:'REV',status:'draft',no:null,date:D.today,by:S.actor,hdr:{of:d.no},lines:[]};
-  S.docs.push(rd);commit(rd,mv);d.status='reversed';d.rev=rd.no;(d.log=d.log||[]).push({t:Date.now(),by:S.actor,m:'اتلغت بالعملية '+rd.no});dirty();
+  S.docs.push(rd);commit(rd,mv);d.status='reversed';d.rev=rd.no;if(d.type==='SCN')scnUndo(d);(d.log=d.log||[]).push({t:Date.now(),by:S.actor,m:'اتلغت بالعملية '+rd.no});dirty();
   msg('ok','اتلغت العملية '+d.no,['الرصيد رجع زي ما كان قبلها']);
 }
 
@@ -675,14 +696,14 @@ function modelCard(m,C,hl){
 }
 function vDesk(){
   var C=CTX,t=totals(),own=INTERNAL.reduce(function(a,b){return a+t[b]},0),f=UI.desk,E=exceptions(C);
-  var reqT=0,cov=0,ordT=0;C.strip.forEach(function(i){reqT+=i.req;cov+=i.alloc;ordT+=i.orders});
+  var reqT=0,cov=0,ordT=0,scT=0,blkT=0;C.strip.forEach(function(i){ordT+=i.c.total;scT+=i.c.scanned;reqT+=i.c.pendPieces;blkT+=i.blockedPieces});cov=reqT-blkT;
   var nCnt=S.docs.filter(function(d){return d.type==='CNT'&&d.status==='confirmed'}).length,nRtn=S.docs.filter(function(d){return d.type==='RTN'&&d.status==='confirmed'}).length;
   var chip=function(c,x){return '<span class="dchip '+c+'"><i></i>'+x+'</span>'};
   var chips=chip('ok','Master '+D.skus.length+' SKU')+chip('ok','رصيد افتتاحي '+D.asOf)+chip(C.dayList.length>=3?'ok':C.dayList.length?'part':'miss','بيك أب '+C.dayList.length+' يوم')+chip(nRtn?'ok':'miss','مرتجعات '+nRtn)+chip(nCnt?'ok':'miss','جرد '+nCnt)+chip('miss','تكلفة لسه');
   var notice=C.velOK?'':'<div class="notice info"><b>الأرقام التحليلية لسه مبنية على '+C.wdays+' يوم بيك أب.</b><span>التنبيهات بتستخدم الحدود القديمة من ملفك لحد ما يتجمع 3 أيام على الأقل. ارفع ملفات الأيام اللي فاتت لتسريع ده.</span></div>';
   var stat=function(v,k,cls,sm){return '<div class="stat '+(cls||'')+'"><div class="v">'+v+(sm?'<small>'+sm+'</small>':'')+'</div><div class="k">'+k+'</div></div>'};
-  var band='<div class="band">'+stat(fmt(t.READY),'جاهز للبيك أب (تقدر تبيعه)','lead','إجمالي اللي عندك '+fmt(own)+' قطعة')+stat(fmt(reqT),'قطع مطلوبة في بيك أب <span class="en">'+esc(UI.date)+'</span>','',ordT+' أوردر')+stat(reqT?Math.round(cov/reqT*100)+'%':'—','تقدر تجهّزه من المطلوب'+(reqT>cov?' · ناقص '+fmt(reqT-cov)+' قطعة':''),reqT>cov?'hot':'')+stat(fmt(t.DIRTY),'هالك نظافة (بيتغسل ويرجع)')+stat(fmt(t.DAMAGED),'هالك نهائي (مفيش علاج)')+stat(fmt(t.LOST),'مفقود (لسه ما اتحسمش)',t.LOST>0?'hot':'','عند المصنع: '+fmt(t.FACTORY)+' قطعة')+'</div>';
-  var strip='<div class="pks">'+C.strip.map(function(i,ix){var d=i.d,sh=i.req-i.alloc;return '<button class="pk" data-a="opendoc" data-id="'+d.id+'"><b>'+esc(d.hdr.label)+(ix>0&&d.status==='draft'?' (إضافي)':'')+'</b><span><span class="en">'+i.orders+'</span> أوردر · <span class="en">'+fmt(i.req)+'</span> قطعة</span><span>'+(d.status==='draft'?pill('لسه ما اتأكدتش','warn'):pill('اتسجّل','ok'))+' '+(sh>0?pill('ناقص '+fmt(sh),'bad'):pill('مغطى','ok'))+'</span></button>'}).join('')+'<button class="pk add" data-a="opendrawer" data-k="upload">＋ رفع بيك أب</button></div>';
+  var band='<div class="band">'+stat(fmt(t.READY),'جاهز للبيك أب (تقدر تبيعه)','lead','إجمالي اللي عندك '+fmt(own)+' قطعة')+stat(fmt(reqT),'قطع لسه ما اتسكانتش (بيك أب <span class="en">'+esc(UI.date)+'</span>)','',(ordT-scT)+' أوردر واقف · اتسجّل '+scT+' من '+ordT)+stat(reqT?Math.round(cov/reqT*100)+'%':'—','تقدر تجهّزه من اللي واقف'+(blkT?' · هيقف '+fmt(blkT)+' قطعة':''),blkT?'hot':'')+stat(fmt(t.DIRTY),'هالك نظافة (بيتغسل ويرجع)')+stat(fmt(t.DAMAGED),'هالك نهائي (مفيش علاج)')+stat(fmt(t.LOST),'مفقود (لسه ما اتحسمش)',t.LOST>0?'hot':'','عند المصنع: '+fmt(t.FACTORY)+' قطعة')+'</div>';
+  var strip='<div class="pks">'+C.strip.map(function(i,ix){var d=i.d,c=i.c;return '<button class="pk" data-a="opendoc" data-id="'+d.id+'"><b>'+esc(d.hdr.label)+(ix>0?' (إضافي)':'')+'</b><span>اتسجّل <span class="en">'+c.scanned+'</span> من <span class="en">'+c.total+'</span> أوردر</span><span>'+(i.done?pill('اتقفل','ok'):pill('واقف '+c.pending,'warn')+(i.blocked?' '+pill('هيقف بالمخزون '+i.blocked,'bad'):''))+'</span></button>'}).join('')+'<button class="pk add" data-a="opendrawer" data-k="upload">＋ رفع بيك أب</button><button class="pk add" data-a="opendrawer" data-k="scan">▣ رفع ملف سكان</button></div>';
   var EV=E.filter(function(e){return (e.set?e.set.size:e.n)>0});
   var exc=EV.length?'<div class="exc">'+EV.map(function(e){
     var n=e.set?e.set.size:e.n,on=f.exc===e.id,go=!e.set;
@@ -777,10 +798,13 @@ function vAnalytics(){
   var rs={};S.moves.forEach(function(m){if(m.t==='DAMAGED'||m.t==='LOST'||m.t==='WRITEOFF'||m.t==='WASTE'){var key=TYL(m.ty)+(m.n?' · '+m.n:'');rs[key]=(rs[key]||0)+m.q}});
   var rk=top(rs,10);
   var reasons=rk.length?'<div class="scroll"><table><tr><th>نوع الحركة · الملاحظة</th><th class="n">قطع</th></tr>'+rk.map(function(k){return '<tr><td class="g">'+esc(k)+'</td><td class="n">'+fmt(rs[k])+'</td></tr>'}).join('')+'</table></div>':'<p class="note">مفيش هالك أو مفقود مسجل.</p>';
-  // team
-  var tm={};S.moves.forEach(function(m){if(!m.by||m.by==='نظام')return;var o=tm[m.by]||(tm[m.by]={pk:0,rt:0,mv:0});if(m.ty==='PICKUP'&&!isInt(m.t))o.pk+=m.q;if(m.ty==='RETURN'&&!isInt(m.f))o.rt+=m.q;o.mv++});
-  var dc={};S.docs.forEach(function(d){if(d.status==='confirmed'&&d.by&&d.by!=='نظام')dc[d.by]=(dc[d.by]||0)+1});
-  var team=Object.keys(tm).length?'<div class="scroll"><table><tr><th>الموظف</th><th class="n">قطع بيك أب</th><th class="n">مرتجع مستلم</th><th class="n">حركات</th></tr>'+Object.keys(tm).map(function(u){return '<tr><td>'+esc(u)+'</td><td class="n">'+fmt(tm[u].pk)+'</td><td class="n">'+fmt(tm[u].rt)+'</td><td class="n">'+fmt(tm[u].mv)+'</td></tr>'}).join('')+'</table></div><p class="note">الحساب بالاسم اللي مكتوب فوق وقت تأكيد المستند. لما نضيف "مين جهّز كل أوردر" هتبقى الأرقام على مستوى الأوردر.</p>':'<div class="empty">لسه مفيش مستندات مؤكدة.</div>';
+  // team (scanned orders per employee)
+  var emp={};S.docs.forEach(function(d){if(d.type!=='PKP'||!d.hdr.orders)return;d.hdr.orders.forEach(function(o){if(!o.sc)return;var e=emp[o.sc.by]||(emp[o.sc.by]={o:0,p:0,f:'',l:''});e.o++;e.p+=o.lines.length;var t=o.sc.t||'';if(t){if(!e.f||t<e.f)e.f=t;if(!e.l||t>e.l)e.l=t}})});
+  var team=Object.keys(emp).length?'<div class="scroll"><table><tr><th>الموظف</th><th class="n">أوردرات اتسجلت</th><th class="n">قطع</th><th class="n">قطع/أوردر</th><th>أول سكان</th><th>آخر سكان</th></tr>'+Object.keys(emp).sort(function(a,b){return emp[b].o-emp[a].o}).map(function(u){var e=emp[u];return '<tr><td>'+esc(u)+'</td><td class="n">'+fmt(e.o)+'</td><td class="n">'+fmt(e.p)+'</td><td class="n">'+(e.p/e.o).toFixed(1)+'</td><td class="en">'+esc(e.f.slice(11))+'</td><td class="en">'+esc(e.l.slice(11))+'</td></tr>'}).join('')+'</table></div><p class="note">وقت السكان هو وقت التسجيل، مش وقت التغليف. لو الموظف بيرفع الملف آخر اليوم، الأوقات بتكون متقاربة.</p>':'<div class="empty">لسه ما اتسجلش ولا أوردر بالسكان. ارفع ملف سكان من "العمليات".</div>';
+  // blocked orders (stock short)
+  var bv={};Object.keys(C.blocked).forEach(function(ref){C.blocked[ref].miss.forEach(function(m){var o=bv[m[0]]||(bv[m[0]]={n:0,q:0});o.n++;o.q+=m[1]})});
+  var bk=Object.keys(bv).sort(function(a,b){return bv[b].n-bv[a].n});
+  var blockedH=Object.keys(C.blocked).length?'<p class="note">'+Object.keys(C.blocked).length+' أوردر واقف بسبب المخزون ('+fmt(Object.keys(C.blocked).reduce(function(a,r){return a+C.blocked[r].pcs},0))+' قطعة). الأوردر بيقف لو أي قطعة فيه ناقصة. دي القطع اللي بتعطل أكتر أوردرات:</p><div class="scroll"><table><tr><th>القطعة</th><th class="n">أوردرات واقفة بسببها</th><th class="n">الناقص (قطعة)</th></tr>'+bk.slice(0,25).map(function(s){return '<tr><td>'+piece(s)+'</td><td class="n">'+bv[s].n+'</td><td class="n neg">'+bv[s].q+'</td></tr>'}).join('')+'</table></div>':'<div class="empty">مفيش أوردرات واقفة بسبب المخزون. كل الأوردرات المفتوحة مغطاة.</div>';
   // counts
   var cnts=S.docs.filter(function(d){return d.type==='CNT'&&d.status==='confirmed'});
   var cn=cnts.length?'<div class="scroll"><table><tr><th>المستند</th><th>التاريخ</th><th class="n">أصناف معدودة</th><th class="n">أصناف فيها فرق</th><th class="n">عجز</th><th class="n">زيادة</th></tr>'+cnts.map(function(d){var f=d.hdr.fin||{};return '<tr><td class="en">'+d.no+'</td><td class="en">'+d.date+'</td><td class="n">'+fmt(f.counted)+'</td><td class="n">'+fmt(f.skus)+'</td><td class="n '+(f.short?'neg':'')+'">'+fmt(f.short)+'</td><td class="n">'+fmt(f.sur)+'</td></tr>'}).join('')+'</table></div>':'<div class="empty">لسه مفيش جرد مؤكد.</div>';
@@ -791,8 +815,8 @@ function vAnalytics(){
     sec('02 — Velocity','السحب والتغطية','التغطية = الجاهز ÷ السحب اليومي. الحد الأدنى للتغطية '+st.cover+' يوم وتكدس بعد '+st.excess+' يوم (من الإعدادات).',vel)+
     sec('03 — Bundles','الباندلز: تقدر تطلع كام؟','أي تركيبة اتطلبت 3 مرات أو أكتر بتتكشف كباندل. الباندل بيتجمع لما كل مكوناته متاحة في نفس المقاس، فأقل مكوّن هو عنق الزجاجة.',bund)+
     sec('04 — Returns','المرتجعات والخسائر','من مستندات المرتجع والحركات المؤكدة.',rets+'<div class="panel"><h3>الهالك والمفقود حسب السبب</h3><p class="cap">أعلى 10 أسباب.</p>'+reasons+'</div>')+
-    sec('05 — Team','الفريق','قطع البيك أب والمرتجع لكل مستخدم.',team)+
-    sec('06 — Accuracy','دقة الجرد','نتيجة كل جرد مؤكد.',cn);
+    sec('05 — Team','الفريق','أوردرات وقطع كل موظف سجّلها بالسكان.',team)+
+    sec('06 — Accuracy','دقة الجرد','نتيجة كل جرد مؤكد.',cn)+sec('07 — Blocked','الأوردرات الواقفة','أوردرات في بيك أب مفتوح مش هتقدر تتجهز من الجاهز دلوقتي.',blockedH);
 }
 
 /* ---------- DATA ---------- */
@@ -855,15 +879,42 @@ function parseCount(wb){
   });
   return {sheet:best.sheet,col:String(best.rows[best.h][best.iq]),lines:lines,unk:unk,total:total,n:Object.keys(lines).length};
 }
+function parseCSVText(t){var rows=[],r=[],f='',q=false;for(var i=0;i<t.length;i++){var c=t.charAt(i);if(q){if(c==='"'){if(t.charAt(i+1)==='"'){f+='"';i++}else q=false}else f+=c}else if(c==='"')q=true;else if(c===','){r.push(f);f=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t.charAt(i+1)==='\n')i++;r.push(f);f='';rows.push(r);r=[]}else f+=c}if(f!==''||r.length){r.push(f);rows.push(r)}return rows.filter(function(x){return x.some(function(y){return String(y).trim()!==''})})}
+function parseScan(rows){
+  var re=/codecontent|^code$|content|الكود|^كود/,hi=-1,H;
+  for(var i=0;i<Math.min(rows.length,6);i++){H=rows[i].map(function(x){return String(x).trim().toLowerCase()});if(H.some(function(h){return re.test(h)})){hi=i;break}}
+  if(hi<0)throw new Error('مش لاقي عمود الكود (CODECONTENT). الملف لازم يكون تصدير QRbot أو فيه عمود بكود الأوردر.');
+  var ic=H.findIndex(function(h){return re.test(h)}),idt=H.findIndex(function(h){return /^date|time|وقت|تاريخ/.test(h)}),inm=H.findIndex(function(h){return /^name$|employee|موظف|^الاسم/.test(h)}),out=[];
+  rows.slice(hi+1).forEach(function(r){var c=String(r[ic]==null?'':r[ic]).trim();if(!c)return;out.push({code:c,t:idt>=0?String(r[idt]||'').slice(0,19):'',name:inm>=0?String(r[inm]||'').trim():''})});
+  return out;
+}
+function matchScans(scans){
+  var idx={};
+  S.docs.forEach(function(d){if(d.type==='PKP'&&d.status==='draft')d.hdr.orders.forEach(function(o){if(d.hdr.cx[o.ref])return;idx[String(o.ref).toLowerCase()]={d:d,o:o};if(o.wb)idx[String(o.wb)]={d:d,o:o}})});
+  var seen={},matched=[],dups=[],already=[],unk=[];
+  scans.forEach(function(s){
+    var k=s.code.toLowerCase();if(seen[k]){dups.push(s.code);return}seen[k]=1;
+    var x=idx[k];if(!x||(x.o.bad&&x.o.bad.length)){unk.push(s.code);return}
+    if(x.o.sc){already.push({code:x.o.ref,by:x.o.sc.by,doc:x.o.sc.doc});return}
+    matched.push({pk:x.d.id,ref:x.o.ref,t:s.t,label:x.d.hdr.label,pcs:x.o.lines.length});
+  });
+  return {scans:scans.length,matched:matched,dups:dups,already:already,unk:unk};
+}
 function handleFile(file){
-  var d=UI.drawer;if(!d||d.kind!=='upload'){UI.drawer={kind:'upload',type:'pickup',channel:'CH_VENDOOR',date:UI.date};d=UI.drawer}
-  if(!window.XLSX){d.err='مكتبة قراءة Excel ما اتحملتش. تأكد من الاتصال وجرب تاني.';render();return}
+  var d=UI.drawer;if(!d||d.kind!=='upload'){UI.drawer={kind:'upload',type:'pickup',channel:'CH_VENDOOR',date:UI.date,emp:lastEmp()};d=UI.drawer}
+  if(!window.XLSX&&!(d.type==='scan'&&/\.csv$/i.test(file.name))){d.err='مكتبة قراءة Excel ما اتحملتش. تأكد من الاتصال وجرب تاني.';render();return}
   var fr=new FileReader();
   fr.onload=function(){
     try{
-      var wb=XLSX.read(fr.result,{type:'array'});d.fname=file.name;d.err='';
-      if(d.type==='count'){d.res=parseCount(wb)}
-      else{var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});d.rows=rows;d.res=importRows(rows,file.name,d.channel)}
+      d.fname=file.name;d.err='';
+      if(d.type==='scan'){
+        var rows;if(/\.csv$/i.test(file.name))rows=parseCSVText(new TextDecoder('utf-8').decode(fr.result));else{var wb0=XLSX.read(fr.result,{type:'array'});rows=XLSX.utils.sheet_to_json(wb0.Sheets[wb0.SheetNames[0]],{header:1,defval:''})}
+        d.scans=parseScan(rows);var nm=d.scans.filter(function(x){return x.name})[0];if(!d.emp&&nm)d.emp=nm.name;d.res=matchScans(d.scans);
+      }else{
+        var wb=XLSX.read(fr.result,{type:'array'});
+        if(d.type==='count'){d.res=parseCount(wb)}
+        else{var rows2=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});d.rows=rows2;d.res=importRows(rows2,file.name,d.channel)}
+      }
     }catch(e){d.res=null;d.err=String(e.message||e)}
     render();
   };
@@ -875,18 +926,25 @@ function handleFileInput(el){var f=el.files&&el.files[0];el.value='';if(f)handle
 /* ---------- drawers ---------- */
 function upDrawer(d){
   var ch=S.channels.map(function(c){return '<option value="'+c.id+'"'+(d.channel===c.id?' selected':'')+'>'+esc(c.name)+'</option>'}).join('');
+  var hints={pickup:'شيت البيك أب بتاع الشركة. ده المطلوب بس: مبيخصمش من المخزون لحد ما الأوردرات تتسكان. بيانات العملاء مبتتحفظش.',scan:'ملف السكان (QRbot) اللي الموظف بيبعته آخر اليوم. كل كود أوردر بيتطابق مع البيك أب المفتوح، والأوردرات الجديدة بتتخصم من المخزون.',count:'ملف جرد فيه كود الموديل واللون والمقاس والكمية. بيتعمل منه جرد تراجعه وتأكده.'};
   var h='<div class="row" style="justify-content:space-between"><h2>رفع ملف</h2><button class="btn sm" data-a="closedrawer">إغلاق</button></div>'+
-    '<div class="seg"><button type="button" data-a="uptype" data-v="pickup" aria-pressed="'+(d.type==='pickup')+'">بيك أب (شيت الشركة)</button><button type="button" data-a="uptype" data-v="count" aria-pressed="'+(d.type==='count')+'">جرد (عدّ فعلي)</button></div>'+
-    '<p class="hint">'+(d.type==='pickup'?'شيت البيك أب بتاع الشركة. بيتفك لسطور SKU، وبيانات العملاء (الاسم والموبايل والعنوان) مبتتحفظش. الملف بيتقرأ في متصفحك بس.':'ملف جرد فيه كود الموديل واللون والمقاس والكمية. بيتعمل منه جرد تراجعه وتأكده.')+'</p>'+
-    '<div class="row">'+(d.type==='pickup'?'<label class="field">الشركة<select data-c="upch">'+ch+'</select></label>':'')+'<label class="field">التاريخ<input type="date" data-i="update" value="'+esc(d.date||UI.date)+'"></label></div>'+
-    '<div class="drop" id="dropz" data-a="pickfile" role="button" tabindex="0"><b>اسحب الملف هنا</b> أو دوس للاختيار<br><span class="note">xlsx · xls · csv</span></div>';
+    '<div class="seg"><button type="button" data-a="uptype" data-v="pickup" aria-pressed="'+(d.type==='pickup')+'">بيك أب</button><button type="button" data-a="uptype" data-v="scan" aria-pressed="'+(d.type==='scan')+'">سكان (QRbot)</button><button type="button" data-a="uptype" data-v="count" aria-pressed="'+(d.type==='count')+'">جرد</button></div>'+
+    '<p class="hint">'+hints[d.type]+'</p>';
+  if(d.type==='scan')h+='<div class="row"><label class="field">الموظف<input data-i="upemp" list="empList" value="'+esc(d.emp||'')+'" placeholder="اسم الموظف" style="min-width:180px"></label><datalist id="empList">'+(S.emps||[]).map(function(e){return '<option value="'+esc(e)+'">'}).join('')+'</datalist></div>';
+  else h+='<div class="row">'+(d.type==='pickup'?'<label class="field">الشركة<select data-c="upch">'+ch+'</select></label>':'')+'<label class="field">التاريخ<input type="date" data-i="update" value="'+esc(d.date||UI.date)+'"></label></div>';
+  h+='<div class="drop" id="dropz" data-a="pickfile" role="button" tabindex="0"><b>اسحب الملف هنا</b> أو دوس للاختيار<br><span class="note">'+(d.type==='scan'?'csv · xlsx':'xlsx · xls · csv')+'</span></div>';
   if(d.err)h+='<div class="msg bad"><div>'+esc(d.err)+'</div></div>';
   var r=d.res;
   if(r&&d.type==='pickup'){
     var pcs=r.orders.reduce(function(a,o){return a+o.lines.length+(o.bad||[]).reduce(function(x,b){return x+b[3]},0)},0),sk={},ex=0,gv={};
     r.orders.forEach(function(o){o.lines.forEach(function(s){sk[s]=1});if(o.type==='استبدال')ex++;if(o.gov)gv[o.gov]=1});
-    h+='<div class="preview"><div class="kv"><span>الملف</span><b class="en">'+esc(d.fname)+'</b></div><div class="kv"><span>أوردرات جديدة</span><b>'+r.orders.length+'</b></div><div class="kv"><span>قطع</span><b>'+fmt(pcs)+'</b></div><div class="kv"><span>SKU مختلفة</span><b>'+Object.keys(sk).length+'</b></div><div class="kv"><span>أوردرات استبدال</span><b>'+ex+'</b></div><div class="kv"><span>محافظات</span><b>'+Object.keys(gv).length+'</b></div><div class="kv"><span>مكرر (اتخطى)</span><b>'+r.dups.length+'</b></div>'+(r.unk.length?'<div class="kv"><span>أكواد غير معروفة</span><b class="en">'+r.unk.map(esc).join('، ')+'</b></div><p class="note">هتتربط في صندوق الربط جوه المستند.</p>':'')+'</div>';
+    h+='<div class="preview"><div class="kv"><span>الملف</span><b class="en">'+esc(d.fname)+'</b></div><div class="kv"><span>أوردرات جديدة</span><b>'+r.orders.length+'</b></div><div class="kv"><span>قطع</span><b>'+fmt(pcs)+'</b></div><div class="kv"><span>SKU مختلفة</span><b>'+Object.keys(sk).length+'</b></div><div class="kv"><span>أوردرات استبدال</span><b>'+ex+'</b></div><div class="kv"><span>محافظات</span><b>'+Object.keys(gv).length+'</b></div><div class="kv"><span>مكرر (اتخطى)</span><b>'+r.dups.length+'</b></div>'+(r.unk.length?'<div class="kv"><span>أكواد غير معروفة</span><b class="en">'+r.unk.map(esc).join('، ')+'</b></div><p class="note">هتتربط في صندوق الربط جوه البيك أب.</p>':'')+'</div>';
     h+='<div class="dfoot"><button class="btn primary" data-a="upsave"'+(r.orders.length?'':' disabled')+'>حفظ البيك أب</button><button class="btn" data-a="closedrawer">إلغاء</button></div>';
+  }
+  if(r&&d.type==='scan'){
+    var mp=r.matched.reduce(function(a,m){return a+m.pcs},0);
+    h+='<div class="preview"><div class="kv"><span>الملف</span><b class="en">'+esc(d.fname)+'</b></div><div class="kv"><span>سكانات في الملف</span><b>'+r.scans+'</b></div><div class="kv"><span>أوردرات جديدة (هتتخصم)</span><b>'+r.matched.length+' · '+fmt(mp)+' قطعة</b></div><div class="kv"><span>اتسجلت قبل كده</span><b>'+r.already.length+'</b></div><div class="kv"><span>مكرر جوه الملف</span><b>'+r.dups.length+'</b></div><div class="kv"><span>كود غير معروف</span><b class="'+(r.unk.length?'neg':'')+'">'+r.unk.length+'</b></div>'+(r.unk.length?'<p class="note en">'+r.unk.slice(0,8).map(esc).join(' · ')+(r.unk.length>8?' …':'')+'</p><p class="note">الكود ده مش في أي بيك أب مفتوح. ارفع البيك أب بتاعه الأول.</p>':'')+'</div>';
+    h+='<div class="dfoot"><button class="btn primary" data-a="upsave"'+(r.matched.length&&d.emp?'':' disabled')+'>حفظ وراجع قبل التأكيد</button><button class="btn" data-a="closedrawer">إلغاء</button></div>'+(!d.emp?'<p class="note">اكتب اسم الموظف الأول.</p>':'');
   }
   if(r&&d.type==='count'){
     h+='<div class="preview"><div class="kv"><span>الملف</span><b class="en">'+esc(d.fname)+'</b></div><div class="kv"><span>الشيت</span><b>'+esc(r.sheet)+'</b></div><div class="kv"><span>عمود الكمية</span><b>'+esc(r.col)+'</b></div><div class="kv"><span>أصناف مطابقة</span><b>'+r.n+'</b></div><div class="kv"><span>إجمالي القطع</span><b>'+fmt(r.total)+'</b></div><div class="kv"><span>صفوف مش مطابقة</span><b>'+r.unk.length+'</b></div>'+(r.unk.length?'<p class="note en">'+r.unk.slice(0,6).map(esc).join(' · ')+(r.unk.length>6?' …':'')+'</p>':'')+'<p class="note">الكمية بتتسجل كعدّ "جاهز". هالك النظافة والهالك النهائي تضيفهم جوه الجرد.</p></div>';
@@ -898,7 +956,7 @@ function filesDrawer(){
   var fs=S.docs.filter(function(d){return d.hdr&&d.hdr.src}).reverse();
   return '<div class="row" style="justify-content:space-between"><h2>الملفات المرفوعة</h2><button class="btn sm" data-a="closedrawer">إغلاق</button></div><p class="hint">كل ملف اترفع بقى عملية. اللي لسه ما اتأكدش تقدر تحذفه، واللي اتسجل تلغيه من شاشته.</p>'+
     (fs.length?fs.map(function(d){
-      var det=d.type==='PKP'?d.hdr.orders.length+' أوردر · '+fmt(d.hdr.orders.reduce(function(a,o){return a+o.lines.length},0))+' قطعة':Object.keys(d.hdr.cnt||{}).length+' صنف معدود';
+      var det=d.type==='PKP'?d.hdr.orders.length+' أوردر · '+fmt(d.hdr.orders.reduce(function(a,o){return a+o.lines.length},0))+' قطعة':d.type==='SCN'?(d.hdr.matched||[]).length+' أوردر سكان':Object.keys(d.hdr.cnt||{}).length+' صنف معدود';
       return '<div class="fcard"><div class="fh"><b class="en">'+esc(d.hdr.src)+'</b>'+pill(TYPES[d.type],'info')+(d.status==='draft'?pill('لسه ما اتأكدتش','warn'):d.status==='reversed'?pill('اتلغت','mute'):pill('اتسجّلت '+d.no,'ok'))+'</div><div class="fm">'+d.date+' · '+det+' · '+esc(d.by)+'</div><div class="fa"><button class="btn sm" data-a="opendoc" data-id="'+d.id+'">فتح</button>'+(d.status==='draft'?'<button class="btn sm bad" data-a="delfile" data-id="'+d.id+'">حذف</button>':'')+'</div></div>'}).join(''):'<div class="empty">مفيش ملفات اترفعت.</div>');
 }
 function setDrawer(){
@@ -918,7 +976,7 @@ function topbar(){
   var ds={};ds[D.today]=1;S.docs.forEach(function(d){ds[d.date]=1});ds[UI.date]=1;
   var opts=Object.keys(ds).sort().reverse().map(function(x){return '<option value="'+x+'"'+(x===UI.date?' selected':'')+'>'+x+'</option>'}).join('');
   var it=integrity();
-  return '<div class="top"><div class="wrap"><div class="bar1"><div class="brand"><span class="word">Fémini</span><span class="sub">إدارة المخزن · نسخة تجربة مفتوحة للكل</span></div><div class="ctrls"><label class="label" for="dateSel">يوم العمل</label><select class="sel en" id="dateSel" data-c="setdate">'+opts+'</select><button class="btn primary" data-a="opendrawer" data-k="upload">رفع ملف</button><button class="btn" data-a="opendrawer" data-k="files">الملفات</button><button class="btn" data-a="opendrawer" data-k="settings" aria-label="الإعدادات">⚙</button>'+(it.bad||it.neg?pill('Ledger غير متطابق','bad'):pill('Ledger متطابق','ok'))+'<label class="label">المستخدم <input id="actor" value="'+esc(S.actor)+'" style="width:100px"></label></div></div><nav class="tabs" aria-label="الأقسام">'+TABS.map(function(t){return '<button class="tab" data-a="goto" data-v="'+t[0]+'"'+(UI.tab===t[0]?' aria-current="page"':'')+'>'+t[1]+'</button>'}).join('')+'</nav></div></div>';
+  return '<div class="top"><div class="wrap"><div class="bar1"><div class="brand"><span class="word">Fémini</span><span class="sub">إدارة المخزن · نسخة تجربة مفتوحة للكل</span></div><div class="ctrls"><label class="label" for="dateSel">يوم العمل</label><select class="sel en" id="dateSel" data-c="setdate">'+opts+'</select><button class="btn primary" data-a="opendrawer" data-k="upload">رفع ملف</button><button class="btn" data-a="opendrawer" data-k="files">الملفات</button><button class="btn" data-a="opendrawer" data-k="settings" aria-label="الإعدادات">⚙</button>'+(it.bad?pill('Ledger غير متطابق','bad'):it.neg?pill('رصيد بالسالب '+it.neg,'warn'):pill('Ledger متطابق','ok'))+'<label class="label">المستخدم <input id="actor" value="'+esc(S.actor)+'" style="width:100px"></label></div></div><nav class="tabs" aria-label="الأقسام">'+TABS.map(function(t){return '<button class="tab" data-a="goto" data-v="'+t[0]+'"'+(UI.tab===t[0]?' aria-current="page"':'')+'>'+t[1]+'</button>'}).join('')+'</nav></div></div>';
 }
 var VIEWS={desk:vDesk,docs:vDocs,ledger:vLedger,analytics:vAnalytics,reports:vReports,data:vData};
 function render(){
@@ -957,7 +1015,8 @@ function matrixBox(d){
 /* ================= OPERATIONS (documents, task-first) ================= */
 var OPS={
   RCV:{t:'استلمت بضاعة من المصنع',s:'بتزوّد الرصيد الجاهز.',ic:'＋'},
-  PKP:{t:'جهّزت بيك أب شركة',s:'ارفع شيت الشركة وجهّز القطع. اللي بيخرج هو المجهز بس.',ic:'↑'},
+  PKP:{t:'استلمت بيك أب من شركة',s:'ارفع شيت الشركة. ده المطلوب بس، ومبيخصمش من المخزون لحد ما الأوردرات تتسكان.',ic:'↑'},
+  SCN:{t:'سجّلت أوردرات بالسكان',s:'ارفع ملف السكان (QRbot). كل أوردر اتسكان بيتخصم من المخزون.',ic:'▣'},
   RTN:{t:'استلمت مرتجع من شركة',s:'بتفرز القطع: سليم أو هالك نظافة أو هالك نهائي، والناقص بيتسجل مفقود.',ic:'↓'},
   SHP:{t:'بعتّ قطع للمحل',s:'بتنقص من الجاهز.',ic:'→'},
   STS:{t:'لقيت قطع هالك نظافة أو هالك نهائي',s:'بتنقلها من الجاهز لهالك نظافة أو هالك نهائي.',ic:'!'},
@@ -967,13 +1026,13 @@ var OPS={
   LST:{t:'حسمت قطع مفقودة',s:'لقيناها، اتعوّضت، أو بتتشطب.',ic:'؟'}
 };
 var OP_ORDER=['RCV','PKP','RTN','SHP','STS','FSD','FRC','CNT','LST'];
-var OP_GROUPS=[{t:'استلام',s:'اللي داخل المخزن.',ops:['RCV','RTN','FRC']},{t:'إخراج',s:'اللي خارج من المخزن.',ops:['PKP','SHP','FSD']},{t:'تعديل الرصيد',s:'نقل القطع بين الحالات، والجرد، وحسم المفقود.',ops:['STS','CNT','LST']}];
-var OP_EN={RCV:'Receipt',PKP:'Delivery',RTN:'Return',SHP:'Transfer',STS:'Status change',FSD:'Send out',FRC:'Receipt',CNT:'Physical inventory',LST:'Adjustment'};
-function opStat(t){var ds=S.docs.filter(function(x){return x.type===t});return {dr:ds.filter(function(x){return x.status==='draft'}).length,last:ds.filter(function(x){return x.status==='confirmed'}).map(function(x){return x.date}).sort().pop()}}
+var OP_GROUPS=[{t:'استلام',s:'اللي داخل المخزن.',ops:['RCV','RTN','FRC']},{t:'إخراج',s:'اللي خارج من المخزن.',ops:['PKP','SCN','SHP','FSD']},{t:'تعديل الرصيد',s:'نقل القطع بين الحالات، والجرد، وحسم المفقود.',ops:['STS','CNT','LST']}];
+var OP_EN={SCN:'Scanned Orders',RCV:'Receipt',PKP:'Delivery order',RTN:'Return',SHP:'Transfer',STS:'Status change',FSD:'Send out',FRC:'Receipt',CNT:'Physical inventory',LST:'Adjustment'};
+function opStat(t){var ds=S.docs.filter(function(x){return x.type===t});return {dr:ds.filter(function(x){return x.status==='draft'&&!(x.type==='PKP'&&pkDone(x))}).length,last:ds.filter(function(x){return x.status==='confirmed'||(x.type==='PKP'&&pkDone(x))}).map(function(x){return x.date}).sort().pop()}}
 function opCard(t){var o=OPS[t],st=opStat(t);return '<button class="op" data-a="startop" data-t="'+t+'"><span class="oh"><span class="oi">'+o.ic+'</span><span class="note en">'+OP_EN[t]+'</span></span><span class="ot">'+o.t+'</span><span class="os">'+o.s+'</span><span class="of">'+(st.dr?pill(st.dr+' لسه ما اتأكدتش','warn'):'')+'<span class="note">'+(st.last?'آخر عملية <span class="en">'+st.last+'</span>':'لسه ما اتعملتش')+'</span></span></button>'}
 function bl(b){return BL[b]||chName(b)}
 function piece(s){var k=SKU.get(s);return '<span class="pc"><b class="en">'+k.m+'</b> '+esc(MODEL.get(k.m).name)+' · '+sw(k.c)+esc(k.c)+' · <span class="en">'+k.s+'</span></span>'}
-function statusPill(d){return d.status==='draft'?pill('لسه ما اتأكدتش','warn'):d.status==='reversed'?pill('اتلغت','mute'):pill('اتسجّلت','ok')}
+function statusPill(d){if(d.type==='PKP'&&d.status==='draft')return pkDone(d)?pill('اتقفل','ok'):pill('مفتوح','warn');return d.status==='draft'?pill('لسه ما اتأكدتش','warn'):d.status==='reversed'?pill('اتلغت','mute'):pill('اتسجّلت','ok')}
 function stepHead(n,t,sub){return '<div class="step"><span class="sn">'+n+'</span><div><h3>'+t+'</h3>'+(sub?'<p class="note">'+sub+'</p>':'')+'</div></div>'}
 function sumQ(mv){return mv.reduce(function(a,m){return a+m.q},0)}
 
@@ -1011,7 +1070,8 @@ function docLine(d){
   if(d.type==='OPN')return 'الرصيد الافتتاحي · '+fmt(sm('OPENING'))+' قطعة';
   if(d.type==='REV')return 'إلغاء عملية '+esc(h.of);
   if(d.type==='RCV')return 'استلام من المصنع · '+fmt(dr?q:sm('RECEIPT'))+' قطعة'+(h.supplyNo?' · '+esc(h.supplyNo):'');
-  if(d.type==='PKP'){var f=h.fin;return esc(chName(h.channel))+' · '+esc(h.label)+' · '+(f?fmt(f.prep)+' قطعة خرجت'+(f.short?' · نقص '+fmt(f.short):''):fmt(q)+' قطعة مطلوبة')}
+  if(d.type==='PKP'){var pc=pkCounts(d);return esc(chName(h.channel))+' · '+esc(h.label)+' · اتسجّل '+pc.scanned+' من '+pc.total+' أوردر'+(pc.pending?' · واقف '+pc.pending:'')}
+  if(d.type==='SCN')return 'سكان '+esc(h.emp||'—')+' · '+(h.matched||[]).length+' أوردر جديد'+(d.status==='draft'?' (لسه ما اتأكدش)':'')
   if(d.type==='RTN')return 'مرتجع '+esc(chName(h.channel))+(dr?' · المفروض '+fmt(q):' · استلمت '+fmt(sm('RETURN'))+(sm('RETURN_LOST')?' · مفقود '+fmt(sm('RETURN_LOST')):''));
   if(d.type==='SHP')return 'للمحل · '+fmt(dr?q:sm('SHOP'))+' قطعة';
   if(d.type==='STS')return 'تغيير حالة · '+fmt(dr?q:sumQ(ms))+' قطعة';
@@ -1025,8 +1085,8 @@ var DT_CHIPS=[['','الكل'],['RCV','توريد'],['PKP','بيك أب'],['RTN',
 function vDocs(){
   var d=curDoc();
   if(d)return docScreen(d);
-  var drafts=S.docs.filter(function(x){return x.status==='draft'}).reverse();
-  var done=S.docs.filter(function(x){return x.status!=='draft'&&x.type!=='OPN'}).reverse().filter(function(x){return !UI.dt||(UI.dt==='MISC'?['RCV','PKP','RTN','SHP'].indexOf(x.type)<0:x.type===UI.dt)});
+  var drafts=S.docs.filter(function(x){return x.status==='draft'&&!(x.type==='PKP'&&pkDone(x))}).reverse();
+  var done=S.docs.filter(function(x){return (x.status!=='draft'||(x.type==='PKP'&&pkDone(x)))&&x.type!=='OPN'}).reverse().filter(function(x){return !UI.dt||(UI.dt==='MISC'?['RCV','PKP','RTN','SHP'].indexOf(x.type)<0:x.type===UI.dt)});
   var opn=S.docs.filter(function(x){return x.type==='OPN'})[0];
   var cards=OP_GROUPS.map(function(g2){return '<section class="blk"><div class="sh"><div class="t"><h2>'+g2.t+'</h2><p>'+g2.s+'</p></div></div><div class="ops">'+g2.ops.map(opCard).join('')+'</div></section>'}).join('');
   var dr=drafts.length?'<section class="blk"><div class="sh"><div class="t"><h2>لسه ما اتأكدتش ('+drafts.length+')</h2><p>دي عمليات بدأتها ومخلصتهاش. مفيش أي تأثير على المخزن لحد ما تأكدها.</p></div></div><div class="ops-list">'+drafts.map(function(x){return '<div class="oli"><div class="grow"><b>'+(OPS[x.type]?OPS[x.type].t:TYPES[x.type])+'</b><div class="note">'+docLine(x)+' · <span class="en">'+x.date+'</span></div></div><button class="btn sm pri" data-a="opendoc" data-id="'+x.id+'">كمّل</button><button class="btn sm bad" data-a="delfile" data-id="'+x.id+'">احذف</button></div>'}).join('')+'</div></section>':'';
@@ -1094,7 +1154,8 @@ function reviewHTML(d,step){
 function fmtT(t){var x=new Date(t),p=function(n){return String(n).padStart(2,'0')};return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate())+' '+p(x.getHours())+':'+p(x.getMinutes())}
 function statusbar(d,r){
   var steps,cur;
-  if(d.type==='OPN'||d.type==='REV'){steps=['اتسجّلت'];cur=0}
+  if(d.type==='PKP'){steps=['مفتوح','اتقفل'];cur=pkDone(d)?1:0}
+  else if(d.type==='OPN'||d.type==='REV'){steps=['اتسجّلت'];cur=0}
   else if(d.status==='reversed'){steps=['اتسجّلت','اتلغت'];cur=1}
   else if(d.status==='confirmed'){steps=['جاري التحضير','جاهزة للتأكيد','اتسجّلت'];cur=2}
   else{steps=['جاري التحضير','جاهزة للتأكيد','اتسجّلت'];cur=r&&r.err.length===0?1:0}
@@ -1108,10 +1169,11 @@ function docScreen(d){return docScreen0(d)+logHTML(d)}
 function docScreen0(d){
   var ed=d.status==='draft',T=OPS[d.type]||{t:TYPES[d.type],s:''};
   var title=d.type==='REV'?'إلغاء عملية':d.type==='OPN'?'الرصيد الافتتاحي':d.type==='PKP'?'بيك أب · '+esc(d.hdr.label):T.t;
-  var r0=ed&&d.type!=='OPN'?buildMoves(d):null,canOk=r0&&r0.err.length===0;
+  var r0=ed&&d.type!=='OPN'&&d.type!=='PKP'?buildMoves(d):null,canOk=r0&&r0.err.length===0;
   var head='<div class="row"><button class="btn sm" data-a="backhome">رجوع للعمليات</button></div><div class="card grid"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h2>'+title+'</h2><span class="note"><span class="en">'+d.date+'</span> · '+esc(d.by)+(d.no?' · <span class="en">'+d.no+'</span>':'')+'</span></div><div class="row">'+(d.flag?pill(esc(d.flag),'warn'):'')+(r0?'<button class="btn primary" data-a="confirm"'+(canOk?'':' disabled title="كمّل الخطوات الأول"')+'>'+(d.type==='CNT'?'طبّق الفروق':'أكّد العملية')+'</button>':'')+'</div></div>'+statusbar(d,r0)+(ed&&T.s?'<p class="sub">'+T.s+'</p>':'')+'</div>';
   if(ed){
-    if(d.type==='PKP')return head+pkView(d)+reviewHTML(d);
+    if(d.type==='PKP')return head+pkView(d);
+    if(d.type==='SCN')return head+scnView(d)+reviewHTML(d,2);
     if(d.type==='CNT')return head+cntView(d)+(d.hdr.models.length?reviewHTML(d):'');
     if(d.type==='RTN')return head+'<div class="card grid">'+stepHead(1,'التفاصيل')+detailsHTML(d)+'</div>'+rtnView(d)+reviewHTML(d,4);
     var s2={RCV:'القطع اللي استلمتها',SHP:'القطع اللي رحت للمحل',STS:'القطع اللي لقيتها',FSD:'القطع اللي بعتها للمصنع',FRC:'القطع اللي رجعت مغسولة',LST:'القطع المفقودة'}[d.type]||'القطع';
@@ -1120,7 +1182,7 @@ function docScreen0(d){
   // already recorded
   var ms=S.moves.filter(function(m){return m.doc===d.no}),e=effectFrom(ms.map(function(m){return {s:m.s,q:m.q,f:m.f,t:m.t}}));
   var body='<div class="card grid"><h3>اللي حصل في المخزن</h3><p class="sub">'+docLine(d)+'</p>'+effectHTML(e,true)+(d.hdr.photo?'<p class="note">صورة المحضر: '+esc(d.hdr.photo)+'</p>':'')+'</div>';
-  if(d.type==='PKP')body+='<div class="card grid"><h3>قايمة التجميع</h3>'+pkTable(d,false)+'</div>';
+  if(d.type==='SCN')body+='<div class="card grid">'+scnView(d)+'</div>';
   if(d.type==='RTN')body+='<div class="card grid"><h3>الفرز</h3><div data-b="rt-sum"></div>'+rtTable(d,false)+'</div>';
   if(d.type!=='OPN'&&d.type!=='PKP')body+=(d.lines.length&&d.type!=='RTN'?'<div class="card grid"><h3>القطع</h3>'+(d.type==='STS'?linesTable(d,[{h:'من',f:function(l){return ST[l.f]}},{h:'إلى',f:function(l){return ST[l.t]}},qtyCol()]):linesTable(d,[qtyCol()]))+'</div>':'');
   var rev=d.status==='confirmed'&&d.type!=='OPN'&&d.type!=='REV'?'<div class="card row"><div class="grow"><b>غلطت في العملية دي؟</b><div class="note">الإلغاء بيعمل عملية جديدة بتعكس الحركات ويرجّع الرصيد زي ما كان. العملية الأصلية بتفضل في السجل.</div></div><button class="btn bad" data-a="reverse">إلغاء العملية دي</button></div>':'';
@@ -1128,24 +1190,50 @@ function docScreen0(d){
   return head+body+rev+mv;
 }
 
-/* ---------- pickup ---------- */
-function pkTable(d,ed){
-  var h=d.hdr,req=pkReq(d),sk=Object.keys(req).sort(skuSort);
-  return '<div class="scroll" style="max-height:60vh;overflow:auto"><table><tr><th>القطعة</th><th class="n">مطلوب</th>'+(ed?'<th class="n">متاح عندك</th>':'')+'<th class="n">جهّزت</th><th class="n">ناقص</th></tr>'+sk.map(function(s){
-    var r=req[s],p=pkPrep(d,s,r),have=g(s,'READY');
-    return '<tr><td>'+piece(s)+'</td><td class="n">'+r+'</td>'+(ed?'<td class="n">'+fmt(have)+'</td>':'')+'<td class="n">'+(ed?'<input id="pp-'+s+'" type="number" min="0" max="'+r+'" value="'+p+'" data-i="prep" data-s="'+s+'" data-r="'+r+'" data-have="'+have+'"'+(p>have?' style="border-color:var(--crit)"':'')+'>':fmt(p))+'</td><td class="n" data-b="pk-sh-'+s+'"></td></tr>'}).join('')+'</table></div>';
+/* ---------- pickup (demand) and scanned orders ---------- */
+function scnApply(d){
+  var h=d.hdr,seen={},ng=[];
+  (h.matched||[]).forEach(function(m){var pk=S.docs.find(function(x){return x.id===m.pk}),o=pk&&pk.hdr.orders.find(function(q){return q.ref===m.ref});if(!o||o.sc)return;o.sc={by:h.emp,t:m.t||'',doc:d.no};o.lines.forEach(function(s){seen[s]=1})});
+  S.emps=S.emps||[];if(h.emp&&S.emps.indexOf(h.emp)<0)S.emps.push(h.emp);
+  Object.keys(seen).forEach(function(s){if(g(s,'READY')<0)ng.push(lbl(s)+': '+fmt(g(s,'READY')))});
+  save();return ng;
+}
+function scnUndo(d){S.docs.forEach(function(p){if(p.type==='PKP')p.hdr.orders.forEach(function(o){if(o.sc&&o.sc.doc===d.no)delete o.sc})});save()}
+function pkStatusCell(d,o){
+  if(d.hdr.cx[o.ref])return '<span class="note">اتلغى</span>';
+  if(o.sc)return pill('اتسجّل','ok')+' <span class="note">'+esc(o.sc.by)+(o.sc.t?' · <span class="en">'+esc(String(o.sc.t).slice(11,19))+'</span>':'')+'</span>';
+  var b=CTX&&CTX.blocked[o.ref];
+  if(b)return pill('هيقف','bad')+' <span class="note">ناقص: '+b.miss.slice(0,3).map(function(m){var k=SKU.get(m[0]);return '<span class="en">'+k.m+'</span> '+esc(k.c)+' <span class="en">'+k.s+'</span> ×'+m[1]}).join('، ')+(b.miss.length>3?' …':'')+'</span>';
+  return pill('مستني السكان','warn');
 }
 function pkView(d){
-  var ed=d.status==='draft',h=d.hdr,req=pkReq(d),sk=Object.keys(req),pcs=sk.reduce(function(a,s){return a+req[s]},0),unk={};
+  var h=d.hdr,c=pkCounts(d),f=UI.pkf||'all',req=pkReq(d),sk=Object.keys(req).sort(skuSort),unk={};
   h.orders.forEach(function(o){(o.bad||[]).forEach(function(b){unk[b[0]]=(unk[b[0]]||0)+b[3]})});
-  var unkBox=Object.keys(unk).length?'<div class="msg warn"><div><b>في أكواد من الشركة مش عارفها</b><div class="note">اربط كل كود بموديل عندك عشان تقدر تكمل.</div><div class="grid" style="margin-top:8px">'+Object.keys(unk).map(function(c){return '<div class="row"><span class="en">'+esc(c)+'</span><span class="note">'+unk[c]+' قطعة</span><select data-c="alias" data-code="'+esc(c)+'"><option value="">اربطه بموديل...</option>'+MORDER.map(function(m){return '<option value="'+m+'">'+esc(mname(m))+'</option>'}).join('')+'</select></div>'}).join('')+'</div></div></div>':'';
-  var ordRows=h.orders.map(function(o){var x=!!h.cx[o.ref];return '<tr'+(x?' style="opacity:.5"':'')+'><td class="en">'+esc(o.ref)+'</td><td class="en">'+esc(o.wb)+'</td><td>'+(o.type==='استبدال'?pill('استبدال','info'):'جديد')+'</td><td>'+esc(o.gov)+'</td><td class="n">'+o.lines.length+'</td><td>'+((o.bad&&o.bad.length)?pill('كود مجهول','warn'):'')+'</td><td>'+(ed?'<label><input type="checkbox" data-c="cx" data-ref="'+esc(o.ref)+'"'+(x?' checked':'')+'> اتلغى</label>':(x?'اتلغى':''))+'</td></tr>'}).join('');
-  var k=function(l,v){return '<div class="kpi"><div class="l">'+l+'</div><div class="v en">'+v+'</div></div>'};
-  return '<div class="card grid">'+stepHead(1,'البيك أب','الشيت اللي جاي من '+esc(chName(h.channel))+(h.src?' ('+esc(h.src)+')':'')+'.')+unkBox+
-    '<div class="kpis">'+k('أوردرات',h.orders.filter(function(o){return !h.cx[o.ref]}).length)+k('قطع مطلوبة',fmt(pcs))+k('قطع بتتجهز',' <span data-b="pk-prep"></span>')+k('ناقص','<span data-b="pk-short"></span>')+'</div></div>'+
-    '<div class="card grid">'+stepHead(2,ed?'جهّز القطع':'القطع','اكتب في خانة "جهّزت" الكمية اللي جهّزتها فعلا لكل قطعة. اللي هيخرج من المخزن هو المجهز بس، والناقص بيتسجل في التقارير.')+
-    (ed?'<div class="row"><button class="btn" data-a="pkall">جهّز كل المتاح</button><span class="note">بيملا الخانات بأقل رقم بين المطلوب والمتاح. الأحمر معناه إنك كاتب أكتر من المتاح.</span></div>':'')+pkTable(d,ed)+
-    '<details><summary>الأوردرات ('+h.orders.length+') ولو أوردر اتلغى علّم عليه</summary><div class="scroll" style="max-height:50vh;overflow:auto;margin-top:8px"><table><tr><th>الكود</th><th>البوليصة</th><th>النوع</th><th>المحافظة</th><th class="n">قطع</th><th></th><th></th></tr>'+ordRows+'</table></div></details></div>';
+  var unkBox=Object.keys(unk).length?'<div class="msg warn"><div><b>في أكواد من الشركة مش عارفها</b><div class="note">اربط كل كود بموديل عندك. الأوردرات اللي فيها كود مجهول ما بتتسجلش بالسكان.</div><div class="grid" style="margin-top:8px">'+Object.keys(unk).map(function(x){return '<div class="row"><span class="en">'+esc(x)+'</span><span class="note">'+unk[x]+' قطعة</span><select data-c="alias" data-code="'+esc(x)+'"><option value="">اربطه بموديل...</option>'+MORDER.map(function(m){return '<option value="'+m+'">'+esc(mname(m))+'</option>'}).join('')+'</select></div>'}).join('')+'</div></div></div>':'';
+  var blk=0,blkP=0;h.orders.forEach(function(o){if(!h.cx[o.ref]&&!o.sc&&CTX.blocked[o.ref]){blk++;blkP+=o.lines.length}});
+  var k=function(l,v,cl){return '<div class="kpi"><div class="l">'+l+'</div><div class="v en '+(cl||'')+'">'+v+'</div></div>'};
+  var rows=h.orders.filter(function(o){var st=o.sc||d.status!=='draft'?'sc':h.cx[o.ref]?'cx':CTX.blocked[o.ref]?'blk':'wait';return f==='all'||f===st||(f==='pend'&&(st==='wait'||st==='blk'))}).map(function(o){
+    var pend=!o.sc&&!h.cx[o.ref];
+    return '<tr'+(h.cx[o.ref]?' style="opacity:.5"':'')+'><td>'+(pend?'<input type="checkbox" data-sel="'+esc(o.ref)+'" aria-label="تحديد">':'')+'</td><td class="en">'+esc(o.ref)+'</td><td class="en">'+esc(o.wb)+'</td><td>'+(o.type==='استبدال'?pill('استبدال','info'):'جديد')+'</td><td>'+esc(o.gov)+'</td><td class="n">'+o.lines.length+'</td><td>'+pkStatusCell(d,o)+'</td><td>'+(!o.sc?'<label><input type="checkbox" data-c="cx" data-ref="'+esc(o.ref)+'"'+(h.cx[o.ref]?' checked':'')+'> اتلغى</label>':'')+'</td></tr>'}).join('');
+  var chips='<div class="seg">'+[['all','الكل'],['pend','واقف'],['blk','هيقف بالمخزون'],['sc','اتسجّل']].map(function(x){return '<button type="button" data-a="pkf" data-v="'+x[0]+'" aria-pressed="'+(f===x[0])+'">'+x[1]+'</button>'}).join('')+'</div>';
+  var list=sk.map(function(s){var r=req[s],have=g(s,'READY');return '<tr><td>'+piece(s)+'</td><td class="n">'+r+'</td><td class="n">'+fmt(have)+'</td><td class="n '+(r>have?'neg':'')+'">'+(r>have?r-have:'—')+'</td></tr>'}).join('');
+  return '<div class="card grid">'+stepHead(1,'البيك أب','الشيت اللي جاي من '+esc(chName(h.channel))+(h.src?' ('+esc(h.src)+')':'')+'. ده المطلوب بس، ومبيخصمش من المخزون. الخصم بيحصل لما الأوردر يتسكان.')+unkBox+
+    '<div class="kpis">'+k('أوردرات',c.total)+k('اتسجّل بالسكان',c.scanned,'posv')+k('واقف (مستني السكان)',c.pending)+k('هيقف بالمخزون',blk+' <small class="note">('+fmt(blkP)+' قطعة)</small>',blk?'neg':'')+'</div></div>'+
+    '<div class="card grid">'+stepHead(2,'الأوردرات','كل أوردر ليه حالة: اتسجّل بالسكان، مستني السكان، أو هيقف عشان فيه قطعة ناقصة في المخزون.')+
+    '<div class="row">'+chips+'<button class="btn pri" data-a="opendrawer" data-k="scan">▣ رفع ملف سكان</button><button class="btn" data-a="pkreg">سجّل المحدد يدويا</button><span class="note">لو الموظف مش هيرفع ملف، حدد الأوردرات وسجّلها يدويا.</span></div>'+
+    '<div class="scroll" style="max-height:60vh;overflow:auto"><table><tr><th></th><th>الكود</th><th>البوليصة</th><th>النوع</th><th>المحافظة</th><th class="n">قطع</th><th>الحالة</th><th></th></tr>'+rows+'</table></div></div>'+
+    (sk.length?'<details class="card"><summary>قايمة التجميع للأوردرات الواقفة ('+sk.length+' قطعة مختلفة)</summary><div class="scroll" style="max-height:50vh;overflow:auto;margin-top:8px"><table><tr><th>القطعة</th><th class="n">مطلوب</th><th class="n">متاح دلوقتي</th><th class="n">ناقص</th></tr>'+list+'</table></div></details>':'');
+}
+function scnView(d){
+  var h=d.hdr,ed=d.status==='draft';
+  var k=function(l,v,cl){return '<div class="kpi"><div class="l">'+l+'</div><div class="v en '+(cl||'')+'">'+v+'</div></div>'};
+  var pcs=(h.matched||[]).reduce(function(a,m){return a+m.pcs},0);
+  var rows=(h.matched||[]).slice(0,80).map(function(m){return '<tr><td class="en">'+esc(m.ref)+'</td><td>'+esc(m.label||'')+'</td><td class="n">'+m.pcs+'</td><td class="en">'+esc(String(m.t||'').slice(11,19))+'</td></tr>'}).join('');
+  return '<div class="card grid">'+stepHead(1,'السكان','ملف '+esc(h.src||'')+'. الأوردرات الجديدة بس هي اللي هتتخصم.')+
+    '<div class="row"><label class="field">الموظف<input data-i="hf" data-k="emp" list="empList" value="'+esc(h.emp||'')+'"'+(ed?'':' disabled')+' style="min-width:200px"></label><datalist id="empList">'+(S.emps||[]).map(function(e){return '<option value="'+esc(e)+'">'}).join('')+'</datalist></div>'+
+    '<div class="kpis">'+k('أوردرات جديدة',(h.matched||[]).length,'posv')+k('قطع',fmt(pcs))+k('اتسجلت قبل كده',(h.already||[]).length)+k('مكرر جوه الملف',(h.dups||[]).length)+k('كود غير معروف',(h.unk||[]).length,(h.unk||[]).length?'neg':'')+'</div>'+
+    ((h.unk||[]).length?'<p class="note en">'+h.unk.slice(0,10).map(esc).join(' · ')+'</p>':'')+
+    '<details><summary>الأوردرات ('+(h.matched||[]).length+')</summary><div class="scroll" style="max-height:40vh;overflow:auto;margin-top:8px"><table><tr><th>الكود</th><th>البيك أب</th><th class="n">قطع</th><th>وقت السكان</th></tr>'+rows+'</table></div></details></div>';
 }
 
 /* ---------- return ---------- */
@@ -1392,17 +1480,29 @@ document.addEventListener('input',function(e){var el=e.target;if(el.dataset&&el.
 document.addEventListener('change',function(e){var el=e.target;if(el.id==='upfile'){handleFileInput(el);return}if(el.dataset&&el.dataset.c&&CHG[el.dataset.c])CHG[el.dataset.c](el)});
 /* ---------- desk / drawer events ---------- */
 Object.assign(ACT,{
+  pkf:function(el){UI.pkf=el.dataset.v;render()},
+  pkreg:function(){
+    var d=curDoc(),refs=$$('[data-sel]').filter(function(i){return i.checked}).map(function(i){return i.dataset.sel});
+    if(!refs.length){msg('bad','حدد أوردر واحد على الأقل',['علّم الأوردرات اللي خرجت من خانة الاختيار على اليمين.']);render();return}
+    var matched=refs.map(function(r){var o=d.hdr.orders.find(function(q){return q.ref===r});return {pk:d.id,ref:r,t:'',label:d.hdr.label,pcs:o.lines.length}});
+    var sd={id:'d'+(S.did++),type:'SCN',status:'draft',no:null,date:UI.date,by:S.actor,log:[{t:Date.now(),by:S.actor,m:'تسجيل يدوي من '+d.hdr.label}],hdr:{emp:S.actor,src:'تسجيل يدوي من '+d.hdr.label,channel:d.hdr.channel,matched:matched,dups:[],already:[],unk:[]},lines:[]};
+    S.docs.push(sd);UI.sel=sd.id;UI.msg=null;dirty();render();
+  },
   cntdue:function(){var d=curDoc(),ms=cntDue().filter(function(x){return x.due}).map(function(x){return x.m});if(!ms.length)return;d.hdr.models=ms;d.hdr.snap=cntSnap(ms);d.hdr.cur=ms[0];UI.msg=null;dirty();render()},
-  startop:function(el){var t=el.dataset.t;UI.msg=null;if(t==='PKP'){UI.drawer={kind:'upload',type:'pickup',channel:'CH_VENDOOR',date:UI.date,res:null,err:''};render();return}newDoc(t);render()},
+  startop:function(el){var t=el.dataset.t;UI.msg=null;if(t==='PKP'||t==='SCN'){UI.drawer={kind:'upload',type:t==='SCN'?'scan':'pickup',channel:'CH_VENDOOR',date:UI.date,emp:lastEmp(),res:null,err:''};render();return}newDoc(t);render()},
   backhome:function(){UI.sel=null;UI.msg=null;render()},
   dtf:function(el){UI.dt=el.dataset.v;UI.opsN=30;render()},
   opsmore:function(){UI.opsN=(UI.opsN||30)+30;render()},
-  opendrawer:function(el){var k=el.dataset.k;UI.drawer=k==='upload'?{kind:'upload',type:'pickup',channel:'CH_VENDOOR',date:UI.date,res:null,err:''}:{kind:k};render()},
+  opendrawer:function(el){var k=el.dataset.k;UI.drawer=(k==='upload'||k==='scan')?{kind:'upload',type:k==='scan'?'scan':'pickup',channel:'CH_VENDOOR',date:UI.date,emp:lastEmp(),res:null,err:''}:{kind:k};render()},
   closedrawer:function(){UI.drawer=null;render()},
   uptype:function(el){var d=UI.drawer;d.type=el.dataset.v;d.res=null;d.err='';d.rows=null;render()},
   pickfile:function(){$('#upfile').click()},
   upsave:function(){
     var d=UI.drawer,r=d&&d.res;if(!r)return;
+    if(d.type==='scan'){
+      var sd={id:'d'+(S.did++),type:'SCN',status:'draft',no:null,date:UI.date,by:S.actor,log:[{t:Date.now(),by:S.actor,m:'اتعملت من ملف '+d.fname}],hdr:{emp:d.emp,src:d.fname,channel:'CH_VENDOOR',matched:r.matched,dups:r.dups,already:r.already,unk:r.unk},lines:[]};
+      S.docs.push(sd);UI.sel=sd.id;UI.drawer=null;UI.tab='docs';UI.msg=null;dirty();render();return;
+    }
     var doc;
     if(d.type==='pickup'){
       var n=S.docs.filter(function(x){return x.type==='PKP'}).length+1;
@@ -1433,6 +1533,7 @@ Object.assign(ACT,{
   lstep:function(el){var d=curDoc(),l=d.lines[+el.dataset.idx];if(l){l.q=Math.max(1,(+l.q||1)+(+el.dataset.d));dirty();render()}}
 });
 Object.assign(INP,{
+  upemp:function(el){if(UI.drawer)UI.drawer.emp=el.value;var b=$('[data-a=upsave]');if(b&&UI.drawer&&UI.drawer.res&&UI.drawer.type==='scan')b.disabled=!(UI.drawer.res.matched.length&&el.value.trim())},
   dq:function(el){UI.desk.q=el.value;rerenderKeep(el)},
   update:function(el){if(UI.drawer&&el.value)UI.drawer.date=el.value},
   bname:function(el){S.bn=S.bn||{};S.bn[el.dataset.sig]=el.value;save()}
