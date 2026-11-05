@@ -16,7 +16,8 @@ use Femini\Http\SecurityHeaders;
 use Femini\Sync\Snapshot;
 
 $req = Request::fromGlobals();
-SecurityHeaders::page($req);
+$nonce = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');   // fresh for every response
+SecurityHeaders::page($req, $nonce);
 
 try {
     if (UserRepository::countUsers() === 0) {
@@ -49,7 +50,7 @@ $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP 
 $json = str_replace(["\u{2028}", "\u{2029}"], [' ', ' '], $json);
 
 header('Content-Type: text/html; charset=utf-8');
-$app = str_replace('/*__FEMINI_BOOT__*/', 'window.FEM_BOOT=' . $json . ';', (string)file_get_contents(APP_ROOT . '/views/app.html'));
+$app = str_replace(['/*__FEMINI_BOOT__*/', '__CSP_NONCE__'], ['window.FEM_BOOT=' . $json . ';', $nonce], (string)file_get_contents(APP_ROOT . '/views/app.html'));
 // app.html is a fragment (it was built to be hosted inside an Artifact page): give it a real document around it.
 echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">'
     . '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'

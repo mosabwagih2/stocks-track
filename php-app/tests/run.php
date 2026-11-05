@@ -59,6 +59,9 @@ final class Client
     public function call(string $method, string $path, mixed $body = null, ?array $multipart = null, array $extraHeaders = []): array
     {
         $ch = curl_init("http://127.0.0.1:{$this->port}$path");
+        if ($this->autoDoc && $path === '/api/sync/push' && is_array($body)) {
+            $body = $this->attachDocs($body);
+        }
         $headers = array_merge(['X-CSRF-Token: ' . $this->csrf], $extraHeaders);
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => false,
@@ -75,6 +78,25 @@ final class Client
         $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         return [$status, json_decode($raw, true), $raw];
+    }
+
+    public bool $autoDoc = true;
+    public string $userName = '';
+
+    /** Moves must belong to a confirmed document in the same push: give bare test moves one. */
+    private function attachDocs(array $b): array
+    {
+        foreach ($b['moves'] ?? [] as $i => $m) {
+            if (($m['type'] ?? '') === 'OPN') {
+                continue;
+            }
+            // one confirmed document per move, numbered after the move id (so a re-sent move maps to the same document)
+            $no = $m['type'] . '-T' . $m['id'];
+            $b['moves'][$i]['doc'] = $no;
+            $b['coll']['docs']['up'][] = ['id' => 'auto-' . $no, 'type' => $m['type'], 'status' => 'done', 'no' => $no, 'date' => $m['date'], 'by' => $this->userName,
+                                          'hdr' => ['emp' => 'e', 'refs' => []], 'lines' => [], 'log' => [], 'nMoves' => 1];
+        }
+        return $b;
     }
 
     /** The raw response headers of a GET (lower-cased names). */
@@ -110,6 +132,7 @@ final class Client
     {
         [$s, $j] = $this->call('POST', '/api/auth/login', ['username' => $u, 'password' => $p]);
         if ($s === 200) {
+            $this->userName = (string)($j['user']['name'] ?? '');
             $this->csrf = $j['csrf'];
         }
         return $s;
@@ -533,6 +556,30 @@ $S = $snap['state'];
 ok('snapshot has the app state shape', $S['v'] === 3 && count($S['orders']) === 3 && $S['mid'] >= 9 && $S['roles']['admin']['perms'] && count($S['users']) >= 3 && $S['cur'] === $adminId && $S['lock'] === $yesterday && !$snap['empty'], array_keys($S));
 ok('snapshot never contains password hashes', !str_contains(json_encode($S), '$2y$') && !str_contains(json_encode($S), 'pass_hash'));
 ok('archived docs are not in the snapshot', !in_array('d2', array_column($S['docs'], 'id'), true));
+
+
+// ================= moves belong to documents (round 2)
+$packer->autoDoc = false;
+$nid = (int)Database::value('SELECT MAX(id) FROM moves') + 1;
+$m1 = mv($nid, 'SCN');
+$m1['doc'] = 'SCN-0900';
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$m1], 'meta' => ['mid' => $nid + 1]]);
+ok('a stock move with no document behind it is refused (409 orphan_moves)', $s === 409 && $j['error'] === 'orphan_moves', $j);
+ok('and nothing was written', (int)Database::value('SELECT COUNT(*) FROM moves WHERE id = ?', [$nid]) === 0);
+$d900 = ['id' => 'd900', 'type' => 'SCN', 'status' => 'done', 'no' => 'SCN-0900', 'date' => date('Y-m-d'), 'by' => 'موظف شحن', 'hdr' => ['emp' => 'e', 'refs' => []], 'lines' => [], 'log' => [], 'nMoves' => 2];
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$m1], 'coll' => ['docs' => ['up' => [$d900]]], 'meta' => ['mid' => $nid + 1]]);
+ok('a document that declares 2 moves but arrives with 1 is refused', $s === 409 && $j['error'] === 'orphan_moves', $j);
+$d900['nMoves'] = 1;
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$m1], 'coll' => ['docs' => ['up' => [$d900]]], 'meta' => ['mid' => $nid + 1]]);
+ok('the same move together with its confirmed document is accepted', $s === 200, $j);
+$m2 = mv($nid + 1, 'SCN');
+$m2['doc'] = 'SCN-0900';
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$m2], 'meta' => ['mid' => $nid + 2]]);
+ok('later moves cannot be added to an already confirmed document', $s === 409 && $j['error'] === 'orphan_moves', $j);
+// small rows: the "by" of a log entry is the signed-in user
+[$s, $j] = $sup->call('POST', '/api/sync/push', ['since' => $revNow(), 'coll' => ['sup_log' => ['up' => [['id' => 'lg-forge', 'by' => 'المدير', 'item' => 'FLY', 'q' => 1, 'kind' => 'man']]]]]);
+ok('a supply-log entry written in the admin\'s name is refused', $s === 403 && $j['error'] === 'forged_actor', $j);
+$packer->autoDoc = true;
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

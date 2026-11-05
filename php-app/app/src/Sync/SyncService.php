@@ -49,6 +49,9 @@ final class SyncService
             }
             $this->applyMeta((array)($req->meta ?? []), $rules, $ctx);
             $this->applyAudit((array)($req->audit ?? []), $ctx);
+            if (!$this->trustActors) {
+                $this->checkMovesBelongToDocs($ctx);
+            }
 
             if ($ctx->conflicts) {
                 throw new HttpError(409, 'stale', 'حد تاني عدّل نفس البيانات. اتحدّث البيانات.', ['conflicts' => $ctx->conflicts]);
@@ -131,6 +134,55 @@ final class SyncService
                  mb_substr((string)($m['note'] ?? ''), 0, 500), $ctx->rev]
             );
             $ctx->changed++;
+            if ($m['type'] !== 'OPN') {
+                $ctx->newMoves[] = ['doc' => $m['doc'], 'type' => $m['type'], 'date' => $m['date']];
+            }
+        }
+    }
+
+    /**
+     * Stock moves are never free-floating: every new move must belong to a document that this SAME push confirms
+     * (same type, same date, and exactly the number of moves the document declares), or, for a cancellation, to an
+     * order this push cancels with that number. So nobody can post stock movements without a signed document behind them.
+     */
+    private function checkMovesBelongToDocs(PushContext $ctx): void
+    {
+        $groups = [];
+        foreach ($ctx->newMoves as $m) {
+            $groups[$m['doc']][$m['type']][] = $m['date'];
+        }
+        foreach ($groups as $doc => $types) {
+            $fail = static fn(string $why) => new HttpError(409, 'orphan_moves', "الحركات لازم تكون تابعة لمستند مؤكّد ($doc): $why", ['doc' => $doc]);
+            if (count($types) !== 1) {
+                throw $fail('رقم المستند مستخدم لنوعين');
+            }
+            $type = (string)array_key_first($types);
+            $dates = $types[$type];
+            if ($type === 'CXL') {
+                foreach ($ctx->orders as $o) {
+                    if (($o['st'] ?? '') === 'cx' && ($o['cx']['doc'] ?? null) === $doc) {
+                        continue 2;
+                    }
+                }
+                throw $fail('مفيش أوردر ملغي بالرقم ده');
+            }
+            // a reversal files its counter-moves under "<no> (عكس)" and flips the document to "reversed"
+            $isRev = str_ends_with($doc, ' (عكس)');
+            $no = $isRev ? substr($doc, 0, -strlen(' (عكس)')) : $doc;
+            $row = Database::one('SELECT type, status, rev, on_date, payload FROM docs WHERE doc_no = ? AND gone = 0', [$no]);
+            if ($row === null || $row['type'] !== $type || $row['status'] !== ($isRev ? 'reversed' : 'done') || (int)$row['rev'] !== $ctx->rev) {
+                throw $fail('مفيش مستند مؤكّد بالرقم ده في نفس الحفظ');
+            }
+            foreach ($dates as $d) {
+                if (!$isRev && $d !== $row['on_date']) {
+                    throw $fail('تاريخ الحركة مش تاريخ المستند');
+                }
+            }
+            $declared = json_decode($row['payload'], true)['nMoves'] ?? null;
+            $total = (int)Database::value('SELECT COUNT(*) FROM moves WHERE doc = ?', [$doc]);
+            if (is_int($declared) && ($isRev ? $total > $declared : $declared !== $total)) {
+                throw $fail("عدد الحركات ($total) مش زي اللي المستند معلنه ($declared)");
+            }
         }
     }
 
@@ -160,7 +212,10 @@ final class SyncService
             }
             $decodedOld = $existing === null ? null : json_decode($existing['payload'], true);   // arrays: only used by the rules
             $this->checkRow($name, $row, $decodedOld, $rules);
-            $this->writeRow($name, $key, $row, $payload, $existing === null ? $nextOrd++ : (int)$existing['ord'], $ctx->rev);
+            if ($name === 'orders') {
+                $ctx->orders[] = json_decode($payload, true);
+            }
+            $this->writeRow($name, $key, $row, $payload, $existing === null ? $nextOrd++ : (int)$existing['ord'], $ctx->rev, $existing !== null);
             $ctx->changed++;
         }
 
@@ -184,7 +239,7 @@ final class SyncService
             } elseif ($name === 'pickups') {
                 $rules->checkPickup();
             } else {
-                $rules->checkRows($name, is_array($old) ? $old : []);
+                $rules->checkRows($name, is_array($old) ? $old : [], $old);
             }
             $this->markGone($name, $key, $ctx->rev);
             $ctx->changed++;
@@ -200,7 +255,7 @@ final class SyncService
         } elseif ($name === 'pickups') {
             $rules->checkPickup();
         } else {
-            $rules->checkRows($name, is_array($row) ? $row : []);
+            $rules->checkRows($name, is_array($row) ? $row : [], is_array($old) ? $old : null);
         }
     }
 
@@ -226,11 +281,11 @@ final class SyncService
                 continue;
             }
             $rules->checkMeta($key, $value, $existing === null ? null : json_decode($existing['v'], true));
-            Database::run(
-                'INSERT INTO meta (k, v, rev, updated_by, updated_at) VALUES (?,?,?,?,UTC_TIMESTAMP())
-                 ON DUPLICATE KEY UPDATE v = VALUES(v), rev = VALUES(rev), updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)',
-                [$key, $json, $ctx->rev, $this->user['id']]
-            );
+            if ($existing === null) {
+                Database::run('INSERT INTO meta (k, v, rev, updated_by, updated_at) VALUES (?,?,?,?,UTC_TIMESTAMP())', [$key, $json, $ctx->rev, $this->user['id']]);
+            } else {
+                Database::run('UPDATE meta SET v = ?, rev = ?, updated_by = ?, updated_at = UTC_TIMESTAMP() WHERE k = ?', [$json, $ctx->rev, $this->user['id'], $key]);
+            }
             $ctx->changed++;
         }
     }
@@ -263,7 +318,7 @@ final class SyncService
         return Database::one('SELECT payload, gone, ord, rev FROM coll_rows WHERE coll = ? AND k = ? FOR UPDATE', [$name, $key]);
     }
 
-    private function writeRow(string $name, string $key, mixed $row, string $payload, int $ord, int $rev): void
+    private function writeRow(string $name, string $key, mixed $row, string $payload, int $ord, int $rev, bool $exists): void
     {
         if (isset(Collections::TABLES[$name])) {
             $t = Collections::TABLES[$name];
@@ -275,18 +330,23 @@ final class SyncService
                     $cols[$col] = null;
                 }
             }
+            if ($exists) {
+                $set = implode(', ', array_map(static fn($c) => "$c = ?", array_merge(array_keys($cols), ['payload', 'gone', 'rev'])));
+                Database::run("UPDATE {$t['table']} SET $set WHERE {$t['key']} = ?", array_merge(array_values($cols), [$payload, 0, $rev, $key]));
+                return;
+            }
             $names = array_merge([$t['key']], array_keys($cols), ['payload', 'gone', 'ord', 'rev']);
-            $vals = array_merge([$key], array_values($cols), [$payload, 0, $ord, $rev]);
-            $place = implode(',', array_fill(0, count($names), '?'));
-            $upd = implode(',', array_map(static fn($c) => "$c = VALUES($c)", array_slice($names, 1)));
-            Database::run("INSERT INTO {$t['table']} (" . implode(',', $names) . ") VALUES ($place) ON DUPLICATE KEY UPDATE $upd", $vals);
+            Database::run(
+                "INSERT INTO {$t['table']} (" . implode(',', $names) . ') VALUES (' . implode(',', array_fill(0, count($names), '?')) . ')',
+                array_merge([$key], array_values($cols), [$payload, 0, $ord, $rev])
+            );
             return;
         }
-        Database::run(
-            'INSERT INTO coll_rows (coll, k, payload, gone, ord, rev) VALUES (?,?,?,0,?,?)
-             ON DUPLICATE KEY UPDATE payload = VALUES(payload), gone = 0, rev = VALUES(rev)',
-            [$name, $key, $payload, $ord, $rev]
-        );
+        if ($exists) {
+            Database::run('UPDATE coll_rows SET payload = ?, gone = 0, rev = ? WHERE coll = ? AND k = ?', [$payload, $rev, $name, $key]);
+            return;
+        }
+        Database::run('INSERT INTO coll_rows (coll, k, payload, gone, ord, rev) VALUES (?,?,?,0,?,?)', [$name, $key, $payload, $ord, $rev]);
     }
 
     private function markGone(string $name, string $key, int $rev): void

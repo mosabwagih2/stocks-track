@@ -70,6 +70,7 @@ final class Rules
         if ($perm === null) {
             throw new HttpError(422, 'bad_doc', "نوع مستند غير معروف: $type");
         }
+        $this->checkDocLog($doc, $existing);
         $status = (string)($doc['status'] ?? '');
         $allowed = Permissions::isAdmin($this->user) ? ['draft', 'done', 'reversed'] : ['draft', 'done'];   // 'reversed' only exists in imported legacy data
         if (!in_array($status, $allowed, true)) {
@@ -99,6 +100,31 @@ final class Rules
         }
     }
 
+    /** A new or changed "who did it" field must be the signed-in user (or the system's own marker). */
+    private function checkActorField(mixed $by, mixed $oldBy): void
+    {
+        if ($this->trustActors || $by === null || $by === $oldBy) {
+            return;
+        }
+        if ($by !== $this->user['name'] && !in_array($by, ['النظام', 'تلقائي'], true)) {
+            throw new HttpError(403, 'forged_actor', 'اسم المنفّذ لازم يكون اسمك. حدّث الصفحة.');
+        }
+    }
+
+    /** History entries added to a document must carry the signed-in user's name. */
+    private function checkDocLog(array $doc, ?array $existing): void
+    {
+        $old = [];
+        foreach ((array)($existing['log'] ?? []) as $e) {
+            $old[Collections::encode($e)] = true;
+        }
+        foreach ((array)($doc['log'] ?? []) as $e) {
+            if (!isset($old[Collections::encode($e)]) && is_array($e)) {
+                $this->checkActorField($e['by'] ?? null, null);
+            }
+        }
+    }
+
     /** Archiving (the `gone` flag) is only allowed for drafts. */
     public function checkDocArchive(?array $existing): void
     {
@@ -119,8 +145,11 @@ final class Rules
         $this->need('pickup');
     }
 
-    public function checkRows(string $coll, array $row): void
+    public function checkRows(string $coll, array $row, ?array $old = null): void
     {
+        if (in_array($coll, ['sup_log', 'closes'], true)) {
+            $this->checkActorField($row['by'] ?? null, $old['by'] ?? null);
+        }
         switch ($coll) {
             case 'sup_items':
                 $this->need('supplies');
