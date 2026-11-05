@@ -213,7 +213,7 @@ button.kpi:hover{border-color:var(--accent)}
 .sheet>header{display:flex;gap:10px;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
 .sheet>header h2{font-size:18px}
 .sheet>header .x{margin-inline-start:auto}
-.sheet>div.body{grid-auto-rows:max-content;padding:18px;overflow-y:auto;flex:1;display:grid;gap:16px;align-content:start;padding-bottom:max(18px,env(safe-area-inset-bottom,0px))}
+.sheet .lgm{gap:4px;padding:10px 0}.sheet .lgn{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}.sheet>div.body{grid-auto-rows:max-content;padding:18px;overflow-y:auto;flex:1;display:grid;gap:16px;align-content:start;padding-bottom:max(18px,env(safe-area-inset-bottom,0px))}
 .drop{border:1.5px dashed var(--line2);border-radius:14px;padding:22px;text-align:center;display:grid;gap:6px;cursor:pointer;background:var(--surface)}
 .drop:hover,.drop.on{border-color:var(--accent);background:var(--lav)}
 .msg{padding:10px 14px;border-radius:10px;border:1px solid var(--line2);background:var(--lav)}
@@ -729,7 +729,7 @@ const skuSort=(a,b)=>{const x=SKU.get(a),y=SKU.get(b);return((mIdx[x.m]==null?99
 const lineOf=m=>/^PAN/.test(m)?'بانتي':/^BR/.test(m)?'برا':/^SH/.test(m)?'شورت':'موديلات تانية';
 const LINE_ORDER=['بانتي','برا','شورت','موديلات تانية'];
 const HEX={'اسود':'#1e1b24','ابيض':'#ffffff','احمر':'#d9262e','بيج':'#ead9be','رمادي':'#bdbcc4','برتقالي':'#f07a2b','زيتى':'#6f7a3c','فوشيا':'#c2317a','اصفر':'#f2c230','مينت جرين':'#8fd3b6','بيبي بلو':'#a9cbe8','كحلي':'#1f2a5a','بينك':'#f4b6c8','سيمون':'#f3a28c','روز':'#e58fa8','احمر تطعيم اسود':'#a3262c'};
-const sw=c=>'<i class="sw" style="background:'+(HEX[c]||'#cfc2ec')+'"></i>';
+const sw=c=>'<i class="sw" style="background:'+colHex(c)+'"></i>';
 const skuName=(s,withModel=true)=>{const k=SKU.get(s);return k?(withModel?k.m+' · ':'')+k.c+' · '+k.s:s};
 const imgOf=m=>{const I=S&&S.img;return(I&&(m in I))?I[m]:((D.img||{})[m]||'')};
 const thumb=(m,px)=>{const u=imgOf(m);return u?'<img class="th" src="'+u+'" alt="'+esc(m)+'" style="width:'+px+'px;height:'+px+'px">':'<span class="th ph" style="width:'+px+'px;height:'+px+'px;font-size:'+Math.max(9,Math.round(px/4))+'px">'+esc(m)+'</span>'};
@@ -1090,7 +1090,7 @@ const KIND_P={open:'',rcv:'good',issue:'warn',count:'info',auto:'',rev:'lost'};
 
 /* ---------- supplies screen ---------- */
 function vSupplies(){
-  const items=S.sup.items.filter(i=>UI.supArch?i.arch:!i.arch),nArch=S.sup.items.filter(i=>i.arch).length;
+  const items=S.sup.items.filter(i=>!i.arch),nArch=0;UI.supArch=false;
   const tools=(nArch||UI.supArch?'<button class="btn" data-a="suparchview">'+(UI.supArch?'← رجوع للمستلزمات':'المؤرشفة ('+nArch+')')+'</button>':'')+'<button class="btn pri" data-a="supnew">+ إضافة مستلزم</button>';
   let h=top(UI.supArch?'المستلزمات المؤرشفة':'المستلزمات','عبوات وفلايرز وكاسات. بتتخصم لوحدها مع كل أوردر بيتشحن حسب قاعدة كل مستلزم.',tools);
   if(UI.supAsk){const _i=supItem(UI.supAsk);if(_i)h+='<div class="msg warn row sp" style="margin-bottom:14px"><span>هترجّع <b>'+esc(_i.name)+'</b>، وهيرجع يتخصم لوحده مع الأوردرات. متأكد؟</span><span class="row" style="gap:8px"><button class="btn sm pri" data-a="suprestoreyes">أيوه، رجّعه</button><button class="btn sm" data-a="suprestoreno">لأ</button></span></div>'}
@@ -1273,11 +1273,10 @@ function flowSheet(w){
 
 /* ---------- FILES page ---------- */
 function vFiles(){
-  const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات'],['ar','المؤرشف'+((S.archPk||[]).length+(S.archDocs||[]).length?' ('+((S.archPk||[]).length+(S.archDocs||[]).length)+')':'')]];
+  const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات']];
   let h=top('الملفات','كل اللي اترفع أو اتسجّل: ملفات البيك أب والسكان وصور الورق الموقّع. من هنا تعدّلها أو تحذفها أو تلاقي مكانها.','');
   h+='<div class="msg" style="margin-bottom:14px"><b>فين بتتحفظ ملفاتي؟</b><br>كل ملف ترفعه (بيك أب، سكان، صور الورق الموقّع، صور الإلغاء) بيتحفظ بنسخته الأصلية زي ما هو، وتقدر تنزّله في أي وقت من زر ⬇. الملفات محفوظة في المتصفح ده على الجهاز ده، فلو غيّرت الجهاز أو مسحت بيانات المتصفح هتضيع. الملفات اللي اترفعت قبل الميزة دي اسمها بس هو المحفوظ.</div>';
   h+='<div class="tabs" role="tablist">'+T.map(t=>'<button role="tab" aria-selected="'+(UI.fl===t[0])+'" data-a="fltab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
-  if(UI.fl==='ar')return h+arPage();
   if(UI.fl==='sc'){
     const ds=S.docs.filter(d=>d.type==='SCN').slice().reverse();
     return h+(ds.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>الموظف</th><th>الملف</th><th>التاريخ</th><th class="num">أوردرات</th><th class="num">قطع</th><th>الحالة</th><th></th></tr></thead><tbody>'+ds.map(d=>{const pc=d.hdr.refs.reduce((a,r)=>a+((orderByRef(r)||{lines:[]}).lines.length),0);return '<tr><td class="mono">'+(d.no||'—')+'</td><td>'+esc(d.hdr.emp)+'</td><td class="muted">'+esc(d.hdr.src||'')+(d.hdr.file?'<div style="margin-top:4px">'+flBtn('dc:'+d.id,d.hdr.file,'تنزيل')+'</div>':'')+'</td><td class="mono">'+d.date+'</td><td class="num">'+N(d.hdr.refs.length)+'</td><td class="num">'+N(pc)+'</td><td>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</td><td><button class="btn sm" data-a="scedit" data-id="'+d.id+'">'+(d.status==='done'?'تعديل':'فتح')+'</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش ملفات سكان. ارفع ملف من صفحة الأوردرات.</div></div>');
@@ -1370,7 +1369,7 @@ function skuAddSheet(s){
   const isNew=s.m==='__new',cols=knownColors().concat(s.cc.filter(c=>knownColors().indexOf(c)<0)),szs=SIZES.concat(s.cs.filter(z=>SIZES.indexOf(z)<0));
   let body=s.only?'':'<label class="f">الموديل<select data-c="skum">'+MORDER.map(c=>'<option value="'+c+'" '+(s.m===c?'selected':'')+'>'+c+' · '+esc(MODEL.get(c).name)+'</option>').join('')+'<option value="__new" '+(isNew?'selected':'')+'>+ موديل جديد</option></select></label>';
   if(isNew)body+='<div class="grid g2"><label class="f">كود الموديل<input value="'+esc(s.newCode)+'" data-c="skuf" data-f="newCode" placeholder="مثلًا PAN6" style="direction:ltr;text-align:start"></label><label class="f">النوع / الاسم<input value="'+esc(s.newName)+'" data-c="skuf" data-f="newName" list="mnames" placeholder="بانتي"></label></div><datalist id="mnames">'+[...new Set(D0.models.map(m=>m.name))].map(n=>'<option value="'+esc(n)+'">').join('')+'</datalist>';
-  body+='<div><div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:500">الألوان</div><div class="chips">'+cols.map(c=>'<button type="button" class="chip" aria-pressed="'+(s.colors.indexOf(c)>=0)+'" data-a="skuc" data-v="'+esc(c)+'">'+sw(c)+' '+esc(c)+'</button>').join('')+'</div><div class="row" style="margin-top:8px"><input id="nc" placeholder="لون جديد" value="'+esc(s.newColor)+'" data-c="skuf" data-f="newColor" style="max-width:180px"><button type="button" class="btn sm" data-a="skuaddc">+ أضف اللون</button></div></div>';
+  body+='<div><div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:500">الألوان</div><div class="chips">'+cols.map(c=>'<button type="button" class="chip" aria-pressed="'+(s.colors.indexOf(c)>=0)+'" data-a="skuc" data-v="'+esc(c)+'">'+sw(c)+' '+esc(c)+'</button>').join('')+'</div><div class="row" style="margin-top:8px"><input id="nc" placeholder="لون جديد" value="'+esc(s.newColor)+'" data-c="skuf" data-f="newColor" style="max-width:180px"><input type="color" id="nhx" data-c="skuf" data-f="newHex" value="'+(s.newHex||guessHex(s.newColor)||'#8a8a8a')+'" aria-label="درجة اللون" title="اختار درجة اللون" style="width:46px;height:40px;padding:2px;flex:none"><button type="button" class="btn sm" data-a="skuaddc">+ أضف اللون</button></div></div>';
   body+='<div><div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:500">المقاسات</div><div class="chips">'+szs.map(z=>'<button type="button" class="chip" aria-pressed="'+(s.sizes.indexOf(z)>=0)+'" data-a="skus" data-v="'+esc(z)+'">'+esc(z)+'</button>').join('')+'</div><div class="row" style="margin-top:8px"><input id="ns" placeholder="مقاس جديد (مثلًا 5XL)" value="'+esc(s.newSize)+'" data-c="skuf" data-f="newSize" style="max-width:180px;direction:ltr"><button type="button" class="btn sm" data-a="skuaddz">+ أضف المقاس</button></div></div>';
   body+='<label class="f">حد أدنى للتنبيه (اختياري)<input type="number" min="0" inputmode="numeric" value="'+esc(s.min)+'" data-c="skuf" data-f="min" style="width:100%;text-align:start"></label>';
   const cb=skuCombos(s);
@@ -1432,7 +1431,7 @@ function catEditSheet(s){
     const id=IDX[s.m+'|'+c+'|'+z],on=!!s.w[c+'|'+z],busy=id?(total(id)||(ctx().demand[id]||0)):0;
     if(busy)return '<td><span class="cell tg lock" data-tip="مينفعش يتشال: رصيد '+total(id)+' · طلب '+(ctx().demand[id]||0)+'">'+fmt(total(id))+'<small>محجوز</small></span></td>';
     return '<td><button type="button" class="cell tg '+(on?(id?'on':'new'):(id?'del':'off'))+'" data-a="catcell" data-k="'+esc(c+'|'+z)+'" aria-pressed="'+on+'" aria-label="'+esc(c+' '+z)+'">'+(on?(id?'✓':'+'):(id?'−':''))+'<small>'+(on?(id?'موجود':'جديد'):(id?'هيتشال':''))+'</small></button></td>'}).join('')+'</tr>').join('')+'</tbody></table></div></div>';
-  body+='<div class="grid g2"><div><div class="row"><input id="catnc" list="catcl" placeholder="لون جديد" value="'+esc(s.newC)+'" data-c="catf" data-f="newC" style="max-width:150px"><button type="button" class="btn sm" data-a="cataddc">+ لون</button></div><datalist id="catcl">'+knownColors().filter(c=>colors.indexOf(c)<0).map(c=>'<option value="'+esc(c)+'">').join('')+'</datalist></div><div><div class="row"><input id="catns" list="catsl" placeholder="مقاس جديد" value="'+esc(s.newS)+'" data-c="catf" data-f="newS" style="max-width:130px;direction:ltr"><button type="button" class="btn sm" data-a="cataddz">+ مقاس</button></div><datalist id="catsl">'+SIZES.filter(z=>sizes.indexOf(z)<0).map(z=>'<option value="'+esc(z)+'">').join('')+'</datalist></div></div>';
+  body+='<div class="grid g2"><div><div class="row"><input id="catnc" list="catcl" placeholder="لون جديد" value="'+esc(s.newC)+'" data-c="catf" data-f="newC" style="max-width:150px"><input type="color" id="nhx" data-c="catf" data-f="newHex" value="'+(s.newHex||guessHex(s.newC)||'#8a8a8a')+'" aria-label="درجة اللون" title="اختار درجة اللون" style="width:46px;height:40px;padding:2px;flex:none"><button type="button" class="btn sm" data-a="cataddc">+ لون</button></div><datalist id="catcl">'+knownColors().filter(c=>colors.indexOf(c)<0).map(c=>'<option value="'+esc(c)+'">').join('')+'</datalist></div><div><div class="row"><input id="catns" list="catsl" placeholder="مقاس جديد" value="'+esc(s.newS)+'" data-c="catf" data-f="newS" style="max-width:130px;direction:ltr"><button type="button" class="btn sm" data-a="cataddz">+ مقاس</button></div><datalist id="catsl">'+SIZES.filter(z=>sizes.indexOf(z)<0).map(z=>'<option value="'+esc(z)+'">').join('')+'</datalist></div></div>';
   body+='<div class="legend"><span><i class="dot" style="background:var(--good)"></i>موجود</span><span><i class="dot" style="background:var(--accent)"></i>جديد</span><span><i class="dot" style="background:var(--crit)"></i>هيتشال</span><span>محجوز = عليه رصيد أو طلب</span></div>';
   body+='<div class="msg" id="catsum">'+catSum(d)+'</div>';
   if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
@@ -1543,12 +1542,12 @@ function vToday(){
   /* ---- what needs me + what happened ---- */
   const G={};S.moves.forEach(m=>{if(m.date!==date)return;const k=m.doc+'|'+m.type,g=G[k]||(G[k]={doc:m.doc,type:m.type,t:0,by:m.by,pcs:0,sk:new Set()});g.pcs+=m.q;g.sk.add(m.sku);if(m.t>g.t)g.t=m.t});
   const ev=Object.keys(G).map(k=>{const g=G[k],dc=S.docs.find(x=>x.no===g.doc),T=OT[g.type]||{ar:g.type,grp:'',ic:'swap'};
-    return {t:g.t,ic:T.ic||'swap',grp:T.grp,txt:(g.type==='SCN'&&dc&&dc.hdr&&dc.hdr.refs?fmt(dc.hdr.refs.length)+' أوردر اتشحنوا':T.ar+' · '+g.sk.size+' صنف'),by:(dc&&dc.hdr&&dc.hdr.emp)||g.by,pcs:g.pcs,rev:/\(عكس\)/.test(g.doc||'')}});
-  S.orders.forEach(o=>{if(o.cx&&o.cx.date===date)ev.push({t:o.cx.at,ic:'back',grp:'',txt:'اتلغى أوردر '+o.ref,by:o.cx.by,pcs:o.lines.length,rev:false})});
+    return {key:'d'+date+'|'+k,t:g.t,ic:T.ic||'swap',grp:T.grp,txt:(g.type==='SCN'&&dc&&dc.hdr&&dc.hdr.refs?fmt(dc.hdr.refs.length)+' أوردر اتشحنوا':T.ar+' · '+g.sk.size+' صنف'),by:(dc&&dc.hdr&&dc.hdr.emp)||g.by,pcs:g.pcs,rev:/\(عكس\)/.test(g.doc||'')}});
+  S.orders.forEach(o=>{if(o.cx&&o.cx.date===date)ev.push({key:'x'+o.ref,t:o.cx.at,ic:'back',grp:'',txt:'اتلغى أوردر '+o.ref,by:o.cx.by,pcs:o.lines.length,rev:false})});
   ev.sort((a,b)=>b.t-a.t);
   const GP={'دخول':'good','خروج':'info','داخلي':'warn','رقابة':'lost'};
   const acts=A.length?'<div class="queue">'+A.map((a,i)=>'<div class="q '+a.sev+'"><div class="ic">'+(a.sev==='info'?'i':'!')+'</div><div><b>'+a.t+'</b><span>'+a.d+'</span></div><button class="btn sm" data-a="act" data-i="'+i+'">'+a.b+'</button></div>').join('')+'</div>':'<div class="msg good">كل حاجة تمام. مفيش حاجة محتاجة تدخّل دلوقتي.</div>';
-  const tl=ev.length?'<div class="tl">'+ev.slice(0,7).map(e=>'<div class="tli"><span class="tb '+(GP[e.grp]||'')+'">'+ic(e.ic)+'</span><span class="tt"><b>'+e.txt+(e.rev?' <span class="pill crit">عكس</span>':'')+'</b><small class="muted">'+esc(e.by||'')+(e.t>1e12?' · '+timeOf(e.t):'')+'</small></span><b class="n tq">'+fmt(e.pcs)+'</b></div>').join('')+'</div>'+(ev.length>7?'<button class="btn sm ghost" data-a="go" data-t="ledger" style="margin-top:8px">كل الحركات ('+ev.length+')</button>':''):'<div class="empty">'+(isToday?'لسه مفيش حركات النهارده.':'مفيش حركات في اليوم ده.')+'</div>';
+  const tl=ev.length?'<div class="tl">'+ev.slice(0,7).map(e=>'<div class="tli" data-a="tev" data-k="'+esc(e.key)+'" role="button" tabindex="0" style="cursor:pointer"><span class="tb '+(GP[e.grp]||'')+'">'+ic(e.ic)+'</span><span class="tt"><b>'+e.txt+(e.rev?' <span class="pill crit">عكس</span>':'')+'</b><small class="muted">'+esc(e.by||'')+(e.t>1e12?' · '+timeOf(e.t):'')+'</small></span><b class="n tq">'+fmt(e.pcs)+'</b></div>').join('')+'</div>'+(ev.length>7?'<button class="btn sm ghost" data-a="go" data-t="ledger" style="margin-top:8px">كل الحركات ('+ev.length+')</button>':''):'<div class="empty">'+(isToday?'لسه مفيش حركات النهارده.':'مفيش حركات في اليوم ده.')+'</div>';
   h+='<div class="grid tsplit"><section class="card"><h2>محتاج تدخّل <span class="hint">'+(A.length?A.length+' حاجة':'')+'</span></h2>'+acts+'</section><section class="card"><h2>حصل إيه '+(isToday?'النهارده':'في اليوم ده')+' <span class="hint">'+(ev.length?ev.length+' عملية':'')+'</span></h2>'+tl+'</section></div>';
   /* ---- pickups, stock by state, team ---- */
   const pkT=pks.length?'<div class="tw" style="border:0"><table class="dt"><thead><tr><th>البيك أب</th><th>التقدم</th><th class="num">قطع</th><th class="num">القيمة</th></tr></thead><tbody>'+pks.map(p=>{const po=S.orders.filter(o=>o.pk===p.id&&o.st!=='cx'),pd=po.filter(o=>o.st==='done').length;
@@ -1754,6 +1753,8 @@ function sheetHTML(){
     const r=skuAddSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='dk'){
     const r=dkSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='tev'){
+    const r=tevSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='oos'){
     const Dd=dashData();title='أصناف خلصت وعليها طلب ('+Dd.oos.length+')';
     body=Dd.oos.length?'<div class="msg">دي أصناف رصيدها صفر أو بالسالب وبتتباع (أو عليها طلب مفتوح). "ضايع/أسبوع" = معدل السحب × 7، يعني الطلب اللي هيتأخر لحد ما ترجع.</div><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">طلب مفتوح</th><th class="num">ضايع/أسبوع</th></tr></thead><tbody>'+Dd.oos.slice(0,60).map(x=>'<tr data-a="sku" data-sku="'+x.id+'"><td>'+thumb(SKU.get(x.id).m,26)+' '+sw(SKU.get(x.id).c)+' '+esc(skuName(x.id))+'</td><td class="num">'+N(x.dm)+'</td><td class="num">'+N(Math.round(x.rd*7))+'</td></tr>').join('')+'</tbody></table></div><button class="btn pri" data-a="oosplan">افتح اقتراح التصنيع</button>':'<div class="msg good">مفيش أصناف خلصت وعليها طلب.</div>';
@@ -2271,7 +2272,7 @@ function vAccess(){
    +S.users.filter(u=>!u.arch).map(u=>'<tr><td><b>'+esc(u.name)+'</b>'+(u.id===S.cur?' <span class="pill info">أنت</span>':'')+'</td><td><select data-c="usrole" data-id="'+u.id+'" aria-label="دور '+esc(u.name)+'">'+ro(u.role)+'</select></td><td>'+(u.pin?'<span class="pill good">متحط</span> ':'<span class="pill">مفيش</span> ')+'<input type="password" inputmode="numeric" placeholder="جديد" data-c="usrpin" data-id="'+u.id+'" style="width:90px"></td><td><input type="checkbox" data-c="usron" data-id="'+u.id+'" aria-label="'+esc(u.name)+' شغّال" '+(u.on!==false?'checked':'')+'></td><td>'+(u.id===S.cur?'':'<button class="btn sm danger" data-a="usarch" data-id="'+u.id+'">أرشفة</button>')+'</td></tr>').join('')
    +'</tbody></table></div><div class="picker" style="margin-top:12px"><label class="f">اسم جديد<input id="nu_name"></label><label class="f">الدور<select id="nu_role">'+ro('pack')+'</select></label><label class="f">رقم سري (اختياري)<input id="nu_pin" type="password" inputmode="numeric"></label><button class="btn pri" data-a="usadd">+ إضافة مستخدم</button></div>'
    +(adm<2?'<p class="muted" style="margin-top:8px;font-size:12.5px">لازم يفضل مدير واحد شغّال على الأقل.</p>':'')
-   +(S.users.some(u=>u.arch)?'<div class="gh" style="margin-top:16px">مؤرشفين</div><div class="tw"><table class="t-sm"><tbody>'+S.users.filter(u=>u.arch).map(u=>'<tr><td><b>'+esc(u.name)+'</b> <span class="muted">· '+esc(roleName(u.role))+'</span></td><td class="num"><button class="btn sm" data-a="usrestore" data-id="'+u.id+'">استرجاع</button></td></tr>').join('')+'</tbody></table></div><p class="muted" style="font-size:12px;margin-top:6px">المستخدم المؤرشف مش بيقدر يدخل، وكل اللي سجّله بيفضل باسمه في السجل.</p>':'')+'</section>';
+   +(S.users.some(u=>u.arch)?'<p class="muted" style="margin-top:8px;font-size:12.5px">المستخدمين المؤرشفين ('+S.users.filter(u=>u.arch).length+') هتلاقيهم في السجل ← المؤرشف.</p>':'')+'</section>';
   const rk=Object.keys(S.roles);
   h+='<section class="card"><h2>مصفوفة الصلاحيات <span class="hint">المدير دايمًا كل حاجة</span></h2><div class="tw"><table class="t-sm"><thead><tr><th>الصلاحية</th>'+rk.map(r=>'<th class="num">'+esc(S.roles[r].name)+'</th>').join('')+'</tr></thead><tbody>'
    +PERMS.map(p=>'<tr><td>'+p[1]+'</td>'+rk.map(r=>'<td class="num"><input type="checkbox" data-c="rolep" data-r="'+r+'" data-p="'+p[0]+'" aria-label="'+p[1]+' · '+esc(S.roles[r].name)+'" '+((r==='admin'||S.roles[r].perms.indexOf(p[0])>=0)?'checked':'')+(r==='admin'?' disabled':'')+'></td>').join('')+'</tr>').join('')+'</tbody></table></div></section>';
@@ -2457,7 +2458,7 @@ function ledgerDetail(e){
     const loc=k=>LOC[k]||k;
     return '<div class="lgmeta muted">'+(e.actor&&e.actor!==e.who?'اتسجّلت بواسطة '+esc(e.actor)+' · ':'')+'من ← إلى: '+pk.map(p=>esc(loc(p.split('>')[0]))+' ← '+esc(loc(p.split('>')[1]))+' ('+fmt(pairs[p])+')').join(' · ')+'</div>'
      +Object.keys(byM).sort((a,b)=>mkey(a)<mkey(b)?-1:1).map(mk=>'<div class="lgm"><span class="lgn"><b class="mono">'+esc(mk)+'</b> <span class="muted">'+esc(MODEL.get(mk)?MODEL.get(mk).name:'')+'</span> <span class="n muted">'+fmt(byM[mk].reduce((a,m)=>a+m.q,0))+'</span></span><span>'+lgMini(mk,byM[mk],pk[0],loc)+'</span></div>').join('')
-     +(e.doc?'<div style="margin-top:8px"><button class="btn sm" data-a="opendoc" data-id="'+e.doc.id+'">افتح المستند</button></div>':'');
+     +(e.doc?'<div style="margin-top:8px"><button class="btn sm" data-a="opendoc2" data-id="'+e.doc.id+'">افتح المستند</button></div>':'');
   }
   if(e.kind==='cx')return '<div class="lgmeta">'+(e.o.cx.reason?'السبب: '+esc(e.o.cx.reason)+'. ':'')+(e.returned?'القطع رجعت للمخزون.':'')+'</div><div style="margin-top:8px"><button class="btn sm" data-a="order" data-ref="'+esc(e.o.ref)+'">افتح الأوردر</button></div>';
   if(e.kind==='sup')return '<div class="lgmeta">'+esc(e.e.why||'')+'</div>';
@@ -2491,11 +2492,11 @@ function skuJourney(id){
   return h;
 }
 function vLedger(){
-  const L=UI.led,tab=L.tab==='sku'||L.tab==='moves'?'sku':'feed';L.tab=tab;
+  const L=UI.led,tab=L.tab==='sku'||L.tab==='moves'?'sku':L.tab==='arch'?'arch':'feed';L.tab=tab;
   let h=top('السجل','','')
-   +'<div class="seg lgseg" role="tablist" style="margin-bottom:6px"><button role="tab" aria-selected="'+(tab==='feed')+'" aria-pressed="'+(tab==='feed')+'" data-a="ltab" data-v="feed">اللي حصل</button><button role="tab" aria-selected="'+(tab==='sku')+'" aria-pressed="'+(tab==='sku')+'" data-a="ltab" data-v="sku">تتبّع صنف</button></div>'
-   +'<p class="muted" style="margin:0 2px 14px;font-size:13px">'+(tab==='feed'?'كل عملية اتعملت في السيستم، مين عملها ومتى. اضغط على أي واحدة تشوف أصنافها.':'رحلة صنف واحد: كل حركة دخلت أو خرجت منه ورصيده بعدها.')+'</p>';
-  return h+(tab==='feed'?ledgerFeed():ledgerSku());
+   +'<div class="seg lgseg" role="tablist" style="margin-bottom:6px"><button role="tab" aria-selected="'+(tab==='feed')+'" aria-pressed="'+(tab==='feed')+'" data-a="ltab" data-v="feed">اللي حصل</button><button role="tab" aria-selected="'+(tab==='sku')+'" aria-pressed="'+(tab==='sku')+'" data-a="ltab" data-v="sku">تتبّع صنف</button><button role="tab" aria-selected="'+(tab==='arch')+'" aria-pressed="'+(tab==='arch')+'" data-a="ltab" data-v="arch">المؤرشف'+(arItems().length?' ('+arItems().length+')':'')+'</button></div>'
+   +'<p class="muted" style="margin:0 2px 14px;font-size:13px">'+(tab==='feed'?'كل عملية اتعملت في السيستم، مين عملها ومتى. اضغط على أي واحدة تشوف أصنافها.':tab==='arch'?'':'رحلة صنف واحد: كل حركة دخلت أو خرجت منه ورصيده بعدها.')+'</p>';
+  return h+(tab==='feed'?ledgerFeed():tab==='arch'?arPage():ledgerSku());
 }
 function ledRows(){
   if(UI.led.tab==='sku')return ledgerSkuBody(arN((UI.led.sq||'').trim()).split(/\s+/).filter(Boolean));
@@ -2779,6 +2780,7 @@ const ACT_FL={fldl:el=>{flDL(el.dataset.k,el.dataset.n)}};
 function flDel(key){if(!IDBH||!IDBH.objectStoreNames.contains('fl'))return;try{IDBH.transaction('fl','readwrite').objectStore('fl').delete(key)}catch(e){}}
 /* ---------- nothing is ever deleted: the only way to take something out of sight is to archive it ---------- */
 const ACT_AR={
+  suparchgo:()=>{go('ledger',()=>{UI.led.tab='arch'})},
   restorepk:el=>{const a=(S.archPk||[]).find(x=>x.p.id===el.dataset.id);if(!a)return;const have={};S.orders.forEach(o=>have[o.ref]=1);
     const back=a.orders.filter(o=>!have[o.ref]),skip=a.orders.length-back.length;S.pickups.push(a.p);back.forEach(o=>S.orders.push(o));S.archPk=S.archPk.filter(x=>x!==a);audit('استرجاع بيك أب: '+a.p.label);dirty();toast('اتسترجع '+a.p.label+' ('+back.length+' أوردر)'+(skip?'. '+skip+' أوردر موجودين بالفعل فمتكرروش':''));render()},
   restoredoc:el=>{const a=(S.archDocs||[]).find(x=>x.d.id===el.dataset.id);if(!a)return;S.docs.push(a.d);S.archDocs=S.archDocs.filter(x=>x!==a);audit('استرجاع مسودة');dirty();toast('اتسترجعت المسودة');render()},
@@ -2786,13 +2788,62 @@ const ACT_AR={
     if(p){try{S=JSON.parse(p);ensureSup(S);ensureCat(S);rebuildCatalog();S.date=cairoToday();_bal=null;_ctx=null;UI.doc=null;UI.sheet=null;UI.demoAsk=false;save();UI.tab='today';toast('رجعت البيانات اللي كانت قبل الداتا التجريبية');render();return}catch(e){}}
     ACT.reset2();UI.tab='today';render()}
 };
+/* every archived thing, from every part of the system, in one list with where it came from */
+function arItems(){
+  const a=[];
+  (S.archPk||[]).forEach(x=>a.push({k:'pk',id:x.p.id,src:'البيك أب',tone:'info',name:x.p.label,sub:fmt(x.orders.length)+' أوردر · '+(x.p.date||''),by:x.by,at:x.at}));
+  (S.archDocs||[]).forEach(x=>a.push({k:'doc',id:x.d.id,src:'العمليات (مسودة)',tone:'warn',name:(OT[x.d.type]||{}).ar||x.d.type,sub:(x.d.date||'')+' · '+fmt((x.d.lines||[]).length)+' بند',by:x.by,at:x.at}));
+  (S.sup&&S.sup.items||[]).filter(i=>i.arch).forEach(i=>a.push({k:'sup',id:i.id,src:'المستلزمات',tone:'good',name:i.name,sub:'الرصيد '+fmt(supBal(i.id))+' '+(i.unit||'')}));
+  const bm={};Object.keys((S.cat&&S.cat.arch)||{}).forEach(id=>{if(S.cat.arch[id]&&SKU.has(id)){const m=SKU.get(id).m;(bm[m]||(bm[m]=[])).push(id)}});
+  Object.keys(bm).forEach(m=>a.push({k:'model',id:m,src:'المخزون (موديل)',tone:'lost',name:mName(m),sub:fmt(bm[m].length)+' صنف (لون × مقاس)'}));
+  (S.users||[]).filter(u=>u.arch).forEach(u=>a.push({k:'user',id:u.id,src:'المستخدمين',tone:'',name:u.name,sub:roleName(u.role)}));
+  return a;
+}
+const arKey=x=>x.k+':'+x.id;
 function arPage(){
-  const pk=(S.archPk||[]).slice().reverse(),dc=(S.archDocs||[]).slice().reverse();
-  let h='<div class="msg" style="margin-bottom:14px">مفيش حاجة بتتمسح من السيستم. اللي بتأرشفه بيتشال من الشاشات لكنه محفوظ هنا وتقدر ترجّعه في أي وقت.</div>';
-  h+='<div class="gh">بيك أب مؤرشف</div>'+(pk.length?'<div class="tw"><table class="t-sm"><thead><tr><th>البيك أب</th><th>التاريخ</th><th class="num">أوردرات</th><th>اتأرشف</th><th></th></tr></thead><tbody>'+pk.map(a=>'<tr><td><b>'+esc(a.p.label)+'</b></td><td class="mono">'+esc(a.p.date)+'</td><td class="num">'+fmt(a.orders.length)+'</td><td class="muted">'+esc((a.by||'')+(a.at?' · '+timeOf(a.at):''))+'</td><td class="num"><button class="btn sm" data-a="restorepk" data-id="'+a.p.id+'">استرجاع</button></td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">مفيش بيك أب مؤرشف.</div></div>');
-  h+='<div class="gh" style="margin-top:18px">مسودات مؤرشفة</div>'+(dc.length?'<div class="tw"><table class="t-sm"><thead><tr><th>النوع</th><th>التاريخ</th><th class="num">بنود</th><th>اتأرشف</th><th></th></tr></thead><tbody>'+dc.map(a=>'<tr><td><b>'+esc((OT[a.d.type]||{}).ar||a.d.type)+'</b></td><td class="mono">'+esc(a.d.date||'')+'</td><td class="num">'+fmt((a.d.lines||[]).length)+'</td><td class="muted">'+esc((a.by||'')+(a.at?' · '+timeOf(a.at):''))+'</td><td class="num"><button class="btn sm" data-a="restoredoc" data-id="'+a.d.id+'">استرجاع</button></td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">مفيش مسودات مؤرشفة.</div></div>');
+  const it=arItems(),ask=UI.arAsk;
+  let h='<div class="msg" style="margin:0 0 14px">مفيش حاجة بتتمسح من السيستم. أي حاجة بتأرشفها من أي صفحة بتتجمع هنا، ومكتوب جنبها جاية منين. تقدر ترجّعها في أي وقت.</div>';
+  if(!it.length)return h+'<div class="card"><div class="empty">مفيش حاجة مؤرشفة.</div></div>';
+  const kinds=[...new Set(it.map(x=>x.src))];
+  h+='<div class="tw"><table class="t-sm"><thead><tr><th>جاية منين</th><th>الاسم</th><th>تفاصيل</th><th>اتأرشف</th><th></th></tr></thead><tbody>'+it.map(x=>{
+    const key=arKey(x),asking=ask===key;
+    return '<tr><td><span class="pill '+x.tone+'">'+esc(x.src)+'</span></td><td><b>'+esc(x.name)+'</b></td><td class="muted">'+esc(x.sub||'')+'</td><td class="muted">'+esc((x.by||'')+(x.at?' · '+timeOf(x.at):''))+'</td><td class="num" style="white-space:nowrap">'+(asking?'<span class="muted" style="font-size:12px">متأكد؟</span> <button class="btn sm pri" data-a="aryes">أيوه، رجّعه</button> <button class="btn sm" data-a="arno">لأ</button>':'<button class="btn sm" data-a="arask" data-k="'+esc(key)+'">استرجاع</button>')+'</td></tr>'}).join('')+'</tbody></table></div>';
   return h;
 }
+Object.assign(ACT_AR,{
+  arask:el=>{UI.arAsk=el.dataset.k;render()},
+  arno:()=>{UI.arAsk=null;render()},
+  aryes:()=>{const k=String(UI.arAsk||''),i=k.indexOf(':'),kind=k.slice(0,i),id=k.slice(i+1);UI.arAsk=null;
+    if(kind==='pk')ACT_AR.restorepk({dataset:{id}});
+    else if(kind==='doc')ACT_AR.restoredoc({dataset:{id}});
+    else if(kind==='sup'){UI.supAsk=id;ACT.suprestoreyes()}
+    else if(kind==='model')ACT.modelrestore({dataset:{m:id}});
+    else if(kind==='user')ACT.usrestore({dataset:{id}});
+    render()}
+});
+/* ---------- colours: a real swatch for every colour, picked by the user or guessed from the name ---------- */
+const GUESS_HEX=[[/خضر|اخضر|فستقي|نعناع/,'#3f9b4b'],[/زيتون|زيتي|زيتى/,'#6f7a3c'],[/ازرق|زرق/,'#2f6fd1'],[/سماوي|لبني|تركوا/,'#6cc3e0'],[/بنفسج|موف|ليلك|لافندر/,'#8a5bd0'],[/بني|قهو|شيكولات|شوكولات/,'#6b4423'],[/ذهب/,'#d4a72c'],[/فضي/,'#c0c0c8'],[/عنابي|نبيتي|بوردو|خمر/,'#7a1f3d'],[/وردي|بينك/,'#f08bb0'],[/خردل/,'#c9a227'],[/كاكي/,'#a39b6b'],[/كريم|عاج|اوف|اوف وايت/,'#f3ecd9'],[/رصاص|جراي|رمادي/,'#8c8c94'],[/بترول/,'#1f5f6b'],[/نيلي/,'#2a3a8c'],[/طوب/,'#b4552d'],[/اسود|أسود/,'#1e1b24'],[/ابيض|أبيض/,'#ffffff'],[/احمر|أحمر/,'#d9262e'],[/اصفر|أصفر/,'#f2c230'],[/برتقال/,'#f07a2b'],[/بيج/,'#ead9be'],[/كحلي/,'#1f2a5a']];
+function guessHex(n){const s=String(n||'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/^ال/,'').trim();if(!s)return '';for(const [re,h] of GUESS_HEX)if(re.test(s))return h;return ''}
+function colHex(c){return (S&&S.cat&&S.cat.hex&&S.cat.hex[c])||HEX[c]||guessHex(c)||'#cfc2ec'}
+function hexSave(v,h){if(HEX[v])return;const x=h||guessHex(v);if(!x)return;(S.cat.hex||(S.cat.hex={}))[v]=x;dirty()}
+function hexWrap(){
+  const live=el=>{const s=UI.sheet;if(!s)return;const f=el.dataset.f;
+    if(f==='newHex'){s.hexTouched=true;return}
+    if(f==='newColor'||f==='newC'){if(!s.hexTouched){const h=guessHex(el.value)||'#8a8a8a',p=document.getElementById('nhx');s.newHex=h;if(p)p.value=h}}};
+  const ps=INP.skuf,pc=INP.catf;
+  INP.skuf=el=>{if(ps)ps(el);else{const s=UI.sheet;if(s)s[el.dataset.f]=el.value}live(el)};
+  INP.catf=el=>{pc(el);live(el)};
+  const cs=CHG.skuf,cc=CHG.catf;
+  CHG.skuf=el=>{cs(el);live(el)};CHG.catf=el=>{cc(el);live(el)};
+}
+/* ---------- Today: one event, everything about it, in a pop-up ---------- */
+function tevSheet(s){
+  const e=ledgerEvents().find(x=>x.key===s.k);
+  if(!e)return {title:'العملية',body:'<div class="empty">مش لاقي تفاصيل العملية دي.</div>'};
+  const head='<div class="card flat" style="margin:0 0 12px"><div class="row sp" style="gap:10px"><span><b style="font-size:16px">'+e.title+'</b><div class="muted" style="font-size:13px;margin-top:4px">'+(e.who?esc(e.who):'—')+(e.t>1e12?' · '+timeOf(e.t):'')+(e.no?' · <span class="mono">'+esc(e.no)+'</span>':'')+' · '+esc(e.date||'')+'</div></span>'+(e.pcs&&e.kind!=='sup'?'<span style="text-align:center"><b class="n" style="font-size:24px">'+fmt(e.pcs)+'</b><div class="muted" style="font-size:12px">قطعة</div></span>':'')+'</div></div>';
+  return {title:e.type||'العملية',body:head+'<div class="lgd" style="border:0;padding:0">'+ledgerDetail(e)+'</div>'};
+}
+Object.assign(ACT_AR,{tev:el=>{UI.sheet={kind:'tev',k:el.dataset.k};render()}});
 
 /* ---------- dashboard cards: every number opens a pop-up showing what is inside it ---------- */
 const dkShipped=o=>o.sc&&o.sc.date&&(o.st==='done'||(o.st==='cx'&&o.cx&&o.cx.was==='done'));
@@ -2927,7 +2978,7 @@ function vOps(){
   const dr=S.docs.filter(x=>x.status==='draft');
   if(dr.length)h+='<section class="card" style="margin-bottom:14px;border-color:var(--warn-line)"><h2>مسودات محتاجة تكمل <span class="hint">'+dr.length+'</span></h2><div class="chips">'+dr.map(x=>'<button class="chip" data-a="opendoc" data-id="'+x.id+'">'+esc(OT[x.type].ar)+' · '+x.lines.length+' صنف</button>').join('')+'</div></section>';
   h+='<div class="launch">'+['دخول','خروج','داخلي','رقابة'].map(g_=>'<section class="card flat lg"><h3>'+g_+'</h3>'+OPS_LIST.filter(t=>OT[t].grp===g_).map(t=>'<button class="lop" data-a="newop" data-t="'+t+'"><span class="ic">'+ic(OT[t].ic)+'</span><span><b>'+OT[t].ar+'</b><small>'+OT[t].d+'</small></span></button>').join('')+'</section>').join('')+'</div>';
-  const F=[['all','الكل'],['draft','مسودة'],['done','مؤكدة'],['reversed','معكوسة']],docs=S.docs.filter(x=>UI.opF==='all'||x.status===UI.opF).slice().reverse();
+  const F=[['all','الكل'],['draft','مسودة'],['done','مؤكدة']],docs=S.docs.filter(x=>UI.opF==='all'||x.status===UI.opF).slice().reverse();
   h+='<div class="row sp" style="margin:20px 0 10px"><h2 style="font-size:17px">آخر العمليات</h2><div class="chips scrollx">'+F.map(f=>'<button class="chip" aria-pressed="'+(UI.opF===f[0])+'" data-a="opf" data-v="'+f[0]+'">'+f[1]+'</button>').join('')+'</div></div>';
   h+=docs.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>العملية</th><th>التاريخ</th><th class="num">حركات</th><th>اتعملت بواسطة</th><th>الحالة</th></tr></thead><tbody>'+docs.slice(0,60).map(x=>'<tr data-a="opendoc" data-id="'+x.id+'"><td class="mono">'+(x.no||'مسودة')+'</td><td>'+OT[x.type].ar+' </td><td class="mono">'+x.date+'</td><td class="num">'+N(x.nMoves||0)+'</td><td>'+esc(x.hdr.emp||x.by)+'</td><td>'+(x.status==='done'?pill('good','مؤكدة'):x.status==='draft'?pill('warn','مسودة'):pill('','معكوسة'))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش عمليات. ابدأ من الكروت اللي فوق. الرصيد الافتتاحي ظاهر في سجل الحركات.</div></div>';
   return h;
@@ -3555,7 +3606,7 @@ const ACT={
   skuadd:el=>{UI.sheet=skuAddInit(el.dataset.m||(UI.s.view==='matrix'?UI.s.m:''),!!el.dataset.only);render()},
   catedit:()=>{UI.sheet=catEditInit(UI.s.view==='matrix'?UI.s.m:(MORDER.indexOf(UI.s.m)>=0?UI.s.m:MORDER[0]));render()},
   catcell:el=>{const k=el.dataset.k;UI.sheet.w[k]=!UI.sheet.w[k];UI.sheet.err='';render()},
-  cataddc:()=>{const s=UI.sheet,v=String(s.newC||'').trim();if(!v)return;const mm=MODEL.get(s.m);if(mm.colors.indexOf(v)<0&&s.nc.indexOf(v)<0)s.nc.push(v);catCells(s).sizes.forEach(z=>{if(!IDX[s.m+'|'+v+'|'+z])s.w[v+'|'+z]=true});s.newC='';render()},
+  cataddc:()=>{const s=UI.sheet,v=String(s.newC||'').trim();if(!v)return;const mm=MODEL.get(s.m);if(mm.colors.indexOf(v)<0&&s.nc.indexOf(v)<0)s.nc.push(v);catCells(s).sizes.forEach(z=>{if(!IDX[s.m+'|'+v+'|'+z])s.w[v+'|'+z]=true});hexSave(v,s.newHex);s.newC='';s.newHex='';s.hexTouched=false;render()},
   cataddz:()=>{const s=UI.sheet,v=String(s.newS||'').trim().toUpperCase();if(!v)return;const mm=MODEL.get(s.m);if(mm.sizes.indexOf(v)<0&&s.ns.indexOf(v)<0)s.ns.push(v);catCells(s).colors.forEach(c=>{if(!IDX[s.m+'|'+c+'|'+v])s.w[c+'|'+v]=true});s.newS='';render()},
   catrm:()=>{const m=UI.sheet.m;UI.sheet={kind:'modelrm',m,rm:false};render()},
   catsave:()=>{
@@ -3574,7 +3625,7 @@ const ACT={
   },
   skuc:el=>{const a=UI.sheet.colors,i=a.indexOf(el.dataset.v);if(i>=0)a.splice(i,1);else a.push(el.dataset.v);UI.sheet.err='';render()},
   skus:el=>{const a=UI.sheet.sizes,i=a.indexOf(el.dataset.v);if(i>=0)a.splice(i,1);else a.push(el.dataset.v);UI.sheet.err='';render()},
-  skuaddc:()=>{const s=UI.sheet,v=String(s.newColor||'').trim();if(!v)return;if(s.cc.indexOf(v)<0&&knownColors().indexOf(v)<0)s.cc.push(v);if(s.colors.indexOf(v)<0)s.colors.push(v);s.newColor='';render()},
+  skuaddc:()=>{const s=UI.sheet,v=String(s.newColor||'').trim();if(!v)return;if(s.cc.indexOf(v)<0&&knownColors().indexOf(v)<0)s.cc.push(v);if(s.colors.indexOf(v)<0)s.colors.push(v);hexSave(v,s.newHex);s.newColor='';s.newHex='';s.hexTouched=false;render()},
   skuaddz:()=>{const s=UI.sheet,v=String(s.newSize||'').trim().toUpperCase();if(!v)return;if(s.cs.indexOf(v)<0&&SIZES.indexOf(v)<0)s.cs.push(v);if(s.sizes.indexOf(v)<0)s.sizes.push(v);s.newSize='';render()},
   skusave:()=>{
     const s=UI.sheet,isNew=s.m==='__new';let m=s.m;
@@ -3776,7 +3827,7 @@ const INP={
   lq:el=>{UI.led.q=el.value;$('#ledres').innerHTML=ledRows();_L.main=null},
   upemp:el=>{const s=UI.sheet;s.emp=el.value;const b=$('[data-a=scansave]');if(b&&s.res)b.disabled=!(s.res.matched.length&&el.value.trim())}
 };
-Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT,ACT_SH,ACT_FL,ACT_DK,ACT_AR);Object.assign(CHG,CHG_LG,CHG_RT,CHG_SH);Object.assign(INP,INP_LG,INP_SH);ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});Object.assign(CHG,CHG_ACC);Object.assign(INP,INP_ACC);
+Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT,ACT_SH,ACT_FL,ACT_DK,ACT_AR);Object.assign(CHG,CHG_LG,CHG_RT,CHG_SH);Object.assign(INP,INP_LG,INP_SH);hexWrap();ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});Object.assign(CHG,CHG_ACC);Object.assign(INP,INP_ACC);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   if(el.tagName==='TR'&&e.target.closest('input,[data-nodrill]'))return;

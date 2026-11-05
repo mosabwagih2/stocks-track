@@ -59,7 +59,7 @@ const fs=require('fs'),path=require('path');
   const lg=await p.evaluate(()=>{const F=__F,S=F.S();const G={};S.moves.forEach(m=>{if(m.type==='CXL')return;const k='d'+m.date+'|'+m.doc+'|'+m.type;(G[k]||(G[k]={n:0,q:0})).q+=m.q;G[k].n++});
     const rows=[...document.querySelectorAll('.lgr[data-a=ldoc]')].filter(r=>r.dataset.k[0]==='d');const bad=rows.filter(r=>{const g=G[r.dataset.k];return !g||+r.querySelector('.lgp .n').textContent.replace(/,/g,'')!==g.q}).length;
     return {tab:F.UI.led.tab,rows:rows.length,moves:S.moves.length,bad,segs:[...document.querySelectorAll('.lgseg button')].map(b=>b.textContent.trim())}});
-  ok('the log has two plain views: what happened, and one item\'s journey',JSON.stringify(lg.segs)===JSON.stringify(['اللي حصل','تتبّع صنف']),JSON.stringify(lg.segs));
+  ok('the log has plain views: what happened, one item\'s journey, and the archive',JSON.stringify(lg.segs)===JSON.stringify(['اللي حصل','تتبّع صنف','المؤرشف']),JSON.stringify(lg.segs));
   ok('the feed shows one row per operation instead of one per move',lg.tab==='feed'&&lg.rows>0&&lg.rows<lg.moves/5,JSON.stringify(lg));
   ok('each operation row shows exactly its pieces',lg.bad===0,JSON.stringify(lg));
   const who=await p.evaluate(()=>{const r=[...document.querySelectorAll('.lgr')].slice(0,12);return r.every(x=>/·/.test(x.querySelector('.lgt small').textContent))&&r.length>0});

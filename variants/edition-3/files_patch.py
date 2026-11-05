@@ -22,7 +22,7 @@ rep("""<div class="row"><button class="btn sm" data-a="order" data-ref="'+esc(o.
 rep("phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})","s.pfile=f;phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})")
 rep("PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);","PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);if(s.pfile)flPut('cx:'+o.ref,s.pfile);")
 # sheet body is a grid: scroll containers inside it (tables) were squeezed to a few pixels instead of letting the sheet scroll
-rep(".sheet>div.body{padding:18px;",".sheet>div.body{grid-auto-rows:max-content;padding:18px;")
+rep(".sheet>div.body{padding:18px;",".sheet .lgm{gap:4px;padding:10px 0}.sheet .lgn{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}.sheet>div.body{grid-auto-rows:max-content;padding:18px;")
 # deleting a pickup also deletes its stored original; a delivered note's proof photo can no longer be swapped
 rep("S.pickups=S.pickups.filter(x=>x!==p);UI.o.pk='';","S.pickups=S.pickups.filter(x=>x!==p);flDel('pk:'+p.id);UI.o.pk='';")
 # stock: open on the matrices by default, bigger product pictures
@@ -53,11 +53,22 @@ rep("مينفعش تحذفه لأن فيه","مينفعش تأرشفه لأن ف
 rep("""هتتمسح '+po.length+' أوردر من "'+esc(p.label)+'" ومش هيتحسبوا كطلب. متأكد؟""","""هيتأرشف '+po.length+' أوردر من "'+esc(p.label)+'" ومش هيتحسبوا كطلب. تقدر ترجّعه من الملفات ← المؤرشف. متأكد؟""")
 rep('data-a="pkdel2">أيوه، احذف</button>','data-a="pkdel2">أيوه، أرشف</button>')
 rep("""<p class="muted" style="margin-bottom:10px">بيمسح الأوردرات المفتوحة بتاعته. مش بيأثّر على المخزون لأن البيك أب مش بيخصم.</p><button class="btn danger sm" data-a="pkdel">حذف البيك أب</button>""","""<p class="muted" style="margin-bottom:10px">بينقل البيك أب وأوردراته المفتوحة للمؤرشف. مش بيأثّر على المخزون لأن البيك أب مش بيخصم.</p><button class="btn sm" data-a="pkdel">أرشفة البيك أب</button>""")
-# files page: archive tab
-rep("const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات']];","const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات'],['ar','المؤرشف'+((S.archPk||[]).length+(S.archDocs||[]).length?' ('+((S.archPk||[]).length+(S.archDocs||[]).length)+')':'')]];")
-rep("  if(UI.fl==='sc'){\n","  if(UI.fl==='ar')return h+arPage();\n  if(UI.fl==='sc'){\n")
 # settings: no 'reset everything' button
 _i=s.index("""'<div class="gh">رجوع للأصل</div>'+(UI.confirmReset""");_j=s.index("""+'</section></div>';""",_i)
 s=s[:_i]+"'<p class=\"muted\" style=\"margin-top:10px;font-size:12.5px\">مفيش مسح في السيستم. اللي مش عايزه بتأرشفه (من الملفات ← المؤرشف ترجّعه).</p>'"+s[_j:]
 # model image: replace only, never remove
 rep("""+(u?'<button class="btn danger" data-a="rmimg" data-m="'+s.m+'">إزالة</button>':'')""","")
+
+# ---- ops list: no "reversed" filter (there is no reversing any more)
+rep("['done','مؤكدة'],['reversed','معكوسة']]","['done','مؤكدة']]")
+# ---- supplies: no separate archive page (everything archived lives in the ledger)
+rep("const items=S.sup.items.filter(i=>UI.supArch?i.arch:!i.arch),nArch=S.sup.items.filter(i=>i.arch).length;","const items=S.sup.items.filter(i=>!i.arch),nArch=0;UI.supArch=false;")
+# ---- Today: every event opens a pop-up with the full detail
+rep("  }else if(s.kind==='oos'){","  }else if(s.kind==='tev'){\n    const r=tevSheet(s);title=r.title;body=r.body;\n  }else if(s.kind==='oos'){")
+# ---- new colours get a real swatch (picked or guessed), never the default lavender
+rep("const sw=c=>'<i class=\"sw\" style=\"background:'+(HEX[c]||'#cfc2ec')+'\"></i>';","const sw=c=>'<i class=\"sw\" style=\"background:'+colHex(c)+'\"></i>';")
+rep("""<input id="nc" placeholder="لون جديد" value="'+esc(s.newColor)+'" data-c="skuf" data-f="newColor" style="max-width:180px">""","""<input id="nc" placeholder="لون جديد" value="'+esc(s.newColor)+'" data-c="skuf" data-f="newColor" style="max-width:180px"><input type="color" id="nhx" data-c="skuf" data-f="newHex" value="'+(s.newHex||guessHex(s.newColor)||'#8a8a8a')+'" aria-label="درجة اللون" title="اختار درجة اللون" style="width:46px;height:40px;padding:2px;flex:none">""")
+rep("""<input id="catnc" list="catcl" placeholder="لون جديد" value="'+esc(s.newC)+'" data-c="catf" data-f="newC" style="max-width:150px">""","""<input id="catnc" list="catcl" placeholder="لون جديد" value="'+esc(s.newC)+'" data-c="catf" data-f="newC" style="max-width:150px"><input type="color" id="nhx" data-c="catf" data-f="newHex" value="'+(s.newHex||guessHex(s.newC)||'#8a8a8a')+'" aria-label="درجة اللون" title="اختار درجة اللون" style="width:46px;height:40px;padding:2px;flex:none">""")
+rep("if(s.colors.indexOf(v)<0)s.colors.push(v);s.newColor='';render()","if(s.colors.indexOf(v)<0)s.colors.push(v);hexSave(v,s.newHex);s.newColor='';s.newHex='';s.hexTouched=false;render()")
+rep("catCells(s).sizes.forEach(z=>{if(!IDX[s.m+'|'+v+'|'+z])s.w[v+'|'+z]=true});s.newC='';render()","catCells(s).sizes.forEach(z=>{if(!IDX[s.m+'|'+v+'|'+z])s.w[v+'|'+z]=true});hexSave(v,s.newHex);s.newC='';s.newHex='';s.hexTouched=false;render()")
+rep("Object.assign(INP,INP_LG,INP_SH);","Object.assign(INP,INP_LG,INP_SH);hexWrap();")

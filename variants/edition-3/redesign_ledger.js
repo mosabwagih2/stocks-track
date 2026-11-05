@@ -82,7 +82,7 @@ function ledgerDetail(e){
     const loc=k=>LOC[k]||k;
     return '<div class="lgmeta muted">'+(e.actor&&e.actor!==e.who?'اتسجّلت بواسطة '+esc(e.actor)+' · ':'')+'من ← إلى: '+pk.map(p=>esc(loc(p.split('>')[0]))+' ← '+esc(loc(p.split('>')[1]))+' ('+fmt(pairs[p])+')').join(' · ')+'</div>'
      +Object.keys(byM).sort((a,b)=>mkey(a)<mkey(b)?-1:1).map(mk=>'<div class="lgm"><span class="lgn"><b class="mono">'+esc(mk)+'</b> <span class="muted">'+esc(MODEL.get(mk)?MODEL.get(mk).name:'')+'</span> <span class="n muted">'+fmt(byM[mk].reduce((a,m)=>a+m.q,0))+'</span></span><span>'+lgMini(mk,byM[mk],pk[0],loc)+'</span></div>').join('')
-     +(e.doc?'<div style="margin-top:8px"><button class="btn sm" data-a="opendoc" data-id="'+e.doc.id+'">افتح المستند</button></div>':'');
+     +(e.doc?'<div style="margin-top:8px"><button class="btn sm" data-a="opendoc2" data-id="'+e.doc.id+'">افتح المستند</button></div>':'');
   }
   if(e.kind==='cx')return '<div class="lgmeta">'+(e.o.cx.reason?'السبب: '+esc(e.o.cx.reason)+'. ':'')+(e.returned?'القطع رجعت للمخزون.':'')+'</div><div style="margin-top:8px"><button class="btn sm" data-a="order" data-ref="'+esc(e.o.ref)+'">افتح الأوردر</button></div>';
   if(e.kind==='sup')return '<div class="lgmeta">'+esc(e.e.why||'')+'</div>';
@@ -116,11 +116,11 @@ function skuJourney(id){
   return h;
 }
 function vLedger(){
-  const L=UI.led,tab=L.tab==='sku'||L.tab==='moves'?'sku':'feed';L.tab=tab;
+  const L=UI.led,tab=L.tab==='sku'||L.tab==='moves'?'sku':L.tab==='arch'?'arch':'feed';L.tab=tab;
   let h=top('السجل','','')
-   +'<div class="seg lgseg" role="tablist" style="margin-bottom:6px"><button role="tab" aria-selected="'+(tab==='feed')+'" aria-pressed="'+(tab==='feed')+'" data-a="ltab" data-v="feed">اللي حصل</button><button role="tab" aria-selected="'+(tab==='sku')+'" aria-pressed="'+(tab==='sku')+'" data-a="ltab" data-v="sku">تتبّع صنف</button></div>'
-   +'<p class="muted" style="margin:0 2px 14px;font-size:13px">'+(tab==='feed'?'كل عملية اتعملت في السيستم، مين عملها ومتى. اضغط على أي واحدة تشوف أصنافها.':'رحلة صنف واحد: كل حركة دخلت أو خرجت منه ورصيده بعدها.')+'</p>';
-  return h+(tab==='feed'?ledgerFeed():ledgerSku());
+   +'<div class="seg lgseg" role="tablist" style="margin-bottom:6px"><button role="tab" aria-selected="'+(tab==='feed')+'" aria-pressed="'+(tab==='feed')+'" data-a="ltab" data-v="feed">اللي حصل</button><button role="tab" aria-selected="'+(tab==='sku')+'" aria-pressed="'+(tab==='sku')+'" data-a="ltab" data-v="sku">تتبّع صنف</button><button role="tab" aria-selected="'+(tab==='arch')+'" aria-pressed="'+(tab==='arch')+'" data-a="ltab" data-v="arch">المؤرشف'+(arItems().length?' ('+arItems().length+')':'')+'</button></div>'
+   +'<p class="muted" style="margin:0 2px 14px;font-size:13px">'+(tab==='feed'?'كل عملية اتعملت في السيستم، مين عملها ومتى. اضغط على أي واحدة تشوف أصنافها.':tab==='arch'?'':'رحلة صنف واحد: كل حركة دخلت أو خرجت منه ورصيده بعدها.')+'</p>';
+  return h+(tab==='feed'?ledgerFeed():tab==='arch'?arPage():ledgerSku());
 }
 function ledRows(){
   if(UI.led.tab==='sku')return ledgerSkuBody(arN((UI.led.sq||'').trim()).split(/\s+/).filter(Boolean));
