@@ -30,6 +30,7 @@ CREATE TABLE users (
   name       VARCHAR(80)  NOT NULL,
   role_id    VARCHAR(32)  NOT NULL,
   pass_hash  VARCHAR(255) NULL,                -- password_hash(); NULL = cannot log in yet
+  pw_version INT UNSIGNED NOT NULL DEFAULT 1,  -- bumped on every password change: ends the user's other sessions
   active     TINYINT(1)   NOT NULL DEFAULT 1,
   arch       TINYINT(1)   NOT NULL DEFAULT 0,  -- archived users are never deleted
   created_at DATETIME     NOT NULL,

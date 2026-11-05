@@ -24,16 +24,42 @@ final class FileStore
         'application/zip' => 'zip',   // some xlsx files are reported as zip by finfo
     ];
 
+    /** kind => permission(s) needed to upload it (a list means "any of these"). */
     private const KIND_PERM = [
-        'pickup' => 'pickup', 'scan' => 'scan', 'signed_note' => 'ship', 'cancel' => 'cancel', 'model_img' => 'catalog', 'other' => null,
+        'pickup' => ['pickup'], 'scan' => ['scan'], 'cancel' => ['cancel'], 'model_img' => ['catalog'],
+        'doc_photo' => ['ship', 'receive', 'internal', 'returns', 'count'],   // the signed paper / photo of a document
+        'other' => [],
     ];
 
-    public static function permissionFor(string $kind): ?string
+    /** Browser key prefix => [kind, owner type]. The browser addresses a file as "ph:d12", "pk:P3", "dc:d7", "cx:ed4298". */
+    public const KEYS = ['ph' => ['doc_photo', 'doc'], 'pk' => ['pickup', 'pickup'], 'dc' => ['scan', 'doc'], 'cx' => ['cancel', 'order']];
+
+    /** @return array<int,string> permissions, any one of which allows the upload ([] = any signed-in user) */
+    public static function permissionsFor(string $kind): array
     {
         if (!array_key_exists($kind, self::KIND_PERM)) {
             throw new HttpError(422, 'bad_kind', 'نوع الملف غير معروف.');
         }
         return self::KIND_PERM[$kind];
+    }
+
+    /** The newest file per browser key, for files with id > $sinceId. @return array<int,array<string,mixed>> */
+    public static function index(int $sinceId = 0): array
+    {
+        $byKind = [];
+        foreach (self::KEYS as $prefix => [$kind, $ownerType]) {
+            $byKind[$kind . '|' . $ownerType] = $prefix;
+        }
+        $out = [];
+        foreach (Database::all('SELECT * FROM files WHERE id > ? ORDER BY id', [$sinceId]) as $r) {
+            $prefix = $byKind[$r['kind'] . '|' . $r['owner_type']] ?? null;
+            if ($prefix === null) {
+                continue;
+            }
+            $key = $prefix . ':' . $r['owner_id'];
+            $out[$key] = self::present($r) + ['key' => $key];   // later rows (higher id) replace earlier ones
+        }
+        return array_values($out);
     }
 
     /**

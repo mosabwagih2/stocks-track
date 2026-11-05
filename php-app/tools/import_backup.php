@@ -75,10 +75,10 @@ foreach ((array)($backup->photos ?? []) as $key => $dataUrl) {
     }
     $tmp = tempnam(sys_get_temp_dir(), 'ph');
     file_put_contents($tmp, base64_decode($m[2]));
-    $isCancel = str_starts_with((string)$key, 'cx');
+    $isCancel = str_starts_with((string)$key, 'cx_');       // the app names cancel photos "cx_<order ref>"; document photos use the document id
     $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'][$m[1]] ?? 'img';
     try {
-        FileStore::saveLocal($tmp, "$key.$ext", $isCancel ? 'cancel' : 'signed_note', $isCancel ? 'order' : 'doc', (string)preg_replace('/^cx:?/', '', (string)$key), $user['id']);
+        FileStore::saveLocal($tmp, "$key.$ext", $isCancel ? 'cancel' : 'doc_photo', $isCancel ? 'order' : 'doc', (string)preg_replace('/^cx_/', '', (string)$key), $user['id']);
         $n++;
     } catch (\Throwable $e) {
         fwrite(STDERR, "Skipped photo $key: " . $e->getMessage() . "\n");

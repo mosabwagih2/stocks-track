@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Femini\Controllers;
 
 use Femini\Auth\Auth;
+use Femini\Auth\Permissions;
 use Femini\Files\FileStore;
 use Femini\Http\HttpError;
 use Femini\Http\Request;
@@ -16,9 +17,9 @@ final class FilesController
     {
         $user = Auth::requireUser();
         $kind = (string)($_POST['kind'] ?? 'other');
-        $perm = FileStore::permissionFor($kind);
-        if ($perm !== null) {
-            Auth::requirePermission($user, $perm);
+        $perms = FileStore::permissionsFor($kind);
+        if ($perms && !Permissions::canAny($user, $perms)) {
+            throw new HttpError(403, 'forbidden', 'دورك مش بيسمح برفع الملف ده.', ['needs' => $perms[0]]);
         }
         $ownerType = (string)($_POST['owner_type'] ?? '');
         $ownerId = (string)($_POST['owner_id'] ?? '');

@@ -45,7 +45,7 @@ const ok = (l, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + l + (c ? '' : ' 
     const p = await b.newPage({ viewport: { width: 1360, height: 900 } });
     p.on('pageerror', e => errs.push(e.message));
     await p.goto(BASE + '/');
-    await p.fill('#u', 'admin'); await p.fill('#p', 'admin-pass-1'); await p.click('#b');
+    await p.fill('#u', 'admin'); await p.fill('#p', 'Qx7-Lunar-Tide-91'); await p.click('#b');
     await p.waitForSelector('.shell', { timeout: 20000 });
     const got = await p.evaluate(() => { const S = __F.S(); return { moves: S.moves.length, docs: S.docs.length, orders: S.orders.length, pickups: S.pickups.length, supLog: S.sup.log.length, items: S.sup.items.length, mid: S.mid, did: S.did, shops: S.shops.length, emps: S.emps.length, costs: Object.keys(S.costs).length }; });
     const w = { moves: want.moves.length, docs: want.docs.length, orders: want.orders.length, pickups: want.pickups.length, supLog: want.sup.log.length, items: want.sup.items.length, mid: want.mid, did: want.did, shops: (want.shops || []).length, emps: (want.emps || []).length, costs: Object.keys(want.costs).length };

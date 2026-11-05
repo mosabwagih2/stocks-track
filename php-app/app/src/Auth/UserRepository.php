@@ -60,12 +60,12 @@ final class UserRepository
             throw new HttpError(409, 'username_taken', 'اسم المستخدم مستخدم قبل كده.');
         }
         if ($password !== null) {
-            Auth::validatePassword($password);
+            Passwords::validate($password, $username);
         }
         $id = 'u' . bin2hex(random_bytes(5));
         Database::run(
             'INSERT INTO users (id, username, name, role_id, pass_hash, active, arch, created_at) VALUES (?,?,?,?,?,1,0,UTC_TIMESTAMP())',
-            [$id, $username, trim($name), $roleId, $password === null ? null : password_hash($password, PASSWORD_DEFAULT)]
+            [$id, $username, trim($name), $roleId, $password === null ? null : Passwords::hash($password)]
         );
         return $id;
     }
@@ -104,10 +104,41 @@ final class UserRepository
         });
     }
 
-    public static function setPassword(string $id, string $password): void
+    /** Sets a new password and ends every other session of that user (pw_version). Returns the new version. */
+    public static function setPassword(string $id, string $password): int
     {
-        Auth::validatePassword($password);
-        Database::run('UPDATE users SET pass_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $id]);
+        $u = Database::one('SELECT username FROM users WHERE id = ?', [$id]);
+        if ($u === null) {
+            throw new HttpError(404, 'not_found', 'المستخدم مش موجود.');
+        }
+        Passwords::validate($password, $u['username']);
+        Database::run('UPDATE users SET pass_hash = ?, pw_version = pw_version + 1 WHERE id = ?', [Passwords::hash($password), $id]);
+        return (int)Database::value('SELECT pw_version FROM users WHERE id = ?', [$id]);
+    }
+
+    public static function checkPassword(string $id, string $password): bool
+    {
+        $hash = Database::value('SELECT pass_hash FROM users WHERE id = ?', [$id]);
+        return is_string($hash) && password_verify($password, $hash);
+    }
+
+    /** Replaces the permissions of a role. The admin role is fixed. */
+    public static function setRolePerms(string $roleId, array $perms): void
+    {
+        if ($roleId === 'admin') {
+            throw new HttpError(409, 'admin_fixed', 'صلاحيات المدير ثابتة.');
+        }
+        if (Database::value('SELECT 1 FROM roles WHERE id = ?', [$roleId]) === null) {
+            throw new HttpError(404, 'not_found', 'الدور مش موجود.');
+        }
+        $clean = [];
+        foreach ($perms as $p) {
+            if (!is_string($p) || !array_key_exists($p, Permissions::ALL)) {
+                throw new HttpError(422, 'bad_perm', 'صلاحية غير معروفة.');
+            }
+            $clean[$p] = true;
+        }
+        Database::run('UPDATE roles SET perms = ? WHERE id = ?', [json_encode(array_keys($clean)), $roleId]);
     }
 
     private static function activeAdmins(): int

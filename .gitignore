@@ -10,3 +10,4 @@ dist-single/
 php-app/config/config.php
 php-app/storage/files/
 php-app/tests/.tmp/
+php-app/dist/

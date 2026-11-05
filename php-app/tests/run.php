@@ -16,9 +16,9 @@ putenv('FEMINI_TESTING=1');
 use Femini\Auth\UserRepository;
 use Femini\Database;
 
-UserRepository::create('admin', 'المدير', 'admin', 'admin-pass-1');
-UserRepository::create('packer', 'موظف شحن', 'pack', 'packer-pass-1');
-UserRepository::create('sup', 'مشرف', 'sup', 'super-pass-1');
+UserRepository::create('admin', 'المدير', 'admin', 'Qx7-Lunar-Tide-91');
+UserRepository::create('packer', 'موظف شحن', 'pack', 'Rb4-Silver-Reed-62');
+UserRepository::create('sup', 'مشرف', 'sup', 'Mv9-Amber-Gate-35');
 
 // ---- server
 $port = 8700 + random_int(0, 99);
@@ -56,10 +56,10 @@ final class Client
     }
 
     /** @return array{0:int,1:array|null,2:string} */
-    public function call(string $method, string $path, mixed $body = null, ?array $multipart = null): array
+    public function call(string $method, string $path, mixed $body = null, ?array $multipart = null, array $extraHeaders = []): array
     {
         $ch = curl_init("http://127.0.0.1:{$this->port}$path");
-        $headers = ['X-CSRF-Token: ' . $this->csrf];
+        $headers = array_merge(['X-CSRF-Token: ' . $this->csrf], $extraHeaders);
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => false,
             CURLOPT_COOKIEJAR => $this->jar, CURLOPT_COOKIEFILE => $this->jar,
@@ -75,6 +75,35 @@ final class Client
         $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         return [$status, json_decode($raw, true), $raw];
+    }
+
+    /** The raw response headers of a GET (lower-cased names). */
+    public function headers(string $path): array
+    {
+        $ch = curl_init("http://127.0.0.1:{$this->port}$path");
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_COOKIEJAR => $this->jar, CURLOPT_COOKIEFILE => $this->jar]);
+        $raw = (string)curl_exec($ch);
+        $head = substr($raw, 0, (int)curl_getinfo($ch, CURLINFO_HEADER_SIZE));
+        curl_close($ch);
+        $out = [];
+        foreach (explode("\n", $head) as $line) {
+            if (str_contains($line, ':')) {
+                [$k, $v] = explode(':', $line, 2);
+                $out[strtolower(trim($k))] = trim($v);
+            }
+        }
+        return $out;
+    }
+
+    /** The session id from the cookie jar (to age a session on disk). */
+    public function sessionId(): string
+    {
+        foreach (file($this->jar) as $line) {
+            if (preg_match('/\tfemini\t(\S+)\s*$/', $line, $m)) {
+                return $m[1];
+            }
+        }
+        return '';
     }
 
     public function login(string $u, string $p): int
@@ -103,9 +132,9 @@ $sup = new Client($port);
 ok('anonymous pull is refused (401)', $s === 401);
 ok('wrong password is refused', $anon->login('admin', 'nope') === 401);
 ok('unknown user is refused the same way', $anon->login('ghost', 'whatever1') === 401);
-ok('admin logs in', $admin->login('admin', 'admin-pass-1') === 200);
-ok('packer logs in', $packer->login('packer', 'packer-pass-1') === 200);
-ok('supervisor logs in', $sup->login('sup', 'super-pass-1') === 200);
+ok('admin logs in', $admin->login('admin', 'Qx7-Lunar-Tide-91') === 200);
+ok('packer logs in', $packer->login('packer', 'Rb4-Silver-Reed-62') === 200);
+ok('supervisor logs in', $sup->login('sup', 'Mv9-Amber-Gate-35') === 200);
 [$s, $j] = $admin->call('GET', '/api/auth/me');
 ok('me returns the user and permissions', $s === 200 && $j['user']['username'] === 'admin' && in_array('*', $j['user']['perms'], true), $j);
 $saved = $admin->csrf;
@@ -251,7 +280,7 @@ $bf = new Client($port);
 for ($i = 0; $i < 5; $i++) {
     $bf->login('sup', 'wrong-pass-' . $i);
 }
-ok('after 5 wrong passwords the account is locked for a while (429)', $bf->login('sup', 'super-pass-1') === 429);
+ok('after 5 wrong passwords the account is locked for a while (429)', $bf->login('sup', 'Mv9-Amber-Gate-35') === 429);
 
 // ================= files
 $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
@@ -261,15 +290,15 @@ file_put_contents($tmp . '/pk.csv', "a,b\n1,2\n");
 $up = static fn(Client $c, string $file, string $kind, string $name, string $mime) => $c->call('POST', '/api/files', null, [
     'file' => new CURLFile($file, $mime, $name), 'kind' => $kind, 'owner_type' => 'doc', 'owner_id' => 'd1',
 ]);
-[$s, $j] = $up($sup, $tmp . '/note.png', 'signed_note', 'إذن.png', 'image/png');
+[$s, $j] = $up($sup, $tmp . '/note.png', 'doc_photo', 'إذن.png', 'image/png');
 ok('supervisor uploads a signed-note photo', $s === 201 && $j['file']['hasThumb'] === true && $j['file']['name'] === 'إذن.png', $j);
 $fid = $j['file']['id'] ?? 0;
-[$s, $j] = $up($sup, $tmp . '/note.png', 'signed_note', 'إذن.png', 'image/png');
+[$s, $j] = $up($sup, $tmp . '/note.png', 'doc_photo', 'إذن.png', 'image/png');
 ok('the same file for the same owner is not stored twice', $s === 201 && $j['file']['id'] === $fid, $j);
 [$s, $j] = $up($sup, $tmp . '/evil.php', 'other', 'evil.php', 'image/png');
 ok('a PHP file renamed as an image is refused (415)', $s === 415, $j);
-[$s, $j] = $up($packer, $tmp . '/note.png', 'signed_note', 'x.png', 'image/png');
-ok('packer may not upload a signed note (403)', $s === 403, $j);
+[$s, $j] = $up($packer, $tmp . '/note.png', 'pickup', 'x.png', 'image/png');
+ok('packer may not upload a pickup file (403)', $s === 403, $j);
 [$s, $j] = $up($sup, $tmp . '/pk.csv', 'pickup', 'بيك أب.csv', 'text/csv');
 ok('csv files are accepted', $s === 201, $j);
 [$s, $body, $raw] = $sup->call('GET', "/api/files/$fid");
@@ -304,6 +333,108 @@ ok('a document with an empty hdr object is stored', $st === 200, $out);
 ok('empty objects come back as {} (never as [])', str_contains($raw, '"hdr":{}') && str_contains($raw, '"alias":{"v":{}') , substr($raw, 0, 400));
 $snapRaw = json_encode(Femini\Sync\Snapshot::build(['id' => 'x', 'name' => 'x', 'perms' => ['*']])['state'], JSON_UNESCAPED_UNICODE);
 ok('the page snapshot keeps {} too', str_contains($snapRaw, '"hdr":{}') && str_contains($snapRaw, '"alias":{}'), substr($snapRaw, 0, 200));
+
+// ================= passwords
+foreach ([
+    ['12345678', 'a common password'], ['password123', 'a common password'], ['aaaaaaaaaa', 'one repeated character'],
+    ['xyz-short', null], ['Kg4-xqzvnovak-' . str_repeat('z', 70), 'longer than bcrypt reads (72 bytes)'], ['Mhoms-bad-password1', 'contains the username'],
+] as [$pw, $why]) {
+    static $n = 0;
+    [$s, $j] = $admin->call('POST', '/api/users', ['username' => $pw === 'Mhoms-bad-password1' ? 'mhoms' : 'weak' . ++$n, 'name' => 'x', 'role' => 'pack', 'password' => $pw]);
+    if ($why === null) {   // 'xyz-short' is 9 chars and not common: it is allowed; clean up by using it only once
+        ok('a normal 9-character password is accepted', $s === 201, $j);
+        continue;
+    }
+    ok("weak password refused: $why", $s === 422 && $j['error'] === 'weak_password', $j);
+}
+$bcrypt = (string)Database::value("SELECT pass_hash FROM users WHERE username = 'admin'");
+ok('passwords are stored as bcrypt cost 12', str_starts_with($bcrypt, '$2y$12$'), substr($bcrypt, 0, 8));
+
+// own password change needs the current password; it signs OTHER sessions out but not this one
+$packerOther = new Client($port);
+$packerOther->login('packer', 'Rb4-Silver-Reed-62');
+$packerId = (string)Database::value("SELECT id FROM users WHERE username = 'packer'");
+[$s, $j] = $packer->call('POST', "/api/users/$packerId/password", ['password' => 'Fresh-Lantern-48', 'current' => 'wrong']);
+ok('changing your own password with a wrong current password is refused', $s === 403 && $j['error'] === 'bad_current', $j);
+[$s, $j] = $packer->call('POST', "/api/users/$packerId/password", ['password' => 'Fresh-Lantern-48', 'current' => 'Rb4-Silver-Reed-62']);
+ok('with the right current password it works', $s === 200, $j);
+[$s] = $packer->call('GET', '/api/auth/me');
+ok('the browser that changed it stays signed in', $s === 200, $s);
+[$s] = $packerOther->call('GET', '/api/auth/me');
+ok('the same user\'s other sessions are signed out', $s === 401, $s);
+ok('the old password no longer works, the new one does', (new Client($port))->login('packer', 'Rb4-Silver-Reed-62') === 401 && (new Client($port))->login('packer', 'Fresh-Lantern-48') === 200);
+
+// admin reset of someone else's password signs that user out; disabling a user signs them out immediately
+$victim = new Client($port);
+$victim->login('new1', 'long-enough-1');   // archived earlier: must still fail
+ok('an archived user stays locked out', $victim->login('new1', 'long-enough-1') === 401);
+[$s, $j] = $admin->call('POST', '/api/users', ['username' => 'temp1', 'name' => 'مؤقت', 'role' => 'pack', 'password' => 'Temp-Orchid-71']);
+$tempId = $j['id'] ?? '';
+$tempC = new Client($port);
+ok('a new user logs in', $tempC->login('temp1', 'Temp-Orchid-71') === 200);
+[$s] = $admin->call('PATCH', "/api/users/$tempId", ['active' => false]);
+[$s2] = $tempC->call('GET', '/api/auth/me');
+ok('disabling a user ends their open session on the very next request', $s === 200 && $s2 === 401, [$s, $s2]);
+
+// ================= sessions age out
+$admin->call('POST', '/api/users', ['username' => 'aged1', 'name' => 'قديم', 'role' => 'pack', 'password' => 'Aged-Pelican-83']);
+$aged = new Client($port);
+$aged->login('aged1', 'Aged-Pelican-83');
+$sf = rtrim((string)(session_save_path() ?: sys_get_temp_dir()), '/') . '/sess_' . $aged->sessionId();
+$data = (string)@file_get_contents($sf);
+ok('the session file exists for the ageing test', $data !== '' && str_contains($data, 'seen|i:'), $sf);
+file_put_contents($sf, preg_replace('/seen\|i:\d+;/', 'seen|i:' . (time() - 13 * 3600) . ';', $data));
+[$s] = $aged->call('GET', '/api/auth/me');
+ok('a session idle for more than 12 hours is signed out', $s === 401, $s);
+
+// ================= browser protections
+[$s, $j] = $admin->call('POST', '/api/sync/push', ['since' => 0], null, ['Origin: http://evil.example']);
+ok('a write from another origin is refused (403 bad_origin)', $s === 403 && $j['error'] === 'bad_origin', $j);
+[$s] = $admin->call('POST', '/api/sync/push', ['since' => (int)Database::value('SELECT rev FROM sync_state')], null, ['Origin: http://127.0.0.1:' . $port]);
+ok('the same origin is accepted', $s === 200, $s);
+$h = $admin->headers('/api/health');
+ok('API responses: nosniff, no framing, a locked-down CSP, no caching', ($h['x-content-type-options'] ?? '') === 'nosniff' && ($h['x-frame-options'] ?? '') === 'DENY'
+    && str_contains($h['content-security-policy'] ?? '', "default-src 'none'") && ($h['cache-control'] ?? '') === 'no-store', $h);
+$h = $admin->headers('/');
+ok('the app page has a CSP (no objects, no framing, same-origin connections) and X-Frame-Options', str_contains($h['content-security-policy'] ?? '', "object-src 'none'") && str_contains($h['content-security-policy'] ?? '', "connect-src 'self'")
+    && str_contains($h['content-security-policy'] ?? '', "frame-ancestors 'none'") && ($h['x-frame-options'] ?? '') === 'DENY', $h);
+$ch = curl_init("http://127.0.0.1:$port/.htaccess");
+curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true]);
+curl_exec($ch);
+ok('only the public folder is served: /app and /config are not even under the web root', is_dir(dirname(__DIR__) . '/public') && !is_file(dirname(__DIR__) . '/public/config.php') && !is_dir(dirname(__DIR__) . '/public/app'));
+curl_close($ch);
+
+// ================= roles are editable on the server and take effect immediately
+[$s] = $packer->call('PUT', '/api/roles/pack', ['perms' => ['scan', 'returns', 'pickup']]);
+ok('a packer cannot edit roles (403)', $s === 403);
+[$s, $j] = $admin->call('PUT', '/api/roles/admin', ['perms' => []]);
+ok('the admin role is fixed (409)', $s === 409, $j);
+[$s, $j] = $admin->call('PUT', '/api/roles/pack', ['perms' => ['scan', 'fly']]);
+ok('an unknown permission is refused (422)', $s === 422, $j);
+$rev = (int)Database::value('SELECT rev FROM sync_state');
+[$s] = $packer->call('POST', '/api/sync/push', ['since' => $rev, 'coll' => ['pickups' => ['up' => [['id' => 'P7', 'date' => date('Y-m-d')]]]]]);
+ok('before the change the packer cannot create a pickup', $s === 403, $s);
+[$s] = $admin->call('PUT', '/api/roles/pack', ['perms' => ['scan', 'returns', 'pickup']]);
+[$s2, $j2] = $packer->call('POST', '/api/sync/push', ['since' => $rev, 'coll' => ['pickups' => ['up' => [['id' => 'P7', 'date' => date('Y-m-d')]]]]]);
+ok('right after the admin grants it, the same packer session can', $s === 200 && $s2 === 200, $j2);
+$admin->call('PUT', '/api/roles/pack', ['perms' => ['scan', 'returns']]);
+
+// ================= files: index for the browser, delta by id
+[$s, $j] = $sup->call('GET', '/api/sync/pull?since=0&fileSince=0');
+$keys = array_column($j['files'] ?? [], 'key');
+ok('pull lists files by the browser\'s key (ph:, pk:)', in_array('ph:d1', $keys, true), $keys);
+$maxId = max(array_column($j['files'], 'id'));
+[$s, $j] = $sup->call('GET', "/api/sync/pull?since=0&fileSince=$maxId");
+ok('and only the new ones after fileSince', $j['files'] === [], $j['files'] ?? null);
+[$s, $j] = $up($packer, $tmp . '/note.png', 'doc_photo', 'ورقة.png', 'image/png');
+ok('a packer (returns permission) can attach the paper photo of a return', $s === 201, $j);
+
+// ================= preflight and logs
+$checks = Femini\Preflight::run(false);
+$names = array_column($checks, 1, 0);
+ok('the preflight check runs and sees the database', ($names['الاتصال بقاعدة البيانات'] ?? '') === 'ok' && ($names['محرك InnoDB (transactions)'] ?? '') === 'ok', $names);
+$log = (string)@file_get_contents($tmp . '/server.log');
+ok('the server log has no PHP warnings, notices or deprecations', !preg_match('/(Warning|Notice|Deprecated|Fatal error)/', $log), substr($log, -600));
 
 // ================= snapshot
 $u = Femini\Auth\Auth::class;

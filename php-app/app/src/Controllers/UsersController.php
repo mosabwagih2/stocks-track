@@ -5,6 +5,7 @@ namespace Femini\Controllers;
 
 use Femini\Auth\Auth;
 use Femini\Auth\UserRepository;
+use Femini\Http\HttpError;
 use Femini\Http\Request;
 use Femini\Http\Response;
 
@@ -32,13 +33,34 @@ final class UsersController
         Response::json(['ok' => true]);
     }
 
+    /**
+     * Own password: the current password is required. Someone else's: needs the "users" permission (admin reset).
+     * Every other session of that user ends (the version in the session no longer matches).
+     */
     public static function password(Request $req, array $p): never
     {
         $me = Auth::requireUser();
-        if ($me['id'] !== $p['id']) {
+        $b = $req->json();
+        $self = $me['id'] === $p['id'];
+        if ($self) {
+            if (!UserRepository::checkPassword($me['id'], (string)($b['current'] ?? ''))) {
+                throw new HttpError(403, 'bad_current', 'كلمة السر الحالية غلط.');
+            }
+        } else {
             Auth::requirePermission($me, 'users');
         }
-        UserRepository::setPassword($p['id'], (string)($req->json()['password'] ?? ''));
+        $version = UserRepository::setPassword($p['id'], (string)($b['password'] ?? ''));
+        if ($self) {
+            $_SESSION['pwv'] = $version;     // keep this browser signed in; all others are signed out
+        }
+        Response::json(['ok' => true]);
+    }
+
+    /** PUT /api/roles/{id} {perms:[...]} */
+    public static function role(Request $req, array $p): never
+    {
+        Auth::requirePermission(Auth::requireUser(), 'users');
+        UserRepository::setRolePerms($p['id'], (array)($req->json()['perms'] ?? []));
         Response::json(['ok' => true]);
     }
 }

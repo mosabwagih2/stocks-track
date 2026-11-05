@@ -19,7 +19,7 @@ const ok = (l, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + l + (c ? '' : ' 
 
   const b = await chromium.launch();
   const errs = [];
-  const open = async (ctx) => { const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); return p; };
+  const open = async (ctx) => { const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (/Content Security Policy/i.test(m.text())) errs.push('CSP: ' + m.text().slice(0, 200)); }); return p; };
   const login = async (p, u, pw) => {
     await p.goto(BASE + '/');
     await p.fill('#u', u); await p.fill('#p', pw); await p.click('#b');
@@ -46,7 +46,7 @@ const ok = (l, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + l + (c ? '' : ' 
     await A.fill('#u', 'admin'); await A.fill('#p', 'wrong-password'); await A.click('#b');
     await A.waitForFunction(() => document.getElementById('err').textContent.length > 0);
     ok('a wrong password shows a message and stays on the login page', /غلط/.test(await A.textContent('#err')));
-    await login(A, 'admin', 'admin-pass-1');
+    await login(A, 'admin', 'Qx7-Lunar-Tide-91');
     ok('admin logs in and the app opens', await A.locator('.shell').count() === 1);
 
     let st = await untilServer(A, s => s.moves.length > 400, 20000);
@@ -79,7 +79,7 @@ const ok = (l, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + l + (c ? '' : ' 
     // ---- a second person sees it
     const cb = await b.newContext({ viewport: { width: 1360, height: 900 } });
     const Bp = await open(cb);
-    await login(Bp, 'packer', 'packer-pass-1');
+    await login(Bp, 'packer', 'Rb4-Silver-Reed-62');
     ok('packer sees the same data', await Bp.evaluate(() => __F.S().docs.length === 1 && __F.S().orders.filter(o => o.st === 'done').length === 3));
     ok('packer\'s screen knows its role (client-side hints)', await Bp.evaluate(() => __F.curUser().role === 'pack' && !__F.can('close')));
 
@@ -131,11 +131,61 @@ const ok = (l, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + l + (c ? '' : ' 
     ok('ledger ids are unique and the document numbers are not duplicated', new Set(ids).size === ids.length && new Set(st.coll.docs.map(d => d.row.no).filter(Boolean)).size === st.coll.docs.filter(d => d.row.no).length);
     ok('the late page shows what the server has', await Bp.evaluate(async (n) => { const r = await (await fetch('/api/sync/pull?since=0')).json(); return __F.S().docs.length === r.coll.docs.length; }));
 
+    // ---- photos and original files are stored on the server
+    const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    await A.evaluate(b64 => {
+      const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      window.__png = bin;
+      return FSYNC.files.put('ph:d1', new File([bin], 'إذن موقّع.png', { type: 'image/png' }));
+    }, PNG);
+    st = await (async () => { for (let i = 0; i < 60; i++) { const r = await A.evaluate(async () => (await (await fetch('/api/sync/pull?since=0&fileSince=0')).json()).files); if (r.some(f => f.key === 'ph:d1')) return r; await new Promise(x => setTimeout(x, 150)); } return []; })();
+    ok('a signed-note photo is uploaded to the server (not the browser)', st.some(f => f.key === 'ph:d1' && f.hasThumb && f.name === 'إذن موقّع.png'), JSON.stringify(st));
+    await A.reload(); await A.waitForSelector('.shell');
+    const urlAfter = await A.evaluate(() => window.FEM_BOOT.files.find(f => f.key === 'ph:d1'));
+    ok('after a reload the boot data carries the file index', !!urlAfter && urlAfter.hasThumb, JSON.stringify(urlAfter));
+    const imgOk = await A.evaluate(async id => { const r = await fetch('/api/files/' + id + '?thumb=1'); return r.status === 200 && r.headers.get('content-type') === 'image/jpeg'; }, urlAfter.id);
+    ok('the display copy is served as a JPEG', imgOk);
+    await Bp.evaluate(() => FSYNC.pull());
+    await Bp.waitForFunction(() => !!document.querySelector('.shell'));
+
+    // an original Excel/CSV file can be downloaded back byte for byte
+    await A.evaluate(() => { const f = new File(['a,b\n1,2\n'], 'pickup file.csv', { type: 'text/csv' }); return FSYNC.files.put('pk:P1', f); });
+    for (let i = 0; i < 60; i++) { const has = await A.evaluate(async () => (await (await fetch('/api/sync/pull?since=0&fileSince=0')).json()).files.some(f => f.key === 'pk:P1')); if (has) break; await new Promise(x => setTimeout(x, 150)); }
+    const [dl] = await Promise.all([A.waitForEvent('download'), A.evaluate(() => FSYNC.files.download('pk:P1', 'x'))]);
+    const dlPath = await dl.path();
+    ok('the original file downloads under its own name with the same content', dl.suggestedFilename() === 'pickup file.csv' && require('fs').readFileSync(dlPath, 'utf8') === 'a,b\n1,2\n', dl.suggestedFilename());
+
+    // ---- the real UI flow: a shop delivery needs the signed-note photo, and the photo goes to the server
+    require('fs').writeFileSync('/tmp/_e2e_note.png', Buffer.from(PNG, 'base64'));
+    const shpId = await A.evaluate(() => {
+      const F = __F, S = F.S();
+      const k = F.D.skus.find(k => F.g(k.id, 'READY') > 5);
+      const d = F.newDoc('SHP'); d.hdr = Object.assign(d.hdr || {}, { shop: 'محل الاختبار' }); d.lines.push({ sku: k.id, q: 1 });
+      const ok = F.confirmDoc(d);
+      F.go('ops', () => { F.UI.doc = d.id; });
+      return ok ? d.id : null;
+    });
+    ok('a shop transfer is confirmed on the server edition', !!shpId, shpId);
+    await A.waitForSelector('[data-a=shpdone]');
+    ok('"delivered" is locked until the signed note photo is attached', await A.evaluate(() => document.querySelector('[data-a=shpdone]').disabled));
+    await A.setInputFiles('[data-c=photo]', '/tmp/_e2e_note.png');
+    for (let i = 0; i < 80; i++) { const has = await A.evaluate(async id => (await (await fetch('/api/sync/pull?since=0&fileSince=0')).json()).files.some(f => f.key === 'ph:' + id), shpId); if (has) break; await new Promise(x => setTimeout(x, 150)); }
+    ok('attaching the photo in the screen uploads it to the server', await A.evaluate(async id => (await (await fetch('/api/sync/pull?since=0&fileSince=0')).json()).files.some(f => f.key === 'ph:' + id), shpId));
+    ok('then the confirm button unlocks', await A.evaluate(() => !document.querySelector('[data-a=shpdone]').disabled));
+    await A.click('[data-a=shpdone]');
+    st = await untilServer(A, s => { const d = s.coll.docs.find(x => x.k === shpId); return d && d.row.hdr && d.row.hdr.delivered; });
+    ok('confirming the delivery is saved on the (frozen) document: only the delivery proof changed', !!st.coll.docs.find(x => x.k === shpId).row.hdr.delivered);
+    ok('the photo is shown from the server in the screen', await A.evaluate(() => { const i = document.querySelector('#main img[alt="الإذن الموقّع"]'); return !!i && /\/api\/files\/\d+\?thumb=1$|^data:/.test(i.getAttribute('src')); }));
+
     // ---- users screen is server-backed
     await A.evaluate(() => { __F.UI.cfgTab = 'acc'; __F.go('config'); });
     await A.waitForTimeout(400);
     const usersTxt = await A.evaluate(() => document.getElementById('main').innerText);
     ok('the users screen lists the server users with their login names', /packer/.test(usersTxt) && /admin/.test(usersTxt));
+    await A.check('input[data-c=fsrolep][data-r=pack][data-p=pickup]');
+    st = await (async () => { for (let i = 0; i < 40; i++) { const r = await A.evaluate(async () => (await (await fetch('/api/sync/pull?since=0')).json()).roles); if (r.pack.perms.includes('pickup')) return r; await new Promise(x => setTimeout(x, 150)); } return null; })();
+    ok('ticking a permission in the matrix saves the role on the server', !!st && st.pack.perms.includes('pickup') && !(await A.locator('input[data-c=fsrolep][data-r=admin]').first().isEnabled()), JSON.stringify(st && st.pack));
+    await A.uncheck('input[data-c=fsrolep][data-r=pack][data-p=pickup]');
     ok('the browser PIN lock screen is gone (no PIN field)', !/رقم سري/.test(usersTxt));
 
     // ---- logout

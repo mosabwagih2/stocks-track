@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Femini\Controllers;
 
 use Femini\Auth\Auth;
+use Femini\Files\FileStore;
 use Femini\Http\Request;
 use Femini\Http\Response;
 use Femini\Sync\Snapshot;
@@ -18,6 +19,7 @@ final class SyncController
         $data = (new SyncService($user))->pull($since);
         $data["ok"] = true;
         $data["meta"] = (object)$data["meta"];   // an empty map must be {} in JSON
+        $data['files'] = FileStore::index(max(0, (int)($req->query['fileSince'] ?? 0)));
         $data['users'] = Snapshot::usersForApp();
         $data['roles'] = Snapshot::rolesForApp();
         Response::json($data);

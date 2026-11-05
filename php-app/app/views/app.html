@@ -785,6 +785,7 @@ function load(){
   }else S=B.state;
   S.date=cairoToday();ensureSup(S);ensureCat(S);rebuildCatalog();
   FSYNC.attach(()=>S,{render:()=>render(),toast,esc,ACT,CHG,PERMS,can:p=>can(p),
+    PH,cxKey,saveFile,
     after:()=>{_bal=null;_ctx=null;ensureCat(S);rebuildCatalog();UI.pendingRender=true;rollCheck()}},!!B.empty);
   autoCloseTo(addDays(S.date,-1));
 }
@@ -1182,9 +1183,9 @@ function supSheet(s){
 /* ---------- photos: IndexedDB so document photos survive reload ---------- */
 let IDBH=null;
 function idbOpen(){return new Promise(res=>{try{const r=indexedDB.open('femini-v3',2);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains('ph'))db.createObjectStore('ph');if(!db.objectStoreNames.contains('fl'))db.createObjectStore('fl')};r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);r.onblocked=()=>res(null)}catch(e){res(null)}})}
-function phPut(id,data){if(!IDBH)return;try{IDBH.transaction('ph','readwrite').objectStore('ph').put(data,id)}catch(e){}}
-function phClear(){Object.keys(PH).forEach(k=>delete PH[k]);if(!IDBH)return;try{IDBH.transaction('ph','readwrite').objectStore('ph').clear()}catch(e){}}
-function phLoad(){return new Promise(res=>{if(!IDBH)return res();try{const rq=IDBH.transaction('ph').objectStore('ph').openCursor();rq.onsuccess=()=>{const c=rq.result;if(c){PH[c.key]=c.value;c.continue()}else res()};rq.onerror=()=>res()}catch(e){res()}})}
+function phPut(id,data){}
+function phClear(){Object.keys(PH).forEach(k=>delete PH[k])}
+function phLoad(){return Promise.resolve()}
 function phFromFile(f,cb){
   const fr=new FileReader();
   fr.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1400/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.75))};im.onerror=()=>toast('الملف ده مش صورة');im.src=fr.result};
@@ -2800,20 +2801,14 @@ const INP_SH={
 };
 
 /* ---------- originals: every uploaded file is kept as-is (IndexedDB 'fl') and can be downloaded any time ---------- */
-function flPut(key,blob){if(!blob||!IDBH||!IDBH.objectStoreNames.contains('fl'))return;try{IDBH.transaction('fl','readwrite').objectStore('fl').put({blob,name:blob.name||'',type:blob.type||'',size:blob.size,at:Date.now()},key)}catch(e){}}
-function flGet(key){return new Promise(res=>{if(!IDBH||!IDBH.objectStoreNames.contains('fl'))return res(null);try{const rq=IDBH.transaction('fl').objectStore('fl').get(key);rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>res(null)}catch(e){res(null)}})}
+function flPut(key,blob){FSYNC.files.put(key,blob)}
+function flGet(key){return Promise.resolve(null)}
 function dataBlob(u){try{const m=/^data:([^;,]*)(;base64)?,(.*)$/.exec(u);if(!m)return null;const bin=m[2]?atob(m[3]):decodeURIComponent(m[3]),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:m[1]||'application/octet-stream'})}catch(e){return null}}
 function flSize(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB'}
-async function flDL(key,label){
-  const r=await flGet(key);
-  if(r&&r.blob){saveFile(r.name||label||'file',r.blob,'اتنزّل الملف الأصلي');return}
-  const u=key.indexOf('ph:')===0?PH[key.slice(3)]:key.indexOf('cx:')===0?PH[cxKey(key.slice(3))]:null;
-  if(u){const b=dataBlob(u);if(b){saveFile(((label||'photo').replace(/\.[^.]+$/,''))+'.jpg',b,'اتنزّلت الصورة');return}}
-  toast('الملف الأصلي مش محفوظ في المتصفح ده');
-}
+async function flDL(key,label){return FSYNC.files.download(key,label)}
 function flBtn(key,meta,txt){return meta?'<button class="btn sm" data-a="fldl" data-k="'+esc(key)+'" data-n="'+esc(meta.name||'')+'">⬇ '+(txt||'تنزيل الملف الأصلي')+' <span class="muted" style="font-size:11px">'+esc(meta.name||'')+(meta.size?' · '+flSize(meta.size):'')+'</span></button>':''}
 const ACT_FL={fldl:el=>{flDL(el.dataset.k,el.dataset.n)}};
-function flDel(key){if(!IDBH||!IDBH.objectStoreNames.contains('fl'))return;try{IDBH.transaction('fl','readwrite').objectStore('fl').delete(key)}catch(e){}}
+function flDel(key){}
 /* ---------- nothing is ever deleted: the only way to take something out of sight is to archive it ---------- */
 const ACT_AR={
   suparchgo:()=>{go('ledger',()=>{UI.led.tab='arch'})},

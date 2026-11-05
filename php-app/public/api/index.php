@@ -18,10 +18,14 @@ use Femini\Http\HttpError;
 use Femini\Http\Request;
 use Femini\Http\Response;
 use Femini\Http\Router;
-
-$req = Request::fromGlobals();
+use Femini\Http\SecurityHeaders;
 
 try {
+    if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 64 * 1024 * 1024) {
+        throw new HttpError(413, 'too_large', 'الطلب كبير قوي.');
+    }
+    $req = Request::fromGlobals();
+    SecurityHeaders::api($req);
     Auth::startSession($req);
 
     $router = new Router();
@@ -35,10 +39,12 @@ try {
     $router->add('POST', '/api/users',             [UsersController::class, 'create']);
     $router->add('PATCH', '/api/users/{id}',       [UsersController::class, 'update']);
     $router->add('POST', '/api/users/{id}/password', [UsersController::class, 'password']);
+    $router->add('PUT',  '/api/roles/{id}',        [UsersController::class, 'role']);
     $router->add('POST', '/api/files',             [FilesController::class, 'upload']);
     $router->add('GET',  '/api/files',             [FilesController::class, 'index']);
     $router->add('GET',  '/api/files/{id}',        [FilesController::class, 'download']);
 
+    Auth::checkOrigin($req);
     // Login is the only state-changing endpoint that does not need a session CSRF token yet.
     if ($req->path !== '/api/auth/login') {
         Auth::checkCsrf($req);

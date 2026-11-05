@@ -45,6 +45,7 @@ replace_function('load', """function load(){
   }else S=B.state;
   S.date=cairoToday();ensureSup(S);ensureCat(S);rebuildCatalog();
   FSYNC.attach(()=>S,{render:()=>render(),toast,esc,ACT,CHG,PERMS,can:p=>can(p),
+    PH,cxKey,saveFile,
     after:()=>{_bal=null;_ctx=null;ensureCat(S);rebuildCatalog();UI.pendingRender=true;rollCheck()}},!!B.empty);
   autoCloseTo(addDays(S.date,-1));
 }""")
@@ -54,6 +55,15 @@ replace_function('save', "function save(){FSYNC.push()}")
 
 # 3. The banner shows connection / refusal messages instead of "browser storage is full".
 replace_function('storeBanner', "function storeBanner(){return FSYNC.banner()}")
+
+# 3b. Photos and original files live on the server (POST/GET /api/files) instead of IndexedDB.
+replace_function('phPut', "function phPut(id,data){}")
+replace_function('phClear', "function phClear(){Object.keys(PH).forEach(k=>delete PH[k])}")
+replace_function('phLoad', "function phLoad(){return Promise.resolve()}")
+replace_function('flPut', "function flPut(key,blob){FSYNC.files.put(key,blob)}")
+replace_function('flGet', "function flGet(key){return Promise.resolve(null)}")
+replace_function('flDel', "function flDel(key){}")
+replace_function('flDL', "function flDL(key,label){return FSYNC.files.download(key,label)}")
 
 # 4. No cross-tab localStorage guard: the server is the single source of truth now.
 rep("window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});", "")

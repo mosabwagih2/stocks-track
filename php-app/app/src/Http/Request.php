@@ -66,8 +66,18 @@ final class Request
         return $data;
     }
 
+    /**
+     * The client's IP, used for login throttling. Behind a CDN/proxy (e.g. Cloudflare) every visitor would otherwise share the
+     * proxy's address: set app.proxy_header to the header your proxy sets (e.g. HTTP_CF_CONNECTING_IP). Never set it when
+     * the site is reached directly, because then anyone could forge it.
+     */
     public function ip(): string
     {
+        $header = \Femini\Config::get('app.proxy_header');
+        $ip = $header ? (string)($_SERVER[$header] ?? '') : '';
+        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+            return $ip;
+        }
         return (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
     }
 

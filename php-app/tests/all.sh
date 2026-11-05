@@ -7,3 +7,5 @@ export NODE_PATH="${NODE_PATH:-$(npm root -g)}"
 php tests/run.php
 node tests/e2e.js
 node tests/import_test.js
+sh tools/build_release.sh >/dev/null
+sh tests/release_smoke.sh

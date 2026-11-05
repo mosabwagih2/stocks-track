@@ -21,6 +21,9 @@ return [
         'max_upload'   => 20 * 1024 * 1024,
         // The web installer (public/install.php) refuses to run without this key. Delete the installer afterwards.
         'install_key'  => 'CHANGE_ME_TO_A_LONG_RANDOM_STRING',
+        // Only if the site sits behind a proxy/CDN: the server variable holding the real client IP (e.g. 'HTTP_CF_CONNECTING_IP').
+        // Leave null when visitors reach the server directly.
+        'proxy_header' => null,
         'debug'        => false,
     ],
 ];

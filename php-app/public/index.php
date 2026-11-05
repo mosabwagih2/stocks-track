@@ -12,10 +12,11 @@ use Femini\Auth\Auth;
 use Femini\Auth\UserRepository;
 use Femini\Controllers\AuthController;
 use Femini\Http\Request;
+use Femini\Http\SecurityHeaders;
 use Femini\Sync\Snapshot;
 
-header('Cache-Control: no-store');
-header('X-Frame-Options: DENY');
+$req = Request::fromGlobals();
+SecurityHeaders::page($req);
 
 try {
     if (UserRepository::countUsers() === 0) {
@@ -27,7 +28,7 @@ try {
     exit;
 }
 
-Auth::startSession(Request::fromGlobals());
+Auth::startSession($req);
 $user = Auth::user();
 if ($user === null) {
     require APP_ROOT . '/views/login.php';
@@ -41,6 +42,7 @@ $boot = [
     'user'  => AuthController::publicUser($user),
     'state' => $snap['state'],
     'empty' => $snap['empty'],
+    'files' => \Femini\Files\FileStore::index(0),
 ];
 // Safe to embed inside <script>: no "</script>", no HTML comments, no JS line terminators.
 $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR);

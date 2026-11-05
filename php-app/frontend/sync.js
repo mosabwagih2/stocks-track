@@ -54,6 +54,46 @@
   let readOnly = false;      // empty server and not an admin: nothing to write yet
   let banner = '';
 
+  // ---- files: originals (Excel/CSV/photos) and the display copies of photos live on the server
+  const FILES = {};          // browser key ("ph:d12", "pk:P3", "dc:d7", "cx:ed4298") -> newest file {id,name,size,mime,hasThumb}
+  let fileSince = 0;         // highest file id this page knows about
+  const FILE_KINDS = { ph: ['doc_photo', 'doc'], pk: ['pickup', 'pickup'], dc: ['scan', 'doc'], cx: ['cancel', 'order'] };
+
+  /** The app shows photos from PH[...]: point it at the server's display copy. */
+  function registerFile(f) {
+    FILES[f.key] = f;
+    fileSince = Math.max(fileSince, f.id);
+    const prefix = f.key.slice(0, 2), id = f.key.slice(3);
+    const phKey = prefix === 'ph' ? id : prefix === 'cx' ? H.cxKey(id) : null;
+    if (phKey && f.hasThumb) H.PH[phKey] = '/api/files/' + f.id + '?thumb=1';
+  }
+
+  async function putFile(key, blob) {
+    const def = FILE_KINDS[key.slice(0, 2)];
+    if (!def || !blob) return;
+    const fd = new FormData();
+    fd.append('file', blob, blob.name || 'file');
+    fd.append('kind', def[0]);
+    fd.append('owner_type', def[1]);
+    fd.append('owner_id', key.slice(3));
+    try {
+      const res = await fetch('/api/files', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': BOOT.csrf || '' }, body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 201) { registerFile(Object.assign({ key }, data.file)); H.render(); }
+      else H.toast(data.message || 'مقدرتش أرفع الملف.');
+    } catch (e) {
+      H.toast('مفيش اتصال بالسيرفر. الملف ما اترفعش.');
+    }
+  }
+
+  async function downloadFile(key, label) {
+    const f = FILES[key];
+    if (!f) { H.toast('الملف الأصلي مش محفوظ على السيرفر.'); return; }
+    const res = await fetch('/api/files/' + f.id, { credentials: 'same-origin' });
+    if (!res.ok) { H.toast('مقدرتش أنزّل الملف.'); return; }
+    H.saveFile(f.name || label || 'file', await res.blob(), 'اتنزّل الملف الأصلي');
+  }
+
   /** What the server is known to hold: used to compute diffs without remembering every edit. */
   const base = { moves: new Set(), coll: {}, meta: {}, audit: new Set() };
 
@@ -172,7 +212,7 @@
   // ------------------------------------------------------------------ pull
 
   async function pullNow() {
-    const { status, data } = await api('GET', '/api/sync/pull?since=' + since);
+    const { status, data } = await api('GET', '/api/sync/pull?since=' + since + '&fileSince=' + fileSince);
     if (status === 401) { location.reload(); return; }
     if (status !== 200) return;
     apply(data);
@@ -234,6 +274,7 @@
     });
     if (s.audit.length > 300) s.audit.splice(0, s.audit.length - 300);
 
+    (r.files || []).forEach(f => { registerFile(f); changed = true; });
     if (r.users) s.users = r.users;
     if (r.roles) s.roles = r.roles;
     if (changed) H.after();
@@ -270,7 +311,8 @@
         + '<td class="mono">' + esc(u.username || '') + '</td>'
         + '<td><select data-c="fsurole" data-id="' + u.id + '" aria-label="دور ' + esc(u.name) + '">' + opt(u.role) + '</select></td>'
         + '<td><input type="checkbox" data-c="fsuon" data-id="' + u.id + '" aria-label="' + esc(u.name) + ' شغّال" ' + (u.on !== false ? 'checked' : '') + '></td>'
-        + '<td><input type="password" id="fsp_' + u.id + '" placeholder="8 حروف على الأقل" autocomplete="new-password" style="width:150px"> <button class="btn sm" data-a="fsupass" data-id="' + u.id + '">تغيير</button></td>'
+        + '<td>' + (u.id === s.cur ? '<input type="password" id="fsc_' + u.id + '" placeholder="الحالية" autocomplete="current-password" style="width:110px"> ' : '')
+        + '<input type="password" id="fsp_' + u.id + '" placeholder="جديدة (8+)" autocomplete="new-password" style="width:120px"> <button class="btn sm" data-a="fsupass" data-id="' + u.id + '">تغيير</button></td>'
         + '<td>' + (u.id === s.cur ? '' : '<button class="btn sm" data-a="usarch" data-id="' + u.id + '">أرشفة</button>') + '</td></tr>').join('')
       + '</tbody></table></div>'
       + '<div class="picker" style="margin-top:12px"><label class="f">الاسم<input id="fsn_name"></label><label class="f">اسم الدخول (إنجليزي)<input id="fsn_user" autocomplete="off" style="direction:ltr;text-align:start"></label><label class="f">الدور<select id="fsn_role">' + opt('pack') + '</select></label><label class="f">كلمة السر<input id="fsn_pass" type="password" autocomplete="new-password"></label><button class="btn pri" data-a="fsuadd">+ إضافة مستخدم</button></div>'
@@ -278,7 +320,7 @@
       + '</section>';
     h += '<section class="card"><h2>مصفوفة الصلاحيات <span class="hint">بتتطبّق على السيرفر. المدير دايمًا كل حاجة</span></h2><div class="tw"><table class="t-sm"><thead><tr><th>الصلاحية</th>'
       + roles.map(r => '<th class="num">' + esc(s.roles[r].name) + '</th>').join('') + '</tr></thead><tbody>'
-      + H.PERMS.map(p => '<tr><td>' + p[1] + '</td>' + roles.map(r => '<td class="num"><input type="checkbox" disabled aria-label="' + p[1] + ' · ' + esc(s.roles[r].name) + '" ' + (s.roles[r].perms.indexOf(p[0]) >= 0 ? 'checked' : '') + '></td>').join('') + '</tr>').join('')
+      + H.PERMS.map(p => '<tr><td>' + p[1] + '</td>' + roles.map(r => '<td class="num"><input type="checkbox" data-c="fsrolep" data-r="' + r + '" data-p="' + p[0] + '" aria-label="' + p[1] + ' · ' + esc(s.roles[r].name) + '" ' + (s.roles[r].perms.indexOf(p[0]) >= 0 ? 'checked' : '') + (r === 'admin' ? ' disabled' : '') + '></td>').join('') + '</tr>').join('')
       + '</tbody></table></div></section>';
     return h;
   }
@@ -292,8 +334,8 @@
       usersCall('POST', '/api/users', { name: v('fsn_name'), username: v('fsn_user'), role: v('fsn_role'), password: v('fsn_pass') }, 'اتضاف المستخدم');
     },
     fsupass: el => {
-      const p = (document.getElementById('fsp_' + el.dataset.id) || {}).value || '';
-      usersCall('POST', '/api/users/' + el.dataset.id + '/password', { password: p }, 'اتغيّرت كلمة السر');
+      const v = id => (document.getElementById(id + el.dataset.id) || {}).value || '';
+      usersCall('POST', '/api/users/' + el.dataset.id + '/password', { password: v('fsp_'), current: v('fsc_') }, 'اتغيّرت كلمة السر');
     },
     usarch: el => usersCall('PATCH', '/api/users/' + el.dataset.id, { arch: true, active: false }, 'اتأرشف المستخدم'),
     usrestore: el => usersCall('PATCH', '/api/users/' + el.dataset.id, { arch: false, active: true }, 'اتسترجع المستخدم'),
@@ -301,6 +343,11 @@
   const CHG_SERVER = {
     fsurole: el => usersCall('PATCH', '/api/users/' + el.dataset.id, { role: el.value }, 'اتغيّر الدور'),
     fsuon: el => usersCall('PATCH', '/api/users/' + el.dataset.id, { active: el.checked }, null),
+    fsrolep: el => {
+      const role = el.dataset.r;
+      const perms = [...document.querySelectorAll('input[data-c="fsrolep"][data-r="' + role + '"]')].filter(c => c.checked).map(c => c.dataset.p);
+      usersCall('PUT', '/api/roles/' + role, { perms }, 'اتحفظت الصلاحيات');
+    },
   };
   const unavailable = msg => () => H.toast(msg);
   const ACT_DISABLED = {
@@ -323,6 +370,7 @@
       H = helpers;
       Object.assign(H.ACT, ACT_SERVER, ACT_DISABLED);
       Object.assign(H.CHG, CHG_SERVER);
+      (BOOT.files || []).forEach(registerFile);
       if (fresh) {
         base.moves = new Set(); COLL.forEach(([n]) => { base.coll[n] = new Map(); }); META.forEach(([k]) => { base.meta[k] = undefined; });
         const u = (BOOT.user || {});
@@ -336,6 +384,7 @@
       window.addEventListener('online', pull);
       if (fresh && !readOnly) setTimeout(push, 300);
     },
+    files: { put: putFile, download: downloadFile },
     push,
     pull,
     banner: () => banner,
