@@ -19,6 +19,7 @@ function genDemo(){
   Date.now=()=>T;
   const info={ch:{}};
   try{
+    try{if(S&&!S.demo)localStorage.setItem(KEY+'-pre-demo',JSON.stringify(S))}catch(e){}
     const _ka=(S&&S.users)?{users:S.users,cur:S.cur,roles:S.roles,audit:S.audit}:null;S=seed();ensureSup(S);ensureCat(S);rebuildCatalog();if(_ka)Object.assign(S,_ka);S.moves=[];S.mid=1;S.docs=[];S.did=1;S.seq={};S.pickups=[];S.orders=[];S.emps=[];S.sup.log=[];S.sup.eid=0;S.costs={};phClear();_bal=null;_ctx=null;UI.doc=null;UI.sheet=null;UI.msg=null;
     const base={D:780,A:640,S:520,B:360,P:290,SH:430};
     D.models.forEach(m=>{const p=(base[m.code.replace(/\d+$/,'')]||base[m.code[0]]||450)+(m.code.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%5)*30;S.costs[m.code]={cost:Math.round(p*.42),price:p}});
@@ -175,8 +176,8 @@ function vDemo(){
    +'<p class="muted" style="margin:0 0 10px;line-height:1.8">بتملّى السيستم بـ '+DEMO_DAYS+' يوم تشغيل كامل: أوردرات من فيندور ونون وأمازون والمتجر وفيسبوك، شحن بالسكان، مرتجعات، غسيل ومصنع، جرد، مفقودات، توريد للمحل، ومستلزمات. الداتا مصغّرة عمدًا عشان متملاش تخزين المتصفح.</p>'
    +(on?'<div class="msg good" style="margin-bottom:10px">الداتا التجريبية شغّالة دلوقتي: <b>'+fmt(S.demo.orders)+'</b> أوردر · <b>'+fmt(S.docs.filter(d=>d.status==='done').length)+'</b> عملية · '+fmt(storeKB())+' KB في المتصفح.</div>':'')
    +'<div class="row" style="gap:8px;flex-wrap:wrap">'
-   +(UI.demoAsk?'<button class="btn danger" data-a="demoload">أيوه، امسح الحالي وحمّل التجريبية</button><button class="btn" data-a="demoask">إلغاء</button><span class="muted" style="font-size:12.5px">ده بيمسح اللي في المتصفح ده دلوقتي.</span>':'<button class="btn pri" data-a="demoask">'+(on?'إعادة تحميل الداتا التجريبية':'تحميل داتا تجريبية')+'</button>')
-   +(on?'<button class="btn" data-a="demoreset">رجوع للبيانات الأصلية</button>':'')+'</div></section>';
+   +(UI.demoAsk?'<button class="btn danger" data-a="demoload">أيوه، حمّل التجريبية</button><button class="btn" data-a="demoask">إلغاء</button><span class="muted" style="font-size:12.5px">ده بيستبدل اللي معروض دلوقتي بداتا تجريبية. شغلك الحالي بيتحفظ وبترجّعه بزر الرجوع.</span>':'<button class="btn pri" data-a="demoask">'+(on?'إعادة تحميل الداتا التجريبية':'تحميل داتا تجريبية')+'</button>')
+   +(on?'<button class="btn" data-a="demoreset">رجوع لبياناتي اللي قبل التجريبية</button>':'')+'</div></section>';
   h+='<section class="card"><h2>السيستم متصمم إزاي</h2><div class="dm-pr">'
    +[['سجل حركات واحد','الرصيد ناتج الحركات، مش رقم بتكتبه. فمفيش حاجة تتغيّر من غير أثر.'],['الطلب غير الشحن','البيك أب بيحجز، والسكان هو اللي بيخصم.'],['مسودة ثم تأكيد','أي عملية بتتراجع قبل التأكيد، وبعده بتتصحح بعكس ظاهر.'],['كل صنف = موديل × لون × مقاس','ومنه بيتحسب سحب كل صنف وحدّه الأدنى لوحده.']].map(x=>'<div><b>'+x[0]+'</b><span>'+x[1]+'</span></div>').join('')+'</div></section>';
   h+='<section class="card"><h2>المشاكل اللي بيعالجها <span class="hint">كل بطاقة: المشكلة، الحل، والأرقام الحية من الداتا</span></h2>'+(on?'':'<div class="msg warn" style="margin-bottom:10px">الأرقام دي من البيانات الحالية. حمّل الداتا التجريبية الأول عشان تبقى كاملة.</div>')

@@ -14,7 +14,7 @@ const ACT_PERM={pksave:'pickup',pksave2:'pickup',pkdel:'pickup',pkdel2:'pickup',
   reset:'settings',reset2:'settings',demoask:'settings',demoload:'settings',demoreset:'settings',
   skuadd:'catalog',catedit:'catalog',catsave:'catalog',skusave:'catalog',modelrm:'catalog',modelarch:'catalog',modelarch2:'catalog',modelrestore:'catalog',skuarch:'catalog',skuarch2:'catalog',skurestore:'catalog',skuop:'catalog',
   supsave:'supplies',supnew:'supplies',supconf:'supplies',suparch:'supplies',suparch2:'supplies',supundo:'supplies',supundo2:'supplies',undoentry:'supplies',supact:'supplies',
-  usadd:'users',shpdone:'ship',bkdl:'settings',bkyes:'settings',suprestoreyes:'supplies',suprestore:'supplies',usdel:'users',clconfirm:'close',clopen:'close'};
+  usadd:'users',shpdone:'ship',bkdl:'settings',bkyes:'settings',suprestoreyes:'supplies',suprestore:'supplies',usarch:'users',usrestore:'users',clconfirm:'close',clopen:'close'};
 const CLOSED_ACTS={upload:1,scansave:1,pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
 const CHG_PERM={bkfile:'settings',cost:'settings',st:'settings',actor:'settings'};
 function cyrb(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)}
@@ -117,12 +117,13 @@ function whoSheet(){
 }
 function vAccess(){
   if(!can('users'))return '<section class="card"><h2>المستخدمين والصلاحيات</h2><div class="msg warn">دورك مش بيسمح بإدارة المستخدمين.</div></section>';
-  const adm=S.users.filter(u=>u.role==='admin'&&u.on!==false).length;
+  const adm=S.users.filter(u=>u.role==='admin'&&u.on!==false&&!u.arch).length;
   const ro=sel=>Object.keys(S.roles).map(r=>'<option value="'+r+'" '+(sel===r?'selected':'')+'>'+esc(S.roles[r].name)+'</option>').join('');
   let h='<section class="card"><h2>المستخدمين <span class="hint">كل حاجة بتتسجل باسم اللي دخل</span></h2><div class="tw"><table class="dt"><thead><tr><th>الاسم</th><th>الدور</th><th>رقم سري</th><th>شغّال</th><th></th></tr></thead><tbody>'
-   +S.users.map(u=>'<tr><td><b>'+esc(u.name)+'</b>'+(u.id===S.cur?' <span class="pill info">أنت</span>':'')+'</td><td><select data-c="usrole" data-id="'+u.id+'" aria-label="دور '+esc(u.name)+'">'+ro(u.role)+'</select></td><td>'+(u.pin?'<span class="pill good">متحط</span> ':'<span class="pill">مفيش</span> ')+'<input type="password" inputmode="numeric" placeholder="جديد" data-c="usrpin" data-id="'+u.id+'" style="width:90px"></td><td><input type="checkbox" data-c="usron" data-id="'+u.id+'" aria-label="'+esc(u.name)+' شغّال" '+(u.on!==false?'checked':'')+'></td><td>'+(u.id===S.cur?'':'<button class="btn sm danger" data-a="usdel" data-id="'+u.id+'">حذف</button>')+'</td></tr>').join('')
+   +S.users.filter(u=>!u.arch).map(u=>'<tr><td><b>'+esc(u.name)+'</b>'+(u.id===S.cur?' <span class="pill info">أنت</span>':'')+'</td><td><select data-c="usrole" data-id="'+u.id+'" aria-label="دور '+esc(u.name)+'">'+ro(u.role)+'</select></td><td>'+(u.pin?'<span class="pill good">متحط</span> ':'<span class="pill">مفيش</span> ')+'<input type="password" inputmode="numeric" placeholder="جديد" data-c="usrpin" data-id="'+u.id+'" style="width:90px"></td><td><input type="checkbox" data-c="usron" data-id="'+u.id+'" aria-label="'+esc(u.name)+' شغّال" '+(u.on!==false?'checked':'')+'></td><td>'+(u.id===S.cur?'':'<button class="btn sm danger" data-a="usarch" data-id="'+u.id+'">أرشفة</button>')+'</td></tr>').join('')
    +'</tbody></table></div><div class="picker" style="margin-top:12px"><label class="f">اسم جديد<input id="nu_name"></label><label class="f">الدور<select id="nu_role">'+ro('pack')+'</select></label><label class="f">رقم سري (اختياري)<input id="nu_pin" type="password" inputmode="numeric"></label><button class="btn pri" data-a="usadd">+ إضافة مستخدم</button></div>'
-   +(adm<2?'<p class="muted" style="margin-top:8px;font-size:12.5px">لازم يفضل مدير واحد شغّال على الأقل.</p>':'')+'</section>';
+   +(adm<2?'<p class="muted" style="margin-top:8px;font-size:12.5px">لازم يفضل مدير واحد شغّال على الأقل.</p>':'')
+   +(S.users.some(u=>u.arch)?'<div class="gh" style="margin-top:16px">مؤرشفين</div><div class="tw"><table class="t-sm"><tbody>'+S.users.filter(u=>u.arch).map(u=>'<tr><td><b>'+esc(u.name)+'</b> <span class="muted">· '+esc(roleName(u.role))+'</span></td><td class="num"><button class="btn sm" data-a="usrestore" data-id="'+u.id+'">استرجاع</button></td></tr>').join('')+'</tbody></table></div><p class="muted" style="font-size:12px;margin-top:6px">المستخدم المؤرشف مش بيقدر يدخل، وكل اللي سجّله بيفضل باسمه في السجل.</p>':'')+'</section>';
   const rk=Object.keys(S.roles);
   h+='<section class="card"><h2>مصفوفة الصلاحيات <span class="hint">المدير دايمًا كل حاجة</span></h2><div class="tw"><table class="t-sm"><thead><tr><th>الصلاحية</th>'+rk.map(r=>'<th class="num">'+esc(S.roles[r].name)+'</th>').join('')+'</tr></thead><tbody>'
    +PERMS.map(p=>'<tr><td>'+p[1]+'</td>'+rk.map(r=>'<td class="num"><input type="checkbox" data-c="rolep" data-r="'+r+'" data-p="'+p[0]+'" aria-label="'+p[1]+' · '+esc(S.roles[r].name)+'" '+((r==='admin'||S.roles[r].perms.indexOf(p[0])>=0)?'checked':'')+(r==='admin'?' disabled':'')+'></td>').join('')+'</tr>').join('')+'</tbody></table></div></section>';
@@ -174,7 +175,8 @@ const ACT_ACC={
   usadd:()=>{const n=(document.getElementById('nu_name').value||'').trim(),r=document.getElementById('nu_role').value,p=(document.getElementById('nu_pin').value||'').trim();
     if(!n){toast('اكتب الاسم');return}if(S.users.some(u=>u.name===n)){toast('الاسم متكرر');return}if(p&&p.length<4){toast('الرقم السري 4 أرقام على الأقل');return}
     S.users.push({id:'u'+(Date.now().toString(36)),name:n,role:r,pin:p?pinHash(p):null,on:true});audit('مستخدم جديد: '+n+' ('+roleName(r)+')');dirty();render()},
-  usdel:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');return}S.users=S.users.filter(x=>x!==u);audit('حذف مستخدم: '+u.name);dirty();render()}
+  usarch:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false&&!x.arch).length<2){toast('لازم يفضل مدير واحد');return}u.arch=true;u.on=false;audit('أرشفة مستخدم: '+u.name);dirty();render()},
+  usrestore:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;u.arch=false;u.on=true;audit('استرجاع مستخدم: '+u.name);dirty();render()},
 };
 const CHG_ACC={
   autoclose:el=>{if(!can('close')){deny('close');render();return}S.st.autoClose=el.checked;audit('القفل التلقائي: '+(el.checked?'شغّال':'موقوف'));dirty();render()},

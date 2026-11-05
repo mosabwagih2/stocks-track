@@ -1273,10 +1273,11 @@ function flowSheet(w){
 
 /* ---------- FILES page ---------- */
 function vFiles(){
-  const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات']];
+  const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات'],['ar','المؤرشف'+((S.archPk||[]).length+(S.archDocs||[]).length?' ('+((S.archPk||[]).length+(S.archDocs||[]).length)+')':'')]];
   let h=top('الملفات','كل اللي اترفع أو اتسجّل: ملفات البيك أب والسكان وصور الورق الموقّع. من هنا تعدّلها أو تحذفها أو تلاقي مكانها.','');
   h+='<div class="msg" style="margin-bottom:14px"><b>فين بتتحفظ ملفاتي؟</b><br>كل ملف ترفعه (بيك أب، سكان، صور الورق الموقّع، صور الإلغاء) بيتحفظ بنسخته الأصلية زي ما هو، وتقدر تنزّله في أي وقت من زر ⬇. الملفات محفوظة في المتصفح ده على الجهاز ده، فلو غيّرت الجهاز أو مسحت بيانات المتصفح هتضيع. الملفات اللي اترفعت قبل الميزة دي اسمها بس هو المحفوظ.</div>';
   h+='<div class="tabs" role="tablist">'+T.map(t=>'<button role="tab" aria-selected="'+(UI.fl===t[0])+'" data-a="fltab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
+  if(UI.fl==='ar')return h+arPage();
   if(UI.fl==='sc'){
     const ds=S.docs.filter(d=>d.type==='SCN').slice().reverse();
     return h+(ds.length?'<div class="tw"><table><thead><tr><th>الرقم</th><th>الموظف</th><th>الملف</th><th>التاريخ</th><th class="num">أوردرات</th><th class="num">قطع</th><th>الحالة</th><th></th></tr></thead><tbody>'+ds.map(d=>{const pc=d.hdr.refs.reduce((a,r)=>a+((orderByRef(r)||{lines:[]}).lines.length),0);return '<tr><td class="mono">'+(d.no||'—')+'</td><td>'+esc(d.hdr.emp)+'</td><td class="muted">'+esc(d.hdr.src||'')+(d.hdr.file?'<div style="margin-top:4px">'+flBtn('dc:'+d.id,d.hdr.file,'تنزيل')+'</div>':'')+'</td><td class="mono">'+d.date+'</td><td class="num">'+N(d.hdr.refs.length)+'</td><td class="num">'+N(pc)+'</td><td>'+(d.status==='done'?pill('good','مؤكد'):d.status==='reversed'?pill('','معكوس'):pill('warn','مسودة'))+'</td><td><button class="btn sm" data-a="scedit" data-id="'+d.id+'">'+(d.status==='done'?'تعديل':'فتح')+'</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="card"><div class="empty">لسه مفيش ملفات سكان. ارفع ملف من صفحة الأوردرات.</div></div>');
@@ -1299,9 +1300,9 @@ function pkEditSheet(s){
   body+='<div class="grid g2">'+'<label class="f" style="grid-column:1/-1">اسم البيك أب<input value="'+esc(s.f.label)+'" data-c="pkf" data-f="label"></label><label class="f">التاريخ<input type="date" value="'+esc(s.f.date)+'" data-c="pkf" data-f="date"></label><label class="f">القناة<select data-c="pkf" data-f="channel">'+CHAN.map(c=>'<option value="'+c.id+'" '+(s.f.channel===c.id?'selected':'')+'>'+c.name+'</option>').join('')+'</select></label></div>';
   if(s.err)body+='<div class="msg crit">'+esc(s.err)+'</div>';
   body+='<div class="row"><button class="btn pri" data-a="pksave2">حفظ التعديل</button><button class="btn" data-a="of3" data-id="'+p.id+'">فتح أوردراته</button></div>';
-  body+='<div class="card flat" style="margin-top:6px"><h2 style="font-size:15px">حذف البيك أب</h2>';
-  if(dn)body+='<div class="msg warn">مينفعش تحذفه لأن فيه '+dn+' أوردر اتشحن (الرصيد اتخصم). اعكس عمليات السكان الأول من صفحة العمليات.</div>';
-  else body+=s.del?'<div class="msg crit">هتتمسح '+po.length+' أوردر من "'+esc(p.label)+'" ومش هيتحسبوا كطلب. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="pkdel2">أيوه، احذف</button><button class="btn sm" data-a="pkdel">لأ</button></div></div>':'<p class="muted" style="margin-bottom:10px">بيمسح الأوردرات المفتوحة بتاعته. مش بيأثّر على المخزون لأن البيك أب مش بيخصم.</p><button class="btn danger sm" data-a="pkdel">حذف البيك أب</button>';
+  body+='<div class="card flat" style="margin-top:6px"><h2 style="font-size:15px">أرشفة البيك أب</h2>';
+  if(dn)body+='<div class="msg warn">مينفعش تأرشفه لأن فيه '+dn+' أوردر اتشحن (الرصيد اتخصم). اعكس عمليات السكان الأول من صفحة العمليات.</div>';
+  else body+=s.del?'<div class="msg crit">هيتأرشف '+po.length+' أوردر من "'+esc(p.label)+'" ومش هيتحسبوا كطلب. تقدر ترجّعه من الملفات ← المؤرشف. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="pkdel2">أيوه، أرشف</button><button class="btn sm" data-a="pkdel">لأ</button></div></div>':'<p class="muted" style="margin-bottom:10px">بينقل البيك أب وأوردراته المفتوحة للمؤرشف. مش بيأثّر على المخزون لأن البيك أب مش بيخصم.</p><button class="btn sm" data-a="pkdel">أرشفة البيك أب</button>';
   return {title:p.label,body:body+'</div>'};
 }
 function scEditSheet(s){
@@ -1751,6 +1752,8 @@ function sheetHTML(){
     const r=modelRmSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='skuadd'){
     const r=skuAddSheet(s);title=r.title;body=r.body;
+  }else if(s.kind==='dk'){
+    const r=dkSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='oos'){
     const Dd=dashData();title='أصناف خلصت وعليها طلب ('+Dd.oos.length+')';
     body=Dd.oos.length?'<div class="msg">دي أصناف رصيدها صفر أو بالسالب وبتتباع (أو عليها طلب مفتوح). "ضايع/أسبوع" = معدل السحب × 7، يعني الطلب اللي هيتأخر لحد ما ترجع.</div><div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">طلب مفتوح</th><th class="num">ضايع/أسبوع</th></tr></thead><tbody>'+Dd.oos.slice(0,60).map(x=>'<tr data-a="sku" data-sku="'+x.id+'"><td>'+thumb(SKU.get(x.id).m,26)+' '+sw(SKU.get(x.id).c)+' '+esc(skuName(x.id))+'</td><td class="num">'+N(x.dm)+'</td><td class="num">'+N(Math.round(x.rd*7))+'</td></tr>').join('')+'</tbody></table></div><button class="btn pri" data-a="oosplan">افتح اقتراح التصنيع</button>':'<div class="msg good">مفيش أصناف خلصت وعليها طلب.</div>';
@@ -1779,7 +1782,7 @@ function sheetHTML(){
     const r=scEditSheet(s);title=r.title;body=r.body;
   }else if(s.kind==='img'){
     title='صورة '+mName(s.m);const u=imgOf(s.m);
-    body=(u?'<img class="bigimg" src="'+u+'" alt="'+esc(s.m)+'">':'<div class="drop" data-a="pickimg" data-m="'+s.m+'"><b>مفيش صورة للموديل ده</b><span class="muted">اضغط لاختيار صورة (الأفضل خلفية فاتحة وصورة المنتج كله)</span></div>')+'<div class="row"><button class="btn pri" data-a="pickimg" data-m="'+s.m+'">'+(u?'تغيير الصورة':'رفع صورة')+'</button>'+(u?'<button class="btn danger" data-a="rmimg" data-m="'+s.m+'">إزالة</button>':'')+'</div><p class="muted" style="font-size:12px">أي صورة بترفعها بتتحوّل أوتوماتيك لمربع 1:1 (600×600) من غير قص: الصورة كاملة بتتحط في النص وبياض الخلفية بياخد لون ركن الصورة. الأفضل ترفعها مربعة من الأول (مثلًا 1000×1000). بتتحفظ في المتصفح ده بس.</p>';
+    body=(u?'<img class="bigimg" src="'+u+'" alt="'+esc(s.m)+'">':'<div class="drop" data-a="pickimg" data-m="'+s.m+'"><b>مفيش صورة للموديل ده</b><span class="muted">اضغط لاختيار صورة (الأفضل خلفية فاتحة وصورة المنتج كله)</span></div>')+'<div class="row"><button class="btn pri" data-a="pickimg" data-m="'+s.m+'">'+(u?'تغيير الصورة':'رفع صورة')+'</button>'+'</div><p class="muted" style="font-size:12px">أي صورة بترفعها بتتحوّل أوتوماتيك لمربع 1:1 (600×600) من غير قص: الصورة كاملة بتتحط في النص وبياض الخلفية بياخد لون ركن الصورة. الأفضل ترفعها مربعة من الأول (مثلًا 1000×1000). بتتحفظ في المتصفح ده بس.</p>';
   }else if(s.kind==='sku'){
     const k=SKU.get(s.sku),i=info(s.sku);title=skuName(s.sku);
     body='<div class="row" style="flex-wrap:nowrap;gap:14px"><button class="imgbtn" data-a="img" data-m="'+k.m+'" aria-label="صورة الموديل">'+thumb(k.m,84)+'</button><div><b>'+esc(mName(k.m))+'</b><div class="muted">'+sw(k.c)+' '+esc(k.c)+' · مقاس '+k.s+'</div></div></div>';
@@ -1928,6 +1931,7 @@ function genDemo(){
   Date.now=()=>T;
   const info={ch:{}};
   try{
+    try{if(S&&!S.demo)localStorage.setItem(KEY+'-pre-demo',JSON.stringify(S))}catch(e){}
     const _ka=(S&&S.users)?{users:S.users,cur:S.cur,roles:S.roles,audit:S.audit}:null;S=seed();ensureSup(S);ensureCat(S);rebuildCatalog();if(_ka)Object.assign(S,_ka);S.moves=[];S.mid=1;S.docs=[];S.did=1;S.seq={};S.pickups=[];S.orders=[];S.emps=[];S.sup.log=[];S.sup.eid=0;S.costs={};phClear();_bal=null;_ctx=null;UI.doc=null;UI.sheet=null;UI.msg=null;
     const base={D:780,A:640,S:520,B:360,P:290,SH:430};
     D.models.forEach(m=>{const p=(base[m.code.replace(/\d+$/,'')]||base[m.code[0]]||450)+(m.code.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%5)*30;S.costs[m.code]={cost:Math.round(p*.42),price:p}});
@@ -2084,8 +2088,8 @@ function vDemo(){
    +'<p class="muted" style="margin:0 0 10px;line-height:1.8">بتملّى السيستم بـ '+DEMO_DAYS+' يوم تشغيل كامل: أوردرات من فيندور ونون وأمازون والمتجر وفيسبوك، شحن بالسكان، مرتجعات، غسيل ومصنع، جرد، مفقودات، توريد للمحل، ومستلزمات. الداتا مصغّرة عمدًا عشان متملاش تخزين المتصفح.</p>'
    +(on?'<div class="msg good" style="margin-bottom:10px">الداتا التجريبية شغّالة دلوقتي: <b>'+fmt(S.demo.orders)+'</b> أوردر · <b>'+fmt(S.docs.filter(d=>d.status==='done').length)+'</b> عملية · '+fmt(storeKB())+' KB في المتصفح.</div>':'')
    +'<div class="row" style="gap:8px;flex-wrap:wrap">'
-   +(UI.demoAsk?'<button class="btn danger" data-a="demoload">أيوه، امسح الحالي وحمّل التجريبية</button><button class="btn" data-a="demoask">إلغاء</button><span class="muted" style="font-size:12.5px">ده بيمسح اللي في المتصفح ده دلوقتي.</span>':'<button class="btn pri" data-a="demoask">'+(on?'إعادة تحميل الداتا التجريبية':'تحميل داتا تجريبية')+'</button>')
-   +(on?'<button class="btn" data-a="demoreset">رجوع للبيانات الأصلية</button>':'')+'</div></section>';
+   +(UI.demoAsk?'<button class="btn danger" data-a="demoload">أيوه، حمّل التجريبية</button><button class="btn" data-a="demoask">إلغاء</button><span class="muted" style="font-size:12.5px">ده بيستبدل اللي معروض دلوقتي بداتا تجريبية. شغلك الحالي بيتحفظ وبترجّعه بزر الرجوع.</span>':'<button class="btn pri" data-a="demoask">'+(on?'إعادة تحميل الداتا التجريبية':'تحميل داتا تجريبية')+'</button>')
+   +(on?'<button class="btn" data-a="demoreset">رجوع لبياناتي اللي قبل التجريبية</button>':'')+'</div></section>';
   h+='<section class="card"><h2>السيستم متصمم إزاي</h2><div class="dm-pr">'
    +[['سجل حركات واحد','الرصيد ناتج الحركات، مش رقم بتكتبه. فمفيش حاجة تتغيّر من غير أثر.'],['الطلب غير الشحن','البيك أب بيحجز، والسكان هو اللي بيخصم.'],['مسودة ثم تأكيد','أي عملية بتتراجع قبل التأكيد، وبعده بتتصحح بعكس ظاهر.'],['كل صنف = موديل × لون × مقاس','ومنه بيتحسب سحب كل صنف وحدّه الأدنى لوحده.']].map(x=>'<div><b>'+x[0]+'</b><span>'+x[1]+'</span></div>').join('')+'</div></section>';
   h+='<section class="card"><h2>المشاكل اللي بيعالجها <span class="hint">كل بطاقة: المشكلة، الحل، والأرقام الحية من الداتا</span></h2>'+(on?'':'<div class="msg warn" style="margin-bottom:10px">الأرقام دي من البيانات الحالية. حمّل الداتا التجريبية الأول عشان تبقى كاملة.</div>')
@@ -2158,7 +2162,7 @@ const ACT_PERM={pksave:'pickup',pksave2:'pickup',pkdel:'pickup',pkdel2:'pickup',
   reset:'settings',reset2:'settings',demoask:'settings',demoload:'settings',demoreset:'settings',
   skuadd:'catalog',catedit:'catalog',catsave:'catalog',skusave:'catalog',modelrm:'catalog',modelarch:'catalog',modelarch2:'catalog',modelrestore:'catalog',skuarch:'catalog',skuarch2:'catalog',skurestore:'catalog',skuop:'catalog',
   supsave:'supplies',supnew:'supplies',supconf:'supplies',suparch:'supplies',suparch2:'supplies',supundo:'supplies',supundo2:'supplies',undoentry:'supplies',supact:'supplies',
-  usadd:'users',shpdone:'ship',bkdl:'settings',bkyes:'settings',suprestoreyes:'supplies',suprestore:'supplies',usdel:'users',clconfirm:'close',clopen:'close'};
+  usadd:'users',shpdone:'ship',bkdl:'settings',bkyes:'settings',suprestoreyes:'supplies',suprestore:'supplies',usarch:'users',usrestore:'users',clconfirm:'close',clopen:'close'};
 const CLOSED_ACTS={upload:1,scansave:1,pksave:1,pksave2:1,cxgo:1,supsave:1,supundo:1,supundo2:1,undoentry:1,supact:1};
 const CHG_PERM={bkfile:'settings',cost:'settings',st:'settings',actor:'settings'};
 function cyrb(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)}
@@ -2261,12 +2265,13 @@ function whoSheet(){
 }
 function vAccess(){
   if(!can('users'))return '<section class="card"><h2>المستخدمين والصلاحيات</h2><div class="msg warn">دورك مش بيسمح بإدارة المستخدمين.</div></section>';
-  const adm=S.users.filter(u=>u.role==='admin'&&u.on!==false).length;
+  const adm=S.users.filter(u=>u.role==='admin'&&u.on!==false&&!u.arch).length;
   const ro=sel=>Object.keys(S.roles).map(r=>'<option value="'+r+'" '+(sel===r?'selected':'')+'>'+esc(S.roles[r].name)+'</option>').join('');
   let h='<section class="card"><h2>المستخدمين <span class="hint">كل حاجة بتتسجل باسم اللي دخل</span></h2><div class="tw"><table class="dt"><thead><tr><th>الاسم</th><th>الدور</th><th>رقم سري</th><th>شغّال</th><th></th></tr></thead><tbody>'
-   +S.users.map(u=>'<tr><td><b>'+esc(u.name)+'</b>'+(u.id===S.cur?' <span class="pill info">أنت</span>':'')+'</td><td><select data-c="usrole" data-id="'+u.id+'" aria-label="دور '+esc(u.name)+'">'+ro(u.role)+'</select></td><td>'+(u.pin?'<span class="pill good">متحط</span> ':'<span class="pill">مفيش</span> ')+'<input type="password" inputmode="numeric" placeholder="جديد" data-c="usrpin" data-id="'+u.id+'" style="width:90px"></td><td><input type="checkbox" data-c="usron" data-id="'+u.id+'" aria-label="'+esc(u.name)+' شغّال" '+(u.on!==false?'checked':'')+'></td><td>'+(u.id===S.cur?'':'<button class="btn sm danger" data-a="usdel" data-id="'+u.id+'">حذف</button>')+'</td></tr>').join('')
+   +S.users.filter(u=>!u.arch).map(u=>'<tr><td><b>'+esc(u.name)+'</b>'+(u.id===S.cur?' <span class="pill info">أنت</span>':'')+'</td><td><select data-c="usrole" data-id="'+u.id+'" aria-label="دور '+esc(u.name)+'">'+ro(u.role)+'</select></td><td>'+(u.pin?'<span class="pill good">متحط</span> ':'<span class="pill">مفيش</span> ')+'<input type="password" inputmode="numeric" placeholder="جديد" data-c="usrpin" data-id="'+u.id+'" style="width:90px"></td><td><input type="checkbox" data-c="usron" data-id="'+u.id+'" aria-label="'+esc(u.name)+' شغّال" '+(u.on!==false?'checked':'')+'></td><td>'+(u.id===S.cur?'':'<button class="btn sm danger" data-a="usarch" data-id="'+u.id+'">أرشفة</button>')+'</td></tr>').join('')
    +'</tbody></table></div><div class="picker" style="margin-top:12px"><label class="f">اسم جديد<input id="nu_name"></label><label class="f">الدور<select id="nu_role">'+ro('pack')+'</select></label><label class="f">رقم سري (اختياري)<input id="nu_pin" type="password" inputmode="numeric"></label><button class="btn pri" data-a="usadd">+ إضافة مستخدم</button></div>'
-   +(adm<2?'<p class="muted" style="margin-top:8px;font-size:12.5px">لازم يفضل مدير واحد شغّال على الأقل.</p>':'')+'</section>';
+   +(adm<2?'<p class="muted" style="margin-top:8px;font-size:12.5px">لازم يفضل مدير واحد شغّال على الأقل.</p>':'')
+   +(S.users.some(u=>u.arch)?'<div class="gh" style="margin-top:16px">مؤرشفين</div><div class="tw"><table class="t-sm"><tbody>'+S.users.filter(u=>u.arch).map(u=>'<tr><td><b>'+esc(u.name)+'</b> <span class="muted">· '+esc(roleName(u.role))+'</span></td><td class="num"><button class="btn sm" data-a="usrestore" data-id="'+u.id+'">استرجاع</button></td></tr>').join('')+'</tbody></table></div><p class="muted" style="font-size:12px;margin-top:6px">المستخدم المؤرشف مش بيقدر يدخل، وكل اللي سجّله بيفضل باسمه في السجل.</p>':'')+'</section>';
   const rk=Object.keys(S.roles);
   h+='<section class="card"><h2>مصفوفة الصلاحيات <span class="hint">المدير دايمًا كل حاجة</span></h2><div class="tw"><table class="t-sm"><thead><tr><th>الصلاحية</th>'+rk.map(r=>'<th class="num">'+esc(S.roles[r].name)+'</th>').join('')+'</tr></thead><tbody>'
    +PERMS.map(p=>'<tr><td>'+p[1]+'</td>'+rk.map(r=>'<td class="num"><input type="checkbox" data-c="rolep" data-r="'+r+'" data-p="'+p[0]+'" aria-label="'+p[1]+' · '+esc(S.roles[r].name)+'" '+((r==='admin'||S.roles[r].perms.indexOf(p[0])>=0)?'checked':'')+(r==='admin'?' disabled':'')+'></td>').join('')+'</tr>').join('')+'</tbody></table></div></section>';
@@ -2318,7 +2323,8 @@ const ACT_ACC={
   usadd:()=>{const n=(document.getElementById('nu_name').value||'').trim(),r=document.getElementById('nu_role').value,p=(document.getElementById('nu_pin').value||'').trim();
     if(!n){toast('اكتب الاسم');return}if(S.users.some(u=>u.name===n)){toast('الاسم متكرر');return}if(p&&p.length<4){toast('الرقم السري 4 أرقام على الأقل');return}
     S.users.push({id:'u'+(Date.now().toString(36)),name:n,role:r,pin:p?pinHash(p):null,on:true});audit('مستخدم جديد: '+n+' ('+roleName(r)+')');dirty();render()},
-  usdel:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false).length<2){toast('لازم يفضل مدير واحد');return}S.users=S.users.filter(x=>x!==u);audit('حذف مستخدم: '+u.name);dirty();render()}
+  usarch:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u||u.id===S.cur)return;if(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.on!==false&&!x.arch).length<2){toast('لازم يفضل مدير واحد');return}u.arch=true;u.on=false;audit('أرشفة مستخدم: '+u.name);dirty();render()},
+  usrestore:el=>{const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;u.arch=false;u.on=true;audit('استرجاع مستخدم: '+u.name);dirty();render()},
 };
 const CHG_ACC={
   autoclose:el=>{if(!can('close')){deny('close');render();return}S.st.autoClose=el.checked;audit('القفل التلقائي: '+(el.checked?'شغّال':'موقوف'));dirty();render()},
@@ -2771,6 +2777,90 @@ async function flDL(key,label){
 function flBtn(key,meta,txt){return meta?'<button class="btn sm" data-a="fldl" data-k="'+esc(key)+'" data-n="'+esc(meta.name||'')+'">⬇ '+(txt||'تنزيل الملف الأصلي')+' <span class="muted" style="font-size:11px">'+esc(meta.name||'')+(meta.size?' · '+flSize(meta.size):'')+'</span></button>':''}
 const ACT_FL={fldl:el=>{flDL(el.dataset.k,el.dataset.n)}};
 function flDel(key){if(!IDBH||!IDBH.objectStoreNames.contains('fl'))return;try{IDBH.transaction('fl','readwrite').objectStore('fl').delete(key)}catch(e){}}
+/* ---------- nothing is ever deleted: the only way to take something out of sight is to archive it ---------- */
+const ACT_AR={
+  restorepk:el=>{const a=(S.archPk||[]).find(x=>x.p.id===el.dataset.id);if(!a)return;const have={};S.orders.forEach(o=>have[o.ref]=1);
+    const back=a.orders.filter(o=>!have[o.ref]),skip=a.orders.length-back.length;S.pickups.push(a.p);back.forEach(o=>S.orders.push(o));S.archPk=S.archPk.filter(x=>x!==a);audit('استرجاع بيك أب: '+a.p.label);dirty();toast('اتسترجع '+a.p.label+' ('+back.length+' أوردر)'+(skip?'. '+skip+' أوردر موجودين بالفعل فمتكرروش':''));render()},
+  restoredoc:el=>{const a=(S.archDocs||[]).find(x=>x.d.id===el.dataset.id);if(!a)return;S.docs.push(a.d);S.archDocs=S.archDocs.filter(x=>x!==a);audit('استرجاع مسودة');dirty();toast('اتسترجعت المسودة');render()},
+  demoreset:()=>{let p=null;try{p=localStorage.getItem(KEY+'-pre-demo')}catch(e){}
+    if(p){try{S=JSON.parse(p);ensureSup(S);ensureCat(S);rebuildCatalog();S.date=cairoToday();_bal=null;_ctx=null;UI.doc=null;UI.sheet=null;UI.demoAsk=false;save();UI.tab='today';toast('رجعت البيانات اللي كانت قبل الداتا التجريبية');render();return}catch(e){}}
+    ACT.reset2();UI.tab='today';render()}
+};
+function arPage(){
+  const pk=(S.archPk||[]).slice().reverse(),dc=(S.archDocs||[]).slice().reverse();
+  let h='<div class="msg" style="margin-bottom:14px">مفيش حاجة بتتمسح من السيستم. اللي بتأرشفه بيتشال من الشاشات لكنه محفوظ هنا وتقدر ترجّعه في أي وقت.</div>';
+  h+='<div class="gh">بيك أب مؤرشف</div>'+(pk.length?'<div class="tw"><table class="t-sm"><thead><tr><th>البيك أب</th><th>التاريخ</th><th class="num">أوردرات</th><th>اتأرشف</th><th></th></tr></thead><tbody>'+pk.map(a=>'<tr><td><b>'+esc(a.p.label)+'</b></td><td class="mono">'+esc(a.p.date)+'</td><td class="num">'+fmt(a.orders.length)+'</td><td class="muted">'+esc((a.by||'')+(a.at?' · '+timeOf(a.at):''))+'</td><td class="num"><button class="btn sm" data-a="restorepk" data-id="'+a.p.id+'">استرجاع</button></td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">مفيش بيك أب مؤرشف.</div></div>');
+  h+='<div class="gh" style="margin-top:18px">مسودات مؤرشفة</div>'+(dc.length?'<div class="tw"><table class="t-sm"><thead><tr><th>النوع</th><th>التاريخ</th><th class="num">بنود</th><th>اتأرشف</th><th></th></tr></thead><tbody>'+dc.map(a=>'<tr><td><b>'+esc((OT[a.d.type]||{}).ar||a.d.type)+'</b></td><td class="mono">'+esc(a.d.date||'')+'</td><td class="num">'+fmt((a.d.lines||[]).length)+'</td><td class="muted">'+esc((a.by||'')+(a.at?' · '+timeOf(a.at):''))+'</td><td class="num"><button class="btn sm" data-a="restoredoc" data-id="'+a.d.id+'">استرجاع</button></td></tr>').join('')+'</tbody></table></div>':'<div class="card"><div class="empty">مفيش مسودات مؤرشفة.</div></div>');
+  return h;
+}
+
+/* ---------- dashboard cards: every number opens a pop-up showing what is inside it ---------- */
+const dkShipped=o=>o.sc&&o.sc.date&&(o.st==='done'||(o.st==='cx'&&o.cx&&o.cx.was==='done'));
+function dkPer(Dd){return Dd.P==='all'?'كل البيانات ('+Dd.spanAll+' يوم)':Dd.P==='1'?'النهارده':'آخر '+Dd.N+' يوم'}
+function dkOrders(list,dateOf,noteOf){
+  if(!list.length)return '<div class="empty">مفيش أوردرات هنا.</div>';
+  const L=list.slice(0,60);
+  return '<div class="tw"><table class="t-sm"><thead><tr><th>الأوردر</th><th>المحافظة</th>'+(dateOf?'<th>التاريخ</th>':'')+'<th class="num">القيمة</th>'+(noteOf?'<th>ملاحظة</th>':'')+'</tr></thead><tbody>'+L.map(o=>'<tr data-a="order" data-ref="'+esc(o.ref)+'" style="cursor:pointer"><td><b class="mono">'+esc(o.ref)+'</b><div class="muted mono" style="font-size:11px">'+esc(o.wb||'')+'</div></td><td>'+esc(o.gov||'—')+'</td>'+(dateOf?'<td class="mono">'+esc(dateOf(o)||'')+'</td>':'')+'<td class="num"><b class="n">'+fmt(Math.round(ordVal(o)))+'</b></td>'+(noteOf?'<td>'+noteOf(o)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>'+(list.length>L.length?'<p class="muted" style="font-size:12px">معروض أول '+L.length+' من '+fmt(list.length)+'. الباقي في صفحة الأوردرات.</p>':'');
+}
+function dkModels(map,unit,total){
+  const ks=Object.keys(map).filter(k=>map[k]>0).sort((a,b)=>map[b]-map[a]);
+  if(!ks.length)return '<div class="empty">مفيش حاجة في الفترة دي.</div>';
+  const t=total||ks.reduce((a,k)=>a+map[k],0);
+  return '<div class="tw"><table class="t-sm"><thead><tr><th>الموديل</th><th class="num">'+unit+'</th><th class="num">النسبة</th></tr></thead><tbody>'+ks.map(k=>'<tr><td><span class="row" style="gap:8px;flex-wrap:nowrap">'+thumb(k,28)+'<b>'+esc(mName(k))+'</b></span></td><td class="num"><b class="n">'+fmt(Math.round(map[k]))+'</b></td><td class="num muted">'+Math.round(map[k]/t*100)+'%</td></tr>').join('')+'</tbody></table></div>';
+}
+function dkMoves(Dd,pred){
+  const r={};S.moves.forEach(m=>{if(m.date<Dd.from||m.date>Dd.end)return;const x=pred(m);if(!x)return;const k=SKU.get(m.sku);if(!k)return;r[k.m]=(r[k.m]||0)+x});return r;
+}
+function dkSheet(s){
+  const Dd=dashData(),M=Dd.M,per=dkPer(Dd),inW=d=>d>=Dd.from&&d<=Dd.end,strip=a=>'<div class="kpis">'+a.map(x=>'<div class="kpi '+(x[3]||'')+'"><small>'+x[0]+'</small><b>'+x[1]+'</b>'+(x[2]?'<em>'+x[2]+'</em>':'')+'</div>').join('')+'</div>';
+  const note=t=>'<p class="muted" style="font-size:12.5px">'+t+'</p>';
+  let title='',body='';
+  const k=s.k;
+  if(k==='open'){
+    const C=ctx(),os=Dd.open.slice().sort((a,b)=>(C.blocked[b.ref]?1:0)-(C.blocked[a.ref]?1:0)||ordVal(b)-ordVal(a));
+    title='أوردرات مستنية الشحن ('+os.length+')';
+    body=strip([['القيمة',EGPh(Dd.openV),os.length+' أوردر'],['معطّل',EGPh(Dd.blkV),Dd.blk.length+' أوردر',Dd.blk.length?'crit':'']])+note('الأوردرات اللي اتطلبت ولسه ما اتسكنتش. "معطّل" يعني فيه قطعة ناقصة في الرصيد.')+dkOrders(os,null,o=>C.blocked[o.ref]?pill('crit','معطّل'):pill('good','جاهز'))+(Dd.blk.length?'<div class="row" style="margin-top:8px"><button class="btn" data-a="dkstuck">افتح تبويب الأوردرات الواقفة</button></div>':'');
+  }else if(k==='shipv'){
+    const os=S.orders.filter(o=>dkShipped(o)&&inW(o.sc.date)).sort((a,b)=>(b.sc.date>a.sc.date?1:-1)||ordVal(b)-ordVal(a)),gv={};
+    os.forEach(o=>{const g_=o.gov||'غير محدد',x=gv[g_]||(gv[g_]={n:0,v:0});x.n++;x.v+=ordVal(o)});
+    title='اتشحن · '+per;
+    body=strip([['القيمة',EGPh(M.shipV),M.shipO+' أوردر','good'],['المتوسط',M.shipO?EGPh(M.shipV/M.shipO):'—','للأوردر']])+(Object.keys(gv).length?'<div class="gh">حسب المحافظة</div><div class="tw"><table class="t-sm"><tbody>'+Object.keys(gv).sort((a,b)=>gv[b].v-gv[a].v).slice(0,8).map(g_=>'<tr><td>'+esc(g_)+'</td><td class="num">'+fmt(gv[g_].n)+' أوردر</td><td class="num"><b class="n">'+fmt(Math.round(gv[g_].v))+'</b> ج</td></tr>').join('')+'</tbody></table></div>':'')+'<div class="gh">الأوردرات</div>'+dkOrders(os,o=>o.sc.date);
+  }else if(k==='avg'){
+    const os=S.orders.filter(o=>dkShipped(o)&&inW(o.sc.date)),vs=os.map(ordVal).sort((a,b)=>a-b),med=vs.length?vs[Math.floor(vs.length/2)]:0;
+    title='متوسط الأوردر · '+per;
+    body=strip([['المتوسط',M.shipO?EGPh(M.shipV/M.shipO):'—',M.shipO+' أوردر'],['الوسيط',EGPh(med),'نص الأوردرات أقل منه'],['أصغر',EGPh(vs[0]||0)],['أكبر',EGPh(vs[vs.length-1]||0)]])+note('بيتحسب على الأوردرات اللي اتشحنت في الفترة بس، وبالقيمة الكاملة شامل الشحن.')+'<div class="gh">أكبر الأوردرات</div>'+dkOrders(os.sort((a,b)=>ordVal(b)-ordVal(a)).slice(0,10),o=>o.sc.date);
+  }else if(k==='retv'){
+    const os=S.orders.filter(o=>(o.rt&&o.rt.date&&inW(o.rt.date))||(!o.rt&&o.cx&&o.cx.returned&&o.cx.date&&inW(o.cx.date))).sort((a,b)=>ordVal(b)-ordVal(a));
+    title='مرتجع · '+per;
+    body=strip([['القيمة',EGPh(M.retV),M.shipV?Math.round(M.retV/M.shipV*100)+'% من اللي اتشحن':'',M.retV?'warn':''],['أوردرات',N(os.length)]])+dkOrders(os,o=>(o.rt&&o.rt.date)||(o.cx&&o.cx.date),o=>o.rt?'مرتجع':'اتلغى ورجع');
+  }else if(k==='stockv'){
+    const cost=m=>+((S.costs[m]||{}).cost)||0,rows={},loss={};
+    D.skus.forEach(x=>{rows[x.m]=(rows[x.m]||0)+cost(x.m)*g(x.id,'READY');loss[x.m]=(loss[x.m]||0)+cost(x.m)*(g(x.id,'SCRAP')+g(x.id,'LOST'))});
+    title='قيمة المخزون الجاهز';
+    body=strip([['القيمة (بالتكلفة)',EGPh(Dd.stockV),fmt(Dd.nowR)+' قطعة جاهزة'],['هالك + مفقود',EGPh(Dd.lossV),'بالتكلفة',Dd.lossV?'warn':'']])+'<div class="gh">حسب الموديل (ج)</div>'+dkModels(rows,'القيمة');
+  }else if(k==='dem'){
+    const mm={},pk=S.pickups.filter(p=>p.date>=Dd.from&&p.date<=Dd.end).slice().reverse(),pkS={};
+    S.orders.forEach(o=>{if(o.st==='cx')return;const p=pk.find(x=>x.id===o.pk);if(!p)return;const x=pkS[p.id]||(pkS[p.id]={n:0,q:0});x.n++;x.q+=o.lines.length;o.lines.forEach(sk=>{const q=SKU.get(sk);if(q)mm[q.m]=(mm[q.m]||0)+1})});
+    title='طلب (بيك أب) · '+per;
+    body=strip([['قطع',N(M.dem),M.demO+' أوردر']])+'<div class="gh">حسب البيك أب</div>'+(pk.length?'<div class="tw"><table class="t-sm"><thead><tr><th>البيك أب</th><th>التاريخ</th><th class="num">أوردرات</th><th class="num">قطع</th></tr></thead><tbody>'+pk.map(p=>'<tr><td><b>'+esc(p.label)+'</b></td><td class="mono">'+esc(p.date)+'</td><td class="num">'+fmt((pkS[p.id]||{n:0}).n)+'</td><td class="num"><b class="n">'+fmt((pkS[p.id]||{q:0}).q)+'</b></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">مفيش بيك أب في الفترة دي.</div>')+'<div class="gh">حسب الموديل</div>'+dkModels(mm,'قطع');
+  }else if(k==='ship'){
+    title='اتشحن (قطع) · '+per;
+    body=strip([['قطع',N(M.ship),'خروج فعلي بالسكان','good']])+'<div class="gh">حسب الموديل</div>'+dkModels(dkMoves(Dd,m=>m.type==='SCN'?(m.from==='READY'&&m.to==='EXT_CH'?m.q:m.from==='EXT_CH'&&m.to==='READY'?-m.q:0):0),'قطع');
+  }else if(k==='ret'){
+    title='رجع (قطع) · '+per;
+    body=strip([['قطع',N(M.ret),M.ship?Math.round(M.ret/M.ship*100)+'% من اللي اتشحن':'',M.ret?'warn':'']])+'<div class="gh">حسب الموديل</div>'+dkModels(dkMoves(Dd,m=>(m.type==='RTN'||m.type==='CXL')?(m.from==='EXT_CH'&&m.to==='READY'?m.q:m.from==='READY'&&m.to==='EXT_CH'?-m.q:0):0),'قطع');
+  }else if(k==='rcv'){
+    const ds=S.docs.filter(d=>d.type==='RCV'&&d.status==='done'&&d.date>=Dd.from&&d.date<=Dd.end).slice().reverse();
+    title='اتسلّم من المصنع · '+per;
+    body=strip([['قطع',N(M.rcv),ds.length+' استلام']])+'<div class="gh">حسب الموديل</div>'+dkModels(dkMoves(Dd,m=>m.type==='RCV'&&m.to==='READY'?m.q:0),'قطع')+'<div class="gh">عمليات الاستلام</div>'+(ds.length?'<div class="tw"><table class="t-sm"><thead><tr><th>الرقم</th><th>التاريخ</th><th class="num">قطع</th></tr></thead><tbody>'+ds.map(d=>'<tr data-a="opendoc2" data-id="'+d.id+'" style="cursor:pointer"><td><b class="mono">'+esc(d.no||'')+'</b></td><td class="mono">'+esc(d.date)+'</td><td class="num"><b class="n">'+fmt(d.lines.reduce((a,l)=>a+num(l.q),0))+'</b></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">مفيش استلام في الفترة دي.</div>');
+  }else if(k==='loss'){
+    const ms=S.moves.filter(m=>(m.to==='SCRAP'||m.to==='LOST')&&m.date>=Dd.from&&m.date<=Dd.end).slice().reverse();
+    title='هالك ومفقود · '+per;
+    body=strip([['هالك',N(M.scrap),'',M.scrap?'warn':''],['مفقود',N(M.lost),'',M.lost?'warn':'']])+'<div class="gh">حسب الموديل</div>'+dkModels(dkMoves(Dd,m=>(m.to==='SCRAP'||m.to==='LOST')?m.q:0),'قطع')+'<div class="gh">الحركات</div>'+(ms.length?'<div class="tw"><table class="t-sm"><thead><tr><th>التاريخ</th><th>الصنف</th><th>النوع</th><th class="num">قطع</th></tr></thead><tbody>'+ms.slice(0,60).map(m=>'<tr data-a="sku" data-sku="'+esc(m.sku)+'" style="cursor:pointer"><td class="mono">'+esc(m.date)+'</td><td>'+esc(skuName(m.sku))+'<div class="muted" style="font-size:11px">'+esc(m.note||m.doc||'')+'</div></td><td>'+(m.to==='SCRAP'?pill('warn','هالك'):pill('lost','مفقود'))+'</td><td class="num"><b class="n">'+fmt(m.q)+'</b></td></tr>').join('')+'</tbody></table></div>'+(ms.length>60?'<p class="muted" style="font-size:12px">معروض أحدث 60 من '+ms.length+'. الباقي في السجل.</p>':''):'<div class="empty">مفيش هالك أو مفقود في الفترة دي.</div>');
+  }
+  return {title,body};
+}
+const ACT_DK={dkstuck:()=>{UI.sheet=null;UI.ins='stuck';render()},dk:el=>{UI.sheet={kind:'dk',k:el.dataset.v};render()}};
 
 function vStock(){
   const s=UI.s;
@@ -2906,7 +2996,7 @@ function vDoc(d){
     if(d.type==='RTN'&&false)h+='<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" data-c="rtncounted" '+(H.counted?'checked':'')+'> خلّصت عدّ كل الأصناف</label>';
     if(d.type==='CNT'&&H.started){h+='<div class="row" style="margin-top:12px"><button class="btn sm" data-a="cntreveal">اكشف الفروق</button>';
       if(H.reveal&&r.checks.some(c=>!c.ok&&/اتغيّر/.test(c.t)))h+='<label class="row" style="gap:8px"><input type="checkbox" data-c="cntack" '+(H.ack?'checked':'')+'> موافق</label>';h+='</div>'}
-    h+='<div style="margin-top:14px" class="row"><button class="btn pri" data-a="confirm" '+(r.ok?'':'disabled')+'>تأكيد وتسجيل '+fmt(r.mv.reduce((a,m)=>a+m.q,0))+' قطعة</button><button class="btn danger sm" data-a="deldoc">حذف المسودة</button></div></section>';
+    h+='<div style="margin-top:14px" class="row"><button class="btn pri" data-a="confirm" '+(r.ok?'':'disabled')+'>تأكيد وتسجيل '+fmt(r.mv.reduce((a,m)=>a+m.q,0))+' قطعة</button><button class="btn danger sm" data-a="deldoc">أرشفة المسودة</button></div></section>';
     h+='<section class="card"><h2>اللي هيتغيّر <span class="hint">'+eff.length+' صنف</span></h2>'+(eff.length?'<div class="eff">'+eff.slice(0,40).map(e=>'<div class="e"><div class="t"><span>'+esc(skuName(e.sku))+'</span></div>'+e.ch.map(c=>'<div class="chg">'+LOC[c.l]+': دلوقتي <b>'+c.now+'</b> · هيبقى <b>'+c.after+'</b></div>').join('')+'</div>').join('')+'</div>':'<div class="empty">هيظهر هنا أثر العملية على كل صنف قبل التأكيد.</div>')+'</section>';
   }else{
     const phv=(d.type==='RCV')?'<div style="margin-top:12px">'+(PH[d.id]?'<img src="'+PH[d.id]+'" alt="صورة الورقة" style="width:100%;border-radius:10px;border:1px solid var(--line)"><div style="margin-top:6px">'+flBtn('ph:'+d.id,d.photo||{name:'receipt-'+(d.no||d.id)+'.jpg'},'تنزيل الصورة')+'</div>':'<div class="muted" style="font-size:12px">'+(d.photo?'صورة الورقة مش متاحة بعد إعادة التحميل.':'مفيش صورة.')+'</div>')+'<label class="f" style="margin-top:8px">'+(PH[d.id]?'تغيير صورة الورقة':'رفع صورة الورقة')+'<input type="file" accept="image/*" data-c="photo"></label></div>':'';
@@ -2952,7 +3042,7 @@ function vConfigOrig(){
   h+='<div class="grid g2"><section class="card"><h2>التنبيهات</h2><div class="grid g2">'+stf('lookback','فترة حساب السحب','يوم')+stf('excess','زيادة عن اللازم بعد','يوم')+stf('leadW','مهلة المصنع (من الطلب للاستلام)','أسبوع')+stf('svc','مستوى الخدمة','%')+stf('safeW','أمان بديل (أقل من 7 أيام بيانات)','أسبوع')+stf('tgtW','نصنّع لحد تغطية','أسبوع')+'</div><p class="muted" style="margin-top:8px;font-size:12px">المهلة والأمان والهدف بيتستخدموا في تاب "معدل السحب" في التحليلات.</p><p class="muted" style="margin-top:4px;font-size:12px">حجم البيانات المحفوظة في المتصفح: <b class="n">'+fmt(storeKB())+'</b> KB من حوالي 5,000 KB.</p></section>';
   h+='<section class="card"><h2>المستلزمات</h2><p class="muted" style="margin-bottom:10px">الاسم والوحدة والعبوة وحد التنبيه وقاعدة الخصم التلقائي لكل مستلزم. الاستلام والصرف والجرد من صفحة المستلزمات.</p><div class="tw"><table class="t-sm"><tbody>'+S.sup.items.filter(i=>!i.arch).map(i=>'<tr style="'+(i.arch?'opacity:.6':'')+'"><td><b>'+esc(i.name)+'</b>'+(i.arch?' '+pill('','مؤرشف'):'')+'</td><td class="muted">'+esc(ruleText(i))+'</td><td>'+(i.arch?'<button class="btn sm" data-a="suprestore" data-id="'+i.id+'">استرجاع</button>':'<button class="btn sm" data-a="supconf" data-id="'+i.id+'">تعديل</button>')+'</td></tr>').join('')+'</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn sm" data-a="supnew">+ إضافة مستلزم</button><button class="btn sm ghost" data-a="go" data-t="supplies">افتح صفحة المستلزمات</button>'+(S.sup.items.some(i=>i.arch)?'<button class="btn sm ghost" data-a="suparchgo">المؤرشفة ('+S.sup.items.filter(i=>i.arch).length+')</button>':'')+'</div></section>';
   h+='<section class="card"><h2>المستخدمين</h2><label class="f">اسم المستخدم الحالي (يظهر في السجل)<input value="'+esc(S.actor)+'" data-c="actor"></label><p class="muted" style="margin-top:8px;font-size:12px">السيستم مفتوح للكل في فترة التجربة. الصلاحيات هتتفصل بعدين على مستويين بس.</p></section>';
-  h+='<section class="card"><h2>البيانات</h2><p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. خد نسخة احتياطية بشكل دوري، لأن مسح بيانات المتصفح بيمسح كل حاجة.</p>'+backupBox()+'<div class="gh">رجوع للأصل</div>'+(UI.confirmReset?'<div class="msg crit">هتمسح كل العمليات والسكان وترجع للبيانات الأصلية. متأكد؟<div class="row" style="margin-top:8px"><button class="btn danger sm" data-a="reset2">أيوه، امسح</button><button class="btn sm" data-a="reset">لأ</button></div></div>':'<button class="btn danger" data-a="reset">رجوع للبيانات الأصلية</button>')+'</section></div>';
+  h+='<section class="card"><h2>البيانات</h2><p class="muted" style="margin-bottom:10px">البيانات متخزنة في المتصفح ده بس. خد نسخة احتياطية بشكل دوري، لأن مسح بيانات المتصفح بيمسح كل حاجة.</p>'+backupBox()+'<p class="muted" style="margin-top:10px;font-size:12.5px">مفيش مسح في السيستم. اللي مش عايزه بتأرشفه (من الملفات ← المؤرشف ترجّعه).</p>'+'</section></div>';
   h+='<section class="card" style="margin-top:16px"><h2>التكلفة وسعر البيع <span class="hint">اختياري. بتحسب قيمة المخزون</span></h2><div class="tw" style="max-height:340px;overflow:auto"><table class="t-sm"><thead><tr><th>الموديل</th><th class="num">تكلفة القطعة (ج)</th><th class="num">سعر البيع (ج)</th><th class="num">هامش</th></tr></thead><tbody>'+MORDER.map(m=>{const c=S.costs[m]||{},mg=(+c.cost&&+c.price)?Math.round((c.price-c.cost)/c.price*100)+'%':'—';return '<tr><td><b class="mono">'+m+'</b> <span class="muted">'+esc(MODEL.get(m).name)+'</span></td><td class="num"><input type="number" min="0" value="'+(c.cost||'')+'" data-c="cost" data-m="'+m+'" data-f="cost"></td><td class="num"><input type="number" min="0" value="'+(c.price||'')+'" data-c="cost" data-m="'+m+'" data-f="price"></td><td class="num">'+mg+'</td></tr>'}).join('')+'</tbody></table></div></section>';
   return h;
 }
@@ -3181,18 +3271,18 @@ function insDash(A,C){
   let h='';
   if(Dd.spanAll<14)h+='<div class="msg warn" style="margin-bottom:14px">عندنا <b>'+Dd.spanAll+' يوم</b> بيانات بس. الرسوم بتتملي يوم بيوم، ومقارنة الفترة بالفترة اللي قبلها بتظهر لما يبقى قبلها فترة كاملة. مفيش حاجة محتاج تعملها.</div>';
   h+='<div class="gh">فلوس · '+per+' <span class="muted" style="font-weight:400;letter-spacing:0">(إجمالي الأوردر شامل الشحن)</span></div><div class="kpis" style="margin-bottom:16px">'
-   +kpi('أوردرات مفتوحة (قيمة)',EGPh(Dd.openV),Dd.blk.length?'معطل منه '+EGP(Dd.blkV)+' · '+Dd.blk.length+' أوردر':Dd.open.length+' أوردر',Dd.blk.length?'crit':'','instab:stuck')
-   +kpi('اتشحن',EGPh(M.shipV),dDelta(M.shipV,PM&&PM.shipV,hp)||M.shipO+' أوردر','good')
-   +kpi('متوسط الأوردر',(M.shipO?EGPh(M.shipV/M.shipO):'—'),PM&&PM.shipO?dDelta(M.shipV/Math.max(1,M.shipO),PM.shipV/PM.shipO,hp):'على اللي اتشحن')
-   +kpi('مرتجع',EGPh(M.retV),M.shipV?pc(M.retV,M.shipV)+' من اللي اتشحن':'',M.shipV&&M.retV/M.shipV>.15?'warn':'')
-   +(Dd.hasCosts?kpi('قيمة المخزون الجاهز',EGPh(Dd.stockV),'هالك + مفقود: '+EGP(Dd.lossV),Dd.lossV?'warn':''):'<button type="button" class="kpi" data-a="go" data-t="config" data-tip="ادخل تكلفة كل موديل في الإعدادات"><small>قيمة المخزون ‹</small><b style="font-size:17px">محتاج التكلفة</b><em>ادخلها في الإعدادات</em></button>')
+   +kpi('أوردرات مفتوحة (قيمة)',EGPh(Dd.openV),Dd.blk.length?'معطل منه '+EGP(Dd.blkV)+' · '+Dd.blk.length+' أوردر':Dd.open.length+' أوردر',Dd.blk.length?'crit':'','dk:open')
+   +kpi('اتشحن',EGPh(M.shipV),dDelta(M.shipV,PM&&PM.shipV,hp)||M.shipO+' أوردر','good','dk:shipv')
+   +kpi('متوسط الأوردر',(M.shipO?EGPh(M.shipV/M.shipO):'—'),PM&&PM.shipO?dDelta(M.shipV/Math.max(1,M.shipO),PM.shipV/PM.shipO,hp):'على اللي اتشحن','','dk:avg')
+   +kpi('مرتجع',EGPh(M.retV),M.shipV?pc(M.retV,M.shipV)+' من اللي اتشحن':'',M.shipV&&M.retV/M.shipV>.15?'warn':'','dk:retv')
+   +(Dd.hasCosts?kpi('قيمة المخزون الجاهز',EGPh(Dd.stockV),'هالك + مفقود: '+EGP(Dd.lossV),Dd.lossV?'warn':'','dk:stockv'):'<button type="button" class="kpi" data-a="go" data-t="config" data-tip="ادخل تكلفة كل موديل في الإعدادات"><small>قيمة المخزون ‹</small><b style="font-size:17px">محتاج التكلفة</b><em>ادخلها في الإعدادات</em></button>')
    +'</div>';
   h+='<div class="gh">حركة القطع · '+per+'</div><div class="kpis" style="margin-bottom:16px">'
-   +kpi('طلب (بيك أب)',N(M.dem),dDelta(M.dem,PM&&PM.dem,hp)||M.demO+' أوردر')
-   +kpi('اتشحن',N(M.ship),dDelta(M.ship,PM&&PM.ship,hp)||'خروج فعلي','good')
-   +kpi('رجع',N(M.ret),M.ship?pc(M.ret,M.ship)+' من اللي اتشحن':'',M.ship&&M.ret/M.ship>.15?'warn':'')
-   +kpi('اتسلّم من المصنع (توريد)',N(M.rcv),'استلام توريد')
-   +kpi('هالك ومفقود',N(M.scrap+M.lost),M.scrap+' هالك · '+M.lost+' مفقود',M.scrap+M.lost?'warn':'')
+   +kpi('طلب (بيك أب)',N(M.dem),dDelta(M.dem,PM&&PM.dem,hp)||M.demO+' أوردر','','dk:dem')
+   +kpi('اتشحن',N(M.ship),dDelta(M.ship,PM&&PM.ship,hp)||'خروج فعلي','good','dk:ship')
+   +kpi('رجع',N(M.ret),M.ship?pc(M.ret,M.ship)+' من اللي اتشحن':'',M.ship&&M.ret/M.ship>.15?'warn':'','dk:ret')
+   +kpi('اتسلّم من المصنع (توريد)',N(M.rcv),'استلام توريد','','dk:rcv')
+   +kpi('هالك ومفقود',N(M.scrap+M.lost),M.scrap+' هالك · '+M.lost+' مفقود',M.scrap+M.lost?'warn':'','dk:loss')
    +'</div>';
   h+=healthLine(Dd);
   /* charts */
@@ -3519,7 +3609,7 @@ const ACT={
   opf:el=>{UI.opF=el.dataset.v;render()},
   opendoc:el=>{UI.doc=el.dataset.id;UI.msg=null;render()},
   backops:()=>{const d=curDoc();if(d&&d.status==='draft'&&!d.lines.length&&d.type!=='CNT'&&d.type!=='SCN'){S.docs=S.docs.filter(x=>x!==d);dirty()}UI.doc=null;render()},
-  deldoc:()=>{const d=curDoc();S.docs=S.docs.filter(x=>x!==d);UI.doc=null;dirty();toast('اتحذفت المسودة');render()},
+  deldoc:()=>{const d=curDoc();(S.archDocs||(S.archDocs=[])).push({d,at:Date.now(),by:S.actor});S.docs=S.docs.filter(x=>x!==d);UI.doc=null;audit('أرشفة مسودة');dirty();toast('اتأرشفت المسودة. هتلاقيها في الملفات ← المؤرشف');render()},
   confirm:()=>{const d=curDoc();if(confirmDoc(d)){toast('اتأكدت '+d.no);render()}else toast('مش قادر أأكّد. شوف البنود الحمرا')},
   pq:el=>{const i=$('#pkq');i.value=Math.max(1,(+i.value||1)+(+el.dataset.d))},
   addline:()=>{
@@ -3574,7 +3664,7 @@ const ACT={
   pkedit:el=>{const p=S.pickups.find(x=>x.id===el.dataset.id);UI.sheet={kind:'pkedit',id:p.id,f:{label:p.label,date:p.date,channel:p.channel},del:false,err:''};render()},
   pksave2:()=>{const s=UI.sheet,p=S.pickups.find(x=>x.id===s.id),f=s.f;if(!String(f.label).trim()){s.err='اكتب اسم البيك أب';render();return}if(!/^\d{4}-\d{2}-\d{2}$/.test(f.date)){s.err='اختار تاريخ صحيح';render();return}p.label=String(f.label).trim();p.date=f.date;p.channel=f.channel;dirty();UI.sheet=null;toast('اتحفظ التعديل: '+p.label);render()},
   pkdel:()=>{UI.sheet.del=!UI.sheet.del;render()},
-  pkdel2:()=>{const s=UI.sheet,p=S.pickups.find(x=>x.id===s.id);if(S.orders.some(o=>o.pk===p.id&&o.st==='done'))return;S.orders=S.orders.filter(o=>o.pk!==p.id);S.pickups=S.pickups.filter(x=>x!==p);flDel('pk:'+p.id);UI.o.pk='';dirty();UI.sheet=null;toast('اتحذف '+p.label);render()},
+  pkdel2:()=>{const s=UI.sheet,p=S.pickups.find(x=>x.id===s.id);if(S.orders.some(o=>o.pk===p.id&&o.st==='done'))return;(S.archPk||(S.archPk=[])).push({p,orders:S.orders.filter(o=>o.pk===p.id),at:Date.now(),by:S.actor});S.orders=S.orders.filter(o=>o.pk!==p.id);S.pickups=S.pickups.filter(x=>x!==p);audit('أرشفة بيك أب: '+p.label);UI.o.pk='';dirty();UI.sheet=null;toast('اتأرشف '+p.label+'. هتلاقيه في الملفات ← المؤرشف');render()},
   of3:el=>go('orders',()=>{UI.o.pk=el.dataset.id;UI.o.f='all';UI.o.tab='list';UI.o.n=60}),
   scedit:el=>{const d=S.docs.find(x=>x.id===el.dataset.id);UI.sheet={kind:'scedit',id:d.id,emp:d.hdr.emp,rev:false,err:''};render()},
   scsave:()=>{const s=UI.sheet,d=S.docs.find(x=>x.id===s.id),e=String(s.emp||'').trim();if(!e){s.err='اكتب اسم الموظف';render();return}
@@ -3686,7 +3776,7 @@ const INP={
   lq:el=>{UI.led.q=el.value;$('#ledres').innerHTML=ledRows();_L.main=null},
   upemp:el=>{const s=UI.sheet;s.emp=el.value;const b=$('[data-a=scansave]');if(b&&s.res)b.disabled=!(s.res.matched.length&&el.value.trim())}
 };
-Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT,ACT_SH,ACT_FL);Object.assign(CHG,CHG_LG,CHG_RT,CHG_SH);Object.assign(INP,INP_LG,INP_SH);ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});Object.assign(CHG,CHG_ACC);Object.assign(INP,INP_ACC);
+Object.assign(ACT,ACT_ACC,ACT_LG,ACT_RT,ACT_SH,ACT_FL,ACT_DK,ACT_AR);Object.assign(CHG,CHG_LG,CHG_RT,CHG_SH);Object.assign(INP,INP_LG,INP_SH);ACT.reloadapp=()=>location.reload();window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==null&&!STALE){STALE=true;_L.main=null;render()}});Object.assign(CHG,CHG_ACC);Object.assign(INP,INP_ACC);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   if(el.tagName==='TR'&&e.target.closest('input,[data-nodrill]'))return;
