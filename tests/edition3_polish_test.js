@@ -25,6 +25,18 @@ const {chromium}=require('playwright');const path=require('path');
   }
   ok('blocked tile totals add up (pieces in the orders table equal the sum of its rows\' pieces)',await q.evaluate(()=>{const F=__F;F.UI.sheet={kind:'flow',w:'blocked'};F.render();const s=document.querySelector('.sheet');const tb=[...s.querySelectorAll('table')].pop();const rows=[...tb.querySelectorAll('tbody tr')].map(r=>+r.children[1].textContent.replace(/,/g,'')),tot=+tb.querySelector('tfoot td:nth-child(2)').textContent.replace(/,/g,'');return rows.length>0&&tot>=rows.reduce((a,b)=>a+b,0)}));
   await c2.close();
+  // stock strip cards
+  await p.evaluate(()=>{__F.UI.s.view='heat';__F.go('stock')});await p.waitForTimeout(400);
+  for(const st of ['out','low','ok','excess']){
+    const has=await p.locator('button.si[data-a=hst][data-v='+st+']').count();
+    if(!has){ok('stock card "'+st+'" is clickable',false,'missing');continue}
+    await p.click('button.si[data-a=hst][data-v='+st+']');await p.waitForSelector('.sheet');
+    const r=await p.evaluate(()=>{const s=document.querySelector('.sheet');return {cards:s.querySelectorAll('.hsc').length,rows:s.querySelectorAll('.hsr').length,tot:!!s.querySelector('.hst-tot'),bad:/undefined|NaN/.test(s.innerText),title:(s.querySelector('h2')||{}).textContent}});
+    ok('stock card "'+st+'" opens its cells colour by colour with a total',(r.cards===0?true:r.rows>0&&r.tot)&&!r.bad,JSON.stringify(r));
+    await p.evaluate(()=>{__F.UI.sheet=null;__F.render()});
+  }
+  ok('the supplies action switcher has no empty slot (buttons share the full width)',await p.evaluate(()=>{const F=__F;F.go('supplies');const it=F.S().sup.items[0];F.UI.sheet={kind:'sup',id:it.id,tab:'move',act:'rcv'};F.render();const s=document.querySelector('.sheet .seg');if(!s)return true;const bs=[...s.querySelectorAll('button')],w=s.getBoundingClientRect().width,sum=bs.reduce((a,x)=>a+x.getBoundingClientRect().width,0);return sum>=w-4}));
+  await p.evaluate(()=>{__F.UI.sheet=null;__F.render()});
   // Today events pop-up
   await p.evaluate(()=>{__F.UI.sheet=null;__F.go('today')});await p.waitForTimeout(400);
   const n=await p.locator('.tli[data-a=tev]').count();

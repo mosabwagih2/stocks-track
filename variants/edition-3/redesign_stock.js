@@ -59,7 +59,7 @@ function stockHeat(){
   const mx=Math.max(1,...ms.map(m=>Math.max(0,...szs.map(z=>{const c=cell[m+'|'+z];return c?val(c):0}))));
   const col={};szs.forEach(z=>{col[z]={P:0,bad:0};ms.forEach(m=>{const c=cell[m+'|'+z];if(!c)return;col[z].P+=c.P;if(c.st==='out'||c.st==='low')col[z].bad++})});
   const DOT={out:'crit',low:'warn',excess:'info'},TX={out:'ناقص',low:'تحت نقطة الطلب',excess:'زيادة / راكد'};
-  let h=strip([si('ناقص (خلصان وعليه طلب)',N(cnt.out),'خانة',cnt.out?'crit':'good'),si('تحت نقطة الطلب',N(cnt.low),'خانة',cnt.low?'warn':'good'),si('تمام',N(cnt.ok),'خانة','good'),si('زيادة عن اللازم',N(cnt.excess),'خانة (فوق '+S.st.excess+' يوم تغطية أو راكد)')]);
+  let h=strip([si('ناقص (خلصان وعليه طلب)',N(cnt.out),'خانة',cnt.out?'crit':'good','hst:out'),si('تحت نقطة الطلب',N(cnt.low),'خانة',cnt.low?'warn':'good','hst:low'),si('تمام',N(cnt.ok),'خانة','good','hst:ok'),si('زيادة عن اللازم',N(cnt.excess),'خانة (فوق '+S.st.excess+' يوم تغطية أو راكد)','','hst:excess')]);
   const sub=mode==='avail'?'كل خانة هي عدد القطع المتاحة. اللون الأغمق يعني مخزون أكتر.':mode==='cover'?'كل خانة هي عدد أسابيع التغطية. اللون الأغمق يعني تغطية أطول.':'كل خانة هي عدد القطع المطلوب تصنيعها. اللون الأغمق يعني احتياج أكبر.';
   const seg='<div class="seg" role="group" aria-label="المعروض في الخانة"><button aria-pressed="'+(mode==='avail')+'" data-a="hmode" data-v="avail">المتاح</button><button aria-pressed="'+(mode==='cover')+'" data-a="hmode" data-v="cover">التغطية (أسبوع)</button><button aria-pressed="'+(mode==='need')+'" data-a="hmode" data-v="need">المطلوب تصنيعه</button></div>';
   const srt='<div class="seg" role="group" aria-label="ترتيب الموديلات"><button aria-pressed="'+(s.sort!=='alpha')+'" data-a="ssort" data-v="pull">الأكثر سحبًا</button><button aria-pressed="'+(s.sort==='alpha')+'" data-a="ssort" data-v="alpha">أبجدي</button></div>';
@@ -80,3 +80,21 @@ function heatSheet(m,z){
   const L={out:'ناقص',low:'تحت نقطة الطلب',ok:'تمام',excess:'زيادة / راكد',none:'—'};
   return {title:mName(m)+' · مقاس '+z,body:'<div class="tw"><table class="t-sm"><thead><tr><th>اللون</th><th class="num">متاح</th><th class="num">طلب مفتوح</th><th class="num">عند المصنع</th><th class="num">سحب/أسبوع</th><th class="num">تغطية</th><th class="num">يتصنّع</th><th>الحالة</th></tr></thead><tbody>'+rows.map(r=>'<tr data-a="sku" data-sku="'+r.k.id+'"><td>'+sw(r.k.c)+' '+esc(r.k.c)+'</td><td class="num"><b class="n">'+fmt(r.R)+'</b></td><td class="num">'+N(r.dm)+'</td><td class="num">'+N(r.fac)+'</td><td class="num">'+(r.rate>0?'<span class="n">'+r.rate.toFixed(1)+'</span>':'<span class="muted">—</span>')+'</td><td class="num">'+(r.cover==null?'<span class="muted">—</span>':'<span class="n">'+(r.cover>=99?'99+':r.cover.toFixed(1))+'</span>')+'</td><td class="num">'+(r.need?'<span class="pill warn">'+fmt(r.need)+'</span>':'<span class="muted">0</span>')+'</td><td>'+(r.st==='none'?'':'<i class="sd '+(r.st==='out'?'crit':r.st==='low'?'warn':r.st==='excess'?'info':'good')+'"></i><span class="sdt">'+L[r.st]+'</span>')+'</td></tr>').join('')+'</tbody></table></div><p class="muted" style="font-size:12px">اضغط على أي لون يفتح تفاصيل الصنف.</p>'};
 }
+
+/* ---------- stock strip cards: each opens the cells in that state, colour by colour ---------- */
+function hstSheet(s){
+  const st=s.st,cell=heatCells(),E=skuStats().m,PR=planRows(),nb={};PR.forEach(r=>nb[r.id]=r.q);
+  const NM={out:'ناقص (خلصان وعليه طلب)',low:'تحت نقطة الطلب',ok:'تمام',excess:'زيادة عن اللازم / راكد'},TONE={out:'crit',low:'warn',ok:'good',excess:'info'};
+  const cs=Object.keys(cell).map(k=>cell[k]).filter(c=>c.st===st).sort((a,b)=>st==='excess'?(b.surplus-a.surplus):((b.rd-a.rd)||(b.dm-a.dm)||(b.need-a.need)));
+  const rowSt=k=>{const e=E[k.id]||{rd:0,rop:0},i=info(k.id),R=g(k.id,'READY'),fac=g(k.id,'FACTORY'),pos=R-i.dm+fac,dem=e.rd>0||i.dm>0;
+    const x=!dem&&R<=0?'none':dem&&R-i.dm<=0?'out':dem&&pos<=e.rop?'low':(e.rd===0&&R>0)||(e.rd>0&&(R-i.dm)/e.rd>S.st.excess)?'excess':'ok';
+    return {k,R,dm:i.dm,fac,rate:e.rd*7,need:nb[k.id]||0,st:x}};
+  let tR=0,tN=0,tD=0,tS=0;
+  const cards=cs.map(c=>{const rows=D.skus.filter(k=>k.m===c.m&&k.s===c.s).map(rowSt).filter(r=>r.st!=='none'||r.R>0||r.dm>0);
+    tR+=c.R;tN+=c.need;tD+=c.dm;tS+=c.surplus||0;
+    return '<div class="hsc"><div class="hsh"><span class="row" style="gap:10px;flex-wrap:nowrap">'+thumb(c.m,40)+'<span><b>'+esc(mName(c.m))+'</b><div class="muted" style="font-size:12.5px">مقاس <b>'+esc(c.s)+'</b></div></span></span><span class="hsn"><b class="n">'+fmt(c.R)+'</b><small class="muted">متاح</small></span></div>'
+     +rows.map(r=>'<div class="hsr'+(r.st===st||st==='ok'?'':' dim')+'" data-a="sku" data-sku="'+r.k.id+'"><span class="hsc1">'+sw(r.k.c)+esc(r.k.c)+'</span><span class="hsf"><span><small>متاح</small><b class="n">'+fmt(r.R)+'</b></span><span><small>طلب مفتوح</small><b class="n">'+fmt(r.dm)+'</b></span>'+(r.fac?'<span><small>عند المصنع</small><b class="n">'+fmt(r.fac)+'</b></span>':'')+(r.need?'<span><small>يتصنّع</small><b class="n" style="color:var(--accent)">'+fmt(r.need)+'</b></span>':'')+(r.rate>0?'<span><small>سحب/أسبوع</small><b class="n">'+(Math.round(r.rate*10)/10)+'</b></span>':'')+'</span>'+pill(TONE[r.st]||'',({out:'ناقص',low:'قرب يخلص',ok:'تمام',excess:'زيادة'})[r.st]||'')+'</div>').join('')+'</div>'}).join('');
+  const sum=st==='excess'?'قطع زيادة عن اللازم: <b class="n">'+fmt(tS)+'</b>':(st==='out'||st==='low')?'قطع لازم تتصنّع: <b class="n">'+fmt(tN)+'</b> · طلب مفتوح: <b class="n">'+fmt(tD)+'</b>':'';
+  return {title:NM[st]+' ('+cs.length+' خانة)',body:(cs.length?'<div class="msg '+(st==='out'?'crit':st==='low'?'warn':'')+'">'+({out:'دي خانات (موديل × مقاس) خلصانة وعليها طلب. الأغمق هو الناقص فعلًا.',low:'دي خانات رصيدها مع اللي عند المصنع تحت نقطة إعادة الطلب.',ok:'دي خانات رصيدها مناسب للسحب.',excess:'دي خانات رصيدها أكتر من المعدل أو راكدة.'})[st]+'</div>'+cards+'<div class="hst-tot"><b>الإجمالي</b> <span class="muted">'+fmt(cs.length)+' خانة</span> · متاح <b class="n">'+fmt(tR)+'</b>'+(sum?' · '+sum:'')+'</div>':'<div class="empty">مفيش خانات في الحالة دي.</div>')};
+}
+const ACT_HS={hst:el=>{UI.sheet={kind:'hst',st:el.dataset.v};render()}};

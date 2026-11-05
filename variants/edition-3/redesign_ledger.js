@@ -75,14 +75,21 @@ function ledgerList(days,byD,L){
   if(days.length>nd)h+='<div style="text-align:center;margin-top:12px"><button class="btn" data-a="ldmore">عرض أيام أقدم ('+(days.length-nd)+')</button></div>';
   return h;
 }
+function lgBlock(mk,ms){
+  const M=MODEL.get(mk),q={};let other=[];
+  ms.forEach(m=>{const k=SKU.get(m.sku);if(k)(q[k.c]||(q[k.c]={}))[k.s]=(q[k.c][k.s]||0)+m.q;else other.push(m)});
+  const cols=Object.keys(q).sort((a,b)=>{const ia=M?M.colors.indexOf(a):0,ib=M?M.colors.indexOf(b):0;return (ia<0?99:ia)-(ib<0?99:ib)}),sz=M?M.sizes:[];
+  const tot=ms.reduce((a,m)=>a+m.q,0);
+  return '<div class="lgb"><div class="lgb-h">'+thumb(mk,36)+'<span><b class="mono">'+esc(mk)+'</b> <span class="muted">'+esc(M?M.name:'')+'</span></span><b class="n" style="margin-inline-start:auto;font-size:16px">'+fmt(tot)+'</b><small class="muted">قطعة</small></div>'
+   +cols.map(c=>{const zs=Object.keys(q[c]).sort((a,b)=>{const x=sz.indexOf(a),y=sz.indexOf(b);return (x<0?99:x)-(y<0?99:y)});
+     return '<div class="lgb-r"><span class="lgb-c">'+sw(c)+esc(c)+'</span><span class="lgb-s">'+zs.map(z=>'<span><small>'+esc(z)+'</small>'+fmt(q[c][z])+'</span>').join('')+'</span><b class="lgb-t">'+fmt(zs.reduce((a,z)=>a+q[c][z],0))+'</b></div>'}).join('')+'</div>';
+}
 function ledgerDetail(e){
   if(e.kind==='doc'){
-    const g=e.g,pairs={};g.mv.forEach(m=>{const k=m.from+'>'+m.to;pairs[k]=(pairs[k]||0)+m.q});const pk=Object.keys(pairs).sort((a,b)=>pairs[b]-pairs[a]);
-    const byM={};g.mv.forEach(m=>{const k=SKU.get(m.sku),mk=k?k.m:'؟';(byM[mk]||(byM[mk]=[])).push(m)});
-    const loc=k=>LOC[k]||k;
+    const g=e.g,byM={};g.mv.forEach(m=>{const k=SKU.get(m.sku),mk=k?k.m:'؟';(byM[mk]||(byM[mk]=[])).push(m)});
     return (e.actor&&e.actor!==e.who?'<div class="lgmeta muted">اتسجّلت بواسطة '+esc(e.actor)+'</div>':'')
-     +Object.keys(byM).sort((a,b)=>mkey(a)<mkey(b)?-1:1).map(mk=>'<div class="lgm"><span class="lgn"><b class="mono">'+esc(mk)+'</b> <span class="muted">'+esc(MODEL.get(mk)?MODEL.get(mk).name:'')+'</span> <span class="n muted">'+fmt(byM[mk].reduce((a,m)=>a+m.q,0))+'</span></span><span>'+lgMini(mk,byM[mk],pk[0],loc)+'</span></div>').join('')
-     +(e.doc?'<div style="margin-top:8px"><button class="btn sm" data-a="opendoc2" data-id="'+e.doc.id+'">افتح المستند</button></div>':'');
+     +Object.keys(byM).sort((a,b)=>mkey(a)<mkey(b)?-1:1).map(mk=>lgBlock(mk,byM[mk])).join('')
+     +(e.doc?'<div style="margin-top:12px"><button class="btn sm" data-a="opendoc2" data-id="'+e.doc.id+'">افتح المستند</button></div>':'');
   }
   if(e.kind==='cx')return '<div class="lgmeta">'+(e.o.cx.reason?'السبب: '+esc(e.o.cx.reason)+'. ':'')+(e.returned?'القطع رجعت للمخزون.':'')+'</div><div style="margin-top:8px"><button class="btn sm" data-a="order" data-ref="'+esc(e.o.ref)+'">افتح الأوردر</button></div>';
   if(e.kind==='sup')return '<div class="lgmeta">'+esc(e.e.why||'')+'</div>';
