@@ -5,3 +5,8 @@ dist/
 .env
 .env.local
 dist-single/
+
+# php-app: secrets, uploads and test leftovers never go to git
+php-app/config/config.php
+php-app/storage/files/
+php-app/tests/.tmp/
