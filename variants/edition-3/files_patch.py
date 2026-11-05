@@ -82,3 +82,5 @@ rep("""ordPill(o))+'</td></tr>').join('')+'</tbody></table></div>';""","""ordPil
 rep("""N(map[s].n)+'</td></tr>').join('')+'</tbody></table></div>'};""","""N(map[s].n)+'</td></tr>').join('')+'</tbody><tfoot><tr><td><b>الإجمالي</b> <span class="muted">('+fmt(ks.length)+' صنف)</span></td><td class="num"><b class="n">'+fmt(ks.reduce((a,s)=>a+g(s,'READY'),0))+'</b></td><td class="num"><b class="n">'+fmt(ks.reduce((a,s)=>a+map[s].q,0))+'</b></td><td class="num"><b class="n">'+fmt(ks.reduce((a,s)=>a+map[s].n,0))+'</b></td></tr></tfoot></table></div>'};""")
 
 rep("  }else if(s.kind==='oos'){","  }else if(s.kind==='hst'){\n    const r=hstSheet(s);title=r.title;body=r.body;\n  }else if(s.kind==='oos'){")
+# order status pill: say exactly which model/colour/size is missing
+rep("pill('crit','معطل · ناقص '+esc(skuName(b[0][0],false))+(b.length>1?' +'+(b.length-1):''),","pill('crit','معطل · ناقص '+esc(skuName(b[0][0]))+(b[0][1]>1?' ×'+b[0][1]:'')+(b.length>1?' +'+(b.length-1)+' صنف':''),")

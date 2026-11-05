@@ -1680,7 +1680,7 @@ function ordPill(o){
   if(o.st==='done')return pill('good','اتشحن · '+esc(o.sc.by),'سجّله '+o.sc.by+' الساعة '+timeOf(o.sc.at)+(o.sc.doc?' · '+o.sc.doc:''));
   if(o.bad&&o.bad.length)return pill('warn','كود غير مربوط');
   const b=C.blocked[o.ref];
-  if(b)return pill('crit','معطل · ناقص '+esc(skuName(b[0][0],false))+(b.length>1?' +'+(b.length-1):''),b.map(x=>skuName(x[0])+' ناقص '+x[1]).join('\n'));
+  if(b)return pill('crit','معطل · ناقص '+esc(skuName(b[0][0]))+(b[0][1]>1?' ×'+b[0][1]:'')+(b.length>1?' +'+(b.length-1)+' صنف':''),b.map(x=>skuName(x[0])+' ناقص '+x[1]).join('\n'));
   return pill('info','مستني الشحن');
 }
 function ordFilter(){

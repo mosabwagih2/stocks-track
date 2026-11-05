@@ -24,6 +24,7 @@ const {chromium}=require('playwright');const path=require('path');
     ok('tile "'+w+'": no hint text, and a totals row under each table',!!r&&!r.hint&&r.n>=1&&r.txt.every(x=>/الإجمالي/.test(x)),JSON.stringify(r));
   }
   ok('blocked tile totals add up (pieces in the orders table equal the sum of its rows\' pieces)',await q.evaluate(()=>{const F=__F;F.UI.sheet={kind:'flow',w:'blocked'};F.render();const s=document.querySelector('.sheet');const tb=[...s.querySelectorAll('table')].pop();const rows=[...tb.querySelectorAll('tbody tr')].map(r=>+r.children[1].textContent.replace(/,/g,'')),tot=+tb.querySelector('tfoot td:nth-child(2)').textContent.replace(/,/g,'');return rows.length>0&&tot>=rows.reduce((a,b)=>a+b,0)}));
+  ok('a blocked order pill names the model, colour and size that is missing',await q.evaluate(()=>{const F=__F;F.go('orders',()=>{F.UI.o.f='all';F.UI.o.q='';F.UI.o.pk=''});const ps=[...document.querySelectorAll('#main .pill.crit')].map(x=>x.textContent).filter(x=>/^معطل/.test(x));return ps.length>0&&ps.every(x=>/معطل · ناقص [A-Z0-9]+ · .+ · \S+/.test(x))}));
   await c2.close();
   // stock strip cards
   await p.evaluate(()=>{__F.UI.s.view='heat';__F.go('stock')});await p.waitForTimeout(400);
