@@ -12,3 +12,4 @@ async function flDL(key,label){
 }
 function flBtn(key,meta,txt){return meta?'<button class="btn sm" data-a="fldl" data-k="'+esc(key)+'" data-n="'+esc(meta.name||'')+'">⬇ '+(txt||'تنزيل الملف الأصلي')+' <span class="muted" style="font-size:11px">'+esc(meta.name||'')+(meta.size?' · '+flSize(meta.size):'')+'</span></button>':''}
 const ACT_FL={fldl:el=>{flDL(el.dataset.k,el.dataset.n)}};
+function flDel(key){if(!IDBH||!IDBH.objectStoreNames.contains('fl'))return;try{IDBH.transaction('fl','readwrite').objectStore('fl').delete(key)}catch(e){}}

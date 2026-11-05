@@ -63,7 +63,7 @@ const ok=(n,c,x)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+n+(c?'':'  ->
   ok('after the photo is uploaded the button unlocks',await p.evaluate(()=>!document.querySelector('[data-a=shpdone]').disabled));
   await p.fill('[data-c=shprecv]','أستاذ هشام');await p.click('[data-a=shpdone]');await p.waitForTimeout(250);
   ok('marking it delivered stores who received it and when',await p.evaluate(()=>{const d=__F.S().docs.find(x=>x.id===__F.UI.doc);return !!d.hdr.delivered&&d.hdr.delivered.receiver==='أستاذ هشام'&&/اتسلّم للمحل/.test(document.getElementById('main').innerText)}));
-  ok('the signed paper can still be attached afterwards (optional)',await p.evaluate(()=>!!document.querySelector('[data-c=photo]')));
+  ok('once delivered, the proof photo is shown and cannot be swapped',await p.evaluate(()=>!document.querySelector('[data-c=photo]')&&!!document.querySelector('#main img[alt="الإذن الموقّع"]')));
   // ---- shop page
   await p.evaluate(()=>{__F.UI.doc=null;__F.go('ops')});await p.click('[data-a=optab][data-v=shop]');await p.waitForTimeout(250);
   const pg=await p.evaluate(()=>{const F=__F,all=F.S().docs.filter(d=>d.type==='SHP'&&d.status==='done');const rows=document.querySelectorAll('#shpres tbody tr').length;const tot=all.reduce((a,d)=>a+d.lines.reduce((x,l)=>x+(+l.q||0),0),0);return {rows,docs:all.length,strip:document.querySelector('.strip').innerText.replace(/,/g,''),tot,hasShop:/محل الزمالك/.test(document.getElementById('main').innerText)}});

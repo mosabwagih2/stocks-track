@@ -22,4 +22,6 @@ rep("""<div class="row"><button class="btn sm" data-a="order" data-ref="'+esc(o.
 rep("phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})","s.pfile=f;phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})")
 rep("PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);","PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);if(s.pfile)flPut('cx:'+o.ref,s.pfile);")
 # sheet body is a grid: scroll containers inside it (tables) were squeezed to a few pixels instead of letting the sheet scroll
-rep(".sheet>div.body{padding:18px;",".sheet>div.body>*{min-height:min-content}.sheet>div.body{padding:18px;")
+rep(".sheet>div.body{padding:18px;",".sheet>div.body{grid-auto-rows:max-content;padding:18px;")
+# deleting a pickup also deletes its stored original; a delivered note's proof photo can no longer be swapped
+rep("S.pickups=S.pickups.filter(x=>x!==p);UI.o.pk='';","S.pickups=S.pickups.filter(x=>x!==p);flDel('pk:'+p.id);UI.o.pk='';")
