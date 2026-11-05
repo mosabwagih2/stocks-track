@@ -335,6 +335,48 @@ APP=apps/edition-3/index.html node tests/edition3_flow_test.js
 4. **سكريبت استيراد** للبيانات الحالية من النسخة الاحتياطية JSON.
 5. **تأمين:** HTTPS، حماية من brute force، ملفات حساسة خارج المسار العام، backup دوري (`mysqldump` بـ cron + نسخ cPanel)، ودليل نشر خطوة خطوة.
 
+### تخزين الصور والملفات مع MySQL
+
+**القاعدة:** الصور والملفات **مبتتخزنش جوه MySQL**. بتتخزن كملفات على السيرفر، وMySQL بيحتفظ بالبيانات الوصفية اللي بتشاور عليها.
+
+**ليه مش `BLOB`؟** ممكن تتخزن في `MEDIUMBLOB`، لكن القاعدة بتنتفخ، والـ backup والاستعلامات بتبطّأ، وممكن تصطدم بـ `max_allowed_packet`. على استضافة cPanel مشتركة ده بيتعب بسرعة. (لو الصور قليلة جدًا ممكن BLOB للتبسيط، لكن مع صور إذن موقّعة وملفات إكسيل كل يوم، الملفات على القرص هي الاختيار الصح.)
+
+**الجدول المقترح:**
+
+```sql
+CREATE TABLE files (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  kind        ENUM('pickup','scan','signed_note','cancel','model_img') NOT NULL,
+  owner_type  VARCHAR(20) NOT NULL,       -- pickup / doc / order / model
+  owner_id    VARCHAR(64) NOT NULL,       -- P3 / D120 / ed4298 / BR2
+  orig_name   VARCHAR(255) NOT NULL,      -- الاسم الأصلي (للتنزيل بنفس الاسم)
+  mime        VARCHAR(100) NOT NULL,
+  size_bytes  INT UNSIGNED NOT NULL,
+  sha256      CHAR(64) NOT NULL,          -- يمنع التكرار ويتأكد من سلامة الملف
+  path        VARCHAR(255) NOT NULL,      -- 2026/11/ab12...cd.bin (مش الاسم الأصلي)
+  thumb_path  VARCHAR(255) NULL,          -- نسخة مصغّرة للصور
+  uploaded_by INT UNSIGNED NOT NULL,
+  uploaded_at DATETIME NOT NULL,
+  INDEX (owner_type, owner_id), INDEX (sha256)
+) ENGINE=InnoDB;
+-- مفيش DELETE لمستخدم القاعدة ده: الملف بيتأرشف بنفس منطق "مفيش مسح"
+```
+
+**مسار الرفع:**
+1. التطبيق يبعت الملف لـ `POST /api/files` (multipart).
+2. السيرفر يتحقق من الجلسة والصلاحية، ويفحص النوع الحقيقي بـ `finfo` (مش بالامتداد)، وحد الحجم.
+3. يحسب `sha256` ويحفظ الملف في مجلد **خارج `public_html`** باسم عشوائي، ويسجّل صف في `files`.
+4. للصور: يحفظ **الأصل كما هو** + نسخة مصغّرة (مثلًا 1400px) للعرض، زي ما بيحصل دلوقتي في الواجهة (`ph` للمصغّر و`fl` للأصل).
+
+**التنزيل:** `GET /api/files/{id}` عبر PHP. بيفحص الجلسة والصلاحية، ثم يرجّع الملف بـ `Content-Disposition` بالاسم الأصلي. الملفات نفسها مش متاحة برابط مباشر.
+
+**نقاط لازم نحسب حسابها:**
+- حدود PHP في cPanel: `upload_max_filesize` و`post_max_size` (غالبًا بين 2 و64MB)، هنفحصها في المرحلة 1.
+- الـ backup لازم يشمل **المجلد والقاعدة مع بعض**، لأن لو واحد بس اتاخد الصف هيشاور على ملف مش موجود. هنعمل cron بيعمل الاتنين.
+- كل ملف مرتبط بصاحبه بـ `owner_type` و`owner_id`، فبيظهر في نفس الأماكن اللي بيظهر فيها دلوقتي (الإذن، الإلغاء، صفحة الملفات).
+- التطبيق هيعرض الصور بـ URL بدل data URL، فبيخف وزنه وما بيملاش تخزين المتصفح.
+- مطابقة `sha256` بتمنع تخزين نفس الملف مرتين.
+
 **المطلوب من صاحب المشروع للبدء:** نسخة PHP وMySQL من cPanel، الدومين أو الدومين الفرعي (مع HTTPS)، وعدد الموظفين (وهل بيشتغلوا في نفس الوقت). **بيانات الاتصال (باسورد القاعدة) متتبعتش في أي محادثة أو commit**، بتتحط في `config.php` على السيرفر بس.
 
 ---
