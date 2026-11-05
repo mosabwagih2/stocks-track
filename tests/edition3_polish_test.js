@@ -25,6 +25,9 @@ const {chromium}=require('playwright');const path=require('path');
   }
   ok('blocked tile totals add up (pieces in the orders table equal the sum of its rows\' pieces)',await q.evaluate(()=>{const F=__F;F.UI.sheet={kind:'flow',w:'blocked'};F.render();const s=document.querySelector('.sheet');const tb=[...s.querySelectorAll('table')].pop();const rows=[...tb.querySelectorAll('tbody tr')].map(r=>+r.children[1].textContent.replace(/,/g,'')),tot=+tb.querySelector('tfoot td:nth-child(2)').textContent.replace(/,/g,'');return rows.length>0&&tot>=rows.reduce((a,b)=>a+b,0)}));
   ok('a blocked order pill names the model, colour and size that is missing',await q.evaluate(()=>{const F=__F;F.go('orders',()=>{F.UI.o.f='all';F.UI.o.q='';F.UI.o.pk=''});const ps=[...document.querySelectorAll('#main .pill.crit')].map(x=>x.textContent).filter(x=>/^معطل/.test(x));return ps.length>0&&ps.every(x=>/معطل · ناقص [A-Z0-9]+ · .+ · \S+/.test(x))}));
+  ok('loading demo data is refused (and nothing changes) when there is no room to save the current work first',await q.evaluate(async()=>{const F=__F,S0=F.S(),n=S0.orders.length,real=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(/pre-demo/.test(k))throw new DOMException('full','QuotaExceededError');return real.call(this,k,v)};try{F.ACT.demoload();await new Promise(r=>setTimeout(r,400))}finally{Storage.prototype.setItem=real}return F.S().orders.length===n&&!F.S().demo&&/مفيش مساحة/.test([...document.querySelectorAll('.toast')].map(x=>x.textContent).join(' '))}));
+  await q.evaluate(()=>__F.go('files'));
+  ok('the files page does not talk about deleting',await q.evaluate(()=>!/تحذف|حذف/.test(document.getElementById('main').innerText)));
   await c2.close();
   // stock strip cards
   await p.evaluate(()=>{__F.UI.s.view='heat';__F.go('stock')});await p.waitForTimeout(400);

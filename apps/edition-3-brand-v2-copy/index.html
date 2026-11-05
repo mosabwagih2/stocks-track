@@ -289,6 +289,8 @@ details.dd[open]>summary::after{transform:rotate(180deg)}
   .g2{grid-template-columns:minmax(0,1fr)}
   .toast{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
   .sheet{width:100%;top:8%;border-radius:18px 18px 0 0;padding-top:0}
+  .tabs{-webkit-mask-image:linear-gradient(to right,transparent,#000 14%);mask-image:linear-gradient(to right,transparent,#000 14%)}
+  .mxgrid .imgbtn .th,.mxgrid .imgbtn .ph{width:72px!important;height:72px!important}
 }
 @media (prefers-reduced-motion:no-preference){.sheet{animation:sl .18s ease-out}.sheet.keep{animation:none}@keyframes sl{from{transform:translateX(-24px);opacity:.4}to{transform:none;opacity:1}}}
 </style>
@@ -1381,7 +1383,7 @@ function flowSheet(w){
 /* ---------- FILES page ---------- */
 function vFiles(){
   const T=[['pk','ملفات البيك أب'],['sc','ملفات السكان'],['ph','صور المستندات'],['cx','الإلغاءات']];
-  let h=top('الملفات','كل اللي اترفع أو اتسجّل: ملفات البيك أب والسكان وصور الورق الموقّع. من هنا تعدّلها أو تحذفها أو تلاقي مكانها.','');
+  let h=top('الملفات','كل اللي اترفع أو اتسجّل: ملفات البيك أب والسكان وصور الورق الموقّع. من هنا تعدّلها أو تنزّلها أو تلاقي مكانها.','');
   h+='<div class="msg" style="margin-bottom:14px"><b>فين بتتحفظ ملفاتي؟</b><br>كل ملف ترفعه (بيك أب، سكان، صور الورق الموقّع، صور الإلغاء) بيتحفظ بنسخته الأصلية زي ما هو، وتقدر تنزّله في أي وقت من زر ⬇. الملفات محفوظة في المتصفح ده على الجهاز ده، فلو غيّرت الجهاز أو مسحت بيانات المتصفح هتضيع. الملفات اللي اترفعت قبل الميزة دي اسمها بس هو المحفوظ.</div>';
   h+='<div class="tabs" role="tablist">'+T.map(t=>'<button role="tab" aria-selected="'+(UI.fl===t[0])+'" data-a="fltab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
   if(UI.fl==='sc'){
@@ -2059,7 +2061,7 @@ function genDemo(){
   Date.now=()=>T;
   const info={ch:{}};
   try{
-    try{if(S&&!S.demo)localStorage.setItem(KEY+'-pre-demo',JSON.stringify(S))}catch(e){}
+    if(S&&!S.demo){try{localStorage.setItem(KEY+'-pre-demo',JSON.stringify(S))}catch(e){throw new Error('مفيش مساحة كفاية في المتصفح عشان أحفظ شغلك الحالي قبل الداتا التجريبية، فمحمّلتهاش. خد نسخة احتياطية الأول.')}}
     const _ka=(S&&S.users)?{users:S.users,cur:S.cur,roles:S.roles,audit:S.audit}:null;S=seed();ensureSup(S);ensureCat(S);rebuildCatalog();if(_ka)Object.assign(S,_ka);S.moves=[];S.mid=1;S.docs=[];S.did=1;S.seq={};S.pickups=[];S.orders=[];S.emps=[];S.sup.log=[];S.sup.eid=0;S.costs={};phClear();_bal=null;_ctx=null;UI.doc=null;UI.sheet=null;UI.msg=null;
     const base={D:780,A:640,S:520,B:360,P:290,SH:430};
     D.models.forEach(m=>{const p=(base[m.code.replace(/\d+$/,'')]||base[m.code[0]]||450)+(m.code.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%5)*30;S.costs[m.code]={cost:Math.round(p*.42),price:p}});
@@ -2732,7 +2734,7 @@ function rtnManual(d,draft){
   if(rows.length){
     const inp=(l,i,f)=>'<td class="num"><input type="number" min="0" max="'+num(l.exp)+'" value="'+(l[f]||'')+'" placeholder="0" data-c="rtnln" data-i="'+i+'" data-f="'+f+'" aria-label="'+({d:'هالك نظافة',x:'هالك نهائي',m:'ناقص'})[f]+'" '+(ro?'disabled':'')+'></td>';
     h+='<div class="tw"><table class="t-sm"><thead><tr><th>الصنف</th><th class="num">متوقع</th><th class="num">هالك نظافة</th><th class="num">هالك نهائي</th><th class="num">ناقص</th><th class="num">سليم</th><th></th></tr></thead><tbody>'
-     +rows.map(([l,i])=>'<tr><td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(l.exp)+'</td>'+inp(l,i,'d')+inp(l,i,'x')+inp(l,i,'m')+'<td class="num">'+pill('good',N(num(l.r)))+'</td><td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="حذف">حذف</button>')+'</td></tr>').join('')+'</tbody></table></div>'
+     +rows.map(([l,i])=>'<tr><td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(l.exp)+'</td>'+inp(l,i,'d')+inp(l,i,'x')+inp(l,i,'m')+'<td class="num">'+pill('good',N(num(l.r)))+'</td><td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="شيل البند">شيل</button>')+'</td></tr>').join('')+'</tbody></table></div>'
      +(draft?'<label class="row" style="margin-top:10px;gap:8px"><input type="checkbox" data-c="rtnmc" '+(H.mcounted?'checked':'')+'> خلّصت عدّ الأصناف اليدوية</label>':'');
   }else if(draft)h+='<div class="empty" style="padding:10px">لسه مفيش أصناف يدوية.</div>';
   return h+'</section>';
@@ -3144,7 +3146,7 @@ function lineTable(d){
   else if(d.type==='FRC'){head='<th>الصنف</th><th class="num">عند المصنع</th><th class="num">رجع سليم</th><th class="num">مرفوض</th><th></th>';row=(l,i)=>'<td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(g(l.sku,'FACTORY'))+'</td><td class="num">'+(ro?N(l.q):stp(i,l.q,'q'))+'</td><td class="num"><input type="number" min="0" value="'+l.rej+'" data-c="ln" data-i="'+i+'" data-f="rej" '+(ro?'disabled':'')+'></td>'}
   else if(d.type==='LOS'){head='<th>الصنف</th><th class="num">مفقود</th><th class="num">الكمية</th><th>القرار</th><th></th>';row=(l,i)=>'<td>'+esc(skuName(l.sku))+'</td><td class="num">'+N(g(l.sku,'LOST'))+'</td><td class="num">'+(ro?N(l.q):stp(i,l.q,'q'))+'</td><td><select data-c="lres" data-i="'+i+'" '+(ro?'disabled':'')+'><option value="FOUND" '+(l.res==='FOUND'?'selected':'')+'>لقيناه (يرجع جاهز)</option><option value="OFF" '+(l.res==='OFF'?'selected':'')+'>شطب نهائي</option></select></td>'}
   else{head='<th>الصنف</th>'+(src?'<th class="num">المتاح في '+LOC[src]+'</th>':'')+'<th class="num">الكمية</th><th></th>';row=(l,i)=>'<td>'+esc(skuName(l.sku))+'</td>'+(src?'<td class="num">'+N(g(l.sku,src))+'</td>':'')+'<td class="num">'+(ro?N(l.q):stp(i,l.q,'q'))+'</td>'}
-  return '<div class="tw"><table class="t-sm"><thead><tr>'+head+'</tr></thead><tbody>'+d.lines.map((l,i)=>'<tr>'+row(l,i)+'<td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="حذف">حذف</button>')+'</td></tr>').join('')+'</tbody></table></div>';
+  return '<div class="tw"><table class="t-sm"><thead><tr>'+head+'</tr></thead><tbody>'+d.lines.map((l,i)=>'<tr>'+row(l,i)+'<td>'+(ro?'':'<button class="btn sm ghost danger" data-a="rmline" data-i="'+i+'" aria-label="شيل البند">شيل</button>')+'</td></tr>').join('')+'</tbody></table></div>';
 }
 function cntGrid(d){
   const H=d.hdr;

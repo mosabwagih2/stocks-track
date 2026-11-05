@@ -84,3 +84,10 @@ rep("""N(map[s].n)+'</td></tr>').join('')+'</tbody></table></div>'};""","""N(map
 rep("  }else if(s.kind==='oos'){","  }else if(s.kind==='hst'){\n    const r=hstSheet(s);title=r.title;body=r.body;\n  }else if(s.kind==='oos'){")
 # order status pill: say exactly which model/colour/size is missing
 rep("pill('crit','معطل · ناقص '+esc(skuName(b[0][0],false))+(b.length>1?' +'+(b.length-1):''),","pill('crit','معطل · ناقص '+esc(skuName(b[0][0]))+(b[0][1]>1?' ×'+b[0][1]:'')+(b.length>1?' +'+(b.length-1)+' صنف':''),")
+
+# wording / small fixes found in the v44 walkthrough
+rep("من هنا تعدّلها أو تحذفها أو تلاقي مكانها.","من هنا تعدّلها أو تنزّلها أو تلاقي مكانها.")
+_a='aria-label="حذف">حذف</button>'
+assert s.count(_a)>=1
+s=s.replace(_a,'aria-label="شيل البند">شيل</button>')
+rep("  .sheet{width:100%;top:8%;border-radius:18px 18px 0 0;padding-top:0}","  .sheet{width:100%;top:8%;border-radius:18px 18px 0 0;padding-top:0}\n  .tabs{-webkit-mask-image:linear-gradient(to right,transparent,#000 14%);mask-image:linear-gradient(to right,transparent,#000 14%)}\n  .mxgrid .imgbtn .th,.mxgrid .imgbtn .ph{width:72px!important;height:72px!important}")
