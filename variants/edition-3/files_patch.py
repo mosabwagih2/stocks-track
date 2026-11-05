@@ -22,7 +22,7 @@ rep("""<div class="row"><button class="btn sm" data-a="order" data-ref="'+esc(o.
 rep("phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})","s.pfile=f;phFromFile(f,d=>{s.photo=d;s.pname=f.name;render()})")
 rep("PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);","PH[cxKey(o.ref)]=s.photo;phPut(cxKey(o.ref),s.photo);if(s.pfile)flPut('cx:'+o.ref,s.pfile);")
 # sheet body is a grid: scroll containers inside it (tables) were squeezed to a few pixels instead of letting the sheet scroll
-rep(".sheet>div.body{padding:18px;",".sheet .lgm{gap:4px;padding:10px 0}.sheet .lgn{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}.sheet>div.body{grid-auto-rows:max-content;padding:18px;")
+rep(".sheet>div.body{padding:18px;",".t-sm tfoot td{border-top:2px solid var(--line2);font-weight:600;background:var(--lav)}.sheet .lgm{gap:4px;padding:10px 0}.sheet .lgn{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}.sheet>div.body{grid-auto-rows:max-content;padding:18px;")
 # deleting a pickup also deletes its stored original; a delivered note's proof photo can no longer be swapped
 rep("S.pickups=S.pickups.filter(x=>x!==p);UI.o.pk='';","S.pickups=S.pickups.filter(x=>x!==p);flDel('pk:'+p.id);UI.o.pk='';")
 # stock: open on the matrices by default, bigger product pictures
@@ -75,3 +75,8 @@ rep("Object.assign(INP,INP_LG,INP_SH);","Object.assign(INP,INP_LG,INP_SH);hexWra
 
 # the shipping side is always called "الشحن"
 rep("EXT_CH:'القناة / العميل'","EXT_CH:'الشحن'")
+
+# Today tiles: no hint text on the missing-items heading; totals under both tables
+rep("""الأصناف الناقصة <span class="muted" style="font-weight:400">(بتعطّل أكتر أوردرات الأول)</span></h3>""","""الأصناف الناقصة</h3>""")
+rep("""ordPill(o))+'</td></tr>').join('')+'</tbody></table></div>';""","""ordPill(o))+'</td></tr>').join('')+'</tbody><tfoot><tr><td><b>الإجمالي</b> <span class="muted">('+fmt(list.length)+' أوردر)</span></td><td class="num"><b class="n">'+fmt(pcs)+'</b></td><td class="muted">'+(missing?'قطعة ناقصة: <b class="n">'+fmt(list.reduce((a,o)=>a+(C.blocked[o.ref]||[]).reduce((b,x)=>b+x[1],0),0))+'</b>':'قطعة')+'</td></tr></tfoot></table></div>';""")
+rep("""N(map[s].n)+'</td></tr>').join('')+'</tbody></table></div>'};""","""N(map[s].n)+'</td></tr>').join('')+'</tbody><tfoot><tr><td><b>الإجمالي</b> <span class="muted">('+fmt(ks.length)+' صنف)</span></td><td class="num"><b class="n">'+fmt(ks.reduce((a,s)=>a+g(s,'READY'),0))+'</b></td><td class="num"><b class="n">'+fmt(ks.reduce((a,s)=>a+map[s].q,0))+'</b></td><td class="num"><b class="n">'+fmt(ks.reduce((a,s)=>a+map[s].n,0))+'</b></td></tr></tfoot></table></div>'};""")

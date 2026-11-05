@@ -17,6 +17,14 @@ const {chromium}=require('playwright');const path=require('path');
   ok('the button actually opens the document (goes to Operations with it open)',await p.evaluate(()=>__F.UI.tab==='ops'&&!!__F.UI.doc&&!!document.querySelector('#main .sum,#main .strip,#main h1')));
   ok('ledger details have no "من ← إلى" line and never say "القناة / العميل"',await p.evaluate(()=>{const F=__F;F.UI.led.open={};F.go('ledger');document.querySelectorAll('.lgr[data-a=ldoc]').forEach((x,i)=>{if(i<6)x.click()});const t=document.getElementById('main').innerText;return !/من ← إلى/.test(t)&&!/القناة \/ العميل/.test(t)}));
   ok('the shipping location is named "الشحن" everywhere',await p.evaluate(()=>__F.LOC?__F.LOC.EXT_CH==='الشحن':true));
+  const p0=p;const c2=await b.newContext({viewport:{width:1360,height:900}});const q=await c2.newPage();await q.addInitScript(()=>{const RD=Date;window.__fixed=new RD('2026-11-02T10:00:00+02:00').getTime();class FD extends RD{constructor(...a){a.length?super(...a):super(window.__fixed)}static now(){return window.__fixed}};window.Date=FD});await q.goto('file://'+path.resolve(__dirname,'../apps/edition-3-brand-v2/index.html'));await q.waitForSelector('.shell');
+  await q.evaluate(()=>{const F=__F,S=F.S(),C=F.ctx();if(!S.orders.some(o=>o.st==='open'&&C.blocked[o.ref])){const o=S.orders.find(o=>o.st==='open'&&!(o.bad&&o.bad.length));const sk=o.lines[0],n=F.g(sk,'READY');if(n>0)S.moves.push({id:S.mid++,t:Date.now(),date:S.date,sku:sk,q:n,from:'READY',to:'LOST',type:'LOS',doc:'LOS-T',by:'t',note:''});F.dirty()}});
+  for(const w of ['blocked','wait','all']){
+    const r=await q.evaluate(w=>{const F=__F;F.UI.sheet={kind:'flow',w};F.go('today');F.UI.sheet={kind:'flow',w};F.render();const s=document.querySelector('.sheet');if(!s)return null;const tf=[...s.querySelectorAll('tfoot tr')];const o=F.ctx(),C=o;return {hint:/بتعطّل أكتر أوردرات الأول/.test(s.innerText),n:tf.length,txt:tf.map(x=>x.innerText.replace(/\s+/g,' ')),pcs:null}},w);
+    ok('tile "'+w+'": no hint text, and a totals row under each table',!!r&&!r.hint&&r.n>=1&&r.txt.every(x=>/الإجمالي/.test(x)),JSON.stringify(r));
+  }
+  ok('blocked tile totals add up (pieces in the orders table equal the sum of its rows\' pieces)',await q.evaluate(()=>{const F=__F;F.UI.sheet={kind:'flow',w:'blocked'};F.render();const s=document.querySelector('.sheet');const tb=[...s.querySelectorAll('table')].pop();const rows=[...tb.querySelectorAll('tbody tr')].map(r=>+r.children[1].textContent.replace(/,/g,'')),tot=+tb.querySelector('tfoot td:nth-child(2)').textContent.replace(/,/g,'');return rows.length>0&&tot>=rows.reduce((a,b)=>a+b,0)}));
+  await c2.close();
   // Today events pop-up
   await p.evaluate(()=>{__F.UI.sheet=null;__F.go('today')});await p.waitForTimeout(400);
   const n=await p.locator('.tli[data-a=tev]').count();
