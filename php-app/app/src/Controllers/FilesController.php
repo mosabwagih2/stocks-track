@@ -16,7 +16,7 @@ final class FilesController
     public static function upload(Request $req): never
     {
         $user = Auth::requireUser();
-        $kind = (string)($_POST['kind'] ?? 'other');
+        $kind = (string)($_POST['kind'] ?? '');
         $perms = FileStore::permissionsFor($kind);
         if ($perms && !Permissions::canAny($user, $perms)) {
             throw new HttpError(403, 'forbidden', 'دورك مش بيسمح برفع الملف ده.', ['needs' => $perms[0]]);

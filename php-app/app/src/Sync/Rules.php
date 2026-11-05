@@ -17,11 +17,16 @@ final class Rules
     public const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN'];
 
     /** Fields of a confirmed document that may still change (delivery proof, attached files, history). */
-    private const DOC_MUTABLE_HDR = ['delivered', 'file', 'shpRecv'];
+    private const DOC_MUTABLE_HDR = ['delivered', 'file', 'shpRecv', 'emp'];   // 'emp': a scan sheet's employee name can be corrected (logged in the document's history)
     private const DOC_MUTABLE_TOP = ['log', 'photo'];
 
-    public function __construct(private readonly array $user, private readonly string $lockDate, private readonly string $today)
-    {
+    /** @param bool $trustActors true only for the CLI import: documents keep the author recorded in the backup */
+    public function __construct(
+        private readonly array $user,
+        private readonly string $lockDate,
+        private readonly string $today,
+        private readonly bool $trustActors = false
+    ) {
     }
 
     public function checkMove(array $m): void
@@ -49,8 +54,9 @@ final class Rules
                 throw new HttpError(422, 'bad_move', 'مكان الحركة غلط.');
             }
         }
-        if (!is_int($m['id'] ?? null) || $m['id'] < 1 || !is_int($m['q'] ?? null) || $m['q'] === 0
-            || !is_string($m['sku'] ?? null) || $m['sku'] === '' || strlen($m['sku']) > 40
+        if (!is_int($m['id'] ?? null) || $m['id'] < 1 || $m['id'] > 9007199254740991
+            || !is_int($m['q'] ?? null) || $m['q'] === 0 || abs($m['q']) > 1000000
+            || !is_string($m['sku'] ?? null) || !preg_match('/^[A-Za-z0-9_.-]{1,40}$/', $m['sku'])
             || !is_string($m['doc'] ?? null) || strlen($m['doc']) > 40) {
             throw new HttpError(422, 'bad_move', 'بيانات الحركة ناقصة أو غلط.');
         }
@@ -71,6 +77,10 @@ final class Rules
         }
         if ($existing === null) {
             $this->need($perm);
+            // A document is signed by whoever creates it: it cannot be filed under somebody else's name.
+            if (!$this->trustActors && ($doc['by'] ?? null) !== $this->user['name']) {
+                throw new HttpError(403, 'forged_actor', 'اسم منفّذ المستند لازم يكون اسمك. حدّث الصفحة.');
+            }
             if ($status === 'done') {
                 $this->assertOpenDay((string)($doc['date'] ?? ''));
             }

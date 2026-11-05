@@ -19,6 +19,20 @@ final class UserRepository
         }
     }
 
+    /** Whether a user currently holds the all-powerful role. */
+    public static function isAdminUser(string $id): bool
+    {
+        $perms = Database::value('SELECT r.perms FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?', [$id]);
+        return is_string($perms) && in_array('*', json_decode($perms, true) ?: [], true);
+    }
+
+    /** Whether a role is the admin role (all permissions). */
+    public static function isAdminRole(string $roleId): bool
+    {
+        $perms = Database::value('SELECT perms FROM roles WHERE id = ?', [$roleId]);
+        return is_string($perms) && in_array('*', json_decode($perms, true) ?: [], true);
+    }
+
     public static function countUsers(): int
     {
         return (int)Database::value('SELECT COUNT(*) FROM users');
@@ -46,6 +60,9 @@ final class UserRepository
 
     public static function create(string $username, string $name, string $roleId, ?string $password): string
     {
+        if (mb_strlen($name) > 80) {
+            throw new HttpError(422, 'bad_name', 'الاسم طويل قوي.');
+        }
         $username = trim($username);
         if (!preg_match('/^[A-Za-z0-9_.@-]{3,60}$/', $username)) {
             throw new HttpError(422, 'bad_username', 'اسم المستخدم 3 إلى 60 حرف إنجليزي أو أرقام.');
@@ -81,8 +98,12 @@ final class UserRepository
             $args = [];
             foreach (['name' => 'name', 'role' => 'role_id'] as $in => $col) {
                 if (array_key_exists($in, $patch)) {
+                    $value = trim((string)$patch[$in]);
+                    if ($value === '' || mb_strlen($value) > 80) {
+                        throw new HttpError(422, 'bad_' . $in, 'القيمة فاضية أو طويلة قوي.');
+                    }
                     $sets[] = "$col = ?";
-                    $args[] = trim((string)$patch[$in]);
+                    $args[] = $value;
                 }
             }
             foreach (['active', 'arch'] as $flag) {

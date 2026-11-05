@@ -45,7 +45,7 @@ $boot = [
     'files' => \Femini\Files\FileStore::index(0),
 ];
 // Safe to embed inside <script>: no "</script>", no HTML comments, no JS line terminators.
-$json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR);
+$json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
 $json = str_replace(["\u{2028}", "\u{2029}"], [' ', ' '], $json);
 
 header('Content-Type: text/html; charset=utf-8');

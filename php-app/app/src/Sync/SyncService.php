@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Femini\Sync;
 
+use Femini\Auth\Permissions;
 use Femini\Database;
 use Femini\Http\HttpError;
 
@@ -17,7 +18,8 @@ use Femini\Http\HttpError;
  */
 final class SyncService
 {
-    public function __construct(private readonly array $user)
+    /** @param bool $trustActors CLI import only: keep the authors recorded in a backup instead of the signed-in user */
+    public function __construct(private readonly array $user, private readonly bool $trustActors = false)
     {
     }
 
@@ -27,12 +29,15 @@ final class SyncService
      */
     public function push(\stdClass $req): array
     {
+        if (!Permissions::canWrite($this->user)) {
+            throw new HttpError(403, 'read_only', 'حسابك للقراءة فقط.');
+        }
         $since = max(0, (int)($req->since ?? 0));
         return Database::transaction(function () use ($req, $since): array {
             $prev = (int)Database::value('SELECT rev FROM sync_state WHERE id = 1 FOR UPDATE');
             $rev = $prev + 1;
             $lock = (string)json_decode((string)Database::value("SELECT v FROM meta WHERE k = 'lock'") ?: '""', true);
-            $rules = new Rules($this->user, $lock, date('Y-m-d'));
+            $rules = new Rules($this->user, $lock, date('Y-m-d'), $this->trustActors);
             $ctx = new PushContext($rev, $since);
 
             $this->applyMoves((array)($req->moves ?? []), $rules, $ctx);
@@ -121,7 +126,9 @@ final class SyncService
             Database::run(
                 'INSERT INTO moves (id, t, on_date, type, doc, sku, q, from_loc, to_loc, by_name, note, rev) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                 [$m['id'], (int)($m['t'] ?? 0), $m['date'], $m['type'], $m['doc'], $m['sku'], $m['q'], $m['from'], $m['to'],
-                 mb_substr((string)($m['by'] ?? ''), 0, 80), mb_substr((string)($m['note'] ?? ''), 0, 500), $ctx->rev]
+                 // the actor is the signed-in user (the opening balance is written by 'النظام' and kept as is)
+                 $this->trustActors || $m['type'] === 'OPN' ? mb_substr((string)($m['by'] ?? ''), 0, 80) : mb_substr($this->user['name'], 0, 80),
+                 mb_substr((string)($m['note'] ?? ''), 0, 500), $ctx->rev]
             );
             $ctx->changed++;
         }
@@ -129,7 +136,6 @@ final class SyncService
 
     private function applyCollection(string $name, \stdClass $ops, Rules $rules, PushContext $ctx): void
     {
-        $isTable = isset(Collections::TABLES[$name]);
         $nextOrd = $this->maxOrd($name) + 1;
 
         foreach ((array)($ops->up ?? []) as $obj) {
@@ -154,7 +160,7 @@ final class SyncService
             }
             $decodedOld = $existing === null ? null : json_decode($existing['payload'], true);   // arrays: only used by the rules
             $this->checkRow($name, $row, $decodedOld, $rules);
-            $this->writeRow($name, $key, $row, $payload, $existing === null ? $nextOrd++ : (int)$existing['ord'], $ctx->rev, $existing !== null);
+            $this->writeRow($name, $key, $row, $payload, $existing === null ? $nextOrd++ : (int)$existing['ord'], $ctx->rev);
             $ctx->changed++;
         }
 
@@ -257,7 +263,7 @@ final class SyncService
         return Database::one('SELECT payload, gone, ord, rev FROM coll_rows WHERE coll = ? AND k = ? FOR UPDATE', [$name, $key]);
     }
 
-    private function writeRow(string $name, string $key, mixed $row, string $payload, int $ord, int $rev, bool $exists): void
+    private function writeRow(string $name, string $key, mixed $row, string $payload, int $ord, int $rev): void
     {
         if (isset(Collections::TABLES[$name])) {
             $t = Collections::TABLES[$name];
