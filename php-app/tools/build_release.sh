@@ -10,10 +10,15 @@ echo "== lint"
 for f in $(find app public tools config -name '*.php'); do php -l "$f" >/dev/null || { echo "syntax error in $f"; exit 1; }; done
 echo "ok"
 
-echo "== regenerate the app page"
-python3 frontend/build_app.py
-if ! git diff --quiet -- app/views/app.html public/assets/sync.js 2>/dev/null; then
-  echo "NOTE: app/views/app.html or sync.js differs from what is committed (commit it before releasing)."
+if [ "${REGENERATE_APP:-0}" = "1" ]; then
+  echo "== regenerate the app page (REGENERATE_APP=1)"
+  python3 frontend/build_app.py
+  if ! git diff --quiet -- app/views/app.html public/assets/sync.js 2>/dev/null; then
+    echo "NOTE: app/views/app.html or sync.js differs from what is committed (commit it before releasing)."
+  fi
+else
+  # Regenerating rebuilds the page from apps/edition-3-brand-v2 and DISCARDS anything edited directly in app/views/app.html.
+  echo "== app page: kept as it is (run with REGENERATE_APP=1 to rebuild it from apps/edition-3-brand-v2)"
 fi
 
 echo "== package"

@@ -586,7 +586,7 @@ $packer->autoDoc = false;
 $nid2 = (int)Database::value('SELECT MAX(id) FROM moves') + 1;
 $d900r = $d900;
 $d900r['status'] = 'reversed';
-$bad = mv($nid2, 'SCN', 'BR2-BLK-L', 1, 'EXT_ADJ', 'READY');
+$bad = mv($nid2, 'SCN', 'BR2-BLK-L', 1, 'READY', 'EXT_CH');   // same direction as the original, not its opposite
 $bad['doc'] = 'SCN-0900 (عكس)';
 [$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$bad], 'coll' => ['docs' => ['up' => [$d900r]]], 'meta' => ['mid' => $nid2 + 1]]);
 ok('a reversal that is not the opposite of the document\'s own move is refused (409 orphan_moves)', $s === 409 && $j['error'] === 'orphan_moves', $j);
@@ -595,6 +595,14 @@ $good = mv($nid2, 'SCN', 'BR2-BLK-L', 1, 'EXT_CH', 'READY');
 $good['doc'] = 'SCN-0900 (عكس)';
 [$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$good], 'coll' => ['docs' => ['up' => [$d900r]]], 'meta' => ['mid' => $nid2 + 1]]);
 ok('the exact opposite move reverses the document', $s === 200 && Database::value("SELECT status FROM docs WHERE doc_no = 'SCN-0900'") === 'reversed', $j);
+$packer->autoDoc = true;
+
+// a move type only moves pieces between its own places
+$packer->autoDoc = false;
+$nid3 = (int)Database::value('SELECT MAX(id) FROM moves') + 1;
+$mint = mv($nid3, 'SCN', 'BR2-BLK-L', 5, 'EXT_ADJ', 'READY');
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$mint], 'meta' => ['mid' => $nid3 + 1]]);
+ok('a scan cannot take pieces from "adjustment" into READY (422)', $s === 422 && $j['error'] === 'bad_move', $j);
 $packer->autoDoc = true;
 
 [$s, $j] = $admin->call('POST', '/api/sync/push', ['since' => $revNow(), 'meta' => ['costs' => ['BR2' => ['cost' => 10, 'price' => 25]]]]);

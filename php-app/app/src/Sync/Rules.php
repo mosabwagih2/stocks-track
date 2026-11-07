@@ -63,6 +63,33 @@ final class Rules
             || !is_string($m['doc'] ?? null) || strlen($m['doc']) > 40) {
             throw new HttpError(422, 'bad_move', 'بيانات الحركة ناقصة أو غلط.');
         }
+        // Each operation only uses its own places. (The CLI import of an old backup keeps whatever history it holds.)
+        if (!$this->trustActors && !self::placesFit($type, (string)$m['from'], (string)$m['to'])) {
+            throw new HttpError(422, 'bad_move', 'العملية دي ما بتنقلش القطع بين المكانين دول.');
+        }
+    }
+
+    /** The pairs of places each move type uses, in either direction (a reversal goes the other way). */
+    private static function placesFit(string $type, string $a, string $b): bool
+    {
+        $inside = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST'];
+        $pair = static fn(string $x, string $y): bool => ($a === $x && $b === $y) || ($a === $y && $b === $x);
+        $outsideAndInside = static fn(string $out, array $in): bool => ($a === $out && in_array($b, $in, true)) || ($b === $out && in_array($a, $in, true));
+        return match ($type) {
+            'RCV' => $pair('EXT_FACTORY', 'READY'),
+            'SHP' => $pair('READY', 'EXT_SHOP'),
+            'SCN', 'CXL' => $pair('READY', 'EXT_CH'),
+            'FSD' => $pair('DIRTY', 'FACTORY') || $pair('SCRAP', 'EXT_FACTORY'),
+            'FRC' => $pair('FACTORY', 'READY') || $pair('FACTORY', 'SCRAP'),
+            'LOS' => $pair('LOST', 'READY') || $pair('LOST', 'EXT_OFF'),
+            'SWP' => $pair('READY', 'EXT_ADJ'),
+            'CLN' => $a !== $b && in_array($a, $inside, true) && in_array($b, $inside, true),
+            'RTN' => $outsideAndInside('EXT_CH', ['READY', 'DIRTY', 'SCRAP', 'LOST'])
+                || ($a !== $b && in_array($a, ['READY', 'DIRTY', 'SCRAP', 'LOST'], true) && in_array($b, ['READY', 'DIRTY', 'SCRAP', 'LOST'], true)),
+            'CNT' => $outsideAndInside('EXT_ADJ', $inside),
+            'OPN' => $outsideAndInside('EXT_OPEN', $inside),
+            default => false,
+        };
     }
 
     /** @param array<string,mixed>|null $existing the stored row's decoded payload, if any */
