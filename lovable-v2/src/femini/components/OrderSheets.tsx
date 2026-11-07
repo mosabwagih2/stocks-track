@@ -9,9 +9,10 @@ import { findByCode, need, skuLabel } from '@/femini/domain/orders';
 import { matchScans, parseCsv, parseScan, type ScanMatch, type ScanRow } from '@/femini/domain/scan';
 import { parsePickupRows, type ParsedOrder } from '@/femini/domain/pickup';
 import { qty } from '@/femini/domain/ledger';
-import { CHANNELS, channelName } from '@/femini/domain/constants';
+import { BACKDATE_DAYS, CHANNELS, channelName } from '@/femini/domain/constants';
 import { fmt } from '@/femini/cn';
-import { cairoDay, timeCairo } from '@/femini/domain/dates';
+import { addDays, cairoDay, timeCairo } from '@/femini/domain/dates';
+import { useAccountName } from '@/femini/data/account';
 import { Link } from '@/femini/router';
 
 export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; orderRef: string; onClose: () => void; onCancel: (code: string) => void }) {
@@ -28,7 +29,12 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
           <tbody>{Object.keys(n).map((s) => { const r = qty(d.snap.balances, s, 'READY'); return (
             <tr key={s}><td className={td}><Thumb model={d.modelMap.get(d.skuMap.get(s)?.model ?? '')} size={26} className="me-1.5" />{skuLabel(d.skuMap, s)}</td><td className={td + ' font-mono'}>{n[s]}</td><td className={td}>{r < n[s] && o.status === 'open' ? <Pill tone="crit">{r}</Pill> : <span className="font-mono">{fmt(r)}</span>}</td></tr>); })}</tbody></table>
       </TableWrap>
-      {o.unmapped.length > 0 && <Alert tone="warn">توجد أصناف غير مرتبطة بالكتالوج. اربطها قبل الشحن.</Alert>}
+      {o.unmapped.length > 0 && <Alert tone="warn">
+        <b>أصناف مش متعرّفة، والأوردر مش هيتشحن غير لما تتربط:</b>
+        <ul className="mt-1 list-disc ps-5 font-mono text-xs">{o.unmapped.map((u, i) => <li key={i}>{Array.isArray(u) ? (u.length === 4 ? `${u[0]} · ${u[1]} · ${u[2]} × ${u[3]}` : String(u[0])) : String(u)}</li>)}</ul>
+        <p className="mt-1 text-xs">لو الموديل أو اللون أو المقاس مش في الكتالوج، ضيفه الأول وبعدين اربط.</p>
+        {o.status === 'open' && <Button size="sm" className="mt-2" onClick={() => act(() => repo.remapUnmapped(), (n) => (n ? `اتربط ${n} صنف بالكتالوج` : 'لسه مفيش صنف مطابق في الكتالوج'))}>اربط بالكتالوج</Button>}
+      </Alert>}
       {o.status === 'shipped' && <Alert tone="good">شُحن بواسطة {o.shippedBy}{o.shippedAt ? ` الساعة ${timeCairo(o.shippedAt)}` : ''} · {o.shipDoc}</Alert>}
       {o.status === 'cancelled' && o.cancel && (
         <>
@@ -70,8 +76,14 @@ export function CancelSheet({ d, initial, onClose }: { d: Derived; initial: stri
 }
 
 type Mode = 'scan' | 'pickup';
-export function UploadSheet({ d, mode: m0, onClose, manualRefs }: { d: Derived; mode: Mode; onClose: () => void; manualRefs?: string[] }) {
+export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Derived; mode: Mode; onClose: () => void; manualRefs?: string[]; date?: string }) {
   const act = useAct(); const fileRef = useRef<HTMLInputElement>(null);
+  // the day the pickup was requested / the orders left: today, or a past day for a forgotten upload
+  const minDay = addDays(d.today, -BACKDATE_DAYS);
+  const [day, setDay] = useState(() => (date && date >= minDay && date <= d.today ? date : d.today));
+  const closed = d.snap.closes.some((c) => c.date === day && c.status === 'closed');
+  const dayText = day === d.today ? 'تاريخ اليوم' : `بتاريخ ${day}`;
+  const account = useAccountName();
   const [mode, setMode] = useState<Mode>(manualRefs ? 'scan' : m0);
   const [fname, setFname] = useState(''); const [err, setErr] = useState(''); const [emp, setEmp] = useState(() => localStorage.getItem('femini-last-emp') ?? '');
   const [original, setOriginal] = useState<File | null>(null);
@@ -121,11 +133,18 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs }: { d: Derived; 
         </>
       )}
       {manualRefs && <Alert>تسجيل يدوي لأوردرات محددة من القائمة، دون ملف.</Alert>}
+      <Field label={mode === 'pickup' ? 'تاريخ البيك أب (اليوم اللي اتطلب فيه)' : 'تاريخ الشحن (اليوم اللي القطع خرجت فيه)'}>
+        <input type="date" value={day} min={minDay} max={d.today} onChange={(e) => e.target.value && setDay(e.target.value)} className="w-48" />
+      </Field>
+      {day !== d.today && <p className="-mt-2 text-xs text-muted">هيتسجل على يوم {day} زي ما يكون اتعمل فيه. ينفع لحد {BACKDATE_DAYS} أيام لورا.</p>}
+      {closed && <Alert tone="warn" className="flex flex-wrap items-center justify-between gap-2"><span>يوم {day} مقفول. افتحه الأول عشان تسجّل عليه.</span><Button size="sm" onClick={() => act(() => repo.reopenDay(day), `اتفتح يوم ${day}`)}>افتح اليوم</Button></Alert>}
       {err && <Alert tone="crit">{err}</Alert>}
 
       {mode === 'scan' && scan && (
         <>
-          <Field label="اسم الموظف (الذي سجّل السكان)"><input list="emps" value={emp} onChange={(e) => setEmp(e.target.value)} placeholder="مثال: عبدالله" /></Field>
+          {account
+            ? <Field label="الموظف (من الحساب المسجّل)"><input value={account} readOnly className="bg-lav" /></Field>
+            : <Field label="اسم الموظف (الذي سجّل السكان)"><input list="emps" value={emp} onChange={(e) => setEmp(e.target.value)} placeholder="مثال: عبدالله" /><span className="text-xs text-muted">سجّل دخول من الإعدادات عشان الاسم يتاخد من حسابك.</span></Field>}
           <datalist id="emps">{[...new Set(d.snap.orders.map((o) => o.shippedBy).filter(Boolean) as string[])].map((e) => <option key={e} value={e} />)}</datalist>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Kpi label="سكان في الملف" value={scan.scans} /><Kpi label="أوردر جديد" value={scan.matched.length} sub={`${fmt(pcs(scan.matched))} قطعة ستُخصم`} tone="good" />
@@ -136,11 +155,11 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs }: { d: Derived; 
           {scan.unknown.length > 0 && <Alert tone="crit">أكواد غير موجودة في أي بيك أب: <span className="font-mono">{scan.unknown.slice(0, 12).join('، ')}</span>{scan.unknown.length > 12 ? ' ...' : ''}<br />ارفع البيك أب الخاص بها أولًا.</Alert>}
           {scan.unmapped.length > 0 && <Alert tone="warn">{scan.unmapped.length} أوردر يحتوي على صنف غير مرتبط بالكتالوج. اربطه أولًا.</Alert>}
           {neg.length > 0 && <Alert tone="warn"><b>الرصيد غير كافٍ لـ {neg.length} صنف</b>، لكن لن يُمنع التسجيل. سيصبح الرصيد سالبًا وسيظهر ضمن «يتطلب إجراء»:<ul className="mt-1 list-disc ps-5">{neg.slice(0, 6).map((x) => <li key={x.sku}>{skuLabel(d.skuMap, x.sku)}: رصيد {x.ready} والمشحون {x.need}</li>)}</ul></Alert>}
-          <Button variant="primary" disabled={!scan.matched.length || !emp.trim() || busy} onClick={async () => {
-            setBusy(true); localStorage.setItem('femini-last-emp', emp.trim());
-            const r = await act(() => repo.shipOrders({ refs: scan.matched, employee: emp.trim(), source: manualRefs ? 'تسجيل يدوي' : fname, file: manualRefs ? null : original }), (x) => `تم شحن ${x.shipped} أوردر وخصمها من المخزون${x.negative.length ? `. تنبيه: ${x.negative.length} صنف برصيد سالب` : ''}`);
+          <Button variant="primary" disabled={!scan.matched.length || !(account ?? emp).trim() || closed || busy} onClick={async () => {
+            setBusy(true); if (!account) localStorage.setItem('femini-last-emp', emp.trim());
+            const r = await act(() => repo.shipOrders({ refs: scan.matched, employee: (account ?? emp).trim(), source: manualRefs ? 'تسجيل يدوي' : fname, file: manualRefs ? null : original, date: day }), (x) => `تم شحن ${x.shipped} أوردر وخصمها من المخزون${x.negative.length ? `. تنبيه: ${x.negative.length} صنف برصيد سالب` : ''}`);
             setBusy(false); if (r) onClose();
-          }}>تأكيد وخصم {fmt(pcs(scan.matched))} قطعة من المخزون</Button>
+          }}>تأكيد وخصم {fmt(pcs(scan.matched))} قطعة من المخزون ({dayText})</Button>
         </>
       )}
       {mode === 'pickup' && pickup && (
@@ -148,11 +167,11 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs }: { d: Derived; 
           <div className="grid grid-cols-3 gap-3"><Kpi label="أوردر جديد" value={pickup.orders.length} sub={`${fmt(pickup.orders.reduce((a, o) => a + o.lines.length, 0))} قطعة`} tone="good" /><Kpi label="مكرر (موجود)" value={pickup.duplicates.length} tone={pickup.duplicates.length ? 'warn' : undefined} /><Kpi label="أصناف غير مرتبطة" value={pickup.orders.filter((o) => o.unmapped.length).length} tone={pickup.orders.some((o) => o.unmapped.length) ? 'crit' : undefined} /></div>
           {pickup.unknownModels.length > 0 && <Alert tone="warn">أكواد موديل غير معروفة: <span className="font-mono">{pickup.unknownModels.join('، ')}</span>. ستُعلَّم هذه الأوردرات «كود غير مربوط».</Alert>}
           <Alert>البيك أب لا يخصم من المخزون، ويُحتسب طلبًا فقط إلى أن تُشحن الأوردرات. لا تُحفظ بيانات العملاء.</Alert>
-          <Button variant="primary" disabled={!pickup.orders.length || busy} onClick={async () => {
+          <Button variant="primary" disabled={!pickup.orders.length || closed || busy} onClick={async () => {
             setBusy(true);
-            const r = await act(() => repo.importPickup({ label: `بيك أب ${d.snap.pickups.length + 1}`, date: d.today, channel, source: fname, orders: pickup.orders, file: original }), (x) => `تم استيراد ${x.imported} أوردر. لم يُخصم أي رصيد بعد.`);
+            const r = await act(() => repo.importPickup({ label: `بيك أب ${d.snap.pickups.length + 1}`, date: day, channel, source: fname, orders: pickup.orders, file: original }), (x) => `تم استيراد ${x.imported} أوردر. لم يُخصم أي رصيد بعد.`);
             setBusy(false); if (r) onClose();
-          }}>استيراد {pickup.orders.length} أوردر (تاريخ اليوم)</Button>
+          }}>استيراد {pickup.orders.length} أوردر ({dayText})</Button>
         </>
       )}
       <p className="text-xs text-muted">يُحفظ الملف الأصلي مع البيانات المستخرجة منه. <Link className="text-accent" to="/files">الملفات</Link></p>

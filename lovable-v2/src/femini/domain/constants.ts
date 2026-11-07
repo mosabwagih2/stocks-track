@@ -1,6 +1,8 @@
 import type { Loc } from './types';
 
 export const LOCS: Loc[] = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST'];
+/** a pickup or a scan sheet can be recorded on a past day up to this many days back (forgotten uploads) */
+export const BACKDATE_DAYS = 7;
 export const LOC_AR: Record<string, string> = {
   READY: 'جاهز للبيع', DIRTY: 'هالك نظافة', FACTORY: 'عند المصنع', SCRAP: 'هالك نهائي', LOST: 'مفقود',
   EXT_OPEN: 'رصيد افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'القناة / العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'تسوية جرد', EXT_OFF: 'شطب نهائي', EXT_HOLD: 'هولد (برا)',

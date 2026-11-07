@@ -8,7 +8,8 @@ export interface Repo {
   readonly mode: 'supabase' | 'memory';
   snapshot(): Promise<Snapshot>;
   importPickup(i: { label: string; date: string; channel: string; source: string; orders: ParsedOrder[]; file?: File | null }): Promise<{ pickup: string; imported: number; duplicates: number }>;
-  shipOrders(i: { refs: string[]; employee: string; source: string; file?: File | null }): Promise<ShipResult>;
+  /** `date`: the day the orders left (defaults to today; a past day up to BACKDATE_DAYS back for a forgotten upload) */
+  shipOrders(i: { refs: string[]; employee: string; source: string; file?: File | null; date?: string }): Promise<ShipResult>;
   reverseShipment(doc: string): Promise<void>;
   receiveStock(i: { lines: { sku: string; qty: number }[]; date: string; ref: string; declared: number; photo: File }): Promise<{ doc: string; pieces: number }>;
   moveState(i: { lines: { sku: string; qty: number }[]; from: Loc; to: Loc; reason: string }): Promise<{ doc: string; pieces: number }>;
@@ -32,6 +33,8 @@ export interface Repo {
   catalogEditModel(i: { code: string; name: string; add: { color: string; size: string }[]; remove: string[] }): Promise<{ added: number; removed: number }>;
   catalogRemoveModel(code: string): Promise<number>;
   catalogRestore(i: { model: string; sku?: string }): Promise<number>;
+  /** links unmatched items of open orders to the catalog; returns how many items were linked */
+  remapUnmapped(): Promise<number>;
   // ---- supplies administration ----
   supplySave(i: { id?: string; name: string; unit: string; pack: number; packName: string; minAlert: number; note: string; rule: SupplyRule; open: number }): Promise<string>;
   supplyArchive(id: string, archived: boolean): Promise<void>;
@@ -48,4 +51,10 @@ export interface Repo {
   setModelCosts(model: string, cost: number, price: number): Promise<void>;
   resetDemo?(): Promise<void>;
 }
-export const ACTOR = 'مصعب';
+/** name written as "who did it" when nobody is signed in */
+export const DEFAULT_ACTOR = 'مصعب';
+let signedIn: string | null = null;
+/** set by the account module from the signed-in team account */
+export const setActor = (name: string | null) => { signedIn = name?.trim() || null; };
+/** who is doing the operation now: the signed-in account's name, or the default */
+export const actor = (): string => signedIn ?? DEFAULT_ACTOR;

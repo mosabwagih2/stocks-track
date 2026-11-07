@@ -12,7 +12,7 @@ import { Seg } from '@/femini/components/ui';
 import { Spinner } from '@/femini/components/Spinner';
 import { OrderSheet, UploadSheet, CancelSheet } from '@/femini/components/OrderSheets';
 import { addDays, dayLabel, timeCairo } from '@/femini/domain/dates';
-import { channelName, LOC_AR } from '@/femini/domain/constants';
+import { channelName, LOC_AR, BACKDATE_DAYS } from '@/femini/domain/constants';
 import { fmt, pct } from '@/femini/cn';
 import { skuLabel } from '@/femini/domain/orders';
 import { locTotal, qty } from '@/femini/domain/ledger';
@@ -65,7 +65,7 @@ function FlowSheet({ d, w, orders, onClose, onOrder }: { d: Derived; w: FlowKey;
 export default function Today() {
   const { d, isLoading, error } = useDerived();
   const act = useAct(); const [date, setDate] = useState(''); const [closing, setClosing] = useState(false); const [event, setEvent] = useState<Move[] | null>(null);
-  const selected = date || d?.today || ''; const historical = !!d && selected !== d.today;
+  const selected = date || d?.today || ''; const historical = !!d && selected !== d.today; const tooOld = !!d && selected < addDays(d.today, -BACKDATE_DAYS);
   const nav = useNavigate();
   const [flow, setFlow] = useState<FlowKey | null>(null);
   const [upload, setUpload] = useState<'scan' | 'pickup' | null>(null);
@@ -122,10 +122,10 @@ export default function Today() {
           </div>
           <Button className="h-10" onClick={()=>setClosing(true)}><LockKeyhole className="size-4" />{d.snap.closes.some((c)=>c.date===selected&&c.status==='closed') ? 'تقرير اليوم المقفول' : 'قفل اليوم'}</Button>
         </div>
-        {historical && <p className="mb-3 text-xs text-muted">{dayLabel(selected)} · قراءة فقط</p>}
+        {historical && <p className="mb-3 text-xs text-muted">{dayLabel(selected)} · {tooOld ? 'قراءة فقط' : 'تقدر ترفع بيك أب أو ملف إسكان على اليوم ده لو كنت نسيته'}</p>}
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Button className="h-11 w-full" disabled={historical} variant="primary" onClick={() => setUpload('scan')}><Upload className="size-4 shrink-0" />رفع ملف الإسكان</Button>
-          <Button className="h-11 w-full" disabled={historical} onClick={() => setUpload('pickup')}><Upload className="size-4 shrink-0" />رفع بيك أب</Button>
+          <Button className="h-11 w-full" disabled={tooOld} variant="primary" onClick={() => setUpload('scan')}><Upload className="size-4 shrink-0" />رفع ملف الإسكان</Button>
+          <Button className="h-11 w-full" disabled={tooOld} onClick={() => setUpload('pickup')}><Upload className="size-4 shrink-0" />رفع بيك أب</Button>
           <Button className="h-11 w-full" disabled={historical} onClick={()=>nav('/operations?op=RCV')}><ArrowDownToLine className="size-4 shrink-0" />استلام توريد</Button>
           <Button className="h-11 w-full" disabled={historical} onClick={()=>nav('/operations?op=CLN')}><Shuffle className="size-4 shrink-0" />تصنيف الهالك</Button>
         </div>
@@ -198,7 +198,7 @@ export default function Today() {
         <Button variant="primary" onClick={async()=>{const locked=d.snap.closes.some((c)=>c.date===selected&&c.status==='closed');await act(()=>locked?repo.reopenDay(selected):repo.closeDay(selected),locked?'تم فتح اليوم':'تم قفل اليوم');}}>{d.snap.closes.some((c)=>c.date===selected&&c.status==='closed')?'فتح اليوم':'تأكيد قفل اليوم'}</Button>
       </Sheet>}
       {flow && <FlowSheet d={d} w={flow} orders={x.orders} onClose={() => setFlow(null)} onOrder={(r) => { setFlow(null); setOrderRef(r); }} />}
-      {upload && <UploadSheet d={d} mode={upload} onClose={() => setUpload(null)} />}
+      {upload && <UploadSheet d={d} mode={upload} date={selected} onClose={() => setUpload(null)} />}
       {orderRef && <OrderSheet d={d} orderRef={orderRef} onClose={() => setOrderRef(null)} onCancel={(c) => { setOrderRef(null); setCancel(c); }} />}
       {cancel !== null && <CancelSheet d={d} initial={cancel} onClose={() => setCancel(null)} />}
     </>

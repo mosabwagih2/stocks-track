@@ -1,5 +1,6 @@
 import type { Balances, Loc } from './types';
 import { qty } from './ledger';
+import { LOCS } from './constants';
 
 /** Hold: pieces leave READY to a person (photoshoot, sample, gift…) and later come back fully, partially, or are written off.
  * Ledger: out READY→EXT_HOLD · return EXT_HOLD→READY/DIRTY/SCRAP · write-off EXT_HOLD→EXT_OFF (proof photo required). */
@@ -30,12 +31,13 @@ export function buildHoldOut(i: { who: string; reason: HoldReason; reasonText?: 
   if (!i.who.trim()) err.push('اكتب اسم الشخص اللي استلم');
   if (i.reason === 'other' && !(i.reasonText ?? '').trim()) err.push('اكتب السبب');
   if (!i.hasPhoto) err.push('صورة إثبات التسليم إجبارية');
-  const lines = i.lines.filter((l) => n(l.q) > 0);
-  if (!lines.length) err.push('ضيف قطع');
-  for (const l of lines) {
-    const have = qty(b, l.sku, 'READY');
-    if (have < n(l.q)) err.push(`${name(l.sku)}: الجاهز ${have} والمطلوب ${n(l.q)}`);
-    moves.push({ sku: l.sku, qty: n(l.q), from: 'READY', to: 'EXT_HOLD', note: `هولد · ${i.who.trim()}` });
+  // the same variant on two lines is one request: checked against READY together
+  const want: Record<string, number> = {}; for (const l of i.lines) if (n(l.q) > 0) want[l.sku] = (want[l.sku] ?? 0) + n(l.q);
+  if (!Object.keys(want).length) err.push('ضيف قطع');
+  for (const [sku, q] of Object.entries(want)) {
+    const have = qty(b, sku, 'READY');
+    if (have < q) err.push(`${name(sku)}: الجاهز ${have} والمطلوب ${q}`);
+    moves.push({ sku, qty: q, from: 'READY', to: 'EXT_HOLD', note: `هولد · ${i.who.trim()}` });
   }
   return { ok: !err.length, err, moves };
 }
@@ -50,6 +52,8 @@ export function buildHoldSettle(h: Hold, i: { ret: (HoldLine & { to: Loc })[]; o
   for (const l of [...ret, ...off]) use[l.sku] = (use[l.sku] ?? 0) + n(l.q);
   for (const s of Object.keys(use)) if (use[s] > (left[s] ?? 0)) err.push(`${name(s)}: الباقي برا ${left[s] ?? 0} بس`);
   if (off.length && !i.hasPhoto) err.push('الخصم النهائي مش بيتقفل غير بصورة إثبات');
+  // a returned piece must land in a real warehouse state, or it would vanish from the stock
+  for (const l of ret) if (!(LOCS as string[]).includes(l.to)) err.push(`${name(l.sku)}: حالة الرجوع غير معروفة`);
   for (const l of ret) moves.push({ sku: l.sku, qty: n(l.q), from: 'EXT_HOLD', to: l.to, note: `رجوع هولد ${h.no} · ${h.who}` });
   for (const l of off) moves.push({ sku: l.sku, qty: n(l.q), from: 'EXT_HOLD', to: 'EXT_OFF', note: `خصم نهائي هولد ${h.no} · ${h.who}` });
   const remaining = Object.values(left).reduce((a, b) => a + b, 0) - Object.values(use).reduce((a, b) => a + b, 0);

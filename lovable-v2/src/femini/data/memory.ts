@@ -1,11 +1,13 @@
 import seed from './seed.json';
-import { ACTOR, type Repo, type ShipResult } from './repo';
+import { actor, type Repo, type ShipResult } from './repo';
 import type { OpDraft, CancelInfo, Doc, Loc, Model, Move, Order, Pickup, Snapshot, Sku, Supply, SupplyEntry } from '@/femini/domain/types';
 import { balancesFromMoves, qty, totalOwned } from '@/femini/domain/ledger';
 import { consumption } from '@/femini/domain/supplies';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
+import { itemMapper } from '@/femini/domain/pickup';
+import { BACKDATE_DAYS } from '@/femini/domain/constants';
 import { buildOp } from '@/femini/domain/ops';
-import { buildHoldOut, buildHoldSettle, HOLD_REASON_AR, type Hold } from '@/femini/domain/holds';
+import { buildHoldOut, buildHoldSettle, HOLD_REASON_AR, outstanding, type Hold } from '@/femini/domain/holds';
 import { addDays, cairoDay, cairoToday } from '@/femini/domain/dates';
 import { clearPhotos, getPhoto, putPhoto, shrinkImage } from './photos';
 import { blobToDataUrl, squareImage } from './image';
@@ -62,21 +64,28 @@ export function createMemoryRepo(): Repo {
   let baseline = localStorage.getItem(KEY);
   const guard = () => { if (localStorage.getItem(KEY) !== baseline) { S = load(); baseline = localStorage.getItem(KEY); throw new Error('البيانات تغيّرت في تبويب آخر. أعد تحميل الصفحة قبل التسجيل.'); } };
   const save = () => { guard(); try { const next = JSON.stringify(S); localStorage.setItem(KEY, next); baseline = next; } catch { S = load(); throw new Error('لم تُحفظ العملية؛ مساحة المتصفح غير كافية. نزّل نسخة احتياطية وفرّغ مساحة.'); } };
+  const inWindow = (date: string) => { const t = cairoToday(); if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > t) fail('لا يمكن أن يكون التاريخ في المستقبل'); if (date < addDays(t, -BACKDATE_DAYS)) fail(`ينفع تسجّل بتاريخ قديم لحد ${BACKDATE_DAYS} أيام بس`); };
   const unlocked = (date = cairoToday()) => { guard(); if ((S.closes ?? []).some((c) => c.date === date && c.status === 'closed')) fail('اليوم مقفول؛ افتحه من تقرير اليوم قبل تسجيل عملية.'); };
   const original = async (owner: string, kind: string, file?: File | null) => {
     if (!file) return;
     const id = `${owner}-${kind}-${Date.now()}`; const path = `originals/${id}`;
     await putPhoto(path, file); S.files ??= []; S.files.push({ id, owner, kind, path, name: file.name, mime: file.type, size: file.size, at: new Date().toISOString() });
   };
-  const report = (date: string) => dayReport({ moves: S.moves, orders: S.orders, pickups: S.pickups } as Snapshot, date);
-  const closeRecord = (date: string, auto: boolean): DayClose => { const r = report(date); return { date, at: new Date().toISOString(), by: auto ? 'system' : ACTOR, auto, status: 'closed', summary: r.summary, report: { requestedOrders: r.requestedOrders, open: r.open, blocked: r.blocked, team: r.team } }; };
+  const report = (date: string) => dayReport({ moves: S.moves, orders: S.orders, pickups: S.pickups, docs: S.docs } as Snapshot, date);
+  const closeRecord = (date: string, auto: boolean): DayClose => { const r = report(date); return { date, at: new Date().toISOString(), by: auto ? 'system' : actor(), auto, status: 'closed', summary: r.summary, report: { requestedOrders: r.requestedOrders, open: r.open, blocked: r.blocked, team: r.team } }; };
   const docNo = (t: string) => { S.seq[t] = (S.seq[t] ?? 0) + 1; return `${t}-${String(S.seq[t]).padStart(4, '0')}`; };
   const bal = () => balancesFromMoves(S.moves);
   const post = (rows: Omit<Move, 'id' | 'ts'>[]) => { for (const r of rows) S.moves.push({ ...r, id: S.mid++, ts: new Date().toISOString() }); };
   const supPush = (item: string, q: number, kind: SupplyEntry['kind'], why: string, doc: string | null = null, date = cairoToday()): SupplyEntry => {
-    const e: SupplyEntry = { id: S.sid++, date, item, qty: q, kind, why, doc, by: ACTOR, reversed: false }; S.log.push(e); return e;
+    const e: SupplyEntry = { id: S.sid++, date, item, qty: q, kind, why, doc, by: actor(), reversed: false }; S.log.push(e); return e;
   };
   const supBal = (id: string) => S.log.reduce((a, e) => a + (e.item === id ? e.qty : 0), 0);
+  /** stock lines as whole pieces, one line per variant; a fraction or a negative quantity is refused, zero lines dropped */
+  const pieces = (lines: { sku: string; qty: number }[]) => {
+    const t: Record<string, number> = {};
+    for (const l of lines) { if (!Number.isInteger(l.qty) || l.qty < 0) fail(`الكمية لازم تكون عدد قطع صحيح موجب (${l.sku}: ${l.qty})`); if (l.qty) t[l.sku] = (t[l.sku] ?? 0) + l.qty; }
+    return Object.entries(t).map(([sku, qty]) => ({ sku, qty }));
+  };
   const agg = (lines: string[]) => { const a: Record<string, number> = {}; for (const s of lines) a[s] = (a[s] ?? 0) + 1; return a; };
   const allSkus = () => baseSkus.concat(S.cat.skus);
   const modelOf = (s: string) => allSkus().find((k) => k.id === s)?.model ?? '';
@@ -86,14 +95,32 @@ export function createMemoryRepo(): Repo {
     S.cat.colors.push({ code: `X${n}`, ar }); return `X${n}`;
   };
   const demandOf = (id: string) => S.orders.reduce((a, o) => a + (o.status === 'open' ? o.lines.filter((l) => l === id).length : 0), 0);
-  const blockers = (id: string): string | null => (totalOwned(bal(), id) !== 0 ? `${id}: عليه رصيد` : demandOf(id) ? `${id}: عليه طلب مفتوح` : null);
+  // Links the items of open orders that could not be matched when the pickup was imported (unknown code, or a model added to the
+  // catalog later). Only open orders: a shipped one already left the stock without them.
+  const relink = (): number => {
+    const map = itemMapper(allSkus().filter((k) => !S.cat.archived[k.id]), seed.alias as Record<string, string>); let n = 0;
+    for (const o of S.orders) {
+      if (o.status !== 'open' || !o.unmapped.length) continue; const keep: unknown[] = [];
+      for (const u of o.unmapped) {
+        if (Array.isArray(u) && u.length === 4) { const [code, size, color, q] = u as [string, string, string, number]; const { id } = map(code, size, color); if (id && Number.isInteger(+q) && +q > 0) { for (let i = 0; i < +q; i++) o.lines.push(id); n++; continue; } }
+        keep.push(u);
+      }
+      o.unmapped = keep;
+    }
+    return n;
+  };
+  // pieces of a variant still outside on an open hold: they come back into the warehouse later, so the variant must stay
+  const heldOf = (id: string) => (S.holds ?? []).reduce((a, h) => a + (h.status === 'open' ? outstanding(h)[id] ?? 0 : 0), 0);
+  const blockers = (id: string): string | null => (totalOwned(bal(), id) !== 0 ? `${id}: عليه رصيد` : demandOf(id) ? `${id}: عليه طلب مفتوح` : heldOf(id) ? `${id}: عليه ${heldOf(id)} قطعة برا في هولد مفتوح. لو رجعت سجّل رجوعها، ولو مش راجعة اخصمها نهائي من الهولد بصورة، وبعدين امسح الصنف` : null);
 
   const api: Repo = {
     mode: 'memory',
     async snapshot(): Promise<Snapshot> {
       if (S.autoClose !== false) {
         const today = cairoToday(); let changed = false; S.closes ??= [];
-        for (let i=1;i<=7;i++) { const date=addDays(today,-i); if (!S.moves.some((m)=>m.date===date) || S.closes.some((c)=>c.date===date&& (c.status==='closed' || cairoDay(c.at)===today))) continue; S.closes.push(closeRecord(date,true)); changed=true; }
+        // A day reopened today stays open until tomorrow (it was compared with the close time, so a day closed before today was
+        // closed again right after reopening and could not be corrected).
+        for (let i=1;i<=7;i++) { const date=addDays(today,-i); if (!S.moves.some((m)=>m.date===date) || S.closes.some((c)=>c.date===date&& (c.status==='closed' || cairoDay(c.reopenedAt ?? c.at)===today))) continue; S.closes.push(closeRecord(date,true)); changed=true; }
         if (changed) save();
       }
       const all = allSkus(); const skus = all.filter((k) => !S.cat.archived[k.id]); const archivedSkus = all.filter((k) => S.cat.archived[k.id]);
@@ -106,24 +133,31 @@ export function createMemoryRepo(): Repo {
       return { today: cairoToday(), models, skus, archivedSkus, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}) };
     },
     async importPickup(i) {
-      unlocked(i.date);
+      inWindow(i.date); unlocked(i.date);
       const id = `P${[...S.pickups, ...(S.archivedPickups ?? []).map((a) => a.pickup)].reduce((a, p) => Math.max(a, +p.id.slice(1) || 0), 0) + 1}`;
       S.pickups.push({ id, label: i.label, date: i.date, channel: i.channel, source: i.source });
       const have = new Set(S.orders.map((o) => o.ref)); let n = 0; let d = 0;
       for (const o of i.orders) { if (have.has(o.ref)) { d++; continue; } have.add(o.ref); S.orders.push({ ...o, pickupId: id, status: 'open' }); n++; }
       await original(id, 'pickup', i.file); save(); return { pickup: id, imported: n, duplicates: d };
     },
-    async shipOrders({ refs, employee, source, file }): Promise<ShipResult> {
-      unlocked();
+    async shipOrders({ refs, employee, source, file, date: day }): Promise<ShipResult> {
+      const today = cairoToday(); const date = day ?? today; inWindow(date); unlocked(date);
       const emp = employee.trim(); if (!emp) fail('أدخل اسم الموظف');
       const os = S.orders.filter((o) => refs.includes(o.ref) && o.status === 'open'); if (!os.length) fail('لا توجد أوردرات مفتوحة ضمن المحدد');
+      // Pieces that are not in the catalog could never leave the stock: the order would ship with part of it uncounted.
+      const bad = os.filter((o) => o.unmapped.length); if (bad.length) fail(`أوردرات فيها أصناف مش متعرّفة، صحّحها الأول: ${bad.map((o) => o.ref).join('، ')}`);
+      // an order cannot leave before the day its pickup was requested
+      const early = os.filter((o) => (S.pickups.find((p) => p.id === o.pickupId)?.date ?? '') > date);
+      if (early.length) fail(`أوردرات البيك أب بتاعها بتاريخ بعد ${date}: ${early.map((o) => o.ref).join('، ')}`);
+      // a past day's sheet is stamped at midday Cairo of that day, so every report puts it on the right day
+      const at = date === today ? new Date().toISOString() : new Date(`${date}T10:00:00Z`).toISOString();
       const doc = docNo('SCN'); const a = agg(os.flatMap((o) => o.lines));
-      post(Object.keys(a).map((sku) => ({ date: cairoToday(), sku, qty: a[sku], from: 'READY' as const, to: 'EXT_CH' as const, type: 'SCN', doc, by: emp, note: `سكان: ${emp} (${source})` })));
+      post(Object.keys(a).map((sku) => ({ date, sku, qty: a[sku], from: 'READY' as const, to: 'EXT_CH' as const, type: 'SCN', doc, by: emp, note: `سكان: ${emp} (${source})` })));
       const sup: Record<string, number> = {};
-      for (const o of os) { o.status = 'shipped'; o.shippedBy = emp; o.shippedAt = new Date().toISOString(); o.shipDoc = doc; for (const c of consumption(o.lines, S.supplies, modelOf)) sup[c.item] = (sup[c.item] ?? 0) + c.qty; }
-      for (const item of Object.keys(sup)) supPush(item, -sup[item], 'auto', `سكان ${emp}: ${os.length} أوردر`, doc);
+      for (const o of os) { o.status = 'shipped'; o.shippedBy = emp; o.shippedAt = at; o.shipDoc = doc; for (const c of consumption(o.lines, S.supplies, modelOf)) sup[c.item] = (sup[c.item] ?? 0) + c.qty; }
+      for (const item of Object.keys(sup)) supPush(item, -sup[item], 'auto', `سكان ${emp}: ${os.length} أوردر`, doc, date);
       const pieces = os.reduce((x, o) => x + o.lines.length, 0);
-      S.docs.push({ no: doc, type: 'SCN', date: cairoToday(), by: emp, status: 'done', hdr: { employee: emp, source, orders: os.length, pieces }, lines: [] });
+      S.docs.push({ no: doc, type: 'SCN', date, by: emp, status: 'done', hdr: { employee: emp, source, orders: os.length, pieces, ...(date !== today ? { recordedAt: new Date().toISOString() } : {}) }, lines: [] });
       const b = bal(); const negative = Object.keys(a).map((sku) => ({ sku, ready: qty(b, sku, 'READY') })).filter((x) => x.ready < 0);
       await original(doc, 'scan', file); save(); return { doc, shipped: os.length, pieces, negative };
     },
@@ -131,38 +165,43 @@ export function createMemoryRepo(): Repo {
       unlocked();
       const rev = `${doc} (عكس)`; if (S.moves.some((m) => m.doc === rev) || S.docs.some((x) => x.no === doc && x.status === 'reversed')) fail('تم عكس العملية مسبقًا');
       const orig = S.moves.filter((m) => m.doc === doc && m.type === 'SCN'); if (!orig.length) fail('مستند غير معروف');
-      // Orders of this sheet whose pieces are already back (a customer return, or a cancellation that returned the stock) must not
-      // be put back a second time. Cancelled orders stay cancelled.
-      const inDoc = S.orders.filter((o) => o.shipDoc === doc);
-      const back = inDoc.filter((o) => o.returned || o.cancel?.returned);
-      const skip: Record<string, number> = {}; for (const o of back) for (const s of o.lines) skip[s] = (skip[s] ?? 0) + 1;
-      const undo = orig.map((m) => { const t = Math.min(m.qty, skip[m.sku] ?? 0); skip[m.sku] = (skip[m.sku] ?? 0) - t; return { m, q: m.qty - t }; }).filter((x) => x.q > 0);
-      post(undo.map(({ m, q }) => ({ date: cairoToday(), sku: m.sku, qty: q, from: m.to, to: m.from, type: 'SCN', doc: rev, by: ACTOR, note: `عكس ${doc}` })));
-      for (const o of inDoc) if (o.status === 'shipped' && !o.returned) { o.status = 'open'; o.shippedBy = null; o.shippedAt = null; o.shipDoc = null; }
-      const used: Record<string, number> = {}; for (const o of back) for (const c of consumption(o.lines, S.supplies, modelOf)) used[c.item] = (used[c.item] ?? 0) + c.qty;
+      // Put back only the pieces that are still out because of this sheet: orders still shipped from it, and orders cancelled
+      // without taking their stock back (also in archived pickups). Pieces already back (a customer return, a cancellation that
+      // returned the stock, an order restored to open) are never put back a second time. Cancelled orders stay cancelled.
+      const linked = [...S.orders, ...(S.archivedPickups ?? []).flatMap((a) => a.orders)].filter((o) => o.shipDoc === doc);
+      const stillOut = linked.filter((o) => !o.returned && (o.status === 'shipped' || (o.status === 'cancelled' && o.cancel?.was === 'shipped' && !o.cancel.returned)));
+      const out: Record<string, number> = {}; for (const o of stillOut) for (const s of o.lines) out[s] = (out[s] ?? 0) + 1;
+      const undo = orig.map((m) => { const t = Math.min(m.qty, out[m.sku] ?? 0); out[m.sku] = (out[m.sku] ?? 0) - t; return { m, q: t }; }).filter((x) => x.q > 0);
+      post(undo.map(({ m, q }) => ({ date: cairoToday(), sku: m.sku, qty: q, from: m.to, to: m.from, type: 'SCN', doc: rev, by: actor(), note: `عكس ${doc}` })));
+      // shipped orders reopen; an open order still linked (data saved before restoring cleared the link) just loses the link
+      for (const o of linked) if ((o.status === 'shipped' && !o.returned) || o.status === 'open') { o.status = 'open'; o.shippedBy = null; o.shippedAt = null; o.shipDoc = null; }
+      // packaging comes back for the same orders whose pieces come back
+      const refund: Record<string, number> = {}; for (const o of stillOut) for (const c of consumption(o.lines, S.supplies, modelOf)) refund[c.item] = (refund[c.item] ?? 0) + c.qty;
       for (const e of S.log.filter((x) => x.doc === doc && x.kind === 'auto' && !x.reversed)) {
-        const give = Math.max(0, -e.qty - (used[e.item] ?? 0)); used[e.item] = Math.max(0, (used[e.item] ?? 0) - (-e.qty));
+        const give = Math.min(-e.qty, refund[e.item] ?? 0); refund[e.item] = (refund[e.item] ?? 0) - give;
         if (give > 0) supPush(e.item, give, 'rev', `reverse ${doc}`, rev); e.reversed = true;
       }
       const d = S.docs.find((x) => x.no === doc); if (d) d.status = 'reversed';
       save();
     },
-    async receiveStock({ lines, date, ref, declared, photo }) {
+    async receiveStock({ lines: raw, date, ref, declared, photo }) {
       unlocked(date);
+      const lines = pieces(raw);                     // whole pieces only; what is posted is exactly what is checked
       const total = lines.reduce((a, l) => a + l.qty, 0);
       if (total <= 0) fail('لا توجد قطع'); if (declared !== total) fail(`الإجمالي المكتوب في الورقة (${declared}) لا يساوي المضاف (${total})`);
       const today = cairoToday(); if (date > today || date < addDays(today, -3)) fail('يجب أن يكون التاريخ ضمن آخر 3 أيام');
       const no = docNo('RCV'); const path = `documents/${no}.jpg`; await putPhoto(path, await shrinkImage(photo));
-      post(lines.filter((l) => l.qty > 0).map((l) => ({ date, sku: l.sku, qty: l.qty, from: 'EXT_FACTORY' as const, to: 'READY' as const, type: 'RCV', doc: no, by: ACTOR, note: `استلام ${ref}` })));
-      S.docs.push({ no, type: 'RCV', date, by: ACTOR, status: 'done', hdr: { ref, declared }, lines, attachment: path }); save(); return { doc: no, pieces: total };
+      post(lines.filter((l) => l.qty > 0).map((l) => ({ date, sku: l.sku, qty: l.qty, from: 'EXT_FACTORY' as const, to: 'READY' as const, type: 'RCV', doc: no, by: actor(), note: `استلام ${ref}` })));
+      S.docs.push({ no, type: 'RCV', date, by: actor(), status: 'done', hdr: { ref, declared }, lines, attachment: path }); save(); return { doc: no, pieces: total };
     },
-    async moveState({ lines, from, to, reason }) {
+    async moveState({ lines: raw, from, to, reason }) {
       unlocked();
       if (from === to) fail('الحالتان متطابقتان'); const b = bal();
+      const lines = pieces(raw); if (!lines.length) fail('لا توجد قطع');   // the same variant twice is checked as one total
       for (const l of lines) if (qty(b, l.sku, from) < l.qty) fail(`المتاح ${qty(b, l.sku, from)} فقط`);
       const no = docNo('MOV'); const pcs = lines.reduce((a, l) => a + l.qty, 0);
-      post(lines.filter((l) => l.qty > 0).map((l) => ({ date: cairoToday(), sku: l.sku, qty: l.qty, from, to, type: 'MOV', doc: no, by: ACTOR, note: reason })));
-      S.docs.push({ no, type: 'MOV', date: cairoToday(), by: ACTOR, status: 'done', hdr: { from, to, reason }, lines }); save(); return { doc: no, pieces: pcs };
+      post(lines.filter((l) => l.qty > 0).map((l) => ({ date: cairoToday(), sku: l.sku, qty: l.qty, from, to, type: 'MOV', doc: no, by: actor(), note: reason })));
+      S.docs.push({ no, type: 'MOV', date: cairoToday(), by: actor(), status: 'done', hdr: { from, to, reason }, lines }); save(); return { doc: no, pieces: pcs };
     },
     async postOp({ type, date, hdr, lines, photo }) {
       unlocked(date);
@@ -175,12 +214,12 @@ export function createMemoryRepo(): Repo {
       if (!r.ok) fail(r.err[0] ?? r.checks.find((c) => !c.ok)?.t ?? 'العملية ناقصة');
       const no = docNo(type); let attachment: string | null = null;
       if (photo) { attachment = `documents/${no}.jpg`; await putPhoto(attachment, await shrinkImage(photo)); await original(no, 'photo', photo); }
-      post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from, to: m.to, type, doc: no, by: ACTOR, note: m.note })));
+      post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from, to: m.to, type, doc: no, by: actor(), note: m.note })));
       const pieces = r.moves.reduce((a, m) => a + m.qty, 0);
       const { hasPhoto: _p, snap: _s, ...keep } = h as typeof h & { snap?: unknown };
       if (type === 'SHP') { const shop = (h.shop ?? '').trim(); keep.shop = shop; S.shops = S.shops ?? []; if (shop && !S.shops.includes(shop)) S.shops.push(shop); (keep as Record<string, unknown>).delivered = false; (keep as Record<string, unknown>).at = new Date().toISOString(); }
       if (type === 'RTN') for (const ref of h.refs ?? []) { const o = S.orders.find((x) => x.ref === ref); if (o) o.returned = { doc: no, at: new Date().toISOString() }; }
-      S.docs.push({ no, type, date, by: ACTOR, status: 'done', hdr: { ...keep, pieces, moves: r.moves.map((m) => ({ sku: m.sku, qty: m.qty, from: m.from, to: m.to })) }, lines: r.moves.map((m) => ({ sku: m.sku, qty: m.qty })), attachment });
+      S.docs.push({ no, type, date, by: actor(), status: 'done', hdr: { ...keep, pieces, moves: r.moves.map((m) => ({ sku: m.sku, qty: m.qty, from: m.from, to: m.to })) }, lines: r.moves.map((m) => ({ sku: m.sku, qty: m.qty })), attachment });
       save(); return { doc: no, pieces };
     },
     async holdOut({ who, note, reason, reasonText, lines, photo }) {
@@ -189,10 +228,10 @@ export function createMemoryRepo(): Repo {
       const r = buildHoldOut({ who, reason, reasonText, lines, hasPhoto: !!photo }, bal(), (s) => skuLabel(skuMap, s));
       if (!r.ok) fail(r.err[0]);
       const no = docNo('HLD'); const path = `documents/${no}.jpg`; await putPhoto(path, await shrinkImage(photo!)); await original(no, 'photo', photo);
-      post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from as Move['from'], to: m.to as Move['to'], type: 'HLD', doc: no, by: ACTOR, note: m.note })));
+      post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from as Move['from'], to: m.to as Move['to'], type: 'HLD', doc: no, by: actor(), note: m.note })));
       const at = new Date().toISOString(); const ls = r.moves.map((m) => ({ sku: m.sku, q: m.qty }));
-      S.holds ??= []; S.holds.push({ no, who: who.trim(), note: note.trim(), reason, reasonText: reasonText.trim(), at, date, by: ACTOR, lines: ls, photo: path, status: 'open', events: [{ at, by: ACTOR, kind: 'out', lines: ls, photo: path, note: note.trim() }] });
-      S.docs.push({ no, type: 'HLD', date, by: ACTOR, status: 'done', hdr: { who: who.trim(), reason: reason === 'other' ? reasonText.trim() : HOLD_REASON_AR[reason], moves: r.moves.map((m) => ({ sku: m.sku, qty: m.qty, from: m.from, to: m.to })) }, lines: r.moves.map((m) => ({ sku: m.sku, qty: m.qty })), attachment: path });
+      S.holds ??= []; S.holds.push({ no, who: who.trim(), note: note.trim(), reason, reasonText: reasonText.trim(), at, date, by: actor(), lines: ls, photo: path, status: 'open', events: [{ at, by: actor(), kind: 'out', lines: ls, photo: path, note: note.trim() }] });
+      S.docs.push({ no, type: 'HLD', date, by: actor(), status: 'done', hdr: { who: who.trim(), reason: reason === 'other' ? reasonText.trim() : HOLD_REASON_AR[reason], moves: r.moves.map((m) => ({ sku: m.sku, qty: m.qty, from: m.from, to: m.to })) }, lines: r.moves.map((m) => ({ sku: m.sku, qty: m.qty })), attachment: path });
       save(); return no;
     },
     async holdSettle({ no, ret, off, note, photo }) {
@@ -203,11 +242,11 @@ export function createMemoryRepo(): Repo {
       if (!r.ok) fail(r.err[0]);
       const k = h.events.length; let path: string | null = null;
       if (photo) { path = `documents/${no}-${k}.jpg`; await putPhoto(path, await shrinkImage(photo)); await original(no, 'photo', photo); }
-      post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from as Move['from'], to: m.to as Move['to'], type: 'HLD', doc: no, by: ACTOR, note: m.note })));
+      post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from as Move['from'], to: m.to as Move['to'], type: 'HLD', doc: no, by: actor(), note: m.note })));
       const at = new Date().toISOString();
       const rl = ret.filter((l) => l.q > 0), ol = off.filter((l) => l.q > 0);
-      if (rl.length) h.events.push({ at, by: ACTOR, kind: 'return', lines: rl, photo: ol.length ? null : path, note: note.trim() });
-      if (ol.length) h.events.push({ at, by: ACTOR, kind: 'writeoff', lines: ol, photo: path, note: note.trim() });
+      if (rl.length) h.events.push({ at, by: actor(), kind: 'return', lines: rl, photo: ol.length ? null : path, note: note.trim() });
+      if (ol.length) h.events.push({ at, by: actor(), kind: 'writeoff', lines: ol, photo: path, note: note.trim() });
       if (r.closes) h.status = 'closed';
       save(); return { closed: r.closes };
     },
@@ -227,6 +266,7 @@ export function createMemoryRepo(): Repo {
     async deleteDraft(id) { guard(); const draft = (S.drafts ?? []).find((x) => x.id === id); if (draft) { unlocked(draft.date); S.archivedDrafts ??= []; S.archivedDrafts.push(draft); } S.drafts = (S.drafts ?? []).filter((x) => x.id !== id); save(); },
     async cancelOrder({ code, reason, returnStock, photo }) {
       unlocked();
+      if (!photo) fail('صورة البوليصة المشطوبة إجبارية');
       const o = findByCode(S.orders, code); if (!o) fail('لا يوجد أوردر بهذا الكود'); const ord = o as Order;
       if (ord.status === 'cancelled') fail('الأوردر ملغى مسبقًا');
       await original(ord.ref, 'cancel', photo); const was = ord.status as 'open' | 'shipped'; const path = `documents/cancel-${ord.ref}.jpg`; await putPhoto(path, await shrinkImage(photo));
@@ -235,19 +275,28 @@ export function createMemoryRepo(): Repo {
         doc = ord.returned.doc;   // the pieces came back with the return: nothing more to post, only the link to it
       } else if (was === 'shipped' && returnStock) {
         doc = docNo('CXL'); const a = agg(ord.lines);
-        post(Object.keys(a).map((sku) => ({ date: cairoToday(), sku, qty: a[sku], from: 'EXT_CH' as const, to: 'READY' as const, type: 'CXL', doc: doc!, by: ACTOR, note: `إلغاء أوردر ${ord.ref}` })));
+        post(Object.keys(a).map((sku) => ({ date: cairoToday(), sku, qty: a[sku], from: 'EXT_CH' as const, to: 'READY' as const, type: 'CXL', doc: doc!, by: actor(), note: `إلغاء أوردر ${ord.ref}` })));
         for (const c of consumption(ord.lines, S.supplies, modelOf)) supPush(c.item, c.qty, 'rev', `إلغاء أوردر ${ord.ref}`, doc);
       }
-      const cancel: CancelInfo = { at: new Date().toISOString(), by: ACTOR, reason, was, returned: was === 'shipped' && returnStock, doc, attachment: path };
+      const cancel: CancelInfo = { at: new Date().toISOString(), by: actor(), reason, was, returned: was === 'shipped' && returnStock, doc, attachment: path };
       ord.status = 'cancelled'; ord.cancel = cancel; save(); return { ref: ord.ref, returned: cancel.returned };
     },
     async restoreOrder(ref) {
       unlocked();
       const o = S.orders.find((x) => x.ref === ref && x.status === 'cancelled'); if (!o) return fail('الأوردر غير ملغى');
-      o.status = o.cancel?.was === 'shipped' && (!o.cancel.returned || o.returned) ? 'shipped' : 'open'; o.cancel = null; save();
+      // It is still shipped only while its pieces are still out: returned by the customer (RTN), or cancelled without taking the
+      // stock back from a shipment sheet that was not reversed since. Otherwise its pieces are on the shelf and it is open again,
+      // with no link to the old sheet (a later reversal of that sheet must not put its pieces back a second time).
+      const sheetStands = !!o.shipDoc && S.docs.some((d) => d.no === o.shipDoc && d.status === 'done');
+      const stillOut = o.cancel?.was === 'shipped' && (!!o.returned || (!o.cancel.returned && sheetStands));
+      if (stillOut) o.status = 'shipped';
+      else { o.status = 'open'; o.shippedBy = null; o.shippedAt = null; o.shipDoc = null; }
+      o.cancel = null; save();
     },
     async supplyMove({ item, kind, qty: q, why }) {
       unlocked();
+      if (!S.supplies.some((s) => s.id === item)) fail('مستلزم غير معروف');
+      if (!Number.isInteger(q)) fail('الكمية لازم تكون عدد صحيح');
       const bal0 = supBal(item); let delta = 0;
       if (kind === 'rcv') { if (q <= 0) fail('يجب أن تكون الكمية أكبر من صفر'); delta = q; }
       else if (kind === 'issue') { if (q <= 0) fail('يجب أن تكون الكمية أكبر من صفر'); if (q > bal0) fail(`لا يمكن صرف ${q} والرصيد ${bal0}`); delta = -q; }
@@ -257,6 +306,8 @@ export function createMemoryRepo(): Repo {
     async undoSupplyMove(id) {
       unlocked();
       const e = S.log.find((x) => x.id === id && ['rcv', 'issue', 'count', 'open'].includes(x.kind) && !x.reversed); if (!e) return fail('لا يوجد ما يمكن التراجع عنه');
+      const after = supBal(e.item) - e.qty;
+      if (after < 0) fail(`التراجع هيخلّي الرصيد ${after}؛ اتصرف من الكمية دي بعد ما اتسجلت. اعمل جرد بدل التراجع.`);
       supPush(e.item, -e.qty, 'rev', `تراجع عن: ${e.why}`); e.reversed = true; save();
     },
     async photoUrl(path) { const b = await getPhoto(path); return b ? URL.createObjectURL(b) : null; },
@@ -266,15 +317,17 @@ export function createMemoryRepo(): Repo {
       S.images[code] = file ? await blobToDataUrl(await squareImage(file)) : null; save();
     },
     // ---------- catalog ----------
-    async catalogNewModel({ code, name, colors, sizes, minAlert }) {
+    async catalogNewModel({ code, name, colors: c0, sizes: z0, minAlert }) {
       const c = code.trim().toUpperCase();
+      // a colour or size picked twice is one variant, never two with the same code
+      const colors = [...new Set(c0.map((x) => x.trim()).filter(Boolean))]; const sizes = [...new Set(z0.map((x) => x.trim()).filter(Boolean))];
       if (!/^[A-Z][A-Z0-9]{0,9}$/.test(c)) fail('كود الموديل حروف إنجليزية وأرقام، ويبدأ بحرف (مثل PAN6)');
       if (baseModels.concat(S.cat.models).some((m) => m.code === c)) fail('كود الموديل موجود بالفعل');
       if (!name.trim()) fail('أدخل نوع الموديل'); if (!colors.length || !sizes.length) fail('اختر لونًا ومقاسًا على الأقل');
       for (const z of sizes) if (![...seed.sizes, ...S.cat.sizes].includes(z)) S.cat.sizes.push(z);
       S.cat.models.push({ code: c, name: name.trim() }); let n = 0;
       for (const col of colors) for (const z of sizes) { S.cat.skus.push({ id: `${c}-${colorCode(col)}-${z}`, model: c, color: col, size: z, minAlert }); n++; }
-      save(); return { model: c, skus: n };
+      relink(); save(); return { model: c, skus: n };
     },
     async catalogEditModel({ code, name, add, remove }) {
       if (!baseModels.concat(S.cat.models).some((m) => m.code === code)) fail('موديل غير معروف');
@@ -285,7 +338,7 @@ export function createMemoryRepo(): Repo {
         if (ex) { if (S.cat.archived[ex.id]) { delete S.cat.archived[ex.id]; a++; } } else { S.cat.skus.push({ id: `${code}-${colorCode(x.color)}-${x.size}`, model: code, color: x.color, size: x.size, minAlert: 0 }); a++; }
       }
       for (const id of remove) { const b = blockers(id); if (b) fail(`لا يمكن إزالته: ${b}`); S.cat.archived[id] = true; r++; }
-      save(); return { added: a, removed: r };
+      relink(); save(); return { added: a, removed: r };
     },
     async catalogRemoveModel(code) {
       const ids = allSkus().filter((k) => k.model === code && !S.cat.archived[k.id]).map((k) => k.id);
@@ -294,7 +347,9 @@ export function createMemoryRepo(): Repo {
     },
     async catalogRestore({ model, sku }) {
       let n = 0; for (const k of allSkus()) if (k.model === model && (!sku || k.id === sku) && S.cat.archived[k.id]) { delete S.cat.archived[k.id]; n++; }
-      save(); return n;
+      relink(); save(); return n;
+    },
+    async remapUnmapped() { const n = relink(); save(); return n;
     },
     // ---------- supplies administration ----------
     async supplySave(i) {
@@ -321,6 +376,7 @@ export function createMemoryRepo(): Repo {
     },
     async renameShipmentEmployee(doc, name) {
       if (!name.trim()) fail('أدخل اسم الموظف'); const os = S.orders.filter((o) => o.shipDoc === doc); if (!os.length) fail('مستند شحن غير معروف');
+      const sheet = S.docs.find((x) => x.no === doc); if (sheet) unlocked(sheet.date);   // a closed day keeps its team as frozen
       for (const o of os) o.shippedBy = name.trim(); const d = S.docs.find((x) => x.no === doc); if (d) { d.by = name.trim(); d.hdr.employee = name.trim(); } save(); return os.length;
     },
     async exportBackup() { guard(); const media = await exportMedia(); S.lastBackup = new Date().toISOString(); save(); return { app: 'femini-stock-dashboard', version: 1, at: S.lastBackup, state: structuredClone(S) as unknown as Record<string, unknown>, media }; },
@@ -328,6 +384,10 @@ export function createMemoryRepo(): Repo {
       guard(); const b = validateBackup(input); const previousMedia=await exportMedia(); const safe = JSON.stringify({ app: 'femini-stock-dashboard', version: 1, at: new Date().toISOString(), state: S, media: previousMedia });
       try { localStorage.setItem(`${KEY}-pre-restore`, safe); } catch { fail('لا توجد مساحة لنسخة الأمان؛ لم يبدأ الاسترجاع.'); }
       const next = structuredClone(b.state) as unknown as State; const max = Math.max(0, ...next.moves.map((m) => m.id)); next.mid = Math.max(next.mid || 0, max + 1); next.sid = Math.max(next.sid || 0, ...next.log.map((e)=>e.id+1));
+      // Document counters never trail the numbers already used in the file (a hand-made or old backup may have them behind),
+      // otherwise the next document would reuse an existing number.
+      next.seq = { ...(next.seq ?? {}) };
+      for (const no of [...next.docs.map((x) => x.no), ...next.moves.map((m) => m.doc), ...(next.holds ?? []).map((h) => h.no)]) { const m = /^([A-Z]+)-(\d+)$/.exec(no); if (m) next.seq[m[1]] = Math.max(next.seq[m[1]] ?? 0, Number(m[2])); }
       guard(); await replaceMedia(b.media); try { S = next; save(); } catch(e) { await replaceMedia(previousMedia); throw e; }
     },
     async restoreArchive(kind, id) {
@@ -335,11 +395,21 @@ export function createMemoryRepo(): Repo {
       else { const x = (S.archivedPickups ?? []).find((p)=>p.pickup.id===id); if (!x) fail('بيك أب غير معروف'); if (x) { if (S.pickups.some((p) => p.id === x.pickup.id)) fail('رقم البيك أب ده مستخدم دلوقتي؛ راجع البيك أبات قبل الاسترجاع.'); unlocked(x.pickup.date); if (x.orders.some((o)=>S.orders.some((a)=>a.ref===o.ref))) fail('يوجد أوردر بنفس الكود؛ لا يمكن الاسترجاع بدون مراجعة.'); S.pickups.push(x.pickup); S.orders.push(...x.orders); } S.archivedPickups = (S.archivedPickups ?? []).filter((p)=>p.pickup.id!==id); } save();
     },
     async closeDay(date, auto = false) { guard(); if (date > cairoToday()) fail('لا يمكن إغلاق يوم مستقبلي'); S.closes ??= []; if (S.closes.some((c)=>c.date===date && c.status==='closed')) return; S.closes.push(closeRecord(date,auto)); save(); },
-    async reopenDay(date) { guard(); for (const c of S.closes ?? []) if (c.date === date) c.status = 'reopened'; save(); },
+    async reopenDay(date) { guard(); const at = new Date().toISOString(); for (const c of S.closes ?? []) if (c.date === date && c.status === 'closed') { c.status = 'reopened'; c.reopenedAt = at; } save(); },
     async setAutoClose(on) { guard(); S.autoClose = on; save(); },
     async setModelCosts(model,cost,price) { guard();if(!baseModels.concat(S.cat.models).some((m)=>m.code===model))fail('موديل غير معروف');if(!Number.isFinite(cost)||!Number.isFinite(price)||cost<0||price<0)fail('التكلفة والسعر يجب أن يكونا رقمين غير سالبين');S.costs??={};S.costs[model]={cost,price};save(); },
     async resetDemo() { fail('استبدال البيانات التجريبية متوقف لحماية شغلك؛ استخدم النسخ الاحتياطي.'); },
   };
-  return new Proxy(api, { get(target, key: keyof Repo) { const value = target[key]; if (typeof value !== 'function' || key === 'snapshot' || key === 'photoUrl') return value; return async (...args: unknown[]) => { guard(); const before = structuredClone(S); try { return await (value as (...a: unknown[]) => Promise<unknown>)(...args); } catch(e) { S = localStorage.getItem(KEY) === baseline ? before : load(); throw e; } }; } });
+  // One action at a time. Actions await photo storage half way; if a second action ran meanwhile and failed, its rollback replaced
+  // the whole state and the first action's later changes landed on the discarded copy (e.g. a cancellation lost while its stock
+  // return was kept). The snapshot waits too, so it never reads or auto-saves a half-done action.
+  let queue: Promise<unknown> = Promise.resolve();
+  const serial = <T,>(task: () => Promise<T>): Promise<T> => { const p = queue.then(task, task); queue = p.catch(() => undefined); return p; };
+  return new Proxy(api, { get(target, key: keyof Repo) {
+    const value = target[key]; if (typeof value !== 'function' || key === 'photoUrl') return value;
+    const fn = value as (...a: unknown[]) => Promise<unknown>;
+    if (key === 'snapshot') return () => serial(() => fn());
+    return (...args: unknown[]) => serial(async () => { guard(); const before = structuredClone(S); try { return await fn(...args); } catch(e) { S = localStorage.getItem(KEY) === baseline ? before : load(); throw e; } });
+  } });
 }
 export type { Loc };

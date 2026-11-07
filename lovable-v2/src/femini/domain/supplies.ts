@@ -21,7 +21,8 @@ export function dailyUse(log: SupplyEntry[], id: string, today: string, days = 7
   for (const e of log) {
     if (e.item !== id || e.date < from || e.date > today) continue;
     if (e.kind === 'auto' || e.kind === 'issue') u -= e.qty;
-    else if (e.kind === 'rev' && e.qty > 0 && e.why.startsWith('reverse')) u -= e.qty;
+    // a refund tied to a document (a reversed sheet, or a cancelled order whose stock came back) was not really used
+    else if (e.kind === 'rev' && e.qty > 0 && e.doc) u -= e.qty;
   }
   return Math.max(0, u) / days;
 }

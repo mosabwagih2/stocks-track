@@ -38,6 +38,8 @@ use the editor.
 - Legacy backups are converted by a pure preview helper and restored as a full replacement, never appended; retain the original envelope for unsupported metadata. Why: prevents doubled opening balances and preserves original evidence.
 - Financial valuation and day-close calculations live in pure domain reporting helpers; close records freeze summary/team counts. Why: testable ledger-based reports that distinguish live estimates from finalized snapshots.
 - Cloud account login is separate from the local stock repository and does not grant operational roles. Why: account identity alone is not a shared-data authorization boundary.
+- The signed-in account's name is recorded as who did each operation and as the scanning employee (`data/account.ts` → `actor()` in `data/repo.ts`); signed out, `DEFAULT_ACTOR` is used. It is a label, not a permission. Why: the team report and audit trail must show the real person.
+- A pickup or a scan sheet can be recorded on a past day up to `BACKDATE_DAYS` (7) back, never in the future, never on a closed day, and a scan never before its orders' pickup day. Why: forgotten uploads must land on the day the work happened.
 - Charts use Recharts via `src/femini/components/charts.tsx`, shared chart theme tokens and useId-scoped gradient definitions. Why: consistent light/dark styling without SVG ID collisions across multiple charts.
 - Domain rule tests live in `src/femini/domain/domain.test.ts`; run them after changing business logic.
 - Catalog form validation is isolated in a browser-safe helper with adjacent tests; repository checks remain authoritative. Why: consistent feedback without changing ledger rules.

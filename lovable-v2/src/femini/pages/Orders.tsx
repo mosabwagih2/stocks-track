@@ -57,7 +57,7 @@ export default function Orders() {
     const m: Record<string, number> = {}; for (const o of d.open) for (const s of o.lines) m[s] = (m[s] ?? 0) + 1;
     return Object.keys(m).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })).map((s) => ({ sku: s, need: m[s], ready: qty(d.snap.balances, s, 'READY') }));
   })();
-  const selOpen = [...sel].filter((r) => d.orderMap.get(r)?.status === 'open');
+  const selOpen = [...sel].filter((r) => { const o = d.orderMap.get(r); return o?.status === 'open' && !o.unmapped.length; });
   const toggle = (r: string) => setSel((s) => { const x = new Set(s); if (x.has(r)) x.delete(r); else x.add(r); return x; });
 
   return (
@@ -107,7 +107,7 @@ export default function Orders() {
               <tbody>
                 {list.slice(0, n).map((o) => (
                   <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${o.status === 'open' && d.blocked.has(o.ref) ? 'bg-crit-bg/60' : o.status === 'shipped' ? 'bg-good-bg/50' : o.status === 'cancelled' ? 'opacity-70' : ''}`} onClick={() => setOrderRef(o.ref)}>
-                    <td className={td} onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.ref)} disabled={o.status !== 'open'} onChange={() => toggle(o.ref)} aria-label="تحديد" /></td>
+                    <td className={td} onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.ref)} disabled={o.status !== 'open' || o.unmapped.length > 0} title={o.unmapped.length ? 'فيه أصناف مش متعرّفة؛ صحّحها الأول' : undefined} onChange={() => toggle(o.ref)} aria-label="تحديد" /></td>
                     <td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{o.waybill}</td>
                     <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{o.returned ? <Pill tone="warn">مرتجع · {o.returned.doc}</Pill> : <OrderPill o={o} d={d} />}{o.status==='open' && d.blocked.has(o.ref) && <p className="mt-1 text-xs text-crit">ناقص {d.blocked.get(o.ref)?.map((x)=>`${skuLabel(d.skuMap,x.sku)} (${x.short})`).join('، ')}</p>}</td>
                   </tr>

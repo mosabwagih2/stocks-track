@@ -5,6 +5,7 @@ import { BarChart3, Boxes, ClipboardList, FileText, Package, ReceiptText, Settin
 import { useDerived } from '@/femini/hooks/data';
 import { qty } from '@/femini/domain/ledger';
 import { dayLabel } from '@/femini/domain/dates';
+import { startAccount } from '@/femini/data/account';
 
 const NAV = [
   { to: '/', label: 'اليوم', icon: LayoutGrid },
@@ -18,6 +19,7 @@ const NAV = [
 ] as const;
 
 export default function Shell({ children }: { children: ReactNode }) {
+  useEffect(() => startAccount(), []);   // the signed-in account's name is who did each operation
   const { d } = useDerived();
   const isToday = useRouterState({ select: (state) => state.location.pathname === '/' });
   const router = useRouter();

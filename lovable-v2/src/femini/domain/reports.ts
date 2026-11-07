@@ -38,8 +38,13 @@ export function dayReport(s: Snapshot, date: string) {
   const blocked = allocate(open, pickups, balances).blocked.size;
   const sum = (predicate: (m: (typeof moves)[number]) => boolean) => moves.filter(predicate).reduce((a, m) => a + m.qty, 0);
   const shipped = sum((m) => m.to === 'EXT_CH') - sum((m) => m.from === 'EXT_CH' && m.type === 'SCN');
-  const summary = { requested: requested.reduce((a, o) => a + o.lines.length, 0), shipped, returned: sum((m) => m.type === 'RTN' && m.from.startsWith('EXT_')), received: sum((m) => m.type === 'RCV' && m.to === 'READY'), ready: Object.values(balances).reduce((a, b) => a + (b.READY ?? 0), 0), damaged: Object.values(balances).reduce((a, b) => a + (b.SCRAP ?? 0) + (b.LOST ?? 0), 0) };
+  // returned = pieces that physically came back; the missing part of a return goes to LOST and is not a return
+  const summary = { requested: requested.reduce((a, o) => a + o.lines.length, 0), shipped, returned: sum((m) => m.type === 'RTN' && m.from.startsWith('EXT_') && m.to !== 'LOST'), received: sum((m) => m.type === 'RCV' && m.to === 'READY'), ready: Object.values(balances).reduce((a, b) => a + (b.READY ?? 0), 0), damaged: Object.values(balances).reduce((a, b) => a + (b.SCRAP ?? 0) + (b.LOST ?? 0), 0) };
+  // Who scanned is read from the shipment sheet, not from the ledger: renaming the employee fixes the sheet (ledger moves are
+  // never edited), and a reversal ("SCN-0001 (عكس)", posted by whoever reversed it) is taken off the employee who scanned.
+  const scanner = new Map((s.docs ?? []).filter((d) => d.type === 'SCN').map((d) => [d.no, d.by]));
+  const who = (m: (typeof moves)[number]) => (m.type === 'SCN' ? scanner.get(m.doc.replace(/ \(عكس\)$/, '')) ?? m.by : m.by);
   const team = new Map<string, number>();
-  for (const m of moves) if (m.to === 'EXT_CH' || (m.from === 'EXT_CH' && m.type === 'SCN')) team.set(m.by, (team.get(m.by) ?? 0) + (m.to === 'EXT_CH' ? m.qty : -m.qty));
+  for (const m of moves) if (m.to === 'EXT_CH' || (m.from === 'EXT_CH' && m.type === 'SCN')) { const n = who(m); team.set(n, (team.get(n) ?? 0) + (m.to === 'EXT_CH' ? m.qty : -m.qty)); }
   return { date, summary, requestedOrders: requested.length, open: open.length, blocked, team: [...team], moves, balances };
 }

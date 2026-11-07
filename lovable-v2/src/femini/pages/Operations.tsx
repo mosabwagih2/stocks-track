@@ -160,7 +160,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
   const refs = hdr.refs ?? [];
   const lookup = () => {
     const codes = code.split(/[\s,،]+/).filter(Boolean); const added: string[] = []; const bad: string[] = [];
-    let newRefs = [...refs]; let newLines = lines;
+    const newRefs = [...refs]; let newLines = lines;
     for (const c of codes) {
       const o = findByCode(d.snap.orders, c);
       if (!o) { bad.push(`${c}: مش لاقيه`); continue; }
