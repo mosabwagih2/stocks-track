@@ -1,0 +1,10 @@
+import { expect, it } from 'vitest';
+import { backupDue, dayReport, financialReport } from './reports';
+import type { Snapshot, Move } from './types';
+const move = (overrides: Partial<Move> = {}): Move => ({ id: 1, ts: '2026-11-01T08:00:00Z', date: '2026-11-01', sku: 'A', qty: 10, from: 'EXT_OPEN', to: 'READY', type: 'OPN', doc: 'OPN-1', by: 'test', note: '', ...overrides });
+const snap = (moves: Move[]): Snapshot => ({ moves, skus: [{ id: 'A', model: 'M', color: 'أسود', size: 'L', minAlert: 0 }], archivedSkus: [], models: [{ code: 'M', name: 'موديل' }], costs: {}, orders: [], pickups: [] } as unknown as Snapshot);
+it('reminds only after more than one week', () => { const last = '2026-11-01T00:00:00Z'; expect(backupDue(last, Date.parse('2026-11-08T00:00:00Z'))).toBe(false); expect(backupDue(last, Date.parse('2026-11-08T00:00:00.001Z'))).toBe(true); });
+it('requires a backup when none was taken', () => expect(backupDue(null)).toBe(true));
+it('reports missing cost without inventing value or profit', () => { const r = financialReport(snap([move()])); expect(r.ready.known).toBe(0); expect(r.ready.missing).toBe(1); expect(r.missing[0]?.code).toBe('M'); expect('profit' in r).toBe(false); });
+it('values ready scrap and lost separately from ledger at recorded cost', () => { const s = snap([move(), move({ id: 2, qty: 2, from: 'READY', to: 'SCRAP' }), move({ id: 3, qty: 1, from: 'READY', to: 'LOST' })]); s.costs.M = { cost: 100, price: 150 }; const r = financialReport(s); expect(r.ready.known).toBe(700); expect(r.scrap.known).toBe(200); expect(r.lost.known).toBe(100); });
+it('day report uses actual shipment day and ignores later stock', () => { const s = snap([move(), move({ id: 2, date: '2026-11-02', qty: 3, from: 'READY', to: 'EXT_CH', type: 'SCN' }), move({ id: 3, date: '2026-11-03', qty: 4 })]); const r = dayReport(s, '2026-11-02'); expect(r.summary.shipped).toBe(3); expect(r.summary.ready).toBe(7); expect(r.team).toEqual([['test', 3]]); });

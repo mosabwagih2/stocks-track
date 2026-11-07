@@ -1,0 +1,7 @@
+import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Alert, Button, Field } from '@/femini/components/ui';
+import { PageHead } from '@/femini/components/PageHead';
+export const Route = createFileRoute('/reset-password')({head:()=>({meta:[{title:'تغيير كلمة المرور · Fémini Stock'},{name:'description',content:'تغيير كلمة مرور حساب فريق Fémini Stock.'},{property:'og:title',content:'تغيير كلمة المرور · Fémini Stock'},{property:'og:description',content:'تغيير كلمة مرور حساب فريق Fémini Stock.'},{property:'og:type',content:'website'},{name:'twitter:card',content:'summary_large_image'}]}),component:Reset});
+function Reset(){const [password,setPassword]=useState('');const [message,setMessage]=useState('');return <><PageHead title="تغيير كلمة المرور"/><div className="grid max-w-md gap-4"><Field label="كلمة المرور الجديدة"><input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete="new-password" /></Field>{message&&<Alert>{message}</Alert>}<Button variant="primary" disabled={!password} onClick={async()=>{const {error}=await supabase.auth.updateUser({password});setMessage(error?error.message:'تم تغيير كلمة المرور بنجاح');}}>حفظ كلمة المرور</Button></div></>;}

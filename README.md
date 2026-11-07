@@ -431,3 +431,8 @@ CREATE TABLE files (
 - [`docs/LOVABLE_BRIEF.md`](docs/LOVABLE_BRIEF.md): ملف تسليم المشروع الأصلي (المشكلة، الداتا، القرارات، الأسئلة المفتوحة).
 - [`docs/ARCHIVE_EARLY_PROTOTYPES.md`](docs/ARCHIVE_EARLY_PROTOTYPES.md): README القديم بوصف النماذج الأولى.
 - [`web/README.md`](web/README.md) و`supabase/`: نسخة React + TypeScript + Tailwind + Supabase (دوال قاعدة بيانات للكتابة، سجل append-only). **متوقفة** ومحفوظة كمرجع.
+
+---
+
+## نسخة إضافية: `lovable-v2/`
+تصميم جديد (TanStack Start). بياناتها في متصفح كل جهاز ومش مربوطة بالسيرفر؛ النسخة الشغالة تفضل `php-app/`. التفاصيل في [`lovable-v2/NOTES.md`](lovable-v2/NOTES.md).
