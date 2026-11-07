@@ -27,11 +27,12 @@ final class FileStore
     /** kind => permission(s) needed to upload it (a list means "any of these"). */
     private const KIND_PERM = [
         'pickup' => ['pickup'], 'scan' => ['scan'], 'cancel' => ['cancel'], 'model_img' => ['catalog'],
-        'doc_photo' => ['ship', 'receive', 'internal', 'returns', 'count'],   // the signed paper / photo of a document
+        'doc_photo' => ['ship', 'receive', 'internal', 'returns', 'count'],
+        'doc_file' => ['pickup', 'ship', 'receive', 'internal', 'returns', 'count'],   // sheets kept as originals (returns, stocktake, old pickups)   // the signed paper / photo of a document
     ];
 
     /** Browser key prefix => [kind, owner type]. The browser addresses a file as "ph:d12", "pk:P3", "dc:d7", "cx:ed4298". */
-    public const KEYS = ['ph' => ['doc_photo', 'doc'], 'pk' => ['pickup', 'pickup'], 'dc' => ['scan', 'doc'], 'cx' => ['cancel', 'order']];
+    public const KEYS = ['fl' => ['doc_file', 'doc'], 'ph' => ['doc_photo', 'doc'], 'pk' => ['pickup', 'pickup'], 'dc' => ['scan', 'doc'], 'cx' => ['cancel', 'order']];
 
     /** @return array<int,string> permissions, any one of which allows the upload */
     public static function permissionsFor(string $kind): array

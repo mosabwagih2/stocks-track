@@ -8,7 +8,7 @@ use Femini\Http\HttpError;
 /** Password policy and hashing in one place. */
 final class Passwords
 {
-    private const MIN = 8;
+    private const MIN = 4;
     private const MAX_BYTES = 72;    // bcrypt silently ignores anything after 72 bytes, so refuse longer ones instead
     private const COMMON = [
         '12345678', '123456789', '1234567890', '11111111', '00000000', '87654321', 'password', 'password1', 'password123',
@@ -20,18 +20,12 @@ final class Passwords
     public static function validate(string $password, ?string $username = null): void
     {
         if (mb_strlen($password) < self::MIN) {
-            throw new HttpError(422, 'weak_password', 'كلمة السر لازم تكون 8 حروف على الأقل (الأفضل 12 أو جملة طويلة).');
+            throw new HttpError(422, 'weak_password', 'كلمة السر لازم تكون 4 حروف أو أرقام على الأقل.');
         }
         if (strlen($password) > self::MAX_BYTES) {
             throw new HttpError(422, 'weak_password', 'كلمة السر طويلة قوي (الحد الأقصى 72 حرف).');
         }
-        $lower = mb_strtolower($password);
-        if (in_array($lower, self::COMMON, true) || count(array_unique(mb_str_split($password))) < 4) {
-            throw new HttpError(422, 'weak_password', 'كلمة السر دي سهلة التخمين. اختار كلمة تانية.');
-        }
-        if ($username !== null && $username !== '' && str_contains($lower, mb_strtolower($username))) {
-            throw new HttpError(422, 'weak_password', 'كلمة السر ما تحتويش على اسم المستخدم.');
-        }
+        // kept simple on purpose (owner's choice): only a minimum length; brute force is still stopped by the login lock-out
     }
 
     public static function hash(string $password): string

@@ -30,6 +30,7 @@
     ['emps',      s => s.emps,                r => r],
     ['archPk',    s => s.archPk || [],        r => r.p.id],
     ['archDocs',  s => s.archDocs || [],      r => r.d.id],
+    ['oldOrd',    s => s.oldOrd || (s.oldOrd = []), r => r.ref],
   ];
   /** Singleton values: [key, getter, setter]. */
   const META = [
@@ -58,7 +59,7 @@
   // ---- files: originals (Excel/CSV/photos) and the display copies of photos live on the server
   const FILES = {};          // browser key ("ph:d12", "pk:P3", "dc:d7", "cx:ed4298") -> newest file {id,name,size,mime,hasThumb}
   let fileSince = 0;         // highest file id this page knows about
-  const FILE_KINDS = { ph: ['doc_photo', 'doc'], pk: ['pickup', 'pickup'], dc: ['scan', 'doc'], cx: ['cancel', 'order'] };
+  const FILE_KINDS = { fl: ['doc_file', 'doc'], ph: ['doc_photo', 'doc'], pk: ['pickup', 'pickup'], dc: ['scan', 'doc'], cx: ['cancel', 'order'] };
 
   /** The app shows photos from PH[...]: point it at the server's display copy. */
   function registerFile(f) {
@@ -326,7 +327,7 @@
         + '<td><select data-c="fsurole" data-id="' + u.id + '" aria-label="دور ' + esc(u.name) + '">' + opt(u.role) + '</select></td>'
         + '<td><input type="checkbox" data-c="fsuon" data-id="' + u.id + '" aria-label="' + esc(u.name) + ' شغّال" ' + (u.on !== false ? 'checked' : '') + '></td>'
         + '<td>' + (u.id === s.cur ? '<input type="password" id="fsc_' + u.id + '" placeholder="الحالية" autocomplete="current-password" style="width:110px"> ' : '')
-        + '<input type="password" id="fsp_' + u.id + '" placeholder="جديدة (8+)" autocomplete="new-password" style="width:120px"> <button class="btn sm" data-a="fsupass" data-id="' + u.id + '">تغيير</button></td>'
+        + '<input type="password" id="fsp_' + u.id + '" placeholder="جديدة (4+)" autocomplete="new-password" style="width:120px"> <button class="btn sm" data-a="fsupass" data-id="' + u.id + '">تغيير</button></td>'
         + '<td>' + (u.id === s.cur ? '' : '<button class="btn sm" data-a="usarch" data-id="' + u.id + '">أرشفة</button>') + '</td></tr>').join('')
       + '</tbody></table></div>'
       + '<div class="picker" style="margin-top:12px"><label class="f">الاسم<input id="fsn_name"></label><label class="f">اسم الدخول (إنجليزي)<input id="fsn_user" autocomplete="off" style="direction:ltr;text-align:start"></label><label class="f">الدور<select id="fsn_role">' + opt('pack') + '</select></label><label class="f">كلمة السر<input id="fsn_pass" type="password" autocomplete="new-password"></label><button class="btn pri" data-a="fsuadd">+ إضافة مستخدم</button></div>'
@@ -365,9 +366,6 @@
   };
   const unavailable = msg => () => H.toast(msg);
   const ACT_DISABLED = {
-    demoload: unavailable('الداتا التجريبية مش متاحة على السيرفر.'),
-    demoask: unavailable('الداتا التجريبية مش متاحة على السيرفر.'),
-    demoreset: unavailable('الداتا التجريبية مش متاحة على السيرفر.'),
     reset: unavailable('مفيش مسح في السيستم.'),
     reset2: unavailable('مفيش مسح في السيستم.'),
     bkyes: unavailable('الاسترجاع من نسخة احتياطية بيتعمل من السيرفر بالأداة tools/import_backup.php.'),
@@ -398,7 +396,7 @@
       window.addEventListener('online', pull);
       if (fresh && !readOnly) setTimeout(push, 300);
     },
-    files: { put: putFile, download: downloadFile },
+    files: { put: putFile, download: downloadFile, list: () => Object.keys(FILES).map(k => Object.assign({}, FILES[k], { key: k })) },
     push,
     pull,
     banner: () => banner,

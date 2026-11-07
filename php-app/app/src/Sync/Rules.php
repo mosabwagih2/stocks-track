@@ -14,7 +14,7 @@ use Femini\Http\HttpError;
 final class Rules
 {
     public const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF'];
-    public const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN'];
+    public const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP'];
 
     /** Fields of a confirmed document that may still change (delivery proof, attached files, history). */
     private const DOC_MUTABLE_HDR = ['delivered', 'file', 'shpRecv', 'emp'];   // 'emp': a scan sheet's employee name can be corrected (logged in the document's history)
@@ -72,7 +72,7 @@ final class Rules
         }
         $this->checkDocLog($doc, $existing);
         $status = (string)($doc['status'] ?? '');
-        $allowed = Permissions::isAdmin($this->user) ? ['draft', 'done', 'reversed'] : ['draft', 'done'];   // 'reversed' only exists in imported legacy data
+        $allowed = (Permissions::isAdmin($this->user) || (($existing['status'] ?? '') === 'done' && Permissions::can($this->user, $perm))) ? ['draft', 'done', 'reversed'] : ['draft', 'done'];   // 'reversed' only exists in imported legacy data
         if (!in_array($status, $allowed, true)) {
             throw new HttpError(422, 'bad_doc', 'حالة المستند غير مسموحة.');
         }
@@ -86,6 +86,15 @@ final class Rules
                 $this->assertOpenDay((string)($doc['date'] ?? ''));
             }
             return;
+        }
+        // An admin may reverse (cancel) a confirmed document: only its status flips to 'reversed', nothing else changes.
+        // The counter-moves are checked separately (filed under "<no> (عكس)" in the same push).
+        if (($existing['status'] ?? '') === 'done' && $status === 'reversed' && (Permissions::isAdmin($this->user) || Permissions::can($this->user, $perm))) {
+            $was = $existing;
+            $was['status'] = 'reversed';
+            if (self::core($was) === self::core($doc)) {
+                return;
+            }
         }
         if (in_array($existing['status'] ?? '', ['done', 'reversed'], true)) {
             // A confirmed document is frozen: only the delivery/file fields and its history may change.
@@ -171,6 +180,11 @@ final class Rules
                 break;
             case 'archPk':
                 $this->need('pickup');
+                break;
+            case 'oldOrd':
+                if (!Permissions::canAny($this->user, ['pickup', 'returns'])) {
+                    throw new HttpError(403, 'forbidden', 'دورك مش بيسمح بالبيك أب القديم.', ['needs' => 'pickup']);
+                }
                 break;
             default: // emps, archDocs: any signed-in user
                 break;

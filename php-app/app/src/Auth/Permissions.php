@@ -28,7 +28,7 @@ final class Permissions
     public const DOC = [
         'SCN' => 'scan', 'RTN' => 'returns', 'RCV' => 'receive', 'FRC' => 'internal',
         'FSD' => 'internal', 'CLN' => 'internal', 'LOS' => 'internal', 'SHP' => 'ship',
-        'CNT' => 'count', 'CXL' => 'cancel',
+        'CNT' => 'count', 'CXL' => 'cancel', 'SWP' => 'count',
     ];
 
     public const DEFAULT_ROLES = [

@@ -49,6 +49,7 @@ final class Snapshot
             'closes'   => $live($data['coll']['closes']),
             'archPk'   => $live($data['coll']['archPk']),
             'archDocs' => $live($data['coll']['archDocs']),
+            'oldOrd'   => $live($data['coll']['oldOrd']),
             'audit'    => array_slice($data['audit'], -300),
             'roles'    => self::rolesForApp(),
             'users'    => self::usersForApp($user),
