@@ -581,5 +581,33 @@ ok('later moves cannot be added to an already confirmed document', $s === 409 &&
 ok('a supply-log entry written in the admin\'s name is refused', $s === 403 && $j['error'] === 'forged_actor', $j);
 $packer->autoDoc = true;
 
+// ================= review fixes: reversal mirrors the document, costs stay server-side, counters cannot explode
+$packer->autoDoc = false;
+$nid2 = (int)Database::value('SELECT MAX(id) FROM moves') + 1;
+$d900r = $d900;
+$d900r['status'] = 'reversed';
+$bad = mv($nid2, 'SCN', 'BR2-BLK-L', 1, 'EXT_ADJ', 'READY');
+$bad['doc'] = 'SCN-0900 (عكس)';
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$bad], 'coll' => ['docs' => ['up' => [$d900r]]], 'meta' => ['mid' => $nid2 + 1]]);
+ok('a reversal that is not the opposite of the document\'s own move is refused (409 orphan_moves)', $s === 409 && $j['error'] === 'orphan_moves', $j);
+ok('and the document stays confirmed', Database::value("SELECT status FROM docs WHERE doc_no = 'SCN-0900'") === 'done');
+$good = mv($nid2, 'SCN', 'BR2-BLK-L', 1, 'EXT_CH', 'READY');
+$good['doc'] = 'SCN-0900 (عكس)';
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'moves' => [$good], 'coll' => ['docs' => ['up' => [$d900r]]], 'meta' => ['mid' => $nid2 + 1]]);
+ok('the exact opposite move reverses the document', $s === 200 && Database::value("SELECT status FROM docs WHERE doc_no = 'SCN-0900'") === 'reversed', $j);
+$packer->autoDoc = true;
+
+[$s, $j] = $admin->call('POST', '/api/sync/push', ['since' => $revNow(), 'meta' => ['costs' => ['BR2' => ['cost' => 10, 'price' => 25]]]]);
+ok('admin saves model costs', $s === 200, $j);
+[$s, $j] = $admin->call('GET', '/api/sync/pull?since=0');
+ok('admin receives the costs', isset($j['meta']['costs']), array_keys($j['meta'] ?? []));
+[$s, $j] = $packer->call('GET', '/api/sync/pull?since=0');
+ok('a packer never receives the costs', $s === 200 && !isset($j['meta']['costs']), array_keys($j['meta'] ?? []));
+$packerSnap = Femini\Sync\Snapshot::build(['id' => 'x', 'name' => 'x', 'perms' => ['scan', 'returns']]);
+ok('nor in the page snapshot', $packerSnap['state']['costs'] == new stdClass(), $packerSnap['state']['costs']);
+
+[$s, $j] = $packer->call('POST', '/api/sync/push', ['since' => $revNow(), 'meta' => ['mid' => 9000000000000000]]);
+ok('a counter cannot be pushed to a huge value (422 counter_jump)', $s === 422 && $j['error'] === 'counter_jump', $j);
+
 echo "\n$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

@@ -16,6 +16,9 @@ final class Rules
     public const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF'];
     public const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP'];
 
+    /** The most a counter (move ids, document ids...) may grow in one push. */
+    private const MAX_COUNTER_JUMP = 100000;
+
     /** Fields of a confirmed document that may still change (delivery proof, attached files, history). */
     private const DOC_MUTABLE_HDR = ['delivered', 'file', 'shpRecv', 'emp'];   // 'emp': a scan sheet's employee name can be corrected (logged in the document's history)
     private const DOC_MUTABLE_TOP = ['log', 'photo'];
@@ -209,6 +212,11 @@ final class Rules
         if (in_array($key, Collections::COUNTERS, true)) {
             if (!is_int($new) || ($old !== null && $new < $old)) {
                 throw new HttpError(409, 'counter_back', "العداد $key ما ينفعش يرجع لورا.");
+            }
+            // A counter can never be moved back, so a huge value would lock everybody out for good: allow normal growth only
+            // (the CLI import, which restores a whole backup, is exempt).
+            if (!$this->trustActors && $new > (int)$old + self::MAX_COUNTER_JUMP) {
+                throw new HttpError(422, 'counter_jump', "العداد $key قفز قفزة غير طبيعية.");
             }
         }
         if ($key === 'seq') {

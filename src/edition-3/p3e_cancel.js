@@ -3,7 +3,7 @@
 const cxKey=ref=>'cx_'+ref;
 function cxFind(code){
   const c=String(code||'').trim().replace(/[#\s]/g,'').toLowerCase();if(!c)return null;
-  return S.orders.find(o=>String(o.ref).toLowerCase()===c||String(o.wb).replace(/\s/g,'')===c)||null;
+  return S.orders.find(o=>String(o.ref).toLowerCase()===c||String(o.wb).replace(/\s/g,'').toLowerCase()===c)||null;
 }
 function cxInit(code){return {kind:'cancel',code:code||'',reason:'',photo:null,pname:'',ret:true,err:''}}
 function cxPreviewHTML(s){

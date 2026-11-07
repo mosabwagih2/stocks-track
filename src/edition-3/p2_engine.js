@@ -144,7 +144,7 @@ function parseScan(rows){
   return out;
 }
 function matchScans(scans){
-  const idx={};S.orders.forEach(o=>{if(o.st==='cx')return;idx[String(o.ref).toLowerCase()]=o;if(o.wb)idx[String(o.wb)]=o});
+  const idx={};S.orders.forEach(o=>{if(o.st==='cx')return;idx[String(o.ref).toLowerCase()]=o;if(o.wb)idx[String(o.wb).toLowerCase()]=o});
   const seen={},matched=[],dups=[],already=[],unk=[],bad=[];
   scans.forEach(s=>{
     const k=s.code.toLowerCase();if(seen[k]){dups.push(s.code);return}seen[k]=1;

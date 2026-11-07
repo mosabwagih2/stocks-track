@@ -875,7 +875,7 @@ function parseScan(rows){
   return out;
 }
 function matchScans(scans){
-  const idx={};S.orders.forEach(o=>{if(o.st==='cx')return;idx[String(o.ref).toLowerCase()]=o;if(o.wb)idx[String(o.wb)]=o});
+  const idx={};S.orders.forEach(o=>{if(o.st==='cx')return;idx[String(o.ref).toLowerCase()]=o;if(o.wb)idx[String(o.wb).toLowerCase()]=o});
   const seen={},matched=[],dups=[],already=[],unk=[],bad=[];
   scans.forEach(s=>{
     const k=s.code.toLowerCase();if(seen[k]){dups.push(s.code);return}seen[k]=1;
@@ -1446,7 +1446,7 @@ function catEditSheet(s){
 const cxKey=ref=>'cx_'+ref;
 function cxFind(code){
   const c=String(code||'').trim().replace(/[#\s]/g,'').toLowerCase();if(!c)return null;
-  return S.orders.find(o=>String(o.ref).toLowerCase()===c||String(o.wb).replace(/\s/g,'')===c)||null;
+  return S.orders.find(o=>String(o.ref).toLowerCase()===c||String(o.wb).replace(/\s/g,'').toLowerCase()===c)||null;
 }
 function cxInit(code){return {kind:'cancel',code:code||'',reason:'',photo:null,pname:'',ret:true,err:''}}
 function cxPreviewHTML(s){
@@ -2810,7 +2810,7 @@ function flDel(key){if(!IDBH||!IDBH.objectStoreNames.contains('fl'))return;try{I
 /* ---------- nothing is ever deleted: the only way to take something out of sight is to archive it ---------- */
 const ACT_AR={
   suparchgo:()=>{go('ledger',()=>{UI.led.tab='arch'})},
-  restorepk:el=>{const a=(S.archPk||[]).find(x=>x.p.id===el.dataset.id);if(!a)return;const have={};S.orders.forEach(o=>have[o.ref]=1);
+  restorepk:el=>{const a=(S.archPk||[]).find(x=>x.p.id===el.dataset.id);if(!a)return;if(S.pickups.some(p=>p.id===a.p.id)){toast('رقم البيك أب ده مستخدم دلوقتي. راجع البيك أبات قبل الاسترجاع.');return}const have={};S.orders.forEach(o=>have[o.ref]=1);
     const back=a.orders.filter(o=>!have[o.ref]),skip=a.orders.length-back.length;S.pickups.push(a.p);back.forEach(o=>S.orders.push(o));S.archPk=S.archPk.filter(x=>x!==a);audit('استرجاع بيك أب: '+a.p.label);dirty();toast('اتسترجع '+a.p.label+' ('+back.length+' أوردر)'+(skip?'. '+skip+' أوردر موجودين بالفعل فمتكرروش':''));render()},
   restoredoc:el=>{const a=(S.archDocs||[]).find(x=>x.d.id===el.dataset.id);if(!a)return;S.docs.push(a.d);S.archDocs=S.archDocs.filter(x=>x!==a);audit('استرجاع مسودة');dirty();toast('اتسترجعت المسودة');render()},
   demoreset:()=>{let p=null;try{p=localStorage.getItem(KEY+'-pre-demo')}catch(e){}
@@ -3593,7 +3593,7 @@ const ACT={
   },
   pksave:()=>{
     const s=UI.sheet,r=s.res;if(!r||!r.orders.length)return;
-    const n=S.pickups.reduce((a,p)=>Math.max(a,+p.id.slice(1)||0),0)+1,id='P'+n;
+    const n=S.pickups.concat((S.archPk||[]).map(x=>x.p)).reduce((a,p)=>Math.max(a,+p.id.slice(1)||0),0)+1,id='P'+n;
     S.pickups.push({id,label:'بيك أب '+n,date:s.date,channel:s.channel,src:s.fname,file:s.orig?{name:s.orig.name,size:s.orig.size}:null});if(s.orig)flPut('pk:'+id,s.orig);
     r.orders.forEach(o=>{o.pk=id;S.orders.push(o)});dirty();
     UI.sheet=null;UI.o.pk=id;UI.o.f='all';toast('اتستورد '+r.orders.length+' أوردر. لسه ما اتخصمش حاجة.');go('orders');

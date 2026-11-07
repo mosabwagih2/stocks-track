@@ -83,7 +83,7 @@ const ACT={
   closesheet:()=>{UI.sheet=null;render()},
   pksave:()=>{
     const s=UI.sheet,r=s.res;if(!r||!r.orders.length)return;
-    const n=S.pickups.reduce((a,p)=>Math.max(a,+p.id.slice(1)||0),0)+1,id='P'+n;
+    const n=S.pickups.concat((S.archPk||[]).map(x=>x.p)).reduce((a,p)=>Math.max(a,+p.id.slice(1)||0),0)+1,id='P'+n;
     S.pickups.push({id,label:'بيك أب '+n,date:s.date,channel:s.channel,src:s.fname});
     r.orders.forEach(o=>{o.pk=id;S.orders.push(o)});dirty();
     UI.sheet=null;UI.o.pk=id;UI.o.f='all';toast('اتستورد '+r.orders.length+' أوردر. لسه ما اتخصمش حاجة.');go('orders');
