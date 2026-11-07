@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { Download, Upload } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { PageHead } from '@/femini/components/PageHead';
@@ -12,20 +12,29 @@ import { previewBackup, type ImportPreview } from '@/femini/data/legacy-backup';
 import { LOC_AR } from '@/femini/domain/constants';
 import { backupDue } from '@/femini/domain/reports';
 import { friendlyError } from '@/femini/data/errors';
-import { AccountPanel } from '@/femini/components/AccountPanel';
+// the cloud sign-in is only for the browser edition: loaded on demand, never in the server edition
+const AccountPanel = lazy(() => import('@/femini/components/AccountPanel').then((m) => ({ default: m.AccountPanel })));
+import { ServerAccount } from '@/femini/components/ServerAccount';
+import { serverEdition } from '@/femini/data';
 import { ModelCosts } from '@/femini/components/ModelCosts';
 
 export default function Settings() {
   const qc = useQueryClient(); const toast = useToast(); const { d } = useDerived(); const input = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null); const [ack, setAck] = useState(false); const [search, setSearch] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setError(''); try { await fn(); await qc.invalidateQueries({ queryKey: SNAP_KEY }); } catch(e) { setError(friendlyError(e)); } finally { setBusy(false); } };
+  if (serverEdition) return (
+    <>
+      <PageHead title="الإعدادات" sub="الحساب والمستخدمين وتكلفة الموديلات." />
+      <div className="grid gap-4 md:grid-cols-2"><ServerAccount /><ModelCosts /></div>
+    </>
+  );
   return (
     <>
       <PageHead title="الإعدادات" sub="النسخ الاحتياطي وسلامة البيانات." />
       {error && <div role="alert" className="mb-4"><Alert tone="crit">{error}</Alert></div>}
       {d && backupDue(d.snap.lastBackup) && <Alert tone="warn" className="mb-4">{d.snap.lastBackup ? 'مرّ أكثر من أسبوع على آخر نسخة احتياطية؛ نزّل نسخة حديثة لحماية شغلك.' : 'لم تؤخذ نسخة احتياطية بعد؛ نزّل نسخة لحماية شغلك.'}</Alert>}
       <div className="grid gap-4 md:grid-cols-2">
-        <AccountPanel />
+        <Suspense fallback={null}><AccountPanel /></Suspense>
         <ModelCosts />
         <Card title="الاتصال">
           <Alert tone="warn">البيانات محفوظة في هذا المتصفح فقط؛ نسخة احتياطية منتظمة تحمي شغلك. إغلاق الأيام هنا محلي وليس حماية أمنية بين الموظفين.</Alert>

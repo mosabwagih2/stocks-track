@@ -1,3 +1,4 @@
+import { serverEdition } from '@/femini/data';
 import { useEffect, type ReactNode } from 'react';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { whenIdle } from '@/femini/components/Deferred';
@@ -67,7 +68,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         ))}
         <div className="hidden flex-1 md:block" />
         <div className="hidden gap-2 rounded-2xl border border-line bg-lav p-3 text-xs text-rail-mute md:grid">
-          <span className="flex items-center gap-2 px-2"><i className="size-2 rounded-full bg-good" />البيانات محفوظة في هذا المتصفح</span>
+          <span className="flex items-center gap-2 px-2"><i className="size-2 rounded-full bg-good" />{serverEdition ? 'متصل بالسيرفر' : 'البيانات محفوظة في هذا المتصفح'}</span>
         </div>
       </nav>
       <div className="min-w-0">

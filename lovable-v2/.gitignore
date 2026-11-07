@@ -33,3 +33,6 @@ dist-ssr
 
 # local environment
 .env
+
+# local copies of live data for testing (never commit)
+.local/

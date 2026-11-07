@@ -5,7 +5,7 @@ export interface ShipResult { doc: string; shipped: number; pieces: number; nega
 
 /** Everything the UI can do. Two implementations: Supabase (RPC functions) and an in-browser demo. */
 export interface Repo {
-  readonly mode: 'supabase' | 'memory';
+  readonly mode: 'supabase' | 'memory' | 'server';
   snapshot(): Promise<Snapshot>;
   importPickup(i: { label: string; date: string; channel: string; source: string; orders: ParsedOrder[]; file?: File | null }): Promise<{ pickup: string; imported: number; duplicates: number }>;
   /** `date`: the day the orders left (defaults to today; a past day up to BACKDATE_DAYS back for a forgotten upload) */

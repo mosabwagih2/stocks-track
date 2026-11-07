@@ -13,19 +13,23 @@ import { clearPhotos, getPhoto, putPhoto, shrinkImage } from './photos';
 import { blobToDataUrl, squareImage } from './image';
 import { exportMedia, replaceMedia } from './photos';
 import { validateBackup } from './backup';
+import type { Backend } from './cpanel/backend';
 import type { OriginalFile, DayClose } from '@/femini/domain/types';
 import { dayReport } from '@/femini/domain/reports';
 
 interface Catalog { skus: Sku[]; models: Model[]; archived: Record<string, true>; names: Record<string, string>; colors: { code: string; ar: string }[]; sizes: string[] }
-interface State {
+export interface State {
   v: 2; mid: number; sid: number; moves: Move[]; pickups: Pickup[]; orders: Order[]; supplies: Supply[]; log: SupplyEntry[]; docs: Doc[]; seq: Record<string, number>; costs?: Record<string,{cost:number;price:number}>;
   images: Record<string, string | null>; cat: Catalog; drafts?: OpDraft[]; shops?: string[]; files?: OriginalFile[]; archivedPickups?: { pickup: Pickup; orders: Order[] }[]; archivedDrafts?: OpDraft[]; closes?: DayClose[]; autoClose?: boolean; lastBackup?: string; holds?: Hold[];
+  /** server edition only: every day up to this date is closed (the server's single lock), and the next document id */
+  lock?: string; did?: number;
 }
 const KEY = 'femini-web-demo-2';
 const baseSkus: Sku[] = seed.skus.map((k) => ({ id: k.id, model: k.m, color: k.c, size: k.s, minAlert: k.min ?? 0 }));
 const baseModels: Model[] = seed.models.map((m) => ({ code: m.code, name: m.name }));
 const seedImg = (seed as unknown as { img?: Record<string, string> }).img ?? {};
 const fail = (m: string): never => { throw new Error(m); };
+const SERVER_BACKUP = 'النسخة الاحتياطية في نسخة السيرفر بتتاخد من cPanel (قاعدة البيانات وفولدر الملفات مع بعض).';
 
 function fresh(): State {
   const moves: Move[] = []; let mid = 1;
@@ -59,17 +63,29 @@ function load(): State {
   return fresh();
 }
 
-export function createMemoryRepo(): Repo {
-  let S = load();
-  let baseline = localStorage.getItem(KEY);
-  const guard = () => { if (localStorage.getItem(KEY) !== baseline) { S = load(); baseline = localStorage.getItem(KEY); throw new Error('البيانات تغيّرت في تبويب آخر. أعد تحميل الصفحة قبل التسجيل.'); } };
-  const save = () => { guard(); try { const next = JSON.stringify(S); localStorage.setItem(KEY, next); baseline = next; } catch { S = load(); throw new Error('لم تُحفظ العملية؛ مساحة المتصفح غير كافية. نزّل نسخة احتياطية وفرّغ مساحة.'); } };
+/** `backend`: the server edition (PHP + MySQL). Without it the state lives in this browser (localStorage + IndexedDB). */
+export function createMemoryRepo(backend?: Backend): Repo {
+  let S = backend ? backend.current() : load();
+  let baseline = backend ? null : localStorage.getItem(KEY);
+  let dirty = false;        // server edition: the action changed the state and must be sent
+  let skipAuto = false;
+  const guard = () => { if (backend) return; if (localStorage.getItem(KEY) !== baseline) { S = load(); baseline = localStorage.getItem(KEY); throw new Error('البيانات تغيّرت في تبويب آخر. أعد تحميل الصفحة قبل التسجيل.'); } };
+  const save = () => { if (backend) { dirty = true; return; } guard(); try { const next = JSON.stringify(S); localStorage.setItem(KEY, next); baseline = next; } catch { S = load(); throw new Error('لم تُحفظ العملية؛ مساحة المتصفح غير كافية. نزّل نسخة احتياطية وفرّغ مساحة.'); } };
   const inWindow = (date: string) => { const t = cairoToday(); if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > t) fail('لا يمكن أن يكون التاريخ في المستقبل'); if (date < addDays(t, -BACKDATE_DAYS)) fail(`ينفع تسجّل بتاريخ قديم لحد ${BACKDATE_DAYS} أيام بس`); };
-  const unlocked = (date = cairoToday()) => { guard(); if ((S.closes ?? []).some((c) => c.date === date && c.status === 'closed')) fail('اليوم مقفول؛ افتحه من تقرير اليوم قبل تسجيل عملية.'); };
+  const unlocked = (date = cairoToday()) => { guard(); if (backend) { if (S.lock && date <= S.lock) fail('اليوم مقفول؛ افتحه من تقرير اليوم قبل تسجيل عملية.'); return; } if ((S.closes ?? []).some((c) => c.date === date && c.status === 'closed')) fail('اليوم مقفول؛ افتحه من تقرير اليوم قبل تسجيل عملية.'); };
+  // the server edition keeps every photo and original on the server (uploaded right after the action is accepted)
+  const keepPhoto = backend ? async (_path: string, _blob: Blob) => {} : putPhoto;
   const original = async (owner: string, kind: string, file?: File | null) => {
     if (!file) return;
+    if (backend) {
+      if (kind === 'pickup') backend.queueFile({ type: 'pickup', id: owner }, 'pickup', file);
+      else if (kind === 'scan') backend.queueFile({ type: 'doc', no: owner }, 'scan', file);
+      else if (kind === 'cancel') backend.queueFile({ type: 'order', ref: owner }, 'cancel', file);
+      else backend.queueFile({ type: 'doc', no: owner }, 'doc_photo', file);
+      return;
+    }
     const id = `${owner}-${kind}-${Date.now()}`; const path = `originals/${id}`;
-    await putPhoto(path, file); S.files ??= []; S.files.push({ id, owner, kind, path, name: file.name, mime: file.type, size: file.size, at: new Date().toISOString() });
+    await keepPhoto(path, file); S.files ??= []; S.files.push({ id, owner, kind, path, name: file.name, mime: file.type, size: file.size, at: new Date().toISOString() });
   };
   const report = (date: string) => dayReport({ moves: S.moves, orders: S.orders, pickups: S.pickups, docs: S.docs } as Snapshot, date);
   const closeRecord = (date: string, auto: boolean): DayClose => { const r = report(date); return { date, at: new Date().toISOString(), by: auto ? 'system' : actor(), auto, status: 'closed', summary: r.summary, report: { requestedOrders: r.requestedOrders, open: r.open, blocked: r.blocked, team: r.team } }; };
@@ -114,9 +130,26 @@ export function createMemoryRepo(): Repo {
   const blockers = (id: string): string | null => (totalOwned(bal(), id) !== 0 ? `${id}: عليه رصيد` : demandOf(id) ? `${id}: عليه طلب مفتوح` : heldOf(id) ? `${id}: عليه ${heldOf(id)} قطعة برا في هولد مفتوح. لو رجعت سجّل رجوعها، ولو مش راجعة اخصمها نهائي من الهولد بصورة، وبعدين امسح الصنف` : null);
 
   const api: Repo = {
-    mode: 'memory',
+    mode: backend ? 'server' : 'memory',
     async snapshot(): Promise<Snapshot> {
-      if (S.autoClose !== false) {
+      if (backend) {
+        const fresh = await backend.refresh(); if (fresh) S = fresh;
+        // The server keeps one lock date (every day up to it is closed). At midnight the past days close by themselves, but a
+        // day reopened today stays open until tomorrow.
+        if (S.autoClose !== false && !skipAuto) {
+          const today = cairoToday(); const y = addDays(today, -1); const lock = S.lock ?? '';
+          if (lock < y) {
+            let last = lock;
+            for (let d = lock ? addDays(lock, 1) : addDays(today, -7); d <= y; d = addDays(d, 1)) {
+              const rec = (S.closes ?? []).filter((c) => c.date === d).at(-1);
+              if (rec && rec.status === 'reopened' && cairoDay(rec.reopenedAt ?? rec.at) === today) break;
+              if (S.moves.some((m) => m.date === d) && !(rec && rec.status === 'closed')) { S.closes ??= []; S.closes.push(closeRecord(d, true)); }
+              last = d;
+            }
+            if (last !== lock) { S.lock = last; save(); }
+          }
+        }
+      } else if (S.autoClose !== false) {
         const today = cairoToday(); let changed = false; S.closes ??= [];
         // A day reopened today stays open until tomorrow (it was compared with the close time, so a day closed before today was
         // closed again right after reopening and could not be corrected).
@@ -130,7 +163,7 @@ export function createMemoryRepo(): Repo {
       const colors = [...seed.colors, ...S.cat.colors];
       // copies, so React Query's structural sharing can see in-place edits of the demo state
       const c = structuredClone({ drafts: S.drafts ?? [], shops: S.shops ?? [], pickups: S.pickups, orders: S.orders, supplies: S.supplies, supplyLog: S.log, docs: S.docs, moves: S.moves.slice().reverse() });
-      return { today: cairoToday(), models, skus, archivedSkus, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}) };
+      return { today: cairoToday(), models, skus, archivedSkus, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}), ...(backend ? { lock: S.lock ?? '' } : {}) };
     },
     async importPickup(i) {
       inWindow(i.date); unlocked(i.date);
@@ -190,7 +223,7 @@ export function createMemoryRepo(): Repo {
       const total = lines.reduce((a, l) => a + l.qty, 0);
       if (total <= 0) fail('لا توجد قطع'); if (declared !== total) fail(`الإجمالي المكتوب في الورقة (${declared}) لا يساوي المضاف (${total})`);
       const today = cairoToday(); if (date > today || date < addDays(today, -3)) fail('يجب أن يكون التاريخ ضمن آخر 3 أيام');
-      const no = docNo('RCV'); const path = `documents/${no}.jpg`; await putPhoto(path, await shrinkImage(photo));
+      const no = docNo('RCV'); const path = `documents/${no}.jpg`; await keepPhoto(path, await shrinkImage(photo)); await original(no, 'photo', photo);
       post(lines.filter((l) => l.qty > 0).map((l) => ({ date, sku: l.sku, qty: l.qty, from: 'EXT_FACTORY' as const, to: 'READY' as const, type: 'RCV', doc: no, by: actor(), note: `استلام ${ref}` })));
       S.docs.push({ no, type: 'RCV', date, by: actor(), status: 'done', hdr: { ref, declared }, lines, attachment: path }); save(); return { doc: no, pieces: total };
     },
@@ -213,7 +246,7 @@ export function createMemoryRepo(): Repo {
       const r = buildOp(type, h, lines, bal(), date, today, (s) => skuLabel(skuMap, s));
       if (!r.ok) fail(r.err[0] ?? r.checks.find((c) => !c.ok)?.t ?? 'العملية ناقصة');
       const no = docNo(type); let attachment: string | null = null;
-      if (photo) { attachment = `documents/${no}.jpg`; await putPhoto(attachment, await shrinkImage(photo)); await original(no, 'photo', photo); }
+      if (photo) { attachment = `documents/${no}.jpg`; await keepPhoto(attachment, await shrinkImage(photo)); await original(no, 'photo', photo); }
       post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from, to: m.to, type, doc: no, by: actor(), note: m.note })));
       const pieces = r.moves.reduce((a, m) => a + m.qty, 0);
       const { hasPhoto: _p, snap: _s, ...keep } = h as typeof h & { snap?: unknown };
@@ -227,7 +260,7 @@ export function createMemoryRepo(): Repo {
       const skuMap = new Map(allSkus().map((k) => [k.id, k]));
       const r = buildHoldOut({ who, reason, reasonText, lines, hasPhoto: !!photo }, bal(), (s) => skuLabel(skuMap, s));
       if (!r.ok) fail(r.err[0]);
-      const no = docNo('HLD'); const path = `documents/${no}.jpg`; await putPhoto(path, await shrinkImage(photo!)); await original(no, 'photo', photo);
+      const no = docNo('HLD'); const path = `documents/${no}.jpg`; await keepPhoto(path, await shrinkImage(photo!)); await original(no, 'photo', photo);
       post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from as Move['from'], to: m.to as Move['to'], type: 'HLD', doc: no, by: actor(), note: m.note })));
       const at = new Date().toISOString(); const ls = r.moves.map((m) => ({ sku: m.sku, q: m.qty }));
       S.holds ??= []; S.holds.push({ no, who: who.trim(), note: note.trim(), reason, reasonText: reasonText.trim(), at, date, by: actor(), lines: ls, photo: path, status: 'open', events: [{ at, by: actor(), kind: 'out', lines: ls, photo: path, note: note.trim() }] });
@@ -241,7 +274,7 @@ export function createMemoryRepo(): Repo {
       const r = buildHoldSettle(h, { ret, off, hasPhoto: !!photo }, (s) => skuLabel(skuMap, s));
       if (!r.ok) fail(r.err[0]);
       const k = h.events.length; let path: string | null = null;
-      if (photo) { path = `documents/${no}-${k}.jpg`; await putPhoto(path, await shrinkImage(photo)); await original(no, 'photo', photo); }
+      if (photo) { path = `documents/${no}-${k}.jpg`; await keepPhoto(path, await shrinkImage(photo)); await original(no, 'photo', photo); }
       post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from as Move['from'], to: m.to as Move['to'], type: 'HLD', doc: no, by: actor(), note: m.note })));
       const at = new Date().toISOString();
       const rl = ret.filter((l) => l.q > 0), ol = off.filter((l) => l.q > 0);
@@ -254,7 +287,7 @@ export function createMemoryRepo(): Repo {
       unlocked();
       const d = S.docs.find((x) => x.no === doc && x.type === 'SHP'); if (!d) return fail('إذن توريد غير معروف');
       if (d.hdr.delivered) fail('التسليم متأكد قبل كده'); if (!photo) fail('صورة الإذن الموقّع إجبارية');
-      const path = `documents/${doc}-signed.jpg`; await putPhoto(path, await shrinkImage(photo));
+      const path = `documents/${doc}-signed.jpg`; await keepPhoto(path, await shrinkImage(photo));
       await original(doc, 'signed', photo); d.attachment = path; d.hdr.delivered = true; d.hdr.deliveredAt = new Date().toISOString(); save();
     },
     async saveDraft(i) {
@@ -269,7 +302,7 @@ export function createMemoryRepo(): Repo {
       if (!photo) fail('صورة البوليصة المشطوبة إجبارية');
       const o = findByCode(S.orders, code); if (!o) fail('لا يوجد أوردر بهذا الكود'); const ord = o as Order;
       if (ord.status === 'cancelled') fail('الأوردر ملغى مسبقًا');
-      await original(ord.ref, 'cancel', photo); const was = ord.status as 'open' | 'shipped'; const path = `documents/cancel-${ord.ref}.jpg`; await putPhoto(path, await shrinkImage(photo));
+      await original(ord.ref, 'cancel', photo); const was = ord.status as 'open' | 'shipped'; const path = `documents/cancel-${ord.ref}.jpg`; await keepPhoto(path, await shrinkImage(photo));
       let doc: string | null = null;
       if (was === 'shipped' && returnStock && ord.returned) {
         doc = ord.returned.doc;   // the pieces came back with the return: nothing more to post, only the link to it
@@ -310,7 +343,7 @@ export function createMemoryRepo(): Repo {
       if (after < 0) fail(`التراجع هيخلّي الرصيد ${after}؛ اتصرف من الكمية دي بعد ما اتسجلت. اعمل جرد بدل التراجع.`);
       supPush(e.item, -e.qty, 'rev', `تراجع عن: ${e.why}`); e.reversed = true; save();
     },
-    async photoUrl(path) { const b = await getPhoto(path); return b ? URL.createObjectURL(b) : null; },
+    async photoUrl(path) { if (backend) return backend.fileUrl(path); const b = await getPhoto(path); return b ? URL.createObjectURL(b) : null; },
 
     // ---------- product images ----------
     async setModelImage(code, file) {
@@ -379,8 +412,9 @@ export function createMemoryRepo(): Repo {
       const sheet = S.docs.find((x) => x.no === doc); if (sheet) unlocked(sheet.date);   // a closed day keeps its team as frozen
       for (const o of os) o.shippedBy = name.trim(); const d = S.docs.find((x) => x.no === doc); if (d) { d.by = name.trim(); d.hdr.employee = name.trim(); } save(); return os.length;
     },
-    async exportBackup() { guard(); const media = await exportMedia(); S.lastBackup = new Date().toISOString(); save(); return { app: 'femini-stock-dashboard', version: 1, at: S.lastBackup, state: structuredClone(S) as unknown as Record<string, unknown>, media }; },
+    async exportBackup() { if (backend) fail(SERVER_BACKUP); guard(); const media = await exportMedia(); S.lastBackup = new Date().toISOString(); save(); return { app: 'femini-stock-dashboard', version: 1, at: S.lastBackup, state: structuredClone(S) as unknown as Record<string, unknown>, media }; },
     async restoreBackup(input) {
+      if (backend) fail(SERVER_BACKUP);
       guard(); const b = validateBackup(input); const previousMedia=await exportMedia(); const safe = JSON.stringify({ app: 'femini-stock-dashboard', version: 1, at: new Date().toISOString(), state: S, media: previousMedia });
       try { localStorage.setItem(`${KEY}-pre-restore`, safe); } catch { fail('لا توجد مساحة لنسخة الأمان؛ لم يبدأ الاسترجاع.'); }
       const next = structuredClone(b.state) as unknown as State; const max = Math.max(0, ...next.moves.map((m) => m.id)); next.mid = Math.max(next.mid || 0, max + 1); next.sid = Math.max(next.sid || 0, ...next.log.map((e)=>e.id+1));
@@ -394,8 +428,20 @@ export function createMemoryRepo(): Repo {
       guard(); if (kind === 'draft') { const x = (S.archivedDrafts ?? []).find((d)=>d.id===id); if (!x) fail('مسودة غير معروفة'); S.drafts ??= []; S.drafts.push(x as OpDraft); S.archivedDrafts = (S.archivedDrafts ?? []).filter((d)=>d.id!==id); }
       else { const x = (S.archivedPickups ?? []).find((p)=>p.pickup.id===id); if (!x) fail('بيك أب غير معروف'); if (x) { if (S.pickups.some((p) => p.id === x.pickup.id)) fail('رقم البيك أب ده مستخدم دلوقتي؛ راجع البيك أبات قبل الاسترجاع.'); unlocked(x.pickup.date); if (x.orders.some((o)=>S.orders.some((a)=>a.ref===o.ref))) fail('يوجد أوردر بنفس الكود؛ لا يمكن الاسترجاع بدون مراجعة.'); S.pickups.push(x.pickup); S.orders.push(...x.orders); } S.archivedPickups = (S.archivedPickups ?? []).filter((p)=>p.pickup.id!==id); } save();
     },
-    async closeDay(date, auto = false) { guard(); if (date > cairoToday()) fail('لا يمكن إغلاق يوم مستقبلي'); S.closes ??= []; if (S.closes.some((c)=>c.date===date && c.status==='closed')) return; S.closes.push(closeRecord(date,auto)); save(); },
-    async reopenDay(date) { guard(); const at = new Date().toISOString(); for (const c of S.closes ?? []) if (c.date === date && c.status === 'closed') { c.status = 'reopened'; c.reopenedAt = at; } save(); },
+    async closeDay(date, auto = false) {
+      guard(); if (date > cairoToday()) fail('لا يمكن إغلاق يوم مستقبلي'); S.closes ??= [];
+      if (backend) {   // closing a day closes every day before it too (the server's single lock)
+        if (S.lock && date <= S.lock) return;
+        if (!S.closes.some((c) => c.date === date && c.status === 'closed')) S.closes.push(closeRecord(date, auto));
+        S.lock = date; save(); return;
+      } if (S.closes.some((c)=>c.date===date && c.status==='closed')) return; S.closes.push(closeRecord(date,auto)); save(); },
+    async reopenDay(date) {
+      if (backend) {   // reopening a day reopens the days after it too (the server's single lock)
+        if (!S.lock || date > S.lock) return; const at = new Date().toISOString();
+        for (const c of S.closes ?? []) if (c.date >= date && c.date <= S.lock && c.status === 'closed') { c.status = 'reopened'; c.reopenedAt = at; }
+        S.lock = addDays(date, -1); save(); return;
+      }
+      guard(); const at = new Date().toISOString(); for (const c of S.closes ?? []) if (c.date === date && c.status === 'closed') { c.status = 'reopened'; c.reopenedAt = at; } save(); },
     async setAutoClose(on) { guard(); S.autoClose = on; save(); },
     async setModelCosts(model,cost,price) { guard();if(!baseModels.concat(S.cat.models).some((m)=>m.code===model))fail('موديل غير معروف');if(!Number.isFinite(cost)||!Number.isFinite(price)||cost<0||price<0)fail('التكلفة والسعر يجب أن يكونا رقمين غير سالبين');S.costs??={};S.costs[model]={cost,price};save(); },
     async resetDemo() { fail('استبدال البيانات التجريبية متوقف لحماية شغلك؛ استخدم النسخ الاحتياطي.'); },
@@ -408,8 +454,26 @@ export function createMemoryRepo(): Repo {
   return new Proxy(api, { get(target, key: keyof Repo) {
     const value = target[key]; if (typeof value !== 'function' || key === 'photoUrl') return value;
     const fn = value as (...a: unknown[]) => Promise<unknown>;
-    if (key === 'snapshot') return () => serial(() => fn());
-    return (...args: unknown[]) => serial(async () => { guard(); const before = structuredClone(S); try { return await fn(...args); } catch(e) { S = localStorage.getItem(KEY) === baseline ? before : load(); throw e; } });
+    if (key === 'snapshot') return () => serial(async () => {
+      const r = await fn();
+      if (backend && dirty) {
+        dirty = false;
+        try { await backend.persist(S); } catch (e) { console.error('[femini] automatic close not saved', e); S = backend.current(); skipAuto = true; try { return await fn(); } finally { skipAuto = false; } }
+      }
+      return r;
+    });
+    return (...args: unknown[]) => serial(async () => {
+      guard(); const before = backend ? null : structuredClone(S); dirty = false;
+      try {
+        const r = await fn(...args);
+        if (backend && dirty) { dirty = false; await backend.persist(S); }
+        return r;
+      } catch (e) {
+        dirty = false;
+        S = backend ? backend.current() : localStorage.getItem(KEY) === baseline ? before! : load();
+        throw e;
+      }
+    });
   } });
 }
 export type { Loc };

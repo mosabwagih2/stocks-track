@@ -13,6 +13,8 @@ final class PushContext
     public array $newMoves = [];
     /** @var array<int,array<string,mixed>> order rows written by this push */
     public array $orders = [];
+    /** @var array<string,true> hold numbers whose record this push writes */
+    public array $holds = [];
 
     public function __construct(public readonly int $rev, public readonly int $since)
     {

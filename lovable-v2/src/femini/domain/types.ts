@@ -28,7 +28,7 @@ export interface Order {
 }
 export interface Pickup { id: string; label: string; date: string; channel: string; source: string }
 export interface OriginalFile { id: string; owner: string; kind: string; name: string; mime: string; size: number; at: string; path: string }
-export interface DayClose { date: string; at: string; by: string; auto: boolean; status: 'closed' | 'reopened'; /** when it was reopened: the day stays open for the rest of that Cairo day */ reopenedAt?: string; summary: Record<string, number>; report?: { requestedOrders: number; open: number; blocked: number; team: [string, number][] } }
+export interface DayClose { /** server row id (server edition) */ id?: string; date: string; at: string; by: string; auto: boolean; status: 'closed' | 'reopened'; /** when it was reopened: the day stays open for the rest of that Cairo day */ reopenedAt?: string; summary: Record<string, number>; report?: { requestedOrders: number; open: number; blocked: number; team: [string, number][] } }
 
 export type SupplyRule =
   | { kind: 'none' }
@@ -78,6 +78,8 @@ export interface Snapshot {
   autoClose: boolean;
   lastBackup: string | null;
   costs: Record<string, { cost: number; price: number }>;
+  /** server edition: every day up to this date is closed */
+  lock?: string | null;
 }
 
 export interface OpDraft { id: string; type: string; date: string; hdr: Record<string, unknown>; lines: Record<string, unknown>[]; updatedAt: string }

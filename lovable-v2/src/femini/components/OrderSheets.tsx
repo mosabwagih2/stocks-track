@@ -1,3 +1,4 @@
+import { dayClosed } from '@/femini/domain/reports';
 import { useMemo, useRef, useState } from 'react';
 import { Sheet, Button, Pill, Alert, Field, Kpi, TableWrap, th, td } from './ui';
 import { OrderPill, Photo, PhotoInput } from './shared';
@@ -81,7 +82,7 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
   // the day the pickup was requested / the orders left: today, or a past day for a forgotten upload
   const minDay = addDays(d.today, -BACKDATE_DAYS);
   const [day, setDay] = useState(() => (date && date >= minDay && date <= d.today ? date : d.today));
-  const closed = d.snap.closes.some((c) => c.date === day && c.status === 'closed');
+  const closed = dayClosed(d.snap, day);
   const dayText = day === d.today ? 'تاريخ اليوم' : `بتاريخ ${day}`;
   const account = useAccountName();
   const [mode, setMode] = useState<Mode>(manualRefs ? 'scan' : m0);

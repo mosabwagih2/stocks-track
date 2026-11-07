@@ -18,6 +18,9 @@ function set(n: string | null) { current = n; setActor(n); listeners.forEach((f)
 /** Starts following the sign-in state once, in the browser only (SSR has no session). */
 export function startAccount() {
   if (started || typeof window === 'undefined') return; started = true;
+  // server edition: who is signed in comes from the server session, never from the cloud account
+  const srv = (window as unknown as { FEM_BOOT?: { user?: { name?: string } } }).FEM_BOOT?.user?.name;
+  if (srv) { set(srv); return; }
   void import('@/integrations/supabase/client').then(({ supabase }) => {
     void supabase.auth.getUser().then(({ data }) => set(nameOf(data.user))).catch(() => set(null));
     supabase.auth.onAuthStateChange((_e, session) => set(nameOf(session?.user)));

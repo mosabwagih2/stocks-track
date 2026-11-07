@@ -13,8 +13,10 @@ use Femini\Http\HttpError;
  */
 final class Rules
 {
-    public const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF'];
-    public const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP'];
+    // EXT_HOLD: pieces out on a hold (photoshoot, sample, gift), until they come back or are written off
+    public const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF', 'EXT_HOLD'];
+    // HLD: a hold (out / return / write-off), MOV: a direct state change
+    public const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP', 'HLD', 'MOV'];
 
     /** Fields of a confirmed document that may still change (delivery proof, attached files, history). */
     private const DOC_MUTABLE_HDR = ['delivered', 'file', 'shpRecv', 'emp'];   // 'emp': a scan sheet's employee name can be corrected (logged in the document's history)
@@ -180,6 +182,9 @@ final class Rules
                 break;
             case 'archPk':
                 $this->need('pickup');
+                break;
+            case 'holds':
+                $this->need('internal');
                 break;
             case 'oldOrd':
                 if (!Permissions::canAny($this->user, ['pickup', 'returns'])) {

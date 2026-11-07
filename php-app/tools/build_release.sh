@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds the zip you upload to cPanel:  sh php-app/tools/build_release.sh
-# It re-generates the app page from the standalone build, lints every PHP file, refuses to continue if anything is off,
+# It checks the app build (lovable-v2 → public/app) is there, lints every PHP file, refuses to continue if anything is off,
 # and writes php-app/dist/femini-cpanel-<date>.zip  (the folder inside the zip is "femini/").
 set -e
 cd "$(dirname "$0")/.."
@@ -10,11 +10,9 @@ echo "== lint"
 for f in $(find app public tools config -name '*.php'); do php -l "$f" >/dev/null || { echo "syntax error in $f"; exit 1; }; done
 echo "ok"
 
-echo "== regenerate the app page"
-python3 frontend/build_app.py
-if ! git diff --quiet -- app/views/app.html public/assets/sync.js 2>/dev/null; then
-  echo "NOTE: app/views/app.html or sync.js differs from what is committed (commit it before releasing)."
-fi
+echo "== the app build (lovable-v2: npm run build:cpanel)"
+[ -f public/app/cpanel.html ] || { echo "missing public/app/cpanel.html: cd ../lovable-v2 && npm run build:cpanel"; exit 1; }
+echo "ok"
 
 echo "== package"
 python3 - "$ROOT" <<'PY'

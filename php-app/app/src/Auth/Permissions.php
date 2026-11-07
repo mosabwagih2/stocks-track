@@ -29,6 +29,7 @@ final class Permissions
         'SCN' => 'scan', 'RTN' => 'returns', 'RCV' => 'receive', 'FRC' => 'internal',
         'FSD' => 'internal', 'CLN' => 'internal', 'LOS' => 'internal', 'SHP' => 'ship',
         'CNT' => 'count', 'CXL' => 'cancel', 'SWP' => 'count',
+        'HLD' => 'internal', 'MOV' => 'internal',
     ];
 
     public const DEFAULT_ROLES = [

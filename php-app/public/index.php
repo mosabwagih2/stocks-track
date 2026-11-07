@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * The app page. Signed out: the login form. Signed in: the app with the whole current state embedded,
- * so it starts instantly with real data (no loading step, no localStorage).
+ * The app page, for every app path (/, /stock, /orders ...: see .htaccess). Signed out: the login form.
+ * Signed in: the app with the whole current state embedded, so it starts instantly with real data.
  */
 
 require dirname(__DIR__) . '/app/bootstrap.php';
@@ -49,9 +49,13 @@ $boot = [
 $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
 $json = str_replace(["\u{2028}", "\u{2029}"], [' ', ' '], $json);
 
+// The app: the static build of lovable-v2 (npm run build:cpanel → public/app/cpanel.html + assets).
+// The whole state goes in before the app's script, in an inline block that carries this response's CSP nonce.
+$page = @file_get_contents(__DIR__ . '/app/cpanel.html');
+if ($page === false) {
+    http_response_code(500);
+    exit('The app build is missing (public/app/cpanel.html). Run: cd lovable-v2 && npm run build:cpanel');
+}
 header('Content-Type: text/html; charset=utf-8');
-$app = str_replace(['/*__FEMINI_BOOT__*/', '__CSP_NONCE__'], ['window.FEM_BOOT=' . $json . ';', $nonce], (string)file_get_contents(APP_ROOT . '/views/app.html'));
-// app.html is a fragment (it was built to be hosted inside an Artifact page): give it a real document around it.
-echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">'
-    . '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
-    . '<meta name="robots" content="noindex,nofollow"></head><body>' . $app . '</body></html>';
+header('Cache-Control: no-store');   // the page carries the live state and the session's CSRF token
+echo str_replace('<!--FEMINI_BOOT-->', '<script nonce="' . $nonce . '">window.FEM_BOOT=' . $json . ';</script>', $page);

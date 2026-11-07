@@ -13,6 +13,12 @@ DirectoryIndex index.php
   # Every /api/* request goes to the API front controller.
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^api/ api/index.php [L]
+
+  # The app's own pages (/stock, /orders, ...) are one page: anything that is not a real file goes to index.php.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !^/(api|app|assets)/
+  RewriteRule ^ index.php [L]
 </IfModule>
 
 <IfModule mod_headers.c>
@@ -28,7 +34,7 @@ DirectoryIndex index.php
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType font/woff2 "access plus 1 year"
-  ExpiresByType application/javascript "access plus 1 day"
+  ExpiresByType application/javascript "access plus 1 year"
 </IfModule>
 
 # Never serve dotfiles, SQL, logs or config from the web root.

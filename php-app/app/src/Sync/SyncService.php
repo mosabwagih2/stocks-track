@@ -166,6 +166,10 @@ final class SyncService
                 }
                 throw $fail('مفيش أوردر ملغي بالرقم ده');
             }
+            // a hold's return or write-off is filed under the hold's number: its record is updated in this same push
+            if ($type === 'HLD' && isset($ctx->holds[$doc])) {
+                continue;
+            }
             // a reversal files its counter-moves under "<no> (عكس)" and flips the document to "reversed"
             $isRev = str_ends_with($doc, ' (عكس)');
             $no = $isRev ? substr($doc, 0, -strlen(' (عكس)')) : $doc;
@@ -214,6 +218,9 @@ final class SyncService
             $this->checkRow($name, $row, $decodedOld, $rules);
             if ($name === 'orders') {
                 $ctx->orders[] = json_decode($payload, true);
+            }
+            if ($name === 'holds') {
+                $ctx->holds[$key] = true;
             }
             $this->writeRow($name, $key, $row, $payload, $existing === null ? $nextOrd++ : (int)$existing['ord'], $ctx->rev, $existing !== null);
             $ctx->changed++;

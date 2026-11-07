@@ -1,3 +1,4 @@
+import { serverEdition } from '@/femini/data';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { repo } from '@/femini/data';
@@ -10,7 +11,8 @@ import type { Model, Order, Snapshot, Sku } from '@/femini/domain/types';
 export const SNAP_KEY = ['snapshot'] as const;
 
 export function useSnapshot() {
-  return useQuery({ queryKey: SNAP_KEY, queryFn: () => repo.snapshot(), staleTime: 15_000, refetchOnWindowFocus: true });
+  // server edition: other people's work shows up by itself every 15 s (one small pull of what changed)
+  return useQuery({ queryKey: SNAP_KEY, queryFn: () => repo.snapshot(), staleTime: 15_000, refetchOnWindowFocus: true, refetchInterval: serverEdition ? 15_000 : false });
 }
 
 /** Today in Cairo. Re-checked every 30 s so the work day rolls over at midnight by itself. */

@@ -27,6 +27,9 @@ export function financialReport(s: Snapshot) {
   return { rows, unknown, negative: Object.keys(balances).filter((id) => LOCS.some((l) => qty(balances, id, l) < 0)), ready: state('READY'), dirty: state('DIRTY'), factory: state('FACTORY'), scrap: state('SCRAP'), lost: state('LOST'), missing: rows.filter((r) => Object.values(r.units).some((n) => n !== 0) && r.cost === null) };
 }
 
+/** is that day closed? the server edition has one lock date (every day up to it); the browser edition closes day by day */
+export const dayClosed = (s: Pick<Snapshot, 'closes' | 'lock'>, date: string): boolean => (s.lock !== undefined && s.lock !== null ? !!s.lock && date <= s.lock : s.closes.some((c) => c.date === date && c.status === 'closed'));
+
 export function dayReport(s: Snapshot, date: string) {
   const moves = s.moves.filter((m) => m.date === date);
   const balances = balancesFromMoves(s.moves.filter((m) => m.date <= date));
@@ -42,7 +45,7 @@ export function dayReport(s: Snapshot, date: string) {
   const summary = { requested: requested.reduce((a, o) => a + o.lines.length, 0), shipped, returned: sum((m) => m.type === 'RTN' && m.from.startsWith('EXT_') && m.to !== 'LOST'), received: sum((m) => m.type === 'RCV' && m.to === 'READY'), ready: Object.values(balances).reduce((a, b) => a + (b.READY ?? 0), 0), damaged: Object.values(balances).reduce((a, b) => a + (b.SCRAP ?? 0) + (b.LOST ?? 0), 0) };
   // Who scanned is read from the shipment sheet, not from the ledger: renaming the employee fixes the sheet (ledger moves are
   // never edited), and a reversal ("SCN-0001 (عكس)", posted by whoever reversed it) is taken off the employee who scanned.
-  const scanner = new Map((s.docs ?? []).filter((d) => d.type === 'SCN').map((d) => [d.no, d.by]));
+  const scanner = new Map((s.docs ?? []).filter((d) => d.type === 'SCN').map((d) => [d.no, String(d.hdr?.employee ?? d.by)]));
   const who = (m: (typeof moves)[number]) => (m.type === 'SCN' ? scanner.get(m.doc.replace(/ \(عكس\)$/, '')) ?? m.by : m.by);
   const team = new Map<string, number>();
   for (const m of moves) if (m.to === 'EXT_CH' || (m.from === 'EXT_CH' && m.type === 'SCN')) { const n = who(m); team.set(n, (team.get(n) ?? 0) + (m.to === 'EXT_CH' ? m.qty : -m.qty)); }

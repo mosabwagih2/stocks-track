@@ -1,3 +1,5 @@
+import { serverEdition } from '@/femini/data';
+import { dayClosed } from '@/femini/domain/reports';
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@/femini/router';
 import { AlertTriangle, Info, Upload, ArrowDownToLine, Shuffle, ChevronRight, ChevronLeft, LockKeyhole } from 'lucide-react';
@@ -120,7 +122,7 @@ export default function Today() {
             <Button className="size-10 shrink-0 p-0" aria-label="اليوم التالي" title="اليوم التالي" disabled={!historical} onClick={()=>setDate(addDays(selected,1))}><ChevronLeft className="size-4" /></Button>
             {historical && <Button size="sm" onClick={()=>setDate('')}>العودة لليوم</Button>}
           </div>
-          <Button className="h-10" onClick={()=>setClosing(true)}><LockKeyhole className="size-4" />{d.snap.closes.some((c)=>c.date===selected&&c.status==='closed') ? 'تقرير اليوم المقفول' : 'قفل اليوم'}</Button>
+          <Button className="h-10" onClick={()=>setClosing(true)}><LockKeyhole className="size-4" />{dayClosed(d.snap,selected) ? 'تقرير اليوم المقفول' : 'قفل اليوم'}</Button>
         </div>
         {historical && <p className="mb-3 text-xs text-muted">{dayLabel(selected)} · {tooOld ? 'قراءة فقط' : 'تقدر ترفع بيك أب أو ملف إسكان على اليوم ده لو كنت نسيته'}</p>}
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -132,7 +134,7 @@ export default function Today() {
       </section>
       <div className="grid gap-4">
         {backupDue(d.snap.lastBackup) && <Alert tone="warn" className="flex flex-wrap items-center justify-between gap-2"><span>{d.snap.lastBackup ? 'مرّ أكثر من أسبوع على آخر نسخة احتياطية؛ حان وقت نسخة حديثة.' : 'لم تؤخذ نسخة احتياطية بعد؛ احمِ شغلك بنسخة الآن.'}</span><Button size="sm" onClick={()=>nav('/settings')}>النسخ الاحتياطي</Button></Alert>}
-        {d.snap.closes.some((c)=>c.date===selected&&c.status==='closed') && <Alert>اليوم مقفول؛ لا يمكن تسجيل عمليات بتاريخ هذا اليوم قبل فتحه من التقرير.</Alert>}
+        {dayClosed(d.snap,selected) && <Alert>اليوم مقفول؛ لا يمكن تسجيل عمليات بتاريخ هذا اليوم قبل فتحه من التقرير.</Alert>}
         {x.older.length > 0 && (
           <Alert tone="warn" className="flex flex-wrap items-center justify-between gap-2">
             <span>يوجد <b>{x.older.length}</b> أوردر من أيام سابقة (من {x.oldDay}) لم تُشحن بعد.</span>
@@ -192,10 +194,10 @@ export default function Today() {
       </div>
       {event && <EventDetails d={d} moves={event} title={event[0]?.doc ?? 'حدث'} onClose={()=>setEvent(null)} />}
       {closing && <Sheet title={`تقرير يوم ${selected}`} onClose={()=>setClosing(false)}>
-        <Alert>قفل محلي في هذا المتصفح؛ التنبيهات للعلم ولا تمنع الإغلاق.</Alert>
+        <Alert>{serverEdition ? 'القفل على السيرفر: بيقفل اليوم ده وكل اللي قبله لكل الموظفين. التنبيهات للعلم ولا تمنع الإغلاق.' : 'قفل محلي في هذا المتصفح؛ التنبيهات للعلم ولا تمنع الإغلاق.'}</Alert>
         <DayCloseReport s={d.snap} date={selected} />
         <label className="flex items-center gap-2"><input type="checkbox" checked={d.snap.autoClose} onChange={(e)=>act(()=>repo.setAutoClose(e.target.checked),'تم تحديث القفل التلقائي')} />قفل الأيام تلقائيًا عند بداية يوم جديد</label>
-        <Button variant="primary" onClick={async()=>{const locked=d.snap.closes.some((c)=>c.date===selected&&c.status==='closed');await act(()=>locked?repo.reopenDay(selected):repo.closeDay(selected),locked?'تم فتح اليوم':'تم قفل اليوم');}}>{d.snap.closes.some((c)=>c.date===selected&&c.status==='closed')?'فتح اليوم':'تأكيد قفل اليوم'}</Button>
+        <Button variant="primary" onClick={async()=>{const locked=dayClosed(d.snap,selected);await act(()=>locked?repo.reopenDay(selected):repo.closeDay(selected),locked?'تم فتح اليوم':'تم قفل اليوم');}}>{dayClosed(d.snap,selected)?'فتح اليوم':'تأكيد قفل اليوم'}</Button>
       </Sheet>}
       {flow && <FlowSheet d={d} w={flow} orders={x.orders} onClose={() => setFlow(null)} onOrder={(r) => { setFlow(null); setOrderRef(r); }} />}
       {upload && <UploadSheet d={d} mode={upload} date={selected} onClose={() => setUpload(null)} />}
