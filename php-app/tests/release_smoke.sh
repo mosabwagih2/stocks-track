@@ -36,7 +36,7 @@ code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 curl -s "$BASE/install.php" | grep -q "فحص البيئة"; ok "the installer shows the environment checklist" $?
 curl -s "$BASE/install.php" | grep -q 'name="key"'; ok "and the install form" $?
 curl -s -d "key=wrong-key&name=Admin&username=boss&password=Orbit-Maple-Stone-52" "$BASE/install.php" | grep -q "مفتاح التثبيت غلط"; ok "a wrong install key is refused" $?
-curl -s -d "key=$KEY&name=Admin&username=boss&password=12345678" "$BASE/install.php" | grep -q "سهلة التخمين"; ok "a weak admin password is refused" $?
+curl -s -d "key=$KEY&name=Admin&username=boss&password=abc" "$BASE/install.php" | grep -q "4 حروف"; ok "a too-short admin password is refused" $?
 [ "$(php -r '$p=new PDO("mysql:host='$DBH';dbname='$DBN'","'$DBU'","'$DBP'");echo (int)$p->query("SHOW TABLES LIKE \"users\"")->rowCount() ? (int)$p->query("SELECT COUNT(*) FROM users")->fetchColumn() : 0;')" = "0" ]; ok "nothing was created by the failed attempts" $?
 curl -s -d "key=$KEY&name=Admin&username=boss&password=Orbit-Maple-Stone-52" "$BASE/install.php" | grep -q "تم التثبيت"; ok "install succeeds with the key and a good password" $?
 [ -f "$R/storage/installed.lock" ]; ok "the installer locked itself (installed.lock)" $?
