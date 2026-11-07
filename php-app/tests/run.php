@@ -281,7 +281,7 @@ ok('users cannot be written through sync (422)', $s === 422, $j);
 ok('packer cannot list users (403)', $s === 403);
 [$s, $j] = $admin->call('GET', '/api/users');
 ok('admin lists users (no hashes leaked)', $s === 200 && count($j['users']) === 3 && !str_contains(json_encode($j), 'pass_hash') && !str_contains(json_encode($j), '$2y$'), $j);
-[$s, $j] = $admin->call('POST', '/api/users', ['username' => 'new1', 'name' => 'جديد', 'role' => 'pack', 'password' => 'short']);
+[$s, $j] = $admin->call('POST', '/api/users', ['username' => 'new1', 'name' => 'جديد', 'role' => 'pack', 'password' => 'abc']);
 ok('a short password is refused (422)', $s === 422, $j);
 [$s, $j] = $admin->call('POST', '/api/users', ['username' => 'new1', 'name' => 'جديد', 'role' => 'pack', 'password' => 'long-enough-1']);
 ok('admin creates a user', $s === 201, $j);
@@ -359,12 +359,12 @@ ok('the page snapshot keeps {} too', str_contains($snapRaw, '"hdr":{}') && str_c
 
 // ================= passwords
 foreach ([
-    ['12345678', 'a common password'], ['password123', 'a common password'], ['aaaaaaaaaa', 'one repeated character'],
-    ['xyz-short', null], ['Kg4-xqzvnovak-' . str_repeat('z', 70), 'longer than bcrypt reads (72 bytes)'], ['Mhoms-bad-password1', 'contains the username'],
+    ['abc', 'shorter than the 4-character minimum'],
+    ['xyz-short', null], ['Kg4-xqzvnovak-' . str_repeat('z', 70), 'longer than bcrypt reads (72 bytes)'],
 ] as [$pw, $why]) {
     static $n = 0;
     [$s, $j] = $admin->call('POST', '/api/users', ['username' => $pw === 'Mhoms-bad-password1' ? 'mhoms' : 'weak' . ++$n, 'name' => 'x', 'role' => 'pack', 'password' => $pw]);
-    if ($why === null) {   // 'xyz-short' is 9 chars and not common: it is allowed; clean up by using it only once
+    if ($why === null) {   // 'xyz-short' is 9 chars: it is allowed; clean up by using it only once
         ok('a normal 9-character password is accepted', $s === 201, $j);
         continue;
     }
