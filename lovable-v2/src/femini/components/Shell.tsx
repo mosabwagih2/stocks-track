@@ -3,7 +3,7 @@ import { Notifications } from '@/femini/components/Notifications';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { whenIdle } from '@/femini/components/Deferred';
-import { BarChart3, Boxes, ClipboardList, FileText, Package, ReceiptText, Settings as Cog, LayoutGrid, Menu, X } from 'lucide-react';
+import { BarChart3, Boxes, ClipboardList, FileText, Package, ReceiptText, Settings as Cog, LayoutGrid, Menu, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { qty } from '@/femini/domain/ledger';
 import { dayLabel } from '@/femini/domain/dates';
@@ -26,6 +26,9 @@ export default function Shell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (state) => state.location.pathname });
   const isToday = path === '/';
   const [menu, setMenu] = useState(false);
+  // desktop: the side menu can shrink to icons only (remembered on this device)
+  const [mini, setMiniState] = useState(() => { try { return localStorage.getItem('femini-rail') === 'mini'; } catch { return false; } });
+  const setMini = (v: boolean) => { setMiniState(v); try { localStorage.setItem('femini-rail', v ? 'mini' : 'full'); } catch { /* private mode */ } };
   useEffect(() => setMenu(false), [path]);   // a choice in the phone menu closes it
   const current = NAV.find((n) => (n.to === '/' ? path === '/' : path.startsWith(n.to)));
   const router = useRouter();
@@ -53,33 +56,36 @@ export default function Shell({ children }: { children: ReactNode }) {
     badge['/stock'] = d.snap.skus.filter((s) => qty(d.snap.balances, s.id, 'READY') < 0).length;
   }
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)] print:block">
+    <div className={`min-h-screen md:grid ${mini ? 'md:grid-cols-[76px_minmax(0,1fr)]' : 'md:grid-cols-[248px_minmax(0,1fr)]'} print:block`}>
       {menu && <div className="fixed inset-0 z-40 bg-black/40 md:hidden print:hidden" onClick={() => setMenu(false)} aria-hidden="true" />}
       <nav aria-label="التنقل" className={`print:hidden fixed inset-y-0 start-0 z-50 w-72 max-w-[85vw] flex-col gap-0.5 overflow-y-auto border-e border-line bg-rail p-4 shadow-xl transition-transform md:sticky md:top-0 md:z-auto md:flex md:h-screen md:w-auto md:max-w-none md:translate-x-0 md:shadow-none ${menu ? 'flex translate-x-0' : 'hidden'}`}>
         <div className="mb-5 flex items-center justify-between gap-2 px-2 pt-1">
           <div className="flex items-center gap-2">
             <img src={logo} alt="" width={28} height={28} className="h-7 w-auto object-contain" />
-            <b className="font-display text-[15px] font-semibold tracking-tight text-on-rail" dir="ltr">Femini inventory</b>
+            <b className={`font-display text-[15px] font-semibold tracking-tight text-on-rail ${mini ? 'md:hidden' : ''}`} dir="ltr">Femini inventory</b>
           </div>
           <button type="button" className="rounded-lg p-1.5 text-rail-mute hover:bg-lav md:hidden" onClick={() => setMenu(false)} aria-label="اقفل القائمة"><X className="size-5" /></button>
         </div>
-        <span className="mb-1 px-3 text-[11px] font-semibold tracking-wide text-rail-mute">القائمة</span>
+        <span className={`mb-1 px-3 text-[11px] font-semibold tracking-wide text-rail-mute ${mini ? 'md:hidden' : ''}`}>القائمة</span>
         {NAV.filter((n) => n.to !== '/settings').map(({ to, label, icon: Icon }) => (
-          <Link key={to} to={to} preload="intent" activeOptions={{ exact: to === '/' }}
+          <Link key={to} to={to} preload="intent" activeOptions={{ exact: to === '/' }} title={mini ? label : undefined}
             className="group relative flex flex-row items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rail-mute transition hover:bg-lav hover:text-on-rail data-[status=active]:bg-accent-soft data-[status=active]:text-accent">
             <Icon className="size-[18px] shrink-0" strokeWidth={1.8} />
-            <span>{label}</span>
-            {badge[to] ? <span className="ms-auto rounded-full bg-scrap px-1.5 py-0.5 font-mono text-[10px] leading-none font-semibold text-on-accent">{badge[to]}</span> : null}
+            <span className={mini ? 'md:sr-only' : ''}>{label}</span>
+            {badge[to] ? <span className={`ms-auto rounded-full bg-scrap px-1.5 py-0.5 font-mono text-[10px] leading-none font-semibold text-on-accent ${mini ? 'md:absolute md:end-1 md:top-0.5' : ''}`}>{badge[to]}</span> : null}
           </Link>
         ))}
         <div className="flex-1" />
         <Link to="/settings" preload="intent"
           className="mt-4 flex flex-row items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-sm font-medium text-rail-mute transition hover:bg-lav hover:text-on-rail data-[status=active]:bg-accent-soft data-[status=active]:text-accent">
-          <Cog className="size-[18px] shrink-0" strokeWidth={1.8} /><span>الإعدادات</span>
+          <Cog className="size-[18px] shrink-0" strokeWidth={1.8} /><span className={mini ? 'md:sr-only' : ''}>الإعدادات</span>
         </Link>
       </nav>
       <div className="min-w-0">
         <header className="print:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-page/80 px-4 py-3 backdrop-blur md:px-8">
+          <button type="button" className="hidden size-10 place-items-center rounded-xl border border-line bg-surface text-ink transition hover:bg-lav md:grid" onClick={() => setMini(!mini)} aria-label={mini ? 'افتح القائمة الجانبية' : 'صغّر القائمة الجانبية'} title={mini ? 'افتح القائمة' : 'صغّر القائمة'}>
+            {mini ? <PanelRightOpen className="size-5" strokeWidth={1.8} /> : <PanelRightClose className="size-5" strokeWidth={1.8} />}
+          </button>
           <button type="button" className="relative -ms-1 rounded-lg p-1.5 hover:bg-lav md:hidden" onClick={() => setMenu(true)} aria-label="افتح القائمة" aria-expanded={menu}>
             <Menu className="size-6" />
             {Object.values(badge).some(Boolean) && <i className="absolute end-1 top-1 size-2 rounded-full bg-scrap" />}

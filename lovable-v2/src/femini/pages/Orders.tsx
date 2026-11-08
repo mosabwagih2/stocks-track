@@ -21,7 +21,7 @@ export default function Orders() {
   const [sp, setSp] = useSearchParams();
   const f = (sp.get('f') as Filter) || 'all'; const pk = sp.get('pk') || '';
   const [q, setQ] = useState(''); const dq = useDeferredValue(q);
-  const [tab, setTab] = useState<'list' | 'pick'>('list'); const [n, setN] = useState(PAGE);
+  const [tab, setTab] = useState<'list' | 'pk' | 'pick'>('list'); const [n, setN] = useState(PAGE);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [orderRef, setOrderRef] = useState<string | null>(null); const [upload, setUpload] = useState<'scan' | 'pickup' | null>(null);
   const [manual, setManual] = useState<string[] | null>(null); const [cancel, setCancel] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export default function Orders() {
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d || !counts) return <Spinner />;
   const setF = (v: Filter) => { const p = new URLSearchParams(sp); if (v === 'all') p.delete('f'); else p.set('f', v); setSp(p, { replace: true }); setN(PAGE); };
-  const chips: [Filter, string][] = [['all', 'الكل'], ['wait', 'بانتظار الشحن'], ['blocked', 'متوقف'], ['done', 'مشحون'], ['returned','مرتجع']];
+  const chips: [Filter, string][] = [['all', 'الأوردرات'], ['wait', 'بانتظار الشحن'], ['blocked', 'متوقف'], ['done', 'مشحون'], ['returned','مرتجع']];
   const pick = (() => {
     const m: Record<string, number> = {}; for (const o of d.open) for (const s of o.lines) m[s] = (m[s] ?? 0) + 1;
     return Object.keys(m).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })).map((s) => ({ sku: s, need: m[s], ready: qty(d.snap.balances, s, 'READY') }));
@@ -67,8 +67,26 @@ export default function Orders() {
         <Button onClick={() => setUpload('pickup')}><Upload className="size-4" /> رفع بيك أب</Button>
         <Button variant="primary" onClick={() => setUpload('scan')}><Upload className="size-4" /> رفع ملف الإسكان</Button>
       </PageHead>
-      <Tabs value={tab} onChange={setTab} tabs={[['list', 'الأوردرات'], ['pick', 'قائمة التجهيز']]} />
-      {tab === 'pick' ? (
+      <Tabs value={tab} onChange={setTab} tabs={[['list', 'الأوردرات'], ['pk', `بيك أب (${d.snap.pickups.length})`], ['pick', 'قائمة التجهيز']]} />
+      {tab === 'pk' ? (
+        !d.snap.pickups.length ? <Card><Empty>لا يوجد بيك أب بعد. ارفع ملف البيك أب.</Empty></Card> : <>
+          <p className="mb-3 text-sm text-muted">اضغط على أي بيك أب يفتح أوردراته.</p>
+          <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[...d.snap.pickups].sort((a,b)=>b.date.localeCompare(a.date)).map((p) => {
+              const po = d.snap.orders.filter((o) => o.pickupId === p.id && o.status !== 'cancelled'); const done = po.filter((o) => o.status === 'shipped').length;
+              return (
+                <button key={p.id} type="button" onClick={() => { const x = new URLSearchParams(sp); x.set('pk', p.id); setSp(x, { replace: true }); setTab('list'); setN(PAGE); }}
+                  className={`grid gap-2 rounded-2xl border bg-surface p-3.5 text-start transition hover:border-accent ${pk === p.id ? 'border-accent' : 'border-line'}`}>
+                  <span className="flex justify-between"><b>{p.label}</b><span className="text-xs text-muted">{p.date}</span></span>
+                  <span className="text-xs text-muted">{channelName(p.channel)}</span>
+                  <span className="h-2 overflow-hidden rounded-full bg-grid"><i className="block h-full bg-ready" style={{ width: `${po.length ? (done / po.length) * 100 : 0}%` }} /></span>
+                  <span className="flex justify-between"><span><span className="num">{done}</span> من <span className="num">{po.length}</span> مشحون</span><span className="text-muted">{fmt(po.reduce((a, o) => a + o.lines.length, 0))} قطعة</span></span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : tab === 'pick' ? (
         !pick.length ? <Card><Empty>لا توجد أوردرات مفتوحة. تم شحن كل ما طُلب.</Empty></Card> : (
           <>
             <div className="mb-3 grid grid-cols-3 gap-3"><Kpi label="أصناف مطلوبة" value={pick.length} /><Kpi label="قطع مطلوبة (لم تُشحن)" value={fmt(pick.reduce((a, x) => a + x.need, 0))} /><Kpi label="أصناف ناقصة" value={pick.filter((x) => x.ready < x.need).length} tone={pick.some((x) => x.ready < x.need) ? 'crit' : 'good'} /></div>
@@ -78,21 +96,8 @@ export default function Orders() {
         )
       ) : (
         <>
-          <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[...d.snap.pickups].sort((a,b)=>b.date.localeCompare(a.date)).map((p) => {
-              const po = d.snap.orders.filter((o) => o.pickupId === p.id && o.status !== 'cancelled'); const done = po.filter((o) => o.status === 'shipped').length;
-              return (
-                <button key={p.id} type="button" onClick={() => { const x = new URLSearchParams(sp); if (pk === p.id) x.delete('pk'); else x.set('pk', p.id); setSp(x, { replace: true }); }}
-                  className={`grid gap-2 rounded-2xl border bg-surface p-3.5 text-start ${pk === p.id ? 'border-accent' : 'border-line'}`}>
-                  <span className="flex justify-between"><b>{p.label}</b><span className="text-xs text-muted">{p.date}</span></span>
-                  <span className="text-xs text-muted">{channelName(p.channel)}</span>
-                  <span className="h-2 overflow-hidden rounded-full bg-grid"><i className="block h-full bg-ready" style={{ width: `${po.length ? (done / po.length) * 100 : 0}%` }} /></span>
-                  <span className="flex justify-between"><span><span className="num">{done}</span> من <span className="num">{po.length}</span> مشحون</span><span className="text-muted">{fmt(po.reduce((a, o) => a + o.lines.length, 0))} قطعة</span></span>
-                </button>
-              );
-            })}
-          </div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
+            {pk && <Chip pressed onClick={() => { const x = new URLSearchParams(sp); x.delete('pk'); setSp(x, { replace: true }); }}>{d.snap.pickups.find((p) => p.id === pk)?.label ?? pk} ✕</Chip>}
             {chips.map(([v, l]) => <Chip key={v} pressed={f === v} onClick={() => setF(v)}>{l} <span className="font-mono text-xs opacity-75">{counts[v as 'all']}</span></Chip>)}
             {counts.cx > 0 && <Chip pressed={f === 'cx'} onClick={() => setF('cx')}>ملغي <span className="font-mono text-xs opacity-75">{counts.cx}</span></Chip>}
             {counts.bad > 0 && <Chip pressed={f === 'bad'} onClick={() => setF('bad')}>كود غير مربوط <span className="font-mono text-xs opacity-75">{counts.bad}</span></Chip>}
