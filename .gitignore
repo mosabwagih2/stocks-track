@@ -11,3 +11,7 @@ php-app/config/config.php
 php-app/storage/files/
 php-app/tests/.tmp/
 php-app/dist/
+
+# the app's own images (the logo) are part of the build that cPanel serves
+!lovable-v2/src/femini/assets/*.png
+!php-app/public/app/assets/*.png
