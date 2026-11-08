@@ -16,14 +16,15 @@ import { locTotal, qty, totalOwned } from '@/femini/domain/ledger';
 import { cellInfo } from '@/femini/domain/stock';
 import { cn, fmt } from '@/femini/cn';
 import { skuLabel } from '@/femini/domain/orders';
+import { swatchOf } from '@/femini/components/swatch';
 import { repo } from '@/femini/data';
 import type { Derived } from '@/femini/hooks/data';
 import type { Loc, Sku } from '@/femini/domain/types';
 
-const SW: Record<string, string> = { اسود: '#1e1b24', ابيض: '#ffffff', احمر: '#d9262e', بيج: '#ead9be', رمادي: '#bdbcc4', برتقالي: '#f07a2b', زيتى: '#6f7a3c', فوشيا: '#c2317a', اصفر: '#f2c230', 'مينت جرين': '#8fd3b6', 'بيبي بلو': '#a9cbe8', كحلي: '#1f2a5a', بينك: '#f4b6c8', سيمون: '#f3a28c', روز: '#e58fa8', 'احمر تطعيم اسود': '#a3262c' };
-const Swatch = ({ c }: { c: string }) => <i className="inline-block size-3 rounded-full border border-line2 align-[-1px]" style={{ background: SW[c] ?? '#cfc2ec' }} />;
-const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : 'موديلات أخرى');
-const LINES = ['بانتي', 'برا', 'شورت', 'موديلات أخرى'];
+const Swatch = ({ c }: { c: string }) => <i className="inline-block size-3 rounded-full border border-line2 align-[-1px]" style={{ background: swatchOf(c) }} />;
+const OTHER = 'موديلات أخرى';
+const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : OTHER);
+const LINES = ['بانتي', 'برا', 'شورت'];
 
 /** Cell color = signal. READY: red critical, amber low, green healthy, blue surplus, gray empty. Other states: the state's own color. */
 function cellTone(loc: Loc, v: number, info: ReturnType<typeof cellInfo>): string {
@@ -116,7 +117,7 @@ export default function Stock() {
   const { d, isLoading, error } = useDerived();
   const [sp, setSp] = useSearchParams(); const v0 = sp.get('view'); const view: 'all' | 'table' | 'map' | 'supplies' = v0 === 'table' || v0 === 'map' || v0 === 'supplies' ? v0 : 'all';
   const setView = (v: string) => { const n = new URLSearchParams(sp); if (v === 'all') n.delete('view'); else n.set('view', v); setSp(n, { replace: true }); }; const [loc, setLoc] = useState<Loc>('READY');
-  const [line, setLine] = useState('all');
+  const [line, setLine] = useState('all'); const [otherModel, setOtherModel] = useState('all');
   const [q, setQ] = useState(''); const dq = useDeferredValue(q); const [flt, setFlt] = useState<'all' | 'low' | 'neg' | 'dem' | 'arch'>('all'); const [sku, setSku] = useState<Sku | null>(null);
   const [supAdd, setSupAdd] = useState(0); const [supArch, setSupArch] = useState(false); const [imgModel, setImgModel] = useState<string | null>(null); const [catSheet, setCatSheet] = useState<'new' | null>(null); const [editModel, setEditModel] = useState<string | null>(null);
   const order = useMemo(() => (d ? d.modelsByPull : []), [d]);
@@ -135,7 +136,8 @@ export default function Stock() {
   const modelSum = (m: string, l: Loc) => d.snap.skus.reduce((a, s) => a + (s.model === m ? qty(d.snap.balances, s.id, l) : 0), 0);
   const modelDemand = (m: string) => d.snap.skus.reduce((a, s) => a + (s.model === m ? d.demand[s.id] ?? 0 : 0), 0);
   const words = dq.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const shown = order.filter((c) => (line === 'all' || lineOf(c) === line) && (loc === 'READY' || modelSum(c,loc) !== 0) && (!words.length || d.snap.skus.some((s)=>s.model===c && words.every((w)=>`${c} ${mName(c)} ${s.color} ${s.size}`.toLowerCase().includes(w)))));
+  const otherCodes = order.filter((c) => lineOf(c) === OTHER).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  const shown = order.filter((c) => (line === 'all' || lineOf(c) === line) && (line !== OTHER || otherModel === 'all' || c === otherModel) && (loc === 'READY' || modelSum(c,loc) !== 0) && (!words.length || d.snap.skus.some((s)=>s.model===c && words.every((w)=>`${c} ${mName(c)} ${s.color} ${s.size}`.toLowerCase().includes(w)))));
   const head = (c: string) => (
     <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -200,6 +202,12 @@ export default function Stock() {
           <input type="search" aria-label="بحث الموديلات" placeholder="بحث بالموديل أو اللون أو المقاس" value={q} onChange={(e)=>setQ(e.target.value)} className="mb-3 w-full sm:max-w-sm" />
           <div role="group" aria-label="فلاتر الموديلات" className="mb-4 flex items-center gap-2 overflow-x-auto pb-1 [&>button]:h-8 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
             {['all', ...LINES].map((l) => <Chip key={l} pressed={line === l} onClick={() => setLine(l)}>{l === 'all' ? 'كل الموديلات' : l}</Chip>)}
+            <select aria-label="موديلات أخرى" value={line === OTHER ? otherModel : ''} onChange={(e) => { if (e.target.value) { setLine(OTHER); setOtherModel(e.target.value); } else setLine('all'); }}
+              className={cn('!h-8 !w-auto shrink-0 !rounded-full !px-3 text-sm', line === OTHER && 'border-accent bg-accent !text-white')}>
+              <option value="" disabled={line !== OTHER}>{OTHER} ▾</option>
+              <option value="all">كل الموديلات الأخرى ({otherCodes.length})</option>
+              {otherCodes.map((c) => <option key={c} value={c}>{mName(c)}</option>)}
+            </select>
           </div>
           <div className="grid gap-4"><Progressive items={shown} chunk={4} render={(c) => <Card key={c}>{head(c)}<Matrix d={d} model={c} loc={loc} onCell={setSku} /></Card>} /></div>
           {!shown.length && <Empty>لا توجد موديلات مطابقة للحالة والبحث.</Empty>}

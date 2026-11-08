@@ -8,10 +8,12 @@ import { repo } from '@/femini/data';
 import { totalOwned } from '@/femini/domain/ledger';
 import { cn, fmt } from '@/femini/cn';
 import { friendlyError } from '@/femini/data/errors';
-import { validateNewModel } from './catalog-validation';
+import { normalizeModelCode, validateNewModel } from './catalog-validation';
+import { rememberSwatch, swatchOf } from './swatch';
 
-const SW: Record<string, string> = { اسود: '#1e1b24', ابيض: '#ffffff', احمر: '#d9262e', بيج: '#ead9be', رمادي: '#bdbcc4', برتقالي: '#f07a2b', زيتى: '#6f7a3c', فوشيا: '#c2317a', اصفر: '#f2c230', 'مينت جرين': '#8fd3b6', 'بيبي بلو': '#a9cbe8', كحلي: '#1f2a5a', بينك: '#f4b6c8', سيمون: '#f3a28c', روز: '#e58fa8', 'احمر تطعيم اسود': '#a3262c' };
-const Dotc = ({ c }: { c: string }) => <i className="inline-block size-3 rounded-full border border-line2 align-[-1px]" style={{ background: SW[c] ?? '#cfc2ec' }} />;
+const Dotc = ({ c }: { c: string }) => <i className="inline-block size-3 rounded-full border border-line2 align-[-1px]" style={{ background: swatchOf(c) }} />;
+/** Colour square: pick a colour by its code/shade, kept for the dot of the colour being added. */
+const HexPick = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => <input type="color" aria-label="اختيار لون بالكود" title="اختيار لون بالكود" value={value} onChange={(e) => onChange(e.target.value)} className="!h-9 !w-9 shrink-0 cursor-pointer !p-0.5" />;;
 const addTo = (a: string[], v: string) => (a.includes(v) ? a : [...a, v]);
 const toggle = (a: string[], v: string) => (a.includes(v) ? a.filter((x) => x !== v) : [...a, v]);
 
@@ -24,7 +26,8 @@ export function NewModelSheet({ d, onClose, onCreated }: { d: Derived; onClose: 
   const [colors, setColors] = useState<string[]>([]); const [sizes, setSizes] = useState<string[]>([]);
   const [extraC, setExtraC] = useState<string[]>([]); const [extraS, setExtraS] = useState<string[]>([]); const [nc, setNc] = useState(''); const [ns, setNs] = useState('');
   const allC = [...known, ...extraC.filter((c) => !known.includes(c))]; const allS = [...d.snap.sizes, ...extraS.filter((z) => !d.snap.sizes.includes(z))];
-  const codeU = code.trim().toUpperCase(); const exists = d.modelMap.has(codeU) || d.snap.archivedSkus.some((s) => s.model === codeU);
+  const [nh, setNh] = useState('#7c5cff');
+  const codeU = normalizeModelCode(code); const exists = d.modelMap.has(codeU) || d.snap.archivedSkus.some((s) => s.model === codeU);
   const n = colors.length * sizes.length;
   const errors = validateNewModel({ code, name, min, colors, sizes }, exists);
   const close = () => { if (!saving) onClose(); };
@@ -50,14 +53,14 @@ export function NewModelSheet({ d, onClose, onCreated }: { d: Derived; onClose: 
         <div className="min-w-0 flex-1"><h3 className="break-words font-display font-semibold">{name.trim() || 'موديل جديد'}</h3><p className="mt-1 text-xs text-muted">{colors.length} ألوان · {sizes.length} مقاسات · {n} صنف</p></div><Pill>رصيد صفر</Pill>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="كود الموديل"><input id="new-model-code" aria-label="كود الموديل" aria-invalid={tried && !!errors.code} aria-describedby={tried && errors.code ? 'new-code-error' : undefined} dir="ltr" className="font-mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="PAN6" />{tried && errors.code && <small id="new-code-error" className="text-crit">{errors.code}</small>}</Field>
+        <Field label="كود الموديل"><input id="new-model-code" data-autofocus autoComplete="off" aria-label="كود الموديل" aria-invalid={tried && !!errors.code} aria-describedby={tried && errors.code ? 'new-code-error' : undefined} dir="ltr" className="font-mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="PAN6" />{tried && errors.code && <small id="new-code-error" className="text-crit">{errors.code}</small>}</Field>
         <Field label="النوع / الاسم"><input aria-label="النوع / الاسم" aria-invalid={tried && !!errors.name} list="mnames" value={name} onChange={(e) => setName(e.target.value)} placeholder="بانتي" />{tried && errors.name && <small className="text-crit">{errors.name}</small>}</Field>
         <datalist id="mnames">{[...new Set(d.snap.models.map((m) => m.name))].map((x) => <option key={x} value={x} />)}</datalist>
       </div>
       <div><div className="mb-1.5 text-xs font-medium text-muted">الألوان</div>
         {tried && errors.colors && <p className="mb-2 text-xs text-crit" role="alert">{errors.colors}</p>}
         <div className="flex flex-wrap gap-1.5">{allC.map((c) => <Chip key={c} pressed={colors.includes(c)} onClick={() => setColors((a) => toggle(a, c))}><Dotc c={c} />{c}</Chip>)}</div>
-        <div className="mt-2 flex gap-2"><input value={nc} onChange={(e) => setNc(e.target.value)} placeholder="لون جديد" className="max-w-44" /><Button size="sm" onClick={() => { const v = nc.trim(); if (v) { setExtraC((a) => addTo(a, v)); setColors((a) => addTo(a, v)); setNc(''); } }}><Plus className="size-3.5" /> لون</Button></div></div>
+        <div className="mt-2 flex gap-2"><input value={nc} onChange={(e) => setNc(e.target.value)} placeholder="لون جديد" className="max-w-44" /><HexPick value={nh} onChange={setNh} /><Button size="sm" onClick={() => { const v = nc.trim(); if (v) { rememberSwatch(v, nh); setExtraC((a) => addTo(a, v)); setColors((a) => addTo(a, v)); setNc(''); } }}><Plus className="size-3.5" /> لون</Button></div></div>
       <div><div className="mb-1.5 text-xs font-medium text-muted">المقاسات</div>
         {tried && errors.sizes && <p className="mb-2 text-xs text-crit" role="alert">{errors.sizes}</p>}
         <div className="flex flex-wrap gap-1.5">{allS.map((z) => <Chip key={z} pressed={sizes.includes(z)} onClick={() => setSizes((a) => toggle(a, z))}>{z}</Chip>)}</div>
@@ -73,7 +76,7 @@ export function NewModelSheet({ d, onClose, onCreated }: { d: Derived; onClose: 
 export function EditCatalogSheet({ d, initial, onClose }: { d: Derived; initial: string; onClose: () => void }) {
   const act = useAct();
   const [saving, setSaving] = useState(false); const [tried, setTried] = useState(false); const [saveError, setSaveError] = useState('');
-  const [model, setModel] = useState(initial);
+  const [model, setModel] = useState(initial); const [nh, setNh] = useState('#7c5cff');
   const models = useMemo(() => [...d.snap.models].map((m) => m.code).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), [d]);
   const m = d.modelMap.get(model); const ms = useMemo(() => d.snap.skus.filter((s) => s.model === model), [d, model]);
   const [name, setName] = useState(m?.name ?? ''); const [want, setWant] = useState<Record<string, boolean>>(() => Object.fromEntries(ms.map((s) => [`${s.color}|${s.size}`, true])));
@@ -119,7 +122,8 @@ export function EditCatalogSheet({ d, initial, onClose }: { d: Derived; initial:
               })}</tr>))}</tbody></table></div></div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex min-w-0 gap-2"><input className="min-w-0 flex-1" list="catc" value={nc} onChange={(e) => setNc(e.target.value)} placeholder="لون جديد" /><datalist id="catc">{d.snap.colors.map((c) => c.ar).filter((c) => !colors.includes(c)).map((c) => <option key={c} value={c} />)}</datalist>
-          <Button size="sm" onClick={() => { const v = nc.trim(); if (!v || colors.includes(v)) return; setExtraC((a) => [...a, v]); setWant((w) => { const x = { ...w }; for (const z of sizes) x[`${v}|${z}`] = true; return x; }); setNc(''); }}>+ لون</Button></div>
+          <HexPick value={nh} onChange={setNh} />
+          <Button size="sm" onClick={() => { const v = nc.trim(); if (!v || colors.includes(v)) return; rememberSwatch(v, nh); setExtraC((a) => [...a, v]); setWant((w) => { const x = { ...w }; for (const z of sizes) x[`${v}|${z}`] = true; return x; }); setNc(''); }}>+ لون</Button></div>
         <div className="flex min-w-0 gap-2"><input className="min-w-0 flex-1" dir="ltr" list="cats" value={ns} onChange={(e) => setNs(e.target.value)} placeholder="مقاس جديد" /><datalist id="cats">{d.snap.sizes.filter((z) => !sizes.includes(z)).map((z) => <option key={z} value={z} />)}</datalist>
           <Button size="sm" onClick={() => { const v = ns.trim().toUpperCase(); if (!v || sizes.includes(v)) return; setExtraS((a) => [...a, v]); setWant((w) => { const x = { ...w }; for (const c of colors) x[`${c}|${v}`] = true; return x; }); setNs(''); }}>+ مقاس</Button></div>
       </div>

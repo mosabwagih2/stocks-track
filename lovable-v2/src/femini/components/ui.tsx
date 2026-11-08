@@ -133,13 +133,20 @@ export function Bar({ label, value, max, right, tone = 'accent' }: { label: Reac
 export function Sheet({ title, onClose, children, wide, footer }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; footer?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
+  // Callers pass a fresh onClose on every render. Keep it in a ref so the effect below runs once on open:
+  // depending on onClose re-ran the autofocus on every keystroke and threw the cursor back to the first field.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
     document.addEventListener('keydown', onKey);
-    ref.current?.querySelector<HTMLElement>('input,select,textarea,button[data-autofocus]')?.focus({ preventScroll: true });
+    // Focus only what a sheet marks data-autofocus; otherwise the scrolling body. Focusing the first <select> made the
+    // Up/Down keys change its value (switching the model in the edit sheet) instead of scrolling the sheet.
+    (ref.current?.querySelector<HTMLElement>('[data-autofocus]') ?? bodyRef.current)?.focus({ preventScroll: true });
     return () => { document.removeEventListener('keydown', onKey); prev?.focus?.({ preventScroll: true }); };
-  }, [onClose]);
+  }, []);
   return createPortal(
     <>
       <div className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-[2px]" onClick={onClose} />
@@ -149,7 +156,7 @@ export function Sheet({ title, onClose, children, wide, footer }: { title: React
           <h2 id={id} className="font-display text-lg font-semibold">{title}</h2>
           <button type="button" className="ms-auto grid size-8 place-items-center rounded-lg text-muted hover:bg-lav hover:text-ink" onClick={onClose} aria-label="إغلاق"><X className="size-4" /></button>
         </header>
-        <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-5 pb-safe">{children}</div>
+        <div ref={bodyRef} tabIndex={-1} className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-5 pb-safe outline-none">{children}</div>
         {footer && <footer className="shrink-0 border-t border-line bg-surface px-5 py-4 pb-safe">{footer}</footer>}
       </aside>
     </>,

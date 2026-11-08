@@ -353,7 +353,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
     },
     // ---------- catalog ----------
     async catalogNewModel({ code, name, colors: c0, sizes: z0, minAlert }) {
-      const c = code.trim().toUpperCase();
+      const c = code.toUpperCase().replace(/[^A-Z0-9]/g, ''); // pa-3 / pa 3 / PA3 are one code
       // a colour or size picked twice is one variant, never two with the same code
       const colors = [...new Set(c0.map((x) => x.trim()).filter(Boolean))]; const sizes = [...new Set(z0.map((x) => x.trim()).filter(Boolean))];
       if (!/^[A-Z][A-Z0-9]{0,9}$/.test(c)) fail('كود الموديل حروف إنجليزية وأرقام، ويبدأ بحرف (مثل PAN6)');
