@@ -90,7 +90,8 @@ export function buildOp(type: OpType, hdr: OpHdr, lines: OpLine[], b: Balances, 
     chk(keys.length > 0, 'فيه أصناف اتعدّت'); chk(hdr.reveal, 'كشفت الفروق وراجعتها');
     if (conflict) chk(hdr.ack, `${conflict} صنف رصيده اتغيّر من وقت بداية الجرد. وافقت إن الفرق يتحسب على الرصيد الحالي`);
   }
-  chk(date <= today && date >= addDays(today, -3), 'التاريخ ضمن آخر 3 أيام ومش في المستقبل');
+  // any past day (a closed day is refused when posting); never the future. Shown only when it fails.
+  if (date > today) chk(false, 'التاريخ في المستقبل');
   // simulate: an internal state can never go below zero because of this operation
   const err: string[] = []; const sim: Record<string, number> = {};
   for (const m of moves) {

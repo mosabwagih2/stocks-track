@@ -224,7 +224,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const lines = pieces(raw);                     // whole pieces only; what is posted is exactly what is checked
       const total = lines.reduce((a, l) => a + l.qty, 0);
       if (total <= 0) fail('لا توجد قطع'); if (declared !== total) fail(`الإجمالي المكتوب في الورقة (${declared}) لا يساوي المضاف (${total})`);
-      const today = cairoToday(); if (date > today || date < addDays(today, -3)) fail('يجب أن يكون التاريخ ضمن آخر 3 أيام');
+      const today = cairoToday(); if (date > today) fail('لا يمكن أن يكون التاريخ في المستقبل');
       const no = docNo('RCV'); const path = `documents/${no}.jpg`; await keepPhoto(path, await shrinkImage(photo)); await original(no, 'photo', photo);
       post(lines.filter((l) => l.qty > 0).map((l) => ({ date, sku: l.sku, qty: l.qty, from: 'EXT_FACTORY' as const, to: 'READY' as const, type: 'RCV', doc: no, by: actor(), note: `استلام ${ref}` })));
       S.docs.push({ no, type: 'RCV', date, by: actor(), status: 'done', hdr: { ref, declared }, lines, attachment: path }); save(); return { doc: no, pieces: total };

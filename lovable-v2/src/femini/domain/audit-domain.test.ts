@@ -129,11 +129,12 @@ describe('buildOp: every operation type', () => {
     expect(r.ok).toBe(true);
     expect(r.moves).toEqual([]);
   });
-  it('date window: today and the last 3 days only', () => {
+  it('date: any past day, never the future (and no check line unless it fails)', () => {
     const ok = (d: string) => run('SHP', { shop: 'م' }, [{ sku: 'A', q: 1 }], d).ok;
     expect(ok(T)).toBe(true);
     expect(ok(addDays(T, -3))).toBe(true);
-    expect(ok(addDays(T, -4))).toBe(false);
+    expect(ok(addDays(T, -40))).toBe(true);
+    expect(run('SHP', { shop: 'م' }, [{ sku: 'A', q: 1 }], T).checks.some((c) => /التاريخ/.test(c.t))).toBe(false);
     expect(ok(addDays(T, 1))).toBe(false);
   });
   it('effects shows before/after for every touched state', () => {

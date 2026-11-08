@@ -81,17 +81,23 @@ function Launcher({ d, onPick, onDraft, onHold }: { d: Derived; onPick: (t: OpTy
 
 /* ------------------------------------------------------------------ line editors */
 type SetLines = (f: (l: OpLine[]) => OpLine[]) => void;
-function Stepper({ v, on, min = 0, label }: { v: number; on: (n: number) => void; min?: number; label: string }) {
+function Stepper({ v, on, min = 0, max, label }: { v: number; on: (n: number) => void; min?: number; max?: number; label: string }) {
+  const clamp = (n: number) => Math.max(min, max === undefined ? n : Math.min(max, n));
   return (
     <span className="inline-flex items-center overflow-hidden rounded-lg border border-line2">
-      <button type="button" aria-label={`${label} -`} className="px-2 py-1.5 hover:bg-lav" onClick={() => on(Math.max(min, v - 1))}><Minus className="size-3.5" /></button>
-      <input type="number" min={min} value={v} aria-label={label} className="w-14 rounded-none border-0 py-1 text-center" onChange={(e) => on(Math.max(min, Math.floor(+e.target.value || 0)))} />
-      <button type="button" aria-label={`${label} +`} className="px-2 py-1.5 hover:bg-lav" onClick={() => on(v + 1)}><Plus className="size-3.5" /></button>
+      <button type="button" aria-label={`${label} -`} className="px-2 py-1.5 hover:bg-lav" onClick={() => on(clamp(v - 1))}><Minus className="size-3.5" /></button>
+      <input type="number" min={min} max={max} value={v} aria-label={label} className="w-14 rounded-none border-0 py-1 text-center" onChange={(e) => on(clamp(Math.floor(+e.target.value || 0)))} />
+      <button type="button" aria-label={`${label} +`} disabled={max !== undefined && v >= max} className="px-2 py-1.5 hover:bg-lav disabled:opacity-40" onClick={() => on(clamp(v + 1))}><Plus className="size-3.5" /></button>
     </span>
   );
 }
 const upd = (set: SetLines, i: number, p: Partial<OpLine>) => set((ls) => ls.map((x, j) => (j === i ? { ...x, ...p } : x)));
-const addLine = (ls: OpLine[], sku: string, q: number, extra: Partial<OpLine> = {}) => (ls.some((l) => l.sku === sku) ? ls.map((l) => (l.sku === sku ? { ...l, q: l.q + q } : l)) : [...ls, { sku, q, ...extra }]);
+/** `max`: what the source state holds; adding again never goes past it */
+const addLine = (ls: OpLine[], sku: string, q: number, extra: Partial<OpLine> = {}, max?: number) => {
+  const cur = ls.find((l) => l.sku === sku)?.q ?? 0; const next = max === undefined ? cur + q : Math.min(max, cur + q);
+  if (next <= 0 || next === cur) return ls;
+  return ls.some((l) => l.sku === sku) ? ls.map((l) => (l.sku === sku ? { ...l, q: next } : l)) : [...ls, { sku, q: next, ...extra }];
+};
 
 function SimpleLines({ d, type, lines, set, from }: { d: Derived; type: OpType; lines: OpLine[]; set: SetLines; from?: Loc }) {
   if (!lines.length) return <Empty>لسه مفيش أصناف. اختار الموديل واللون والمقاس ودوس إضافة.</Empty>;
@@ -103,7 +109,8 @@ function SimpleLines({ d, type, lines, set, from }: { d: Derived; type: OpType; 
         <tr key={l.sku}>
           <td className={td}>{skuLabel(d.skuMap, l.sku)}</td>
           {from && <td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, l.sku, from))}</td>}
-          <td className={td}><Stepper v={l.q} on={(q) => upd(set, i, { q })} min={type === 'FRC' ? 0 : 1} label="الكمية" /></td>
+          {/* never more than the source state holds (for FRC the rejected pieces come out of the same total) */}
+          <td className={td}><Stepper v={l.q} on={(q) => upd(set, i, { q })} min={type === 'FRC' ? 0 : 1} max={from ? Math.max(type === 'FRC' ? 0 : 1, qty(d.snap.balances, l.sku, from) - (type === 'FRC' ? l.rej ?? 0 : 0)) : undefined} label="الكمية" /></td>
           {type === 'FRC' && <td className={td}><Stepper v={l.rej ?? 0} on={(rej) => upd(set, i, { rej })} label="مرفوض" /></td>}
           {type === 'LOS' && <td className={td}><Seg value={l.res ?? 'FOUND'} onChange={(res) => upd(set, i, { res })} options={[['FOUND', 'لقيناه'], ['OFF', 'شطب']]} /></td>}
           <td className={td}><Button size="sm" variant="ghost" aria-label="حذف" onClick={() => set((ls) => ls.filter((_, j) => j !== i))}><Trash2 className="size-4" /></Button></td>
@@ -269,7 +276,7 @@ function OpForm({ d, type, draft, onDone, onBack }: { d: Derived; type: OpType; 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid content-start gap-4">
           <Card title="البيانات"><div className="grid gap-3 sm:grid-cols-3">
-            <Field label="التاريخ"><input type="date" value={date} min={addDays(d.today, -3)} max={d.today} onChange={(e) => setDate(e.target.value)} /></Field>
+            <Field label="التاريخ"><input type="date" value={date} max={d.today} onChange={(e) => setDate(e.target.value)} /></Field>
             {type === 'RCV' && <>
               <Field label="رقم الإذن / الورقة"><input value={hdr.ref ?? ''} onChange={(e) => setHdr({ ...hdr, ref: e.target.value })} /></Field>
               <Field label="إجمالي القطع المكتوب في الورقة"><input type="number" min={0} value={hdr.declared ?? ''} onChange={(e) => setHdr({ ...hdr, declared: e.target.value === '' ? null : +e.target.value })} /></Field></>}
@@ -284,15 +291,16 @@ function OpForm({ d, type, draft, onDone, onBack }: { d: Derived; type: OpType; 
           </div>
             {type === 'RCV' && <div className="mt-3"><PhotoInput file={photo} onChange={setPhoto} label="صورة الورقة الموقّعة من الطرفين" /></div>}
           </Card>
+          {type === 'LOS' && <Card title="الأوردرات اللي فيها قطع مفقودة" hint="اضغط على القطعة الناقصة تختارها، ودوس تاني تشيلها">
+            <LostOrders d={d} picked={Object.fromEntries(lines.map((l) => [l.sku, l.q]))}
+              onToggle={(s, add) => set((l) => add ? addLine(l, s, 1, { res: 'FOUND' }, from ? qty(d.snap.balances, s, from) : undefined) : l.flatMap((x) => (x.sku !== s ? [x] : x.q > 1 ? [{ ...x, q: x.q - 1 }] : [])))} />
+          </Card>}
           <Card title={type === 'RTN' ? 'المرتجعات بالبوليصة' : type === 'CNT' ? 'ورقة الجرد' : type === 'SWP' ? 'التبديلات' : 'الأصناف'}>
             {type === 'RTN' ? <ReturnLines d={d} hdr={hdr} setHdr={setHdr} lines={lines} set={set} />
               : type === 'CNT' ? <CountSheet d={d} hdr={hdr} setHdr={setHdr} />
               : type === 'SWP' ? <SwapLines d={d} lines={lines} set={set} />
-              : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : {}))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}
+              : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : {}, from ? qty(d.snap.balances, s, from) : undefined))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}
           </Card>
-          {type === 'LOS' && <Card title="الأوردرات اللي فيها قطع مفقودة" hint="اضغط على القطعة الناقصة تضيفها">
-            <LostOrders d={d} onPick={(s) => set((l) => addLine(l, s, 1, { res: 'FOUND' }))} />
-          </Card>}
         </div>
         <div className="grid h-fit gap-4 lg:sticky lg:top-4">
           <Card title="الأثر على المخزون" hint="اللي هيتغيّر بعد التأكيد">

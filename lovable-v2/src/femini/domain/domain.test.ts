@@ -141,8 +141,9 @@ describe('operations', () => {
     const r = buildOp('FRC', {}, [{ sku: 'A', q: 4, rej: 1 }], b2, T, T);
     expect(r.ok).toBe(true); expect(r.moves.map((m) => m.to)).toEqual(['READY', 'SCRAP']);
   });
-  it('operations older than 3 days are refused', () => {
-    expect(buildOp('FSD', { kind: 'wash' }, [{ sku: 'A', q: 1 }], b, '2026-11-01', T).ok).toBe(false);
+  it('an operation on an old day is allowed, the future is refused', () => {
+    expect(buildOp('FSD', { kind: 'wash' }, [{ sku: 'A', q: 1 }], b, '2026-10-01', T).ok).toBe(true);
+    expect(buildOp('FSD', { kind: 'wash' }, [{ sku: 'A', q: 1 }], b, addDays(T, 1), T).ok).toBe(false);
   });
 });
 
