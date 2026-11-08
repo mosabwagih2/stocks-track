@@ -22,6 +22,16 @@ const NAV = [
 
 export default function Shell({ children }: { children: ReactNode }) {
   useEffect(() => startAccount(), []);   // the signed-in account's name is who did each operation
+  // Numbers and dates in English digits everywhere: the page is Arabic, so the browser would draw number and date fields
+  // in Arabic-Indic digits (١، ٠٨/١١/٢٠٢٦). Those fields get an English (day/month/year) language of their own.
+  useEffect(() => {
+    const SEL = 'input[type=number], input[type=date], input[type=time], input[type=datetime-local], input[type=month]';
+    const fix = (root: ParentNode) => root.querySelectorAll<HTMLInputElement>(SEL).forEach((el) => { if (el.lang !== 'en-GB') el.lang = 'en-GB'; });
+    fix(document);
+    const mo = new MutationObserver((list) => { for (const m of list) for (const n of m.addedNodes) if (n instanceof Element) { if (n.matches(SEL)) (n as HTMLInputElement).lang = 'en-GB'; fix(n); } });
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
   const { d } = useDerived();
   const path = useRouterState({ select: (state) => state.location.pathname });
   const isToday = path === '/';

@@ -40,7 +40,7 @@ export default function Settings() {
           <Alert tone="warn">البيانات محفوظة في هذا المتصفح فقط؛ نسخة احتياطية منتظمة تحمي شغلك. إغلاق الأيام هنا محلي وليس حماية أمنية بين الموظفين.</Alert>
         </Card>
         <Card title="النسخة الاحتياطية">
-          <p className="mb-3 text-sm text-muted">{d?.snap.lastBackup ? `آخر نسخة: ${new Date(d.snap.lastBackup).toLocaleString('ar-EG')}` : 'لم تُؤخذ نسخة احتياطية بعد.'}</p>
+          <p className="mb-3 text-sm text-muted">{d?.snap.lastBackup ? `آخر نسخة: ${new Date(d.snap.lastBackup).toLocaleString('ar-EG-u-nu-latn')}` : 'لم تُؤخذ نسخة احتياطية بعد.'}</p>
           <p className="mb-4 text-sm text-muted">تشمل العمليات والأوردرات والكتالوج والمستلزمات والصور والملفات المحفوظة.</p>
           <div className="flex flex-wrap gap-2"><Button variant="primary" disabled={busy} onClick={() => run(async () => { const b = await repo.exportBackup(); downloadBlob(new Blob([JSON.stringify(b)], { type:'application/json' }), `femini-backup-${d?.today ?? 'today'}.json`); toast('تم تجهيز النسخة الاحتياطية للتنزيل'); })}><Download className="size-4" />تنزيل نسخة احتياطية</Button><Button disabled={busy} onClick={() => input.current?.click()}><Upload className="size-4" />استيراد / استرجاع نسخة</Button></div>
           <input ref={input} hidden type="file" accept=".json" aria-label="ملف النسخة الاحتياطية" onChange={async (e) => { const f=e.target.files?.[0]; e.target.value=''; if(!f)return; setError(''); setPreview(null); try { const current = await repo.snapshot(); setPreview(previewBackup(JSON.parse(await f.text()), current.moves)); setAck(false); setSearch(''); } catch(e) {setError(friendlyError(e));} }} />

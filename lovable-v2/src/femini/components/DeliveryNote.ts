@@ -10,7 +10,7 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&
 export function deliveryNoteHtml(d: Doc, skus: Map<string, Sku>): string {
   const rows = rowsOf(d, skus); const total = rows.reduce((a, r) => a + r.qty, 0);
   const PER = 22; const pages: Row[][] = []; for (let i = 0; i < rows.length; i += PER) pages.push(rows.slice(i, i + PER)); if (!pages.length) pages.push([]);
-  const time = d.hdr.at ? new Date(String(d.hdr.at)).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }) : '';
+  const time = d.hdr.at ? new Date(String(d.hdr.at)).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }) : '';
   const page = (rs: Row[], p: number) => `<section class="pg">
   <header><div><div class="brand">Fémini</div><div class="sub">إذن تسليم بضاعة للمحل</div></div>
   <table class="meta"><tr><th>رقم الإذن</th><td>${esc(d.no)}</td></tr><tr><th>المحل</th><td>${esc(d.hdr.shop)}</td></tr><tr><th>التاريخ</th><td>${esc(d.date)} ${esc(time)}</td></tr><tr><th>إجمالي القطع</th><td>${total}</td></tr></table></header>
@@ -41,7 +41,7 @@ export function printDeliveryNote(d: Doc, skus: Map<string, Sku>) {
   return true;
 }
 
-const timeOf = (d: Doc) => (d.hdr.at ? new Date(String(d.hdr.at)).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }) : '');
+const timeOf = (d: Doc) => (d.hdr.at ? new Date(String(d.hdr.at)).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }) : '');
 
 export async function deliveryNoteExcel(d: Doc, skus: Map<string, Sku>) {
   const X = await import('xlsx'); const rows = rowsOf(d, skus); const total = rows.reduce((a, r) => a + r.qty, 0);

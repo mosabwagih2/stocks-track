@@ -6,7 +6,7 @@ import { repo } from '@/femini/data';
 import type { Supply, SupplyRule } from '@/femini/domain/types';
 
 type Kind = SupplyRule['kind'];
-const KIND_AR: Record<Kind, string> = { none: 'يدوي: بدون خصم تلقائي', order: 'كمية ثابتة لكل أوردر (مثل الفلاير)', pieces: 'كمية لكل قطعة في الأوردر (مثل الكاسات)', range: 'لكل أوردر حسب عدد القطع (مثل حجم التغليف)' };
+const KIND_AR: Record<Kind, string> = { none: 'يدوي: بدون خصم تلقائي', order: 'كمية ثابتة لكل أوردر (مثل الفلاير)', pieces: 'كمية لكل قطعة في الأوردر (مثل الكابات)', range: 'لكل أوردر حسب عدد القطع (مثل حجم التغليف)' };
 
 /** Add or edit a supply: name, unit, pack (bag/box), alert threshold and the automatic consumption rule. */
 export function SupplyFormSheet({ d, supply, onClose }: { d: Derived; supply?: Supply; onClose: () => void }) {
@@ -24,7 +24,7 @@ export function SupplyFormSheet({ d, supply, onClose }: { d: Derived; supply?: S
     <Sheet title={supply ? `إعدادات ${supply.name}` : 'إضافة مستلزم'} onClose={onClose}>
       <div className="grid grid-cols-2 gap-3">
         <Field label="الاسم" className="col-span-2"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: فلاير الشحن" /></Field>
-        <Field label="الوحدة"><input list="units" value={unit} onChange={(e) => setUnit(e.target.value)} /></Field><datalist id="units">{['قطعة', 'كاسة', 'لفة', 'كيس', 'علبة'].map((u) => <option key={u} value={u} />)}</datalist>
+        <Field label="الوحدة"><input list="units" value={unit} onChange={(e) => setUnit(e.target.value)} /></Field><datalist id="units">{['قطعة', 'كاب', 'لفة', 'كيس', 'علبة'].map((u) => <option key={u} value={u} />)}</datalist>
         <Field label="حد التنبيه (أقل رصيد)"><input type="number" min={0} value={min} onChange={(e) => setMin(e.target.value)} className="w-full text-start" /></Field>
         <Field label="عدد الوحدات في العبوة (اختياري)"><input type="number" min={0} value={pack} onChange={(e) => setPack(e.target.value)} placeholder="مثل 24" className="w-full text-start" /></Field>
         <Field label="اسم العبوة"><input value={packName} onChange={(e) => setPackName(e.target.value)} placeholder="كيس" /></Field>

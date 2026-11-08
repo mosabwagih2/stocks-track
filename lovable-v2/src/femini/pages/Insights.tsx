@@ -8,7 +8,7 @@ import { ErrorBox } from '@/femini/components/shared';
 import { Thumb } from '@/femini/components/Thumb';
 import { Spinner } from '@/femini/components/Spinner';
 import { C, CompareArea, HBars, Heatmap, Pareto, ShareRows, Sparkline, StateDonut } from '@/femini/components/charts';
-import { PERIODS, change, comparePeriods, exportExcel, riskAlerts, type ExportSheet, type Period, type RiskAlert } from '@/femini/insights-tools';
+import { PERIODS, change, comparePeriods, exportExcel, lastDays, rangeDays, riskAlerts, type ExportSheet, type Period, type Range, type RiskAlert } from '@/femini/insights-tools';
 import { useNavigate } from '@/femini/router';
 import { useToast } from '@/femini/components/toast';
 import { useSearchParams } from '@/femini/router';
@@ -33,12 +33,12 @@ const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'finance', label: 'القيمة المالية', icon: FileSpreadsheet },
 ];
 
-function useStats(d: Derived | null, period: number) {
+function useStats(d: Derived | null, range: Range | null) {
   return useMemo(() => {
-    if (!d) return null;
+    if (!d || !range) return null;
     // requested in the chosen window: orders whose pickup day is inside it (the same rule as the period comparison)
-    const from = addDays(d.today, -(period - 1));
-    const live = d.snap.orders.filter((o) => { const pd = d.pickupDate.get(o.pickupId) ?? ''; return o.status !== 'cancelled' && pd >= from && pd <= d.today; });
+    const { from, to } = range;
+    const live = d.snap.orders.filter((o) => { const pd = d.pickupDate.get(o.pickupId) ?? ''; return o.status !== 'cancelled' && pd >= from && pd <= to; });
     const pull: Record<string, number> = {}; for (const o of live) for (const s of o.lines) { const m = d.skuMap.get(s)?.model; if (m) pull[m] = (pull[m] ?? 0) + 1; }
     const pieces = live.reduce((a, o) => a + o.lines.length, 0);
     const shipped = live.filter((o) => o.status === 'shipped');
@@ -54,7 +54,7 @@ function useStats(d: Derived | null, period: number) {
     // ready stock per production line (now), for the demand / stock switch
     const stockLine: Record<string, number> = {}; for (const k of d.snap.skus) { const r = qty(d.snap.balances, k.id, 'READY'); if (r) stockLine[lineOf(k.model)] = (stockLine[lineOf(k.model)] ?? 0) + r; }
     return { live, pieces, shipped, sorted, total, n80, byLine, stockLine, pull, neg, dead, stuckPcs, hot };
-  }, [d, period]);
+  }, [d, range]);
 }
 
 export default function Insights() {
@@ -63,16 +63,22 @@ export default function Insights() {
   const sec = (SECTIONS.some((s) => s.id === sp.get('tab')) ? sp.get('tab') : 'summary') as Sec;
   const go = (v: Sec) => { const p = new URLSearchParams(sp); if (v === 'summary') p.delete('tab'); else p.set('tab', v); setSp(p, { replace: true }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const period = (PERIODS.find((x) => String(x) === sp.get('p')) ?? 14) as Period;
+  // a chosen date range (from / to in the address) replaces the ready-made periods
+  const iso = /^\d{4}-\d{2}-\d{2}$/; const fromP = sp.get('from') ?? '', toP = sp.get('to') ?? '';
+  const custom = !!d && iso.test(fromP) && iso.test(toP) && fromP <= toP && toP <= d.today;
+  const range = useMemo<Range | null>(() => (d ? (custom ? { from: fromP, to: toP } : lastDays(d.today, period)) : null), [d, custom, fromP, toP, period]);
+  const days = range ? rangeDays(range) : period;
+  const rangeLabel = custom ? `${fromP} → ${toP} (${days} يوم)` : `آخر ${period} يوم`;
   const setParam = (k: string, v: string | null) => { const p = new URLSearchParams(sp); if (v === null) p.delete(k); else p.set(k, v); setSp(p, { replace: true }); };
-  const st = useStats(d, period);
-  const cmp = useMemo(() => (d ? comparePeriods(d, period) : null), [d, period]);
+  const st = useStats(d, range);
+  const cmp = useMemo(() => (d && range ? comparePeriods(d, range) : null), [d, range]);
   const alerts = useMemo(() => (d && cmp ? riskAlerts(d, cmp) : []), [d, cmp]);
   const toast = useToast();
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d || !st || !cmp) return <Spinner />;
   const counts: Partial<Record<Sec, number>> = { risk: alerts.filter((a) => a.level === 'crit').length };
   const secLabel = SECTIONS.find((x) => x.id === sec)?.label ?? 'الملخص';
-  const periodLabel = sec === 'finance' ? `الأرصدة الحالية حتى ${d.today} · التكلفة المسجلة حاليًا` : `آخر ${period} يوم (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`;
+  const periodLabel = sec === 'finance' ? `الأرصدة الحالية حتى ${d.today} · التكلفة المسجلة حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`;
   const filters = 'بدون فلاتر إضافية';
   const doExcel = () => exportExcel({ section: secLabel, period: periodLabel, filters, date: d.today }, buildSheets(sec, d, st, cmp, alerts))
     .then(() => toast('تم تصدير ملف Excel'), () => toast('تعذّر التصدير', { tone: 'err' }));
@@ -81,7 +87,10 @@ export default function Insights() {
       <PageHead title="التحليلات" sub="قرارات مبنية على الطلب الفعلي ودفتر الحركات — في مكان واحد.">
         {!d.velocityOK && <Pill tone="warn">بيانات {d.days} يوم فقط · السرعة تقديرية</Pill>}
         <div className="flex items-center gap-2 print:hidden">
-          {sec !== 'finance' && <Seg<string> label="الفترة" value={String(period)} onChange={(v) => setParam('p', v === '14' ? null : v)} options={PERIODS.map((x) => [String(x), `${x} يوم`] as [string, string])} />}
+          {sec !== 'finance' && <Seg<string> label="الفترة" value={custom ? '' : String(period)} onChange={(v) => { const p = new URLSearchParams(sp); p.delete('from'); p.delete('to'); if (v === '14') p.delete('p'); else p.set('p', v); setSp(p, { replace: true }); }} options={PERIODS.map((x) => [String(x), `${x} يوم`] as [string, string])} />}
+          {sec !== 'finance' && <span className="flex items-center gap-1 text-xs text-muted" aria-label="فترة بالتاريخ">من
+            <input type="date" className="h-9 w-36" value={range?.from ?? ''} max={range?.to ?? d.today} onChange={(e) => { if (!e.target.value) return; const p = new URLSearchParams(sp); p.set('from', e.target.value); p.set('to', range?.to ?? d.today); setSp(p, { replace: true }); }} />
+            لـ <input type="date" className="h-9 w-36" value={range?.to ?? ''} min={range?.from} max={d.today} onChange={(e) => { if (!e.target.value) return; const p = new URLSearchParams(sp); p.set('from', range?.from ?? e.target.value); p.set('to', e.target.value); setSp(p, { replace: true }); }} /></span>}
           <Button onClick={doExcel}><FileSpreadsheet className="size-4" /> Excel</Button>
           <Button onClick={() => window.print()}><FileDown className="size-4" /> PDF</Button>
         </div>
@@ -102,7 +111,7 @@ export default function Insights() {
         ))}
       </nav>
 
-      {sec === 'summary' && <Summary d={d} st={st} cmp={cmp} period={period} go={go} />}
+      {sec === 'summary' && <Summary d={d} st={st} cmp={cmp} period={days} label={rangeLabel} go={go} />}
       {sec === 'demand' && <Demand d={d} st={st} />}
       {sec === 'risk' && <Risk d={d} st={st} alerts={alerts} />}
       {sec === 'team' && <Team d={d} />}
@@ -148,7 +157,7 @@ function Ring({ value }: { value: number }) {
   );
 }
 
-function Summary({ d, st, cmp, period, go }: { d: Derived; st: Stats; cmp: Cmp; period: Period; go: (s: Sec) => void }) {
+function Summary({ d, st, cmp, period, label, go }: { d: Derived; st: Stats; cmp: Cmp; period: number; label: string; go: (s: Sec) => void }) {
   const [metric, setMetric] = useState<'pcs' | 'req' | 'ship'>('pcs');
   const { cur, prev } = cmp; const rate = cur.rate;
   const series = cmp.curDays.map((r, i) => ({ day: r.day, cur: r[metric], prev: cmp.prevDays[i]?.[metric] ?? 0 }));
@@ -162,7 +171,7 @@ function Summary({ d, st, cmp, period, go }: { d: Derived; st: Stats; cmp: Cmp; 
     <div className="grid gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={Truck} label="نسبة الشحن" value={`${rate}%`} sub={`${fmt(cur.shipped)} شحنة من ${fmt(cur.orders)} أوردر`} tone="good"><div className="absolute top-4 left-4 max-sm:hidden"><Ring value={rate} /></div><div className="mt-2"><Delta cur={cur.rate} prev={prev.rate} suffix="%" /></div></Stat>
-        <Stat icon={BarChart3} label="القطع المطلوبة" value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر · آخر ${period} يوم`}><div className="mt-2"><Delta cur={cur.pieces} prev={prev.pieces} /></div><Sparkline data={cmp.curDays.map((r) => r.pcs)} labels={cmp.curDays.map((r) => r.day)} /></Stat>
+        <Stat icon={BarChart3} label="القطع المطلوبة" value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر · ${label}`}><div className="mt-2"><Delta cur={cur.pieces} prev={prev.pieces} /></div><Sparkline data={cmp.curDays.map((r) => r.pcs)} labels={cmp.curDays.map((r) => r.day)} /></Stat>
         <Stat icon={Truck} label="القطع المشحونة" value={fmt(cur.shippedPcs)} sub={`${fmt(cur.shipped)} أوردر`} tone="good"><div className="mt-2"><Delta cur={cur.shippedPcs} prev={prev.shippedPcs} /></div><Sparkline data={cmp.curDays.map((r) => r.shipPcs)} labels={cmp.curDays.map((r) => r.day)} color={C.ready} /></Stat>
         <Stat icon={PackageX} label="ملغاة" value={fmt(cur.cancelled)} sub="أوردرات ألغيت في الفترة" tone={cur.cancelled ? 'warn' : 'good'}><div className="mt-2"><Delta cur={cur.cancelled} prev={prev.cancelled} upIsGood={false} /></div></Stat>
       </div>

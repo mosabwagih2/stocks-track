@@ -66,7 +66,7 @@ export default function Supplies({ embedded, addSignal = 0, arch: archP, setArch
         <Button variant="primary" onClick={() => setForm({})}><Plus className="size-4" /> إضافة مستلزم</Button></>;
         return embedded
           ? null
-          : <PageHead title={arch ? 'المستلزمات المؤرشفة' : 'المستلزمات'} sub="عبوات وفلايرز وكاسات. تُخصم تلقائيًا مع كل أوردر يُشحن وفق قاعدة كل مستلزم.">{btns}</PageHead>; })()}
+          : <PageHead title={arch ? 'المستلزمات المؤرشفة' : 'المستلزمات'} sub="عبوات وفلايرز وكابات. تُخصم تلقائيًا مع كل أوردر يُشحن وفق قاعدة كل مستلزم.">{btns}</PageHead>; })()}
       {!items.length && <Card><Empty>{arch ? 'لا توجد مستلزمات مؤرشفة.' : 'لا توجد مستلزمات بعد. اضغط «إضافة مستلزم».'}</Empty></Card>}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((s) => {

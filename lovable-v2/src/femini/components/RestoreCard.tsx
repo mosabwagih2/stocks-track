@@ -18,7 +18,7 @@ async function send<T>(path: string, init: RequestInit): Promise<T> {
   if (!r.ok || data.ok === false) throw new Error(String(data.message ?? 'السيرفر رفض الطلب.'));
   return data as T;
 }
-const when = (ms: number | null) => (ms ? new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(ms)) : '—');
+const when = (ms: number | null) => (ms ? new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(ms)) : '—');
 
 export function RestoreCard() {
   const [file, setFile] = useState<File | null>(null); const [sum, setSum] = useState<Summary | null>(null);

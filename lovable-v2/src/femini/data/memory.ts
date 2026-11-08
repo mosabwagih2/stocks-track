@@ -46,7 +46,7 @@ function fresh(): State {
     mk('PKS', 'تغليف فيميني S', 'قطعة', 1, '', 100, { kind: 'range', qty: 1, from: 1, to: 2 }, 600),
     mk('PKM', 'تغليف فيميني M', 'قطعة', 1, '', 100, { kind: 'range', qty: 1, from: 3, to: 5 }, 600),
     mk('PKL', 'تغليف فيميني L', 'قطعة', 1, '', 100, { kind: 'range', qty: 1, from: 6, to: 0 }, 300),
-    mk('CUP', 'كاسات البرا', 'كاسة', 24, 'كيس', 200, { kind: 'pieces', qty: 2, model: 'BR1' }, 960),
+    mk('CUP', 'كابات البرا', 'كاب', 24, 'كيس', 200, { kind: 'pieces', qty: 2, model: 'BR1' }, 960),
   ];
   let sid = 1; const log: SupplyEntry[] = sup.map((x) => ({ id: sid++, date: seed.asOf, item: x.s.id, qty: x.open, kind: 'open', why: 'رصيد افتتاحي تجريبي. عدّله بجرد', doc: null, by: 'system', reversed: false }));
   return { v: 2, mid, sid, moves, pickups, orders, supplies: sup.map((x) => x.s), log, docs: [], seq: { OPN: 1 }, images: {}, cat: { skus: [], models: [], archived: {}, names: {}, colors: [], sizes: [] } };

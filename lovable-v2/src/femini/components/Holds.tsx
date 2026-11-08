@@ -12,7 +12,7 @@ import type { Loc } from '@/femini/domain/types';
 import { repo } from '@/femini/data';
 import { cn, fmt } from '@/femini/cn';
 
-const when = (iso: string) => new Date(iso).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' });
+const when = (iso: string) => new Date(iso).toLocaleString('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' });
 const reasonOf = (h: Hold) => (h.reason === 'other' ? h.reasonText || HOLD_REASON_AR.other : HOLD_REASON_AR[h.reason]);
 
 /* ---------------- new hold */

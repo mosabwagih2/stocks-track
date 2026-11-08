@@ -1,3 +1,4 @@
+import { LOC_AR } from '@/femini/domain/constants';
 import type { Snapshot } from '@/femini/domain/types';
 import { dayReport } from '@/femini/domain/reports';
 import { dayLabel } from '@/femini/domain/dates';
@@ -14,7 +15,7 @@ export function DayCloseReport({ s, date }: { s: Snapshot; date: string }) {
   const closed = s.closes.filter((c) => c.date === date && c.status === 'closed').at(-1);
   const summary = closed?.summary ?? r.summary;
   const details = closed?.report ?? r;
-  const status = closed ? `مقفول بواسطة ${closed.by} · ${new Date(closed.at).toLocaleString('ar-EG')}` : 'معاينة قبل القفل';
+  const status = closed ? `مقفول بواسطة ${closed.by} · ${new Date(closed.at).toLocaleString('ar-EG-u-nu-latn')}` : 'معاينة قبل القفل';
   const sheets: ExportSheet[] = [{ name: 'ملخص اليوم', rows: [['الحالة', status], ['المؤشر', 'العدد'], ...Object.entries(summary).map(([k, n]) => [DAY_LABELS[k] ?? k, n]), ['أوردرات واردة', details.requestedOrders], ['أوردرات مفتوحة بنهاية اليوم', details.open], ['أوردرات متوقفة', details.blocked]] }, { name: 'الفريق', rows: [['الموظف', 'صافي القطع المشحونة'], ...details.team] }, { name: 'الحركات', rows: [['رقم الحركة', 'المستند', 'الصنف', 'من', 'إلى', 'الكمية', 'الموظف'], ...r.moves.map((m) => [m.id, m.doc, m.sku, m.from, m.to, m.qty, m.by])] }];
   const print = () => {
     const w = window.open('', '_blank'); if (!w) { toast('اسمح بفتح نافذة التقرير للطباعة', { tone: 'err' }); return; }
@@ -28,6 +29,6 @@ export function DayCloseReport({ s, date }: { s: Snapshot; date: string }) {
     <Alert tone={details.open || details.blocked ? 'warn' : 'good'}>{details.requestedOrders} أوردر وارد · {details.open} مفتوح بنهاية اليوم · {details.blocked} متوقف بسبب المخزون</Alert>
     <p className="text-xs text-muted">الشحن حسب يوم الخروج الفعلي لا تاريخ البيك أب. الحالات التاريخية للأوردرات بحسب المعلومات المحفوظة؛ قد يكون تاريخ العكس غير مكتمل في النسخ القديمة.</p>
     <TableWrap><table className="text-sm"><thead><tr><th className={th}>الموظف</th><th className={th}>صافي القطع المشحونة</th></tr></thead><tbody>{details.team.map(([name,n]) => <tr key={name}><td className={td}>{name}</td><td className={td}>{fmt(n)}</td></tr>)}</tbody></table></TableWrap>
-    <details><summary className="cursor-pointer font-semibold">حركات اليوم ({r.moves.length})</summary><TableWrap className="mt-3"><table className="text-sm"><thead><tr>{['المستند','الصنف','من','إلى','قطع'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{r.moves.map((m) => <tr key={m.id}><td className={td}>{m.doc}</td><td className={td}>{m.sku}</td><td className={td}>{m.from}</td><td className={td}>{m.to}</td><td className={td}>{m.qty}</td></tr>)}</tbody></table></TableWrap></details>
+    <details><summary className="cursor-pointer font-semibold">حركات اليوم ({r.moves.length})</summary><TableWrap className="mt-3"><table className="text-sm"><thead><tr>{['المستند','الصنف','من','إلى','قطع','بواسطة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{r.moves.map((m) => <tr key={m.id}><td className={td}>{m.doc}</td><td className={td}>{m.sku}</td><td className={td}>{LOC_AR[m.from] ?? m.from}</td><td className={td}>{LOC_AR[m.to] ?? m.to}</td><td className={td}>{m.qty}</td><td className={td}>{m.by}</td></tr>)}</tbody></table></TableWrap></details>
   </section>;
 }

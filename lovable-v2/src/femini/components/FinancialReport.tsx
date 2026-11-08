@@ -5,7 +5,7 @@ import { fmt } from '@/femini/cn';
 import { useNavigate } from '@/femini/router';
 import type { ExportSheet } from '@/femini/insights-tools';
 
-const money = (n: number) => new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 2 }).format(n);
+const money = (n: number) => new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 2 }).format(n);
 export function financialSheets(s: Snapshot): ExportSheet[] {
   const r = financialReport(s);
   return [{ name: 'قيمة المخزون', rows: [['التقييم بالتكلفة المسجلة حاليًا؛ ليس أرباحًا ولا تقييمًا تاريخيًا'], ['الموديل', 'التكلفة', 'جاهز', 'نظافة', 'عند المصنع', 'هالك', 'مفقود', 'قيمة الجاهز', 'قيمة الهالك', 'قيمة المفقود'], ...r.rows.map((x) => [x.code, x.cost ?? 'غير مسجلة', x.units.READY, x.units.DIRTY, x.units.FACTORY, x.units.SCRAP, x.units.LOST, x.cost === null ? 'غير محسوبة' : x.units.READY * x.cost, x.cost === null ? 'غير محسوبة' : x.units.SCRAP * x.cost, x.cost === null ? 'غير محسوبة' : x.units.LOST * x.cost])] }, { name: 'بيانات ناقصة', rows: [['البيان', 'التفاصيل'], ...r.missing.map((x) => ['تكلفة غير مسجلة', x.code]), ...r.unknown.map((x) => ['صنف غير معروف', x]), ...r.negative.map((x) => ['رصيد سالب يحتاج مراجعة', x]), ['الأرباح غير محسوبة', 'لا توجد تكلفة تاريخية مؤكدة أو تحصيلات فعلية أو مصروفات شحن وعمولات وضرائب.'], ['المستلزمات', 'غير مشمولة؛ تكلفتها غير مسجلة.']] }];

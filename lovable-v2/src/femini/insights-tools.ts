@@ -30,9 +30,16 @@ function windowStats(d: Derived, from: string, to: string): { w: Window; days: D
   return { w: { from, to, orders, pieces: sum('pcs'), shipped, shippedPcs: sum('shipPcs'), cancelled, rate: orders ? Math.round((Math.min(shipped, orders) / orders) * 100) : 0 }, days };
 }
 
-export function comparePeriods(d: Derived, p: Period) {
-  const curFrom = addDays(d.today, -(p - 1)); const prevTo = addDays(curFrom, -1); const prevFrom = addDays(prevTo, -(p - 1));
-  const cur = windowStats(d, curFrom, d.today); const prev = windowStats(d, prevFrom, prevTo);
+/** a chosen window of days (both ends included) */
+export interface Range { from: string; to: string }
+export const rangeDays = (r: Range) => Math.round((Date.parse(r.to) - Date.parse(r.from)) / 864e5) + 1;
+export const lastDays = (today: string, n: number): Range => ({ from: addDays(today, -(n - 1)), to: today });
+
+/** the chosen window against the same number of days right before it */
+export function comparePeriods(d: Derived, p: Period | Range) {
+  const r = typeof p === 'number' ? lastDays(d.today, p) : p; const n = rangeDays(r);
+  const curFrom = r.from; const prevTo = addDays(curFrom, -1); const prevFrom = addDays(prevTo, -(n - 1));
+  const cur = windowStats(d, curFrom, r.to); const prev = windowStats(d, prevFrom, prevTo);
   return { cur: cur.w, prev: prev.w, curDays: cur.days, prevDays: prev.days };
 }
 
