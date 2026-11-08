@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Download } from 'lucide-react';
-import { getPhoto } from '@/femini/data/photos';
 import { downloadBlob } from '@/femini/data/backup';
 import { useNavigate } from '@/femini/router';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Empty, Field, Kpi, Pill, Sheet, TableWrap, Tabs, th, td } from '@/femini/components/ui';
 import { ErrorBox, Photo } from '@/femini/components/shared';
+import { OrderSheet } from '@/femini/components/OrderSheets';
 import { Spinner } from '@/femini/components/Spinner';
 import { CHANNELS, channelName, TYPE_AR } from '@/femini/domain/constants';
 import { isAdmin, repo } from '@/femini/data';
@@ -73,27 +73,63 @@ function ShipmentSheet({ d, doc, onClose }: { d: Derived; doc: Doc; onClose: () 
   );
 }
 
+type FileTab = 'pk' | 'sc' | 'ph' | 'cx';
+/** which original files belong to each tab (the server keeps them; they download from any device) */
+const KIND_OF: Record<FileTab, string[]> = { pk: ['pickup'], sc: ['scan'], ph: ['doc_photo', 'photo'], cx: ['cancel'] };
+
+function Originals({ d, tab }: { d: Derived; tab: FileTab }) {
+  const act = useAct();
+  const files = d.snap.files.filter((f) => KIND_OF[tab].includes(f.kind)).slice().reverse();
+  if (!files.length) return null;
+  const download = (f: (typeof files)[number]) => act(async () => {
+    const url = await repo.photoUrl(f.path);
+    if (!url) throw new Error('الملف ده مش محفوظ (اترفع قبل ما النظام يحفظ الملفات الأصلية).');
+    const r = await fetch(url.replace(/[?&]thumb=1$/, ''), { credentials: 'same-origin' });
+    if (!r.ok) throw new Error('مقدرتش أنزّل الملف من السيرفر؛ جرّب تاني.');
+    downloadBlob(await r.blob(), f.name); return true;
+  }, 'تم تجهيز الملف للتنزيل');
+  return (
+    <div className="mt-5 grid gap-3">
+      <h2 className="font-display font-semibold">الملفات الأصلية ({files.length})</h2>
+      <TableWrap><table className="text-sm"><thead><tr>{['الملف', 'مرتبط بـ', 'التاريخ', 'الحجم', ''].map((x) => <th className={th} key={x}>{x}</th>)}</tr></thead>
+        <tbody>{files.map((f) => <tr key={f.id}><td className={td}>{f.name}</td><td className={td + ' font-mono'}>{f.owner}</td><td className={td + ' font-mono'}>{f.at.slice(0, 10)}</td><td className={td}>{Math.ceil(f.size / 1024)} KB</td>
+          <td className={td}><Button size="sm" aria-label={`تنزيل ${f.name}`} onClick={() => download(f)}><Download className="size-4" />تنزيل</Button></td></tr>)}</tbody></table></TableWrap>
+    </div>
+  );
+}
+
 export default function Files() {
-  const { d, isLoading, error } = useDerived(); const act = useAct(); const nav = useNavigate();
-  const [tab, setTab] = useState<'pk' | 'sc' | 'ph' | 'cx'>('pk'); const [pk, setPk] = useState<Pickup | null>(null); const [sc, setSc] = useState<Doc | null>(null);
+  const { d, isLoading, error } = useDerived(); const act = useAct();
+  const [tab, setTab] = useState<FileTab>('pk'); const [pk, setPk] = useState<Pickup | null>(null); const [sc, setSc] = useState<Doc | null>(null); const [ord, setOrd] = useState<string | null>(null);
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
   const ships = d.snap.docs.filter((x) => x.type === 'SCN').slice().reverse(); const rcv = d.snap.docs.filter((x) => x.attachment).slice().reverse();
   const cx = d.snap.orders.filter((o) => o.status === 'cancelled' && o.cancel).sort((a, b) => b.cancel!.at.localeCompare(a.cancel!.at));
+  const piecesOf = (no: string) => d.snap.moves.filter((m) => m.doc === no).reduce((a, m) => a + m.qty, 0);
   return (
     <>
-      <PageHead title="الملفات" sub="كل ما رُفع أو سُجّل: ملفات البيك أب والشحن، وصور الورق الموقّع، والأوردرات الملغاة. ملفات أصلية ومستندات محفوظة ويمكن أرشفة البيك أب غير المشحون." />
-      <div className="mb-5 grid gap-3"><h2 className="font-display font-semibold">الملفات الأصلية ({d.snap.files.length})</h2>{!d.snap.files.length ? <Alert>الملفات الجديدة تُحفظ بأسمائها الأصلية؛ الملفات القديمة التي لم تُحفظ أصولها غير متاحة للتنزيل.</Alert> : <TableWrap><table className="text-sm"><thead><tr>{['الملف','مرتبط بـ','التاريخ','الحجم',''].map((x)=><th className={th} key={x}>{x}</th>)}</tr></thead><tbody>{[...d.snap.files].reverse().map((f)=><tr key={f.id}><td className={td}>{f.name}</td><td className={td}>{f.owner}</td><td className={td}>{f.at.slice(0,10)}</td><td className={td}>{Math.ceil(f.size/1024)} KB</td><td className={td}><Button size="sm" aria-label={`تنزيل ${f.name}`} onClick={()=>act(async()=>{const blob=await getPhoto(f.path);if(!blob)throw new Error('الملف غير موجود في هذا المتصفح');downloadBlob(blob,f.name);return true;},'تم تجهيز الملف للتنزيل')}><Download className="size-4" />تنزيل</Button></td></tr>)}</tbody></table></TableWrap>}</div>
-      <Tabs value={tab} onChange={setTab} tabs={[['pk', 'ملفات البيك أب'], ['sc', 'ملفات الشحن'], ['ph', 'صور المستندات'], ['cx', 'الإلغاءات']]} />
+      <PageHead title="الملفات" sub="اختار نوع الملفات: البيك أب، الشحن، صور الورق الموقّع، أو الإلغاءات. الملفات الأصلية محفوظة على السيرفر وتتنزّل من أي جهاز." />
+      <Tabs value={tab} onChange={setTab} tabs={[['pk', `ملفات البيك أب (${d.snap.pickups.length})`], ['sc', `ملفات الشحن (${ships.length})`], ['ph', `صور المستندات (${rcv.length})`], ['cx', `الإلغاءات (${cx.length})`]]} />
       {tab === 'pk' && (d.snap.pickups.length ? <TableWrap><table className="text-sm"><thead><tr>{['البيك أب', 'الملف', 'التاريخ', 'القناة', 'أوردرات', 'مشحون', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
         <tbody>{[...d.snap.pickups].reverse().map((p) => { const os = d.snap.orders.filter((o) => o.pickupId === p.id && o.status !== 'cancelled'); return <tr key={p.id}><td className={td}><b>{p.label}</b></td><td className={td + ' text-muted'}>{p.source}</td><td className={td + ' font-mono'}>{p.date}</td><td className={td}>{channelName(p.channel)}</td><td className={td + ' font-mono'}>{os.length}</td><td className={td + ' font-mono'}>{os.filter((o) => o.status === 'shipped').length}</td><td className={td}><Button size="sm" onClick={() => setPk(p)}>تعديل</Button></td></tr>; })}</tbody></table></TableWrap> : <Card><Empty>لا توجد ملفات بيك أب بعد. ارفع ملفًا من صفحة الأوردرات.</Empty></Card>)}
       {tab === 'sc' && (ships.length ? <TableWrap><table className="text-sm"><thead><tr>{['الرقم', 'الموظف', 'الملف', 'التاريخ', 'أوردرات', 'قطع', 'الحالة', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
-        <tbody>{ships.map((x) => <tr key={x.no}><td className={td + ' font-mono'}>{x.no}</td><td className={td}>{String(x.hdr.employee ?? x.by)}</td><td className={td + ' text-muted'}>{String(x.hdr.source ?? '')}</td><td className={td + ' font-mono'}>{x.date}</td><td className={td + ' font-mono'}>{String(x.hdr.orders ?? '')}</td><td className={td + ' font-mono'}>{String(x.hdr.pieces ?? '')}</td><td className={td}>{x.status === 'done' ? <Pill tone="good">مؤكد</Pill> : <Pill>معكوس</Pill>}</td><td className={td}><Button size="sm" onClick={() => setSc(x)}>{x.status === 'done' ? 'تعديل' : 'عرض'}</Button></td></tr>)}</tbody></table></TableWrap> : <Card><Empty>لا توجد ملفات شحن بعد. ارفع ملف الإسكان من صفحة الأوردرات.</Empty></Card>)}
-      {tab === 'ph' && (rcv.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{rcv.map((x) => <Card key={x.no}><div className="mb-2 flex items-center justify-between"><b className="font-mono">{x.no}</b><Pill tone="good">مؤكد</Pill></div><div className="mb-2 text-muted">{TYPE_AR[x.type] ?? x.type} · {x.date} · {fmt(x.lines.reduce((a, l) => a + l.qty, 0))} قطعة</div><Photo path={x.attachment} className="w-full rounded-xl border border-line" /></Card>)}</div> : <Card><Empty>لا توجد صور بعد. تُرفق الصورة مع عملية الاستلام.</Empty></Card>)}
-      {tab === 'cx' && (cx.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cx.map((o) => <Card key={o.ref}><Photo path={o.cancel!.attachment} className="mb-2 w-full rounded-xl border border-line" /><div className="flex items-center justify-between"><b className="font-mono">{o.ref}</b><Pill tone="lost">ملغي</Pill></div><div className="my-1 text-xs text-muted">شحن {o.waybill} · {o.lines.length} قطعة · {o.cancel!.at.slice(0, 10)} · {o.cancel!.by}{o.cancel!.reason ? <><br />{o.cancel!.reason}</> : null}{o.cancel!.returned ? <><br />أُعيدت القطع للمخزون ({o.cancel!.doc})</> : null}</div>
-        <div className="flex gap-2"><Button size="sm" onClick={() => nav('/orders?f=cx')}>تفاصيل</Button><Button size="sm" onClick={() => act(() => repo.restoreOrder(o.ref), 'تمت استعادة الأوردر')}>استعادة الأوردر</Button></div></Card>)}</div> : <Card><Empty>لا توجد أوردرات ملغاة.</Empty></Card>)}
+        <tbody>{ships.map((x) => <tr key={x.no}><td className={td + ' font-mono'}>{x.no}</td><td className={td}>{String(x.hdr.employee ?? x.by)}</td><td className={td + ' text-muted'}>{String(x.hdr.source ?? '')}</td><td className={td + ' font-mono'}>{x.date}</td><td className={td + ' font-mono'}>{String(x.hdr.orders ?? '')}</td><td className={td + ' font-mono'}>{fmt(piecesOf(x.no))}</td><td className={td}>{x.status === 'done' ? <Pill tone="good">مؤكد</Pill> : <Pill>معكوس</Pill>}</td><td className={td}><Button size="sm" onClick={() => setSc(x)}>{x.status === 'done' ? 'تعديل' : 'عرض'}</Button></td></tr>)}</tbody></table></TableWrap> : <Card><Empty>لا توجد ملفات شحن بعد. ارفع ملف الإسكان من صفحة الأوردرات.</Empty></Card>)}
+      {tab === 'ph' && (rcv.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{rcv.map((x) => <Card key={x.no}><div className="mb-2 flex items-center justify-between"><b className="font-mono">{x.no}</b>{x.status === 'done' ? <Pill tone="good">مؤكد</Pill> : <Pill>معكوس</Pill>}</div><div className="mb-2 text-muted">{TYPE_AR[x.type] ?? x.type} · {x.date} · {fmt(x.lines.reduce((a, l) => a + l.qty, 0))} قطعة</div><Photo path={x.attachment} zoom className={PHOTO} /></Card>)}</div> : <Card><Empty>لا توجد صور بعد. تُرفق الصورة مع عملية الاستلام.</Empty></Card>)}
+      {tab === 'cx' && (cx.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cx.map((o) => (
+        <Card key={o.ref} className="cursor-pointer transition hover:border-accent" >
+          <div role="button" tabIndex={0} onClick={() => setOrd(o.ref)} onKeyDown={(e) => e.key === 'Enter' && setOrd(o.ref)} aria-label={`تفاصيل ${o.ref}`}>
+            <div className="mb-2 flex items-center justify-between"><b className="font-mono">{o.ref}</b><Pill tone="lost">ملغي</Pill></div>
+            <div className="mb-2 text-muted">أوردر {o.waybill} · {o.lines.length} قطعة · {o.cancel!.at.slice(0, 10)} · {o.cancel!.by}</div>
+            {(o.cancel!.reason || o.cancel!.returned) && <div className="mb-2 text-xs text-muted">{o.cancel!.reason}{o.cancel!.reason && o.cancel!.returned ? ' · ' : ''}{o.cancel!.returned ? `القطع رجعت للمخزون (${o.cancel!.doc})` : ''}</div>}
+          </div>
+          <Photo path={o.cancel!.attachment} zoom className={PHOTO} />
+          <div className="mt-3 flex gap-2"><Button size="sm" onClick={() => setOrd(o.ref)}>تفاصيل</Button><Button size="sm" onClick={() => act(() => repo.restoreOrder(o.ref), 'تمت استعادة الأوردر')}>استعادة الأوردر</Button></div>
+        </Card>))}</div> : <Card><Empty>لا توجد أوردرات ملغاة.</Empty></Card>)}
+      <Originals d={d} tab={tab} />
       {pk && <PickupSheet d={d} p={pk} onClose={() => setPk(null)} />}
       {sc && <ShipmentSheet d={d} doc={sc} onClose={() => setSc(null)} />}
+      {ord && <OrderSheet d={d} orderRef={ord} onClose={() => setOrd(null)} onCancel={() => {}} />}
     </>
   );
 }
+const PHOTO = 'aspect-[4/3] w-full rounded-xl border border-line object-cover';

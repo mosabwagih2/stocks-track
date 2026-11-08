@@ -185,7 +185,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
   return (
     <div className="grid gap-3">
       <div className="grid gap-2 rounded-xl border border-line bg-lav p-3">
-        <Field label="رقم البوليصة أو كود الأوردر (تقدر تلصق أكتر من واحد)">
+        <Field label="البوليصة أو رقم الأوردر (تقدر تلصق أكتر من واحد)">
           <div className="flex gap-2"><input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && lookup()} placeholder="امسح أو اكتب البوليصة" className="flex-1" /><Button variant="primary" onClick={lookup} disabled={!code.trim()}><Search className="size-4" /> لاقي الأوردر</Button></div>
         </Field>
         {msg && <p className={cn('text-xs', msg.tone === 'crit' ? 'text-crit' : 'text-good')}>{msg.t}</p>}

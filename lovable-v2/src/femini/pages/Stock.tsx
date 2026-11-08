@@ -152,7 +152,7 @@ export default function Stock() {
     <>
       <PageHead title="المخزون" sub="متابعة الموديلات والأصناف ومستلزمات التغليف في مكان واحد." actionsClassName="flex w-full min-w-0 items-center gap-2">
         <div className="min-w-0 overflow-x-auto [&>div]:w-max [&_button]:whitespace-nowrap">
-          <Seg value={view} onChange={setView} options={[['all', 'كل الموديلات'], ['table', 'كل الأصناف'], ['map', 'خريطة المخزون'], ['supplies', 'المستلزمات']]} label="العرض" />
+          <Seg value={view} onChange={setView} options={[['all', 'كل الموديلات'], ['supplies', 'المستلزمات'], ['map', 'خريطة المخزون'], ['table', 'كل الأصناف']]} label="العرض" />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="w-9">{view === 'supplies' && <Button className="size-9 p-0" aria-label={supArch ? 'المستلزمات الحالية' : `المؤرشفة (${d.snap.supplies.filter((s) => s.archived).length})`} title={supArch ? 'المستلزمات الحالية' : 'المستلزمات المؤرشفة'} onClick={() => setSupArch((x) => !x)}><Archive className="size-4" /></Button>}</div>

@@ -105,7 +105,7 @@ export function orderL(o: Row): Order {
     lines: Array.isArray(o.lines) ? o.lines.slice() : [], unmapped: Array.isArray(o.bad) ? structuredClone(o.bad) : [], pickupId: String(o.pk ?? ''),
     status: o.st === 'done' ? 'shipped' : o.st === 'cx' ? 'cancelled' : 'open',
     shippedBy: sc ? String(sc.by ?? '') : null, shippedAt: sc ? iso(sc.at) : null, shipDoc: sc ? String(sc.doc ?? '') : null,
-    cancel: cx ? { at: iso(cx.at), by: String(cx.by ?? ''), reason: String(cx.reason ?? ''), was: cx.was === 'done' ? 'shipped' : 'open', returned: !!cx.returned, doc: cx.doc ? String(cx.doc) : null } : null,
+    cancel: cx ? { at: iso(cx.at), by: String(cx.by ?? ''), reason: String(cx.reason ?? ''), was: cx.was === 'done' ? 'shipped' : 'open', returned: !!cx.returned, doc: cx.doc ? String(cx.doc) : null, attachment: `documents/cancel-${String(o.ref)}.jpg` } : null,
     returned: rt ? { doc: String(rt.doc ?? ''), at: `${rt.date}T10:00:00.000Z` } : null,
   };
 }

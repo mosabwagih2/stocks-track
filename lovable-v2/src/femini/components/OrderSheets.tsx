@@ -22,9 +22,9 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
   if (!o) return null;
   const n = need(o); const pk = d.snap.pickups.find((p) => p.id === o.pickupId);
   return (
-    <Sheet title={`أوردر ${o.ref}`} onClose={onClose}>
+    <Sheet title={`بوليصة ${o.ref}`} onClose={onClose}>
       <div className="flex flex-wrap items-center gap-2"><OrderPill o={o} d={d} /><span className="text-muted">{channelName(pk?.channel ?? '')} · {pk?.label}</span></div>
-      <div className="grid grid-cols-2 gap-3"><Kpi label="البوليصة" value={<span className="text-lg">{o.waybill}</span>} /><Kpi label="المحافظة / النوع" value={<span className="font-sans text-lg">{o.gov} · {o.type === 'exchange' ? 'استبدال' : 'جديد'}</span>} /></div>
+      <div className="grid grid-cols-2 gap-3"><Kpi label="رقم الأوردر" value={<span className="text-lg">{o.waybill}</span>} /><Kpi label="المحافظة / النوع" value={<span className="font-sans text-lg">{o.gov} · {o.type === 'exchange' ? 'استبدال' : 'جديد'}</span>} /></div>
       <TableWrap>
         <table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>في الأوردر</th><th className={th}>جاهز حاليًا</th></tr></thead>
           <tbody>{Object.keys(n).map((s) => { const r = qty(d.snap.balances, s, 'READY'); return (
@@ -57,13 +57,13 @@ export function CancelSheet({ d, initial, onClose }: { d: Derived; initial: stri
   return (
     <Sheet title="إلغاء أوردر" onClose={onClose}>
       <Alert>استخدم هذا الإجراء عند طلب إلغاء أوردر. سجّل كود البوليصة وأرفق صورتها مشطوبة، وسيُحذف الأوردر من قائمة الأوردرات ومن الطلب.</Alert>
-      <Field label="كود الأوردر أو رقم الشحن"><input dir="ltr" className="font-mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="mk3450 أو 23772996" autoComplete="off" /></Field>
-      {!code.trim() ? <p className="text-muted">أدخل كود الأوردر (مثل mk3450) أو رقم الشحن (مثل 23772996) كما هو على البوليصة.</p>
-        : !o ? <Alert tone="crit">لا يوجد أوردر بهذا الكود. تأكد من الكود المكتوب على البوليصة.</Alert>
+      <Field label="البوليصة أو رقم الأوردر"><input dir="ltr" className="font-mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="mk3450 أو 23772996" autoComplete="off" /></Field>
+      {!code.trim() ? <p className="text-muted">اكتب البوليصة (مثل mk3450) أو رقم الأوردر (مثل 23772996).</p>
+        : !o ? <Alert tone="crit">مفيش أوردر بالبوليصة أو الرقم ده. اتأكد من المكتوب على الورقة.</Alert>
         : (
           <div className="grid gap-2 rounded-xl border border-line bg-lav p-3">
             <div className="flex items-center justify-between"><b className="font-mono">{o.ref}</b><OrderPill o={o} d={d} /></div>
-            <span className="text-[13px] text-muted">شحن {o.waybill} · {o.gov} · {o.lines.length} قطعة</span>
+            <span className="text-[13px] text-muted">أوردر {o.waybill} · {o.gov} · {o.lines.length} قطعة</span>
             {o.status === 'cancelled' && <Alert tone="warn">هذا الأوردر ملغى مسبقًا.</Alert>}
             {o.status === 'shipped' && <Alert tone="warn"><b>هذا الأوردر شُحن بالفعل</b> وخُصم من المخزون.<label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={ret} onChange={(e) => setRet(e.target.checked)} /> إعادة القطع ({o.lines.length}) إلى المخزون الجاهز</label></Alert>}
           </div>
@@ -127,7 +127,7 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
           <button type="button" onClick={() => fileRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
             className="grid gap-1 rounded-2xl border-2 border-dashed border-line2 bg-surface p-6 text-center hover:border-accent hover:bg-lav">
             <b>{fname || 'اسحب الملف هنا أو اضغط للاختيار'}</b>
-            <span className="text-muted">{mode === 'scan' ? 'تصدير QRbot (CSV) أو أي ملف يحتوي على عمود كود الأوردر' : 'ملف Excel من فيندور (كود الاوردر العشوائي، المنتجات المطلوبة...)'}</span>
+            <span className="text-muted">{mode === 'scan' ? 'تصدير QRbot (CSV) أو أي ملف فيه عمود البوليصة' : 'ملف Excel من فيندور (كود الاوردر العشوائي، المنتجات المطلوبة...)'}</span>
           </button>
           <input ref={fileRef} type="file" hidden accept=".xlsx,.xls,.csv" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
           {mode === 'pickup' && <Field label="القناة"><select value={channel} onChange={(e) => setChannel(e.target.value)}>{CHANNELS.map((c) => <option key={c.id} value={c.id}>{c.name}{c.supported ? '' : ' (التنسيق غير متاح بعد)'}</option>)}</select></Field>}

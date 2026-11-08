@@ -24,7 +24,7 @@ export function useSearchParams(): [URLSearchParams, (p: URLSearchParams, o?: { 
   const sp = useMemo(() => new URLSearchParams(Object.entries((loc.search ?? {}) as Record<string, unknown>).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)])), [loc.search]);
   const set = useCallback((p: URLSearchParams, o?: { replace?: boolean }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    nav({ to: loc.pathname as any, search: Object.fromEntries(p) as any, replace: o?.replace });
+    nav({ to: loc.pathname as any, search: Object.fromEntries(p) as any, replace: o?.replace, resetScroll: false });
   }, [nav, loc.pathname]);
   return [sp, set];
 }

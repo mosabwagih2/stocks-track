@@ -112,7 +112,7 @@ export function createServerBackend(boot: Boot, transport: Transport = httpTrans
       const cancel = /^documents\/cancel-(.+)\.jpg$/.exec(path);
       if (cancel) f = pick('order', cancel[1], 'cancel');
       else {
-        const no = /^documents\/(.+?)(?:-signed|-\d+)?\.jpg$/.exec(path)?.[1];
+        const no = /^documents\/([A-Za-z]+-\d+)(?:-signed|-\d+)?\.jpg$/.exec(path)?.[1];
         const d = no ? docs.find((x) => x.no === no) : undefined;
         if (d) f = pick('doc', String(d.id), 'doc_photo');
       }

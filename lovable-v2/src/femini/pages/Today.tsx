@@ -12,6 +12,7 @@ import { OrderPill, ErrorBox } from '@/femini/components/shared';
 import { FlowArea, Sparkline, StateDonut, StockArea, useDaily, useStockDaily, C } from '@/femini/components/charts';
 import { EventTable, docEvents } from '@/femini/components/MoveRows';
 import { Seg } from '@/femini/components/ui';
+const DAYS: [string, string][] = [['7', '7 يوم'], ['14', '14 يوم'], ['30', '30 يوم']];
 import { Spinner } from '@/femini/components/Spinner';
 import { OrderSheet, UploadSheet, CancelSheet } from '@/femini/components/OrderSheets';
 import { addDays, dayLabel, timeCairo } from '@/femini/domain/dates';
@@ -79,7 +80,9 @@ export default function Today() {
   const [range, setRangeState] = useState<number>(() => { try { return Number(localStorage.getItem('femini-today-range')) || 14; } catch { return 14; } });
   const setRange = (v: string) => { setRangeState(Number(v)); try { localStorage.setItem('femini-today-range', v); } catch { /* private mode */ } };
   const daily = useDaily(d, range);
-  const stockDaily = useStockDaily(d, range);
+  const [stockRange, setStockRangeState] = useState<number>(() => { try { return Number(localStorage.getItem('femini-stock-range')) || 14; } catch { return 14; } });
+  const setStockRange = (v: string) => { setStockRangeState(Number(v)); try { localStorage.setItem('femini-stock-range', v); } catch { /* private mode */ } };
+  const stockDaily = useStockDaily(d, stockRange);
   const dayEvents = useMemo(() => (d ? docEvents(d.snap.moves.filter((m) => m.date === selected)) : []), [d, selected]);
 
   const x = useMemo(() => {
@@ -167,12 +170,12 @@ export default function Today() {
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <div className="grid content-start gap-4">
           <Deferred minHeight={400}>
-          <Card title="حركة الأوردرات والشحن" hint={`آخر ${range} يوم`} action={<div className="flex flex-wrap gap-2"><Seg label="الفترة" value={String(range)} onChange={setRange} options={[['7', '7 يوم'], ['14', '14 يوم'], ['30', '30 يوم']]} /><Seg value={metric} onChange={setMetric} options={[['orders', 'أوردرات'], ['pieces', 'قطع']]} /></div>}>
+          <Card title="حركة الأوردرات والشحن" action={<div className="flex flex-wrap gap-2"><Seg value={metric} onChange={setMetric} options={[['orders', 'أوردرات'], ['pieces', 'قطع']]} /><Seg label="الفترة" value={String(range)} onChange={setRange} options={DAYS} /></div>}>
             <FlowArea data={daily} metric={metric} />
           </Card>
           </Deferred>
           <Deferred minHeight={320}>
-          <Card title="حركة المخزون" hint={`رصيد آخر كل يوم · آخر ${range} يوم`}>
+          <Card title="حركة المخزون" action={<Seg label="الفترة" value={String(stockRange)} onChange={setStockRange} options={DAYS} />}>
             <StockArea data={stockDaily} />
           </Card>
           </Deferred>

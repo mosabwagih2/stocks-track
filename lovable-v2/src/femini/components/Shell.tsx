@@ -1,9 +1,9 @@
 import logo from '@/femini/assets/femini-logo.png';
 import { serverEdition } from '@/femini/data';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { whenIdle } from '@/femini/components/Deferred';
-import { BarChart3, Boxes, ClipboardList, FileText, Package, ReceiptText, Settings as Cog, LayoutGrid } from 'lucide-react';
+import { BarChart3, Boxes, ClipboardList, FileText, Package, ReceiptText, Settings as Cog, LayoutGrid, Menu, X } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { qty } from '@/femini/domain/ledger';
 import { dayLabel } from '@/femini/domain/dates';
@@ -23,7 +23,11 @@ const NAV = [
 export default function Shell({ children }: { children: ReactNode }) {
   useEffect(() => startAccount(), []);   // the signed-in account's name is who did each operation
   const { d } = useDerived();
-  const isToday = useRouterState({ select: (state) => state.location.pathname === '/' });
+  const path = useRouterState({ select: (state) => state.location.pathname });
+  const isToday = path === '/';
+  const [menu, setMenu] = useState(false);
+  useEffect(() => setMenu(false), [path]);   // a choice in the phone menu closes it
+  const current = NAV.find((n) => (n.to === '/' ? path === '/' : path.startsWith(n.to)));
   const router = useRouter();
   // Like the original app (all views ready in one page): preload every section's code once the app is idle,
   // so the first click on a section never waits for its files to download.
@@ -50,37 +54,42 @@ export default function Shell({ children }: { children: ReactNode }) {
   }
   return (
     <div className="min-h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)] print:block">
-      <nav aria-label="التنقل" className="print:hidden fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-line bg-rail/95 px-1.5 pt-1.5 pb-safe backdrop-blur md:sticky md:inset-auto md:top-0 md:h-screen md:flex-col md:gap-0.5 md:overflow-y-auto md:border-t-0 md:border-e md:p-4">
-        <div className="mb-6 hidden items-center gap-3 px-2 pt-1 md:flex">
-          <img src={logo} alt="Fémini" width={44} height={44} className="size-11 shrink-0 rounded-xl border border-line bg-white object-contain p-1 shadow-card" />
-          <div className="leading-tight">
-            <b className="font-display text-lg font-semibold tracking-tight">Fémini</b>
-            <small className="block text-[11px] text-rail-mute">Stock · نظام المخزن</small>
+      {menu && <div className="fixed inset-0 z-40 bg-black/40 md:hidden print:hidden" onClick={() => setMenu(false)} aria-hidden="true" />}
+      <nav aria-label="التنقل" className={`print:hidden fixed inset-y-0 start-0 z-50 w-72 max-w-[85vw] flex-col gap-0.5 overflow-y-auto border-e border-line bg-rail p-4 shadow-xl transition-transform md:sticky md:top-0 md:z-auto md:flex md:h-screen md:w-auto md:max-w-none md:translate-x-0 md:shadow-none ${menu ? 'flex translate-x-0' : 'hidden'}`}>
+        <div className="mb-5 flex items-start justify-between gap-2 px-2 pt-1">
+          <div className="grid justify-items-center gap-1">
+            <img src={logo} alt="Fémini" width={120} height={120} className="h-24 w-auto object-contain md:h-28" />
+            <small className="text-[11px] text-rail-mute">Stock · نظام المخزن</small>
           </div>
+          <button type="button" className="rounded-lg p-1.5 text-rail-mute hover:bg-lav md:hidden" onClick={() => setMenu(false)} aria-label="اقفل القائمة"><X className="size-5" /></button>
         </div>
-        <span className="mb-1 hidden px-3 text-[11px] font-semibold tracking-wide text-rail-mute md:block">القائمة</span>
+        <span className="mb-1 px-3 text-[11px] font-semibold tracking-wide text-rail-mute">القائمة</span>
         {NAV.map(({ to, label, icon: Icon }) => (
           <Link key={to} to={to} preload="intent" activeOptions={{ exact: to === '/' }}
-            className="group relative flex min-w-[64px] flex-1 flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 text-[11px] font-medium text-rail-mute transition hover:bg-lav hover:text-on-rail md:flex-none md:flex-row md:gap-3 md:px-3 md:py-2.5 md:text-sm data-[status=active]:bg-accent-soft data-[status=active]:text-accent">
-            <Icon className="size-5 shrink-0 md:size-[18px]" strokeWidth={1.8} />
+            className="group relative flex flex-row items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rail-mute transition hover:bg-lav hover:text-on-rail data-[status=active]:bg-accent-soft data-[status=active]:text-accent">
+            <Icon className="size-[18px] shrink-0" strokeWidth={1.8} />
             <span>{label}</span>
-            {badge[to] ? <span className="absolute end-2 top-0.5 rounded-full bg-scrap px-1.5 py-0.5 font-mono text-[10px] leading-none font-semibold text-on-accent md:static md:ms-auto">{badge[to]}</span> : null}
+            {badge[to] ? <span className="ms-auto rounded-full bg-scrap px-1.5 py-0.5 font-mono text-[10px] leading-none font-semibold text-on-accent">{badge[to]}</span> : null}
           </Link>
         ))}
-        <div className="hidden flex-1 md:block" />
-        <div className="hidden gap-2 rounded-2xl border border-line bg-lav p-3 text-xs text-rail-mute md:grid">
+        <div className="flex-1" />
+        <div className="mt-4 grid gap-2 rounded-2xl border border-line bg-lav p-3 text-xs text-rail-mute">
           <span className="flex items-center gap-2 px-2"><i className="size-2 rounded-full bg-good" />{serverEdition ? 'متصل بالسيرفر' : 'البيانات محفوظة في هذا المتصفح'}</span>
         </div>
       </nav>
       <div className="min-w-0">
         <header className="print:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-page/80 px-4 py-3 backdrop-blur md:px-8">
-          <img src={logo} alt="Fémini" width={32} height={32} className="size-8 shrink-0 rounded-lg border border-line bg-white object-contain p-0.5 md:hidden" />
+          <button type="button" className="relative -ms-1 rounded-lg p-1.5 hover:bg-lav md:hidden" onClick={() => setMenu(true)} aria-label="افتح القائمة" aria-expanded={menu}>
+            <Menu className="size-6" />
+            {Object.values(badge).some(Boolean) && <i className="absolute end-1 top-1 size-2 rounded-full bg-scrap" />}
+          </button>
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-            {isToday && <h1 className="font-display text-lg font-semibold">اليوم</h1>}
+            {isToday ? <h1 className="font-display text-lg font-semibold">اليوم</h1> : current && <b className="font-display text-base font-semibold md:hidden">{current.label}</b>}
             <span className="text-sm text-muted">{d ? dayLabel(d.today) : ' '}</span>
           </div>
+          <img src={logo} alt="Fémini" width={40} height={40} className="ms-auto h-10 w-auto object-contain md:hidden" />
         </header>
-        <main className="mx-auto max-w-[1320px] px-4 pt-6 pb-28 md:px-8 md:pb-14 print:max-w-none print:p-0">{children}</main>
+        <main className="mx-auto max-w-[1320px] px-4 pt-6 pb-12 md:px-8 md:pb-14 print:max-w-none print:p-0">{children}</main>
       </div>
     </div>
   );

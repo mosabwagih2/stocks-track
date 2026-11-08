@@ -96,14 +96,14 @@ export default function Orders() {
             {chips.map(([v, l]) => <Chip key={v} pressed={f === v} onClick={() => setF(v)}>{l} <span className="font-mono text-xs opacity-75">{counts[v as 'all']}</span></Chip>)}
             {counts.cx > 0 && <Chip pressed={f === 'cx'} onClick={() => setF('cx')}>ملغي <span className="font-mono text-xs opacity-75">{counts.cx}</span></Chip>}
             {counts.bad > 0 && <Chip pressed={f === 'bad'} onClick={() => setF('bad')}>كود غير مربوط <span className="font-mono text-xs opacity-75">{counts.bad}</span></Chip>}
-            <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setN(PAGE); }} placeholder="بحث بكود الأوردر أو البوليصة أو المحافظة" className="min-w-52 max-w-sm flex-1" aria-label="بحث" />
+            <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setN(PAGE); }} placeholder="بحث بالبوليصة أو رقم الأوردر أو المحافظة" className="min-w-52 max-w-sm flex-1" aria-label="بحث" />
           </div>
           {selOpen.length > 0 && (
             <Alert className="mb-3 flex flex-wrap items-center justify-between gap-2"><span>تم تحديد <b>{selOpen.length}</b> أوردر</span>
               <span className="flex gap-2"><Button size="sm" onClick={() => setSel(new Set())}>إلغاء الاختيار</Button><Button size="sm" variant="primary" onClick={() => setManual(selOpen)}>سجّلها كأوردرات شُحنت</Button></span></Alert>
           )}
           <TableWrap>
-            <table className="text-sm"><thead><tr><th className={th + ' w-9'} /><th className={th}>كود الأوردر</th><th className={th}>البوليصة</th><th className={th}>النوع</th><th className={th}>المحافظة</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
+            <table className="text-sm"><thead><tr><th className={th + ' w-9'} /><th className={th}>البوليصة</th><th className={th}>رقم الأوردر</th><th className={th}>النوع</th><th className={th}>المحافظة</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
               <tbody>
                 {list.slice(0, n).map((o) => (
                   <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${o.status === 'open' && d.blocked.has(o.ref) ? 'bg-crit-bg/60' : o.status === 'shipped' ? 'bg-good-bg/50' : o.status === 'cancelled' ? 'opacity-70' : ''}`} onClick={() => setOrderRef(o.ref)}>
