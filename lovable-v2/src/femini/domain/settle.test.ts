@@ -69,6 +69,6 @@ describe.skipIf(!sheets.length)('the real settlement sheets', () => {
     expect(p.totals.due + p.totals.vendoor).toBe(p.totals.cod);       // net = Fémini + Vendoor
     expect(p.rows.reduce((a, r) => a + r.supply, 0)).toBe(e.due);     // Fémini's due = its share of every order
     expect(!!p.dateNote).toBe(f.includes('31-11'));                 // the wrong name is pointed out
-    expect(f).toMatch(new RegExp(`\( ${e.due.toLocaleString('en-US')} \)`));   // the number in the file name
+    expect(f).toContain(`( ${e.due.toLocaleString("en-US")} )`);   // the number in the file name
   });
 });
