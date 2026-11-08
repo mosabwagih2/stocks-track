@@ -57,6 +57,11 @@ final class Restore
             foreach (Database::all('SELECT sha256, path, thumb_path FROM files') as $r) {
                 $known[$r['sha256']] ??= [$r['path'], $r['thumb_path']];
             }
+            // Files uploaded BEFORE the backup was taken stay, even when the backup does not carry them: the backup button saved
+            // only the newest file of each sheet, so a replaced original (an older photo or PDF of the same document) is not in
+            // it. Files uploaded after the backup (while testing) go. Without a backup time, nothing is kept beyond the backup.
+            $cut = isset($b->at) && is_numeric($b->at) ? gmdate('Y-m-d H:i:s', intdiv((int)$b->at, 1000)) : null;
+            $older = $cut === null ? [] : Database::all('SELECT * FROM files WHERE uploaded_at <= ? ORDER BY id', [$cut]);
             foreach (['moves', 'docs', 'pickups', 'orders', 'coll_rows', 'meta', 'files'] as $t) {
                 Database::run("DELETE FROM `$t`");   // DELETE, not TRUNCATE: TRUNCATE would end the transaction
             }
@@ -83,6 +88,17 @@ final class Restore
             (new SyncService($user, true))->push($req);
 
             $n = self::putFiles($b, $known, (string)$user['id']);
+            $have = [];
+            foreach (Database::all('SELECT kind, owner_type, owner_id, sha256 FROM files') as $r) {
+                $have[$r['kind'] . '|' . $r['owner_type'] . '|' . $r['owner_id'] . '|' . $r['sha256']] = true;
+            }
+            foreach ($older as $r) {   // back with their own (lower) ids, so the backup's files stay the newest of each sheet
+                if (isset($have[$r['kind'] . '|' . $r['owner_type'] . '|' . $r['owner_id'] . '|' . $r['sha256']]) || !is_file(FileStore::absolute($r['path']))) {
+                    continue;
+                }
+                $cols = array_keys($r);
+                Database::run('INSERT INTO files (`' . implode('`,`', $cols) . '`) VALUES (' . implode(',', array_fill(0, count($cols), '?')) . ')', array_values($r));
+            }
 
             // a new epoch: every page opened before now must reload before it can save again
             $rev = (int)Database::value('SELECT rev FROM sync_state WHERE id = 1') + 1;
@@ -188,8 +204,10 @@ final class Restore
         $photos = (array)($b->photos ?? []);
         $items = [];
         foreach ((array)($b->files ?? []) as $f) {        // this app's backups: a list with kind/owner + the content's key
+            $at = (string)($f->uploadedAt ?? '');
             $items[] = ['kind' => (string)($f->kind ?? ''), 'ot' => (string)($f->ownerType ?? ''), 'oid' => (string)($f->ownerId ?? ''),
-                'name' => (string)($f->name ?? 'file'), 'data' => $photos[(string)($f->data ?? '')] ?? null];
+                'name' => (string)($f->name ?? 'file'), 'data' => $photos[(string)($f->data ?? '')] ?? null,
+                'at' => preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $at) ? $at : null];   // keeps the original upload time
         }
         if (!$items) {                                    // the original app's backups: photos only, keyed by owner
             foreach ($photos as $key => $data) {
@@ -207,20 +225,29 @@ final class Restore
                 continue;
             }
             $sha = hash('sha256', $bytes);
+            $dup = Database::value('SELECT id FROM files WHERE sha256 = ? AND owner_type = ? AND owner_id = ? AND kind = ?', [$sha, $it['ot'], $it['oid'], $it['kind']]);
+            if ($dup !== null) {
+                $n++;
+                continue;
+            }
             if (isset($known[$sha]) && is_file(FileStore::absolute($known[$sha][0]))) {   // already on disk: point to it
                 Database::run(
                     'INSERT INTO files (kind, owner_type, owner_id, orig_name, mime, size_bytes, sha256, path, thumb_path, uploaded_by, uploaded_at)
                      VALUES (?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP())',
                     [$it['kind'], $it['ot'], $it['oid'], mb_substr($it['name'], 0, 200), $m[1] ?: 'application/octet-stream', strlen($bytes), $sha, $known[$sha][0], $known[$sha][1], $userId]
                 );
+                $id = (int)Database::pdo()->lastInsertId();
             } else {
                 $tmp = tempnam(sys_get_temp_dir(), 'rs');
                 file_put_contents($tmp, $bytes);
                 try {
-                    FileStore::saveLocal($tmp, $it['name'], $it['kind'], $it['ot'], $it['oid'], $userId);
+                    $id = (int)FileStore::saveLocal($tmp, $it['name'], $it['kind'], $it['ot'], $it['oid'], $userId)['id'];
                 } finally {
                     @unlink($tmp);
                 }
+            }
+            if (!empty($it['at'])) {
+                Database::run('UPDATE files SET uploaded_at = ? WHERE id = ?', [$it['at'], $id]);
             }
             $n++;
         }

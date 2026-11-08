@@ -36,7 +36,14 @@ final class FilesController
     /** GET /api/files?owner_type=&owner_id= */
     public static function index(Request $req): never
     {
-        Auth::requireUser();
+        $user = Auth::requireUser();
+        // the full backup needs every file, also originals replaced by a newer one on the same sheet (admin only)
+        if (!empty($req->query['all'])) {
+            if (!Permissions::isAdmin($user)) {
+                throw new HttpError(403, 'forbidden', 'للمدير بس.');
+            }
+            Response::json(['ok' => true, 'files' => array_map([FileStore::class, 'present'], \Femini\Database::all('SELECT * FROM files ORDER BY id'))]);
+        }
         $t = (string)($req->query['owner_type'] ?? '');
         $i = (string)($req->query['owner_id'] ?? '');
         Response::json(['ok' => true, 'files' => FileStore::forOwner($t, $i)]);

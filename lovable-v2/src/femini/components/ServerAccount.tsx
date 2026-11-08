@@ -93,7 +93,9 @@ function BackupCard({ canUsers }: { canUsers: boolean }) {
     try {
       const pr = await fetch('/api/sync/pull?since=0', { credentials: 'same-origin' }); if (!pr.ok) throw new Error('مقدرتش أجيب البيانات من السيرفر.');
       const pull = await pr.json();
-      const files = server()?.files() ?? []; const photos: Record<string, string> = {}; const fileList: unknown[] = [];
+      // every file the server keeps (admin: also originals later replaced on the same sheet), oldest first
+      const all = await fetch('/api/files?all=1', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const files = (Array.isArray(all?.files) ? all.files : server()?.files() ?? []) as { id: number }[]; const photos: Record<string, string> = {}; const fileList: unknown[] = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i]; setMsg(`بنزّل الملفات ${i + 1} من ${files.length}…`);
         const r = await fetch(`/api/files/${f.id}`, { credentials: 'same-origin' }); if (!r.ok) continue;
