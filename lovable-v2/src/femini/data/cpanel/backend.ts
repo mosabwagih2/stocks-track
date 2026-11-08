@@ -62,6 +62,10 @@ export function createServerBackend(boot: Boot, transport: Transport = httpTrans
   let m: Mirror = mirrorFromBoot(boot);
   const user = { id: boot.user?.id ?? '', name: boot.user?.name ?? '', role: boot.user?.role ?? '', perms: boot.user?.perms ?? [] };
   const pending: { owner: FileOwner; kind: FileKind; file: File }[] = [];
+  // the data's epoch: a restore from a backup changes it, and a page that still shows the old data must reload
+  const epoch = boot.epoch ?? '';
+  const restored = () => { const e = (m.meta as Record<string, { id?: string } | undefined>).epoch?.id ?? ''; return e !== '' && e !== epoch; };
+  const reloadPage = () => { if (typeof location !== 'undefined' && typeof location.reload === 'function') location.reload(); };
   const reload = async () => { const files = m.files; m = applyPull(emptyMirror(), await transport.pull(0)); m.files = files; };
   const ownerOf = (o: FileOwner): [string, string] | null => {
     if (o.type === 'pickup') return ['pickup', o.id];
@@ -86,9 +90,10 @@ export function createServerBackend(boot: Boot, transport: Transport = httpTrans
       const p = toPush(S, m, user.name);
       if (isEmpty(p)) { await flushFiles(); return; }
       const since = m.rev;
-      const r = await transport.push({ since, moves: p.moves, coll: p.coll, meta: p.meta });
+      const r = await transport.push({ since, epoch, moves: p.moves, coll: p.coll, meta: p.meta });
       if (!r.ok) {
         pending.length = 0;
+        if (r.error === 'restored') { reloadPage(); throw new Error(r.message); }
         if (r.error === 'stale') { await reload(); throw new Error('حد تاني سجّل على نفس البيانات في نفس اللحظة. اتحدّثت البيانات؛ راجع وأعد العملية.'); }
         throw new Error(r.message);
       }
@@ -100,7 +105,7 @@ export function createServerBackend(boot: Boot, transport: Transport = httpTrans
       const p = await transport.pull(m.rev);
       const changed = p.moves.length || Object.values(p.coll).some((x) => x.length) || Object.keys(p.meta).length;
       if (!changed) { m.rev = Math.max(m.rev, p.rev); return null; }
-      applyPull(m, p); return toLovable(m);
+      applyPull(m, p); if (restored()) { reloadPage(); return null; } return toLovable(m);
     },
     queueFile(owner, kind, file) { pending.push({ owner, kind, file }); },
     files: () => [...m.files],

@@ -36,6 +36,11 @@ final class SyncService
         return Database::transaction(function () use ($req, $since): array {
             $prev = (int)Database::value('SELECT rev FROM sync_state WHERE id = 1 FOR UPDATE');
             $rev = $prev + 1;
+            // After a restore, a page opened before it still shows the old data: its saves are refused until it reloads.
+            $epoch = json_decode((string)(Database::value("SELECT v FROM meta WHERE k = 'epoch'") ?? 'null'), true);
+            if (!$this->trustActors && is_array($epoch) && ($req->epoch ?? null) !== ($epoch['id'] ?? null)) {
+                throw new HttpError(409, 'restored', 'البيانات اترجعت من نسخة احتياطية. الصفحة هتتحدّث؛ أعد العملية بعدها.');
+            }
             $lock = (string)json_decode((string)Database::value("SELECT v FROM meta WHERE k = 'lock'") ?: '""', true);
             $rules = new Rules($this->user, $lock, date('Y-m-d'), $this->trustActors);
             $ctx = new PushContext($rev, $since);

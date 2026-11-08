@@ -12,6 +12,7 @@ use Femini\Auth\Auth;
 use Femini\Config;
 use Femini\Controllers\AuthController;
 use Femini\Controllers\FilesController;
+use Femini\Controllers\RestoreController;
 use Femini\Controllers\SyncController;
 use Femini\Controllers\UsersController;
 use Femini\Http\HttpError;
@@ -43,6 +44,9 @@ try {
     $router->add('POST', '/api/files',             [FilesController::class, 'upload']);
     $router->add('GET',  '/api/files',             [FilesController::class, 'index']);
     $router->add('GET',  '/api/files/{id}',        [FilesController::class, 'download']);
+    $router->add('POST', '/api/admin/restore',     [RestoreController::class, 'restore']);
+    $router->add('GET',  '/api/admin/restore/points', [RestoreController::class, 'points']);
+    $router->add('POST', '/api/admin/restore/undo', [RestoreController::class, 'undo']);
 
     Auth::checkOrigin($req);
     // Login is the only state-changing endpoint that does not need a session CSRF token yet.

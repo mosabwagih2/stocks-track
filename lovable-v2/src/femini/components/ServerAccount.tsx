@@ -5,6 +5,7 @@ import { useToast } from './toast';
 import { boot, server } from '@/femini/data';
 import { stateFromPull } from '@/femini/data/cpanel/v3';
 import { downloadBlob } from '@/femini/data/backup';
+import { RestoreCard } from './RestoreCard';
 
 /** Server edition: the signed-in account, sign out, own password, and (with the "users" permission) users and roles.
  * Everything goes through the server API; the server checks every permission again. */
@@ -43,6 +44,7 @@ export function ServerAccount() {
         <div className="mt-3 flex flex-wrap gap-2"><Button disabled={busy || !cur || pw.length < 8} onClick={changePw}>تغيير كلمة السر</Button><Button variant="ghost" onClick={logout}><LogOut className="size-4" /> تسجيل الخروج</Button></div>
       </Card>
       <BackupCard canUsers={can('users')} />
+      {me?.role === 'admin' && <RestoreCard />}
       {can('users') && <UsersCard isAdmin={me?.role === 'admin'} />}
     </>
   );

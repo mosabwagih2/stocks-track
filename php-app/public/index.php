@@ -43,6 +43,7 @@ $boot = [
     'user'  => AuthController::publicUser($user),
     'state' => $snap['state'],
     'empty' => $snap['empty'],
+    'epoch' => $snap['epoch'],   // changes on every restore: the page sends it with each save
     'files' => \Femini\Files\FileStore::index(0),
 ];
 // Safe to embed inside <script>: no "</script>", no HTML comments, no JS line terminators.

@@ -49,13 +49,18 @@ export interface FakeUser { id: string; name: string; role: string; perms: strin
 
 export function createFakeServer(boot: Boot, user: FakeUser) {
   let rev = boot.rev || 1;
-  let moves: Row[] = (boot.state.moves ?? []).map((m: Row) => ({ ...m, rev: 1 }));
-  let rows: Record<Coll, Map<string, Stored>> = Object.fromEntries(Object.keys(COLLS).map((c) => [c, new Map()])) as Record<Coll, Map<string, Stored>>;
-  let meta = new Map<string, { v: string; rev: number }>();
-  const s = boot.state;
-  const lists: Record<Coll, unknown[]> = { docs: s.docs ?? [], orders: s.orders ?? [], pickups: s.pickups ?? [], sup_items: s.sup?.items ?? [], sup_log: s.sup?.log ?? [], closes: s.closes ?? [], shops: s.shops ?? [], emps: s.emps ?? [], archPk: s.archPk ?? [], archDocs: s.archDocs ?? [], oldOrd: s.oldOrd ?? [], holds: s.holds ?? [] };
-  for (const c of Object.keys(COLLS) as Coll[]) lists[c].forEach((r, i) => rows[c].set(COLLS[c](r as Row), { payload: encode(r), gone: false, rev: 1, ord: i + 1 }));
-  for (const [k, v] of Object.entries({ mid: s.mid, did: s.did, seq: s.seq, sup_eid: s.sup?.eid, bk: s.bk, st: s.st, costs: s.costs, alias: s.alias, img: s.img, cat: s.cat, lock: s.lock })) if (v !== undefined) meta.set(k, { v: encode(v), rev: 1 });
+  let moves: Row[] = []; let rows = {} as Record<Coll, Map<string, Stored>>; let meta = new Map<string, { v: string; rev: number }>();
+  /** Restore.php: the tables hold exactly this state, stamped with revision r */
+  function load(s: Row, r: number) {
+    moves = (s.moves ?? []).map((m: Row) => ({ ...m, rev: r }));
+    rows = Object.fromEntries(Object.keys(COLLS).map((c) => [c, new Map()])) as Record<Coll, Map<string, Stored>>;
+    meta = new Map();
+    const lists: Record<Coll, unknown[]> = { docs: s.docs ?? [], orders: s.orders ?? [], pickups: s.pickups ?? [], sup_items: s.sup?.items ?? [], sup_log: s.sup?.log ?? [], closes: s.closes ?? [], shops: s.shops ?? [], emps: s.emps ?? [], archPk: s.archPk ?? [], archDocs: s.archDocs ?? [], oldOrd: s.oldOrd ?? [], holds: s.holds ?? [] };
+    for (const c of Object.keys(COLLS) as Coll[]) lists[c].forEach((x, i) => rows[c].set(COLLS[c](x as Row), { payload: encode(x), gone: false, rev: r, ord: i + 1 }));
+    for (const [k, v] of Object.entries({ mid: s.mid, did: s.did, seq: s.seq, sup_eid: s.sup?.eid, bk: s.bk, st: s.st, costs: s.costs, alias: s.alias, img: s.img, cat: s.cat, lock: s.lock })) if (v !== undefined) meta.set(k, { v: encode(v), rev: r });
+  }
+  load(boot.state, 1);
+  let epoch = boot.epoch ?? '';
   const files: ServerFile[] = [...(boot.files ?? [])];
 
   const can = (p: string) => user.role === 'admin' || user.perms.includes(p);
@@ -66,6 +71,8 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
     // transaction: work on copies, keep them only if everything passes
     const M = moves.map((m) => ({ ...m })); const R = Object.fromEntries(Object.entries(rows).map(([c, m]) => [c, new Map(m)])) as typeof rows; const ME = new Map(meta);
     try {
+      // SyncService::push: after a restore, a page opened before it must reload first
+      if (epoch && body.epoch !== epoch) throw new HttpError(409, 'restored', 'البيانات اترجعت من نسخة احتياطية. الصفحة هتتحدّث؛ أعد العملية بعدها.');
       const since = Math.max(0, Number(body.since) || 0); const prev = rev; const nrev = prev + 1; const lock = lockDate(); const today = cairoToday();
       const conflicts: unknown[] = []; let changed = 0; const newMoves: Row[] = []; const pushedOrders: Row[] = []; const pushedHolds = new Set<string>();
       const openDay = (date: string) => { if (lock && date && date <= lock) throw new HttpError(409, 'day_locked', `اليوم ${date} مقفول.`); };
@@ -176,7 +183,12 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
     push: async (body) => push(structuredClone(body)),
     upload: async (file, name, kind, ownerType, ownerId) => { const f: ServerFile = { id: files.length + 1000, kind, ownerType, ownerId, name, mime: file.type || 'image/jpeg', size: file.size, hasThumb: kind === 'doc_photo', uploadedAt: '2026-11-08 10:00:00' }; files.push(f); return f; },
   };
-  return { transport, pull, push, files, get rev() { return rev; }, user, bootNow: (): Boot => ({ rev, csrf: 'x', user, files: [...files], state: stateFromRows() }) };
+  /** Restore.php: everything replaced by the backup's state, a new epoch */
+  function restore(state: Row) {
+    rev += 2; load(structuredClone(state), rev - 1);
+    epoch = `e${rev}`; meta.set('epoch', { v: encode({ id: epoch }), rev });
+  }
+  return { transport, pull, push, restore, files, get rev() { return rev; }, user, bootNow: (): Boot => ({ rev, csrf: 'x', user, files: [...files], epoch, state: stateFromRows() }) };
 
   /** the page boot as Snapshot.php builds it from the tables */
   function stateFromRows(): Row {

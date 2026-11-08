@@ -60,7 +60,7 @@ export function applyPull(m: Mirror, p: Pulled): Mirror {
 }
 
 /** The server embeds the whole state in the page (window.FEM_BOOT, built by Snapshot.php): turn it into a mirror. */
-export interface Boot { rev: number; csrf?: string; user?: { id: string; name: string; role: string; perms?: string[] }; state: Row; files?: ServerFile[]; empty?: boolean }
+export interface Boot { rev: number; csrf?: string; /** changes on every restore from a backup */ epoch?: string; user?: { id: string; name: string; role: string; perms?: string[] }; state: Row; files?: ServerFile[]; empty?: boolean }
 export function mirrorFromBoot(b: Boot): Mirror {
   const m = emptyMirror(); const s = b.state ?? {};
   const lists: Record<Coll, unknown[]> = {

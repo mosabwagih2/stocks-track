@@ -63,7 +63,8 @@ final class Snapshot
         if ($state['bk'] === null) {
             unset($state['bk']);
         }
-        return ['state' => $state, 'rev' => $data['rev'], 'empty' => $empty];
+        $epoch = $meta('epoch');
+        return ['state' => $state, 'rev' => $data['rev'], 'empty' => $empty, 'epoch' => is_array($epoch) ? (string)($epoch['id'] ?? '') : ''];
     }
 
     /** Users and roles are managed by the server (UsersController), never by sync. */
