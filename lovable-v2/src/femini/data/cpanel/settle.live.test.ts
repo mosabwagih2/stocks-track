@@ -19,16 +19,16 @@ afterEach(() => setActor(null));
 describe.skipIf(!boot || !file || !fs.existsSync(file!))('settlement sheet on the live data', () => {
   it('collected orders, totals, duplicates, money hidden, delete', async () => {
     const wb = XLSX.read(fs.readFileSync(file!), { type: 'buffer' });
-    const settle = parseSettlement(XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' }));
+    const settle = parseSettlement(XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' }), file!);
     const srv = createFakeServer(boot!, ADMIN);
     setActor(ADMIN.name);
     const r = createMemoryRepo(createServerBackend(srv.bootNow(), srv.transport));
     const res = await r.importSettlement({ settle, source: 'tasweya.xlsx' });
-    expect(res).toMatchObject({ id: 'STL-0001', collected: 71, returned: 20, due: 42765 });
+    expect(res).toMatchObject({ id: 'STL-0001', collected: 71, returned: 14, due: 42765 });
     // a fresh page load shows it, and the orders it collected
     const fresh = toLovable(mirrorFromBoot(srv.bootNow()));
     expect(fresh.settles).toHaveLength(1);
-    expect(fresh.settles![0].totals).toEqual({ sales: 79168, cod: 72993, due: 42765, channel: 30228 });
+    expect(fresh.settles![0].totals).toEqual({ sales: 79168, cod: 72993, shipping: 6175, due: 42765, vendoor: 30228 });
     const { collected } = collectedOf(fresh.settles!);
     const shippedPaid = fresh.orders.filter((o) => o.status === 'shipped' && collected.has(o.ref));
     expect(shippedPaid.length).toBe(65);   // 65 collected orders are in the system (6 are from before it; re9000's row is an adjustment)

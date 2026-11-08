@@ -9,7 +9,7 @@ import { downloadBlob } from '@/femini/data/backup';
 import { fmt } from '@/femini/cn';
 import { Alert, Button, Card, Empty, Field, Kpi, Sheet, TableWrap, th, td } from './ui';
 
-const money = (n: number) => `${fmt(n)} ج`;
+const money = (n: number) => fmt(n);   // amounts in EGP (the labels say so)
 
 /** Upload the channel's settlement sheet: read it, show what it adds, then save. */
 export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }) {
@@ -21,7 +21,7 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
     try {
       const X = await import('xlsx'); const wb = X.read(await f.arrayBuffer(), { type: 'array', cellDates: false });
       const aoa = X.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' });
-      setParsed(parseSettlement(aoa));
+      setParsed(parseSettlement(aoa, f.name));
     } catch (e) { setErr((e as Error).message); }
   };
   const pv = useMemo(() => (parsed ? previewSettlement(parsed, d.snap.orders, new Set<string>(), d.snap.settles ?? []) : null), [parsed, d]);
@@ -31,19 +31,29 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
       <Field label="ملف التسوية (Excel)"><input type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f) void read(f); }} /></Field>
       {err && <Alert tone="crit">{err}</Alert>}
       {parsed && pv && <>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Kpi label="تاريخ التسوية" value={<span className="text-lg">{parsed.date || '—'}</span>} />
-          <Kpi label="اتحصّل" value={pv.collect} sub="أوردر" tone="good" />
-          <Kpi label="رجع" value={pv.ret} sub="أوردر" />
-          <Kpi label="المستحق ليك" value={money(parsed.totals.due)} sub={`المحصّل ${money(parsed.totals.cod)}`} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Kpi label="تاريخ التسوية" value={<span className="text-lg">{parsed.date}</span>} sub={parsed.title} />
+          <Kpi label="إجمالي الأوردرات" value={pv.rows} sub="في الشيت" />
+          <Kpi label="مستحق فيميني (جنيه)" value={money(parsed.totals.due)} tone="good" />
         </div>
+        <TableWrap><table className="text-sm"><thead><tr><th className={th}>الأوردرات</th><th className={th}>العدد</th></tr></thead><tbody>
+          <tr><td className={td}><b>إجمالي الأوردرات</b></td><td className={td + ' font-mono font-semibold'}>{pv.rows}</td></tr>
+          <tr><td className={td}>اتحصّل (اتسلّم واتدفع)</td><td className={td + ' font-mono'}>{pv.collect}</td></tr>
+          <tr><td className={td}>رجع (رفض الاستلام)</td><td className={td + ' font-mono'}>{pv.ret}</td></tr>
+          <tr><td className={td}>تسليم جزئي / استبدال</td><td className={td + ' font-mono'}>{pv.partial}</td></tr>
+          {pv.adjust > 0 && <tr><td className={td}>تعديل (فرق تحصيل)</td><td className={td + ' font-mono'}>{pv.adjust}</td></tr>}
+        </tbody></table></TableWrap>
+        <TableWrap><table className="text-sm"><thead><tr><th className={th}>الفلوس</th><th className={th}>جنيه</th></tr></thead><tbody>
+          <tr><td className={td}>إجمالي المبيعات (اللي دفعه العملاء)</td><td className={td + ' font-mono'}>{money(parsed.totals.sales)}</td></tr>
+          <tr><td className={td}>مستحق شركة الشحن (مصاريف الشحن)</td><td className={td + ' font-mono'}>{money(parsed.totals.shipping)}</td></tr>
+          <tr><td className={td}>الصافي بعد الشحن</td><td className={td + ' font-mono'}>{money(parsed.totals.cod)}</td></tr>
+          <tr><td className={td}><b>مستحق فيميني</b></td><td className={td + ' font-mono font-semibold'}>{money(parsed.totals.due)}</td></tr>
+          <tr><td className={td}>مستحق فيندور</td><td className={td + ' font-mono'}>{money(parsed.totals.vendoor)}</td></tr>
+        </tbody></table></TableWrap>
         <TableWrap><table className="text-sm"><tbody>
-          <tr><td className={td}>إجمالي المبيعات</td><td className={td + ' font-mono'}>{money(parsed.totals.sales)}</td></tr>
-          <tr><td className={td}>صافي التحصيل (بعد مصاريف الشحن)</td><td className={td + ' font-mono'}>{money(parsed.totals.cod)}</td></tr>
-          <tr><td className={td}><b>المستحق ليك</b></td><td className={td + ' font-mono font-semibold'}>{money(parsed.totals.due)}</td></tr>
-          <tr><td className={td}>المستحق لشركة الشحن</td><td className={td + ' font-mono'}>{money(parsed.totals.channel)}</td></tr>
           <tr><td className={td}>أوردرات في السيستم / مش في السيستم</td><td className={td + ' font-mono'}>{pv.inSystem} / {pv.unknown.length}</td></tr>
         </tbody></table></TableWrap>
+        {parsed.dateNote && <Alert tone="warn">{parsed.dateNote}</Alert>}
         {pv.allDup && <Alert tone="crit">الشيت ده اترفع قبل كده؛ مش هيتسجل تاني.</Alert>}
         {!pv.allDup && pv.dup > 0 && <Alert tone="warn">{pv.dup} سطر متسجّل قبل كده في شيت تاني.</Alert>}
         {pv.notShipped.length > 0 && <Alert tone="warn">{pv.notShipped.length} أوردر اتحصّل في الشيت ومش متسجّل شحنه عندك: <span className="font-mono">{pv.notShipped.slice(0, 8).map((r) => r.ref).join('، ')}</span>. راجع الإسكان بتاعهم.</Alert>}
@@ -79,19 +89,19 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         <Button variant="primary" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="المستحق ليك (الفترة)" value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
-        <Kpi label="المحصّل من العملاء (الفترة)" value={money(sum(inRange, 'cod'))} sub={`مبيعات ${money(sum(inRange, 'sales'))}`} />
+        <Kpi label="مستحق فيميني في الفترة (جنيه)" value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
+        <Kpi label="المبيعات في الفترة (جنيه)" value={money(sum(inRange, 'sales'))} sub={`شركة الشحن ${money(sum(inRange, 'shipping'))} · فيندور ${money(sum(inRange, 'vendoor'))}`} />
         <Kpi label="أوردرات اتحصّلت" value={fmt(paid.length)} sub={`من ${fmt(shipped.length)} مشحون`} tone="good" />
-        <Kpi label="مشحون ولسه ما اتحصّلش" value={fmt(waiting.length)} sub={`متوقع ${money(waiting.reduce((a, x) => a + (x.o.total || 0), 0))}`} tone={waiting.length ? 'warn' : undefined} />
+        <Kpi label="مشحون ولسه ما اتحصّلش" value={fmt(waiting.length)} sub={`متوقع ${money(waiting.reduce((a, x) => a + (x.o.total || 0), 0))} جنيه`} tone={waiting.length ? 'warn' : undefined} />
       </div>
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>
         {!settles.length ? <Empty>لسه ما اترفعش شيت تسوية.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الملف', 'اتحصّل', 'رجع', 'المحصّل', 'المستحق ليك', 'لشركة الشحن', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'المبيعات', 'شركة الشحن', 'فيميني', 'فيندور', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{settles.map((s) => (
               <tr key={s.id}>
-                <td className={td + ' font-mono'}>{s.date}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' text-muted'}>{s.source}</td>
-                <td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'collect').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'return').length}</td>
-                <td className={td + ' font-mono'}>{fmt(s.totals.cod)}</td><td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td + ' font-mono'}>{fmt(s.totals.channel)}</td><td className={td}>{s.by}</td>
+                <td className={td + ' font-mono'} title={s.source}>{s.date}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' font-mono'}>{s.rows.length}</td>
+                <td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'collect').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'return').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'partial').length}</td>
+                <td className={td + ' font-mono'}>{fmt(s.totals.sales)}</td><td className={td + ' font-mono'}>{fmt(s.totals.shipping)}</td><td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td + ' font-mono'}>{fmt(s.totals.vendoor)}</td><td className={td}>{s.by}</td>
                 <td className={td}><div className="flex gap-1">
                   {fileOf(s.id) && <Button size="sm" onClick={() => download(s.id)} aria-label={`تنزيل ${s.id}`}><Download className="size-4" /></Button>}
                   {admin && (del === s.id
