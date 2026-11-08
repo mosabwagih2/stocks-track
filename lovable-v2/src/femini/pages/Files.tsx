@@ -46,8 +46,20 @@ function ShipmentSheet({ d, doc, onClose }: { d: Derived; doc: Doc; onClose: () 
   // pieces of the sheet from the ledger (older sheets did not store the count)
   const pieces = d.snap.moves.filter((m) => m.doc === doc.no).reduce((a, m) => a + m.qty, 0);
   const orders = Number(doc.hdr.orders ?? (Array.isArray(doc.hdr.refs) ? (doc.hdr.refs as unknown[]).length : refs.length));
-  const [newDate, setNewDate] = useState(doc.date); const closed = dayClosed(d.snap, newDate);
-  const movable = refs.filter((o) => o.status === 'shipped' && !o.returned).length;
+  const [newDate, setNewDate] = useState(() => { const days = [...new Set(refs.filter((o) => o.status === 'shipped').map((o) => d.snap.pickups.find((p) => p.id === o.pickupId)?.date ?? ''))].filter(Boolean); return days.length === 1 ? days[0] : doc.date; }); const closed = dayClosed(d.snap, newDate);
+  // orders this sheet still carries out (a customer return stays on the order and moves with it)
+  const movable = refs.filter((o) => o.status === 'shipped').length;
+  const pkDays = [...new Set(refs.filter((o) => o.status === 'shipped').map((o) => d.snap.pickups.find((p) => p.id === o.pickupId)?.date ?? ''))].filter(Boolean);
+  const redate = admin && movable > 0 && <div className="grid gap-2 rounded-xl border border-line bg-surface p-3">
+            <h3 className="text-sm font-semibold">تصحيح تاريخ الورقة <span className="text-xs font-normal text-muted">(للمدير)</span></h3>
+            <p className="text-xs text-muted">الورقة المؤكدة ما بتتعدلش في الدفتر. النقل بيعكسها على يومها، ويسجّل أوردراتها ({movable}) تاني على اليوم الصحيح في حفظة واحدة، باسم نفس الموظف. المرتجعات بتفضل زي ما هي.{pkDays.length === 1 && pkDays[0] !== doc.date ? ` يوم البيك أب بتاعها: ${pkDays[0]}.` : ''}</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="اليوم الصحيح"><input type="date" value={newDate} max={d.today} onChange={(e) => e.target.value && setNewDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
+              {closed && newDate !== doc.date && <Button size="sm" onClick={() => act(() => repo.reopenDay(newDate), `اتفتح يوم ${newDate}`)}>افتح يوم {newDate}</Button>}
+              <Button variant="primary" disabled={newDate === doc.date || closed || !movable} onClick={async () => { const r = await act(() => repo.redateShipment(doc.no, newDate), (x) => `اتنقلت الورقة: ${x.doc} على ${newDate} (${x.orders} أوردر)`); if (r) onClose(); }}>نقل الورقة لليوم ده</Button>
+            </div>
+            {closed && newDate !== doc.date && <p className="text-xs text-warn">يوم {newDate} مقفول؛ افتحه الأول (بيفتح الأيام اللي بعده لحد النهارده، وبتتقفل تاني بكره لوحدها).</p>}
+          </div>;
   return (
     <Sheet title={`ملف شحن ${doc.no}`} onClose={onClose}>
       <div className="grid grid-cols-2 gap-3"><Kpi label="أوردرات" value={orders} sub={`${fmt(pieces)} قطعة`} /><Kpi label="الحالة" value={<span className="font-sans text-lg">{done ? 'مؤكد' : 'معكوس'}</span>} /></div>
@@ -57,19 +69,10 @@ function ShipmentSheet({ d, doc, onClose }: { d: Derived; doc: Doc; onClose: () 
           <Field label="اسم الموظف"><input value={emp} onChange={(e) => setEmp(e.target.value)} /></Field>
           <div><Button variant="primary" disabled={!emp.trim() || emp.trim() === String(doc.hdr.employee ?? doc.by)} onClick={async () => { const r = await act(() => repo.renameShipmentEmployee(doc.no, emp), 'تم تحديث اسم الموظف'); if (r !== undefined) onClose(); }}>حفظ اسم الموظف</Button>
             <p className="mt-1 text-xs text-muted">يحدّث الأوردرات وإحصائيات الموظفين. تبقى حركات المخزون القديمة كما هي في السجل.</p></div>
-          {admin && <div className="grid gap-2 rounded-xl border border-line bg-surface p-3">
-            <h3 className="text-sm font-semibold">تصحيح تاريخ الورقة <span className="text-xs font-normal text-muted">(للمدير)</span></h3>
-            <p className="text-xs text-muted">الورقة المؤكدة ما بتتعدلش في الدفتر. النقل بيعكسها، ويسجّل أوردراتها ({movable}) تاني على اليوم الصحيح في حفظة واحدة، باسم نفس الموظف. الأوردرات اللي ليها مرتجع بتفضل على الورقة القديمة.</p>
-            <div className="flex flex-wrap items-end gap-2">
-              <Field label="اليوم الصحيح"><input type="date" value={newDate} max={d.today} onChange={(e) => e.target.value && setNewDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
-              {closed && newDate !== doc.date && <Button size="sm" onClick={() => act(() => repo.reopenDay(newDate), `اتفتح يوم ${newDate}`)}>افتح يوم {newDate}</Button>}
-              <Button variant="primary" disabled={newDate === doc.date || closed || !movable} onClick={async () => { const r = await act(() => repo.redateShipment(doc.no, newDate), (x) => `اتنقلت الورقة: ${x.doc} على ${newDate} (${x.orders} أوردر)`); if (r) onClose(); }}>نقل الورقة لليوم ده</Button>
-            </div>
-            {closed && newDate !== doc.date && <p className="text-xs text-warn">يوم {newDate} مقفول؛ افتحه الأول (بيفتح الأيام اللي بعده لحد النهارده، وبتتقفل تاني بكره لوحدها).</p>}
-          </div>}
 
+          {redate}
         </>
-      ) : <Alert>تم عكس هذا الملف.</Alert>}
+      ) : <><Alert>تم عكس هذا الملف.{movable ? ` لسه عليه ${movable} أوردر (ليهم مرتجع).` : ''}</Alert>{redate}</>}
     </Sheet>
   );
 }
