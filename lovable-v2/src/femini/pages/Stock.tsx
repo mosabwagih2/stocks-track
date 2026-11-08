@@ -87,7 +87,7 @@ function SkuSheet({ d, sku, start, onClose }: { d: Derived; sku: Sku; start: Loc
   const act = useAct(); const b = d.snap.balances; const info = cellInfo(sku, b, d.demand, d.velocity, d.velocityOK, 14);
   // starts from the state the stock page is showing (or the first one that has pieces), on its usual next step
   const first = qty(b, sku.id, start) > 0 ? start : (LOCS.find((l) => qty(b, sku.id, l) > 0) as Loc | undefined) ?? start;
-  const [from, setFromState] = useState<Loc>(first); const [stepI, setStepI] = useState(0); const [q, setQ] = useState(1); const [reason, setReason] = useState('');
+  const [from, setFromState] = useState<Loc>(first); const [stepI, setStepI] = useState(0); const [q, setQ] = useState(1); const [reason, setReason] = useState(''); const [date, setDate] = useState(d.today);
   const setFrom = (l: Loc) => { setFromState(l); setStepI(0); setQ(1); };
   const step = NEXT[from][stepI] ?? NEXT[from][0];
   const moves = d.snap.moves.filter((m) => m.sku === sku.id).slice(0, 15);
@@ -104,14 +104,15 @@ function SkuSheet({ d, sku, start, onClose }: { d: Derived; sku: Sku; start: Loc
         <tr><td className={td}><b>إجمالي الكمية المملوكة</b></td><td className={td + ' font-mono font-semibold'}>{fmt(totalOwned(b, sku.id))}</td></tr>
       </tbody></table></TableWrap>
       <Card title="النقل بين الحالات" hint="كل خطوة بتتسجل بعمليتها (تصنيف، إرسال للمصنع، استلام من المصنع، المفقود)">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Field label="من"><select value={from} onChange={(e) => setFrom(e.target.value as Loc)}>{LOCS.map((l) => <option key={l} value={l}>{LOC_AR[l]} ({fmt(qty(b, sku.id, l))})</option>)}</select></Field>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <Field label="التاريخ"><input type="date" value={date} max={d.today} onChange={(e) => e.target.value && setDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
+          <Field label="من"><select value={from} onChange={(e) => setFrom(e.target.value as Loc)}>{LOCS.map((l) => <option key={l} value={l}>{LOC_AR[l]}</option>)}</select></Field>
           <Field label="إلى"><select value={stepI} onChange={(e) => setStepI(+e.target.value)}>{NEXT[from].map((x, i) => <option key={i} value={i}>{x.label}</option>)}</select></Field>
           <Field label="الكمية"><input type="number" min={1} max={Math.max(1, have)} value={q} onChange={(e) => setQ(Math.max(1, Math.min(Math.max(1, have), Math.floor(+e.target.value || 1))))} /></Field>
           <Field label="السبب"><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="بقعة..." /></Field>
         </div>
         <p className="mt-2 text-sm">{LOC_AR[from]}: <b className="font-mono">{fmt(have)}</b> ← <b className="font-mono">{fmt(have - q)}</b> {q > have && <Pill tone="crit">الكمية غير كافية</Pill>}</p>
-        <div className="mt-3"><Button variant="primary" disabled={q > have || q < 1} onClick={async () => { const r = await act(() => repo.postOp({ type: step.op, date: d.today, hdr: step.hdr(reason.trim()), lines: [step.line(sku.id, q)] }), (x) => `تم تسجيل ${x.doc}`); if (r) onClose(); }}>تأكيد: {step.label}</Button></div>
+        <div className="mt-3"><Button variant="primary" disabled={q > have || q < 1} onClick={async () => { const r = await act(() => repo.postOp({ type: step.op, date, hdr: step.hdr(reason.trim()), lines: [step.line(sku.id, q)] }), (x) => `تم تسجيل ${x.doc}`); if (r) onClose(); }}>تأكيد: {step.label}</Button></div>
       </Card>
       <h3 className="font-display font-semibold">آخر الحركات</h3>
       {moves.length ? <TableWrap><table className="text-sm"><tbody>{moves.map((m) => <tr key={m.id}><td className={td + ' font-mono text-muted'}>{m.date}</td><td className={td}>{m.note || m.type}<div className="text-xs text-muted">من {LOC_AR[m.from]} إلى {LOC_AR[m.to]} · <span className="font-mono">{m.doc}</span></div></td><td className={td + ' text-xs'}>{m.by}</td><td className={td + ' font-mono'}>{m.qty}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا توجد حركات.</Empty>}
@@ -121,24 +122,13 @@ function SkuSheet({ d, sku, start, onClose }: { d: Derived; sku: Sku; start: Loc
 
 export default function Stock() {
   const { d, isLoading, error } = useDerived();
-  const [sp, setSp] = useSearchParams(); const v0 = sp.get('view'); const view: 'all' | 'table' | 'map' | 'supplies' | 'waste' = v0 === 'table' || v0 === 'map' || v0 === 'supplies' || v0 === 'waste' ? v0 : 'all';
+  const [sp, setSp] = useSearchParams(); const v0 = sp.get('view'); // (the all-SKUs table was removed: an old link with view=table opens the models)
+  const view: 'all' | 'map' | 'supplies' | 'waste' = v0 === 'map' || v0 === 'supplies' || v0 === 'waste' ? v0 : 'all';
   const setView = (v: string) => { const n = new URLSearchParams(sp); if (v === 'all') n.delete('view'); else n.set('view', v); setSp(n, { replace: true }); }; const [loc, setLoc] = useState<Loc>('READY');
   const [line, setLine] = useState('all'); const [otherModel, setOtherModel] = useState('all');
-  const [q, setQ] = useState(''); const dq = useDeferredValue(q); const [flt, setFlt] = useState<'all' | 'low' | 'neg' | 'dem' | 'arch'>('all'); const [sku, setSku] = useState<Sku | null>(null);
+  const [q, setQ] = useState(''); const dq = useDeferredValue(q); const [archOpen, setArchOpen] = useState(false); const [sku, setSku] = useState<Sku | null>(null);
   const [supAdd, setSupAdd] = useState(0); const [supArch, setSupArch] = useState(false); const [imgModel, setImgModel] = useState<string | null>(null); const [catSheet, setCatSheet] = useState<'new' | null>(null); const [editModel, setEditModel] = useState<string | null>(null);
   const order = useMemo(() => (d ? d.modelsByPull : []), [d]);
-  const rows = useMemo(() => {
-    if (!d || view !== 'table') return [];
-    const w = dq.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return d.snap.skus.filter((s) => {
-      const c = cellInfo(s, d.snap.balances, d.demand, d.velocity, d.velocityOK, 14);
-      // an item with nothing in any state and no open demand is just catalog: not shown
-      if (!c.demand && LOCS.every((l) => qty(d.snap.balances, s.id, l) === 0)) return false;
-      if (loc !== 'READY' && qty(d.snap.balances, s.id, loc) <= 0) return false;   // a state chip shows the items holding pieces in it
-      if (flt === 'low' && !c.level) return false; if (flt === 'neg' && c.ready >= 0) return false; if (flt === 'dem' && !c.demand) return false;
-      return !w.length || w.every((x) => `${s.id} ${s.color} ${s.size}`.toLowerCase().includes(x));
-    }).sort((a, b) => { const x = cellInfo(a, d.snap.balances, d.demand, d.velocity, d.velocityOK, 14), y = cellInfo(b, d.snap.balances, d.demand, d.velocity, d.velocityOK, 14); const r = (c: typeof x) => (c.level === 'crit' ? 0 : c.level === 'warn' ? 1 : 2); return r(x) - r(y) || a.id.localeCompare(b.id, 'en', { numeric: true }); });
-  }, [d, view, dq, flt, loc]);
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
   const mName = (c: string) => `${c} · ${d.modelMap.get(c)?.name ?? ''}`;
@@ -163,10 +153,11 @@ export default function Stock() {
     <>
       <PageHead title="المخزون" sub="متابعة الموديلات والأصناف ومستلزمات التغليف في مكان واحد." actionsClassName="flex w-full min-w-0 items-center gap-2">
         <div className="min-w-0 overflow-x-auto [&>div]:w-max [&_button]:whitespace-nowrap">
-          <Seg value={view} onChange={setView} options={[['all', 'كل الموديلات'], ['supplies', 'المستلزمات'], ['map', 'خريطة المخزون'], ['table', 'كل الأصناف'], ['waste', 'الهالك والمصنع']]} label="العرض" />
+          <Seg value={view} onChange={setView} options={[['all', 'كل الموديلات'], ['supplies', 'المستلزمات'], ['map', 'خريطة المخزون'], ['waste', 'الهالك والمصنع']]} label="العرض" />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="w-9">{view === 'supplies' && <Button className="size-9 p-0" aria-label={supArch ? 'المستلزمات الحالية' : `المؤرشفة (${d.snap.supplies.filter((s) => s.archived).length})`} title={supArch ? 'المستلزمات الحالية' : 'المستلزمات المؤرشفة'} onClick={() => setSupArch((x) => !x)}><Archive className="size-4" /></Button>}</div>
+          {view !== 'supplies' && d.snap.archivedSkus.length > 0 && <Button onClick={() => setArchOpen(true)}><Archive className="size-4" />الأصناف المؤرشفة ({d.snap.archivedSkus.length})</Button>}
           <Button className="w-32 sm:w-36" variant="primary" onClick={() => view === 'supplies' ? setSupAdd((n) => n + 1) : setCatSheet('new')}><Plus className="size-4 shrink-0" />{view === 'supplies' ? 'إضافة مستلزم' : 'موديل جديد'}</Button>
         </div>
       </PageHead>
@@ -176,7 +167,7 @@ export default function Stock() {
           {LOCS.map((l) => <Button key={l} aria-pressed={loc === l} variant={loc === l ? 'primary' : 'default'} onClick={(e) => { setLoc(l === loc ? 'READY' : l); e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); }}><Dot className={LOC_COLOR[l]} />{LOC_AR[l]} <span className="font-mono text-xs opacity-75">{fmt(locTotal(d.snap.balances, l))}</span>{loc === l && <Check className="size-4" />}</Button>)}
         </div>
         <div className="mt-2 flex min-h-9 items-center justify-between gap-2 text-xs text-muted">
-          <span>الرصيد المعروض: <b className="text-ink">{view === 'table' ? (loc === 'READY' ? 'كل الحالات' : `اللي فيه ${LOC_AR[loc]}`) : LOC_AR[loc]}</b></span>
+          <span>الرصيد المعروض: <b className="text-ink">{LOC_AR[loc]}</b></span>
           <Button size="sm" variant="ghost" className="h-9" disabled={loc === 'READY'} onClick={() => setLoc('READY')}><X className="size-3.5" />إلغاء الفلتر</Button>
         </div>
       </div>
@@ -186,27 +177,7 @@ export default function Stock() {
         for (const s of d.snap.skus) { const k = `${s.model}|${s.size}`; cell.set(k, (cell.get(k) ?? 0) + qty(d.snap.balances, s.id, loc)); }
         const sizes = d.snap.sizes.filter((z) => ms.some((m) => cell.get(`${m}|${z}`)));
         return ms.length ? <Card title={`خريطة المخزون: الموديل × المقاس`} hint={`${LOC_AR[loc]} · ${ms.length} موديل`}><Heatmap models={ms} sizes={sizes} value={(m, z) => cell.get(`${m}|${z}`) ?? 0} total={(m) => modelSum(m, loc)} /></Card> : <Empty>لا يوجد رصيد في هذه الحالة.</Empty>;
-      })() : view === 'table' ? (
-        <>
-          <div className="mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="flex flex-wrap items-center gap-2 [&>button]:whitespace-nowrap">
-            {([['all', 'الكل'], ['low', 'على وشك النفاد'], ['neg', 'سالب'], ['dem', 'عليه طلب مفتوح'], ['arch', `مؤرشف (${d.snap.archivedSkus.length})`]] as const).map(([v, l]) => <Chip key={v} pressed={flt === v} onClick={() => setFlt(v)}>{l}</Chip>)}
-            </div>
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث: BR2 احمر L" className="w-full lg:w-60" aria-label="بحث" />
-          </div>
-          {flt === 'arch' ? <ArchivedList d={d} /> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'جاهز', 'هالك نظافة', 'عند المصنع', 'هالك نهائي', 'مفقود', 'طلب مفتوح', 'يغطّي (يوم)', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
-            <tbody>{rows.slice(0, 200).map((s) => { const c = cellInfo(s, d.snap.balances, d.demand, d.velocity, d.velocityOK, 14); return (
-              <tr key={s.id} className="cursor-pointer hover:bg-lav" onClick={() => setSku(s)}>
-                <td className={td}><Thumb model={d.modelMap.get(s.model)} size={36} className="me-1.5" /><Swatch c={s.color} /> <b className="font-mono">{s.model}</b> {s.color} · {s.size}</td><td className={td + ' font-mono'}>{fmt(c.ready)}</td>
-                <td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'DIRTY')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'FACTORY')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'SCRAP')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'LOST')}</td>
-                <td className={td + ' font-mono'}>{c.demand}</td><td className={td + ' font-mono'}>{c.cover != null ? Math.floor(c.cover) : '—'}</td>
-                <td className={td}>{c.ready < 0 ? <Pill tone="crit">سالب</Pill> : c.level === 'crit' ? <Pill tone="crit">سينفد</Pill> : c.level === 'warn' ? <Pill tone="warn">منخفض</Pill> : null}</td></tr>); })}
-              {!rows.length && <tr><td colSpan={9}><Empty>لا توجد أصناف مطابقة للفلتر.</Empty></td></tr>}</tbody></table></TableWrap>
-          )}
-          {flt !== 'arch' && rows.length > 200 && <p className="mt-2 text-muted">أول 200 من {fmt(rows.length)}. ضيّق نطاق البحث.</p>}
-        </>
-      ) : (
+      })() : (
         <>
           <input type="search" aria-label="بحث الموديلات" placeholder="بحث بالموديل أو اللون أو المقاس" value={q} onChange={(e)=>setQ(e.target.value)} className="mb-3 w-full sm:max-w-sm" />
           <div role="group" aria-label="فلاتر الموديلات" className="mb-4 flex flex-wrap items-center gap-2 [&>button]:h-9 [&>button]:whitespace-nowrap">
@@ -231,6 +202,7 @@ export default function Stock() {
         </>
       )}
       </>}
+      {archOpen && <Sheet title={`الأصناف المؤرشفة (${d.snap.archivedSkus.length})`} onClose={() => setArchOpen(false)} wide><ArchivedList d={d} /></Sheet>}
       {sku && <SkuSheet d={d} sku={sku} start={view === 'waste' ? ((['DIRTY', 'FACTORY', 'SCRAP'] as Loc[]).find((l) => qty(d.snap.balances, sku.id, l) > 0) ?? 'DIRTY') : loc} onClose={() => setSku(null)} />}
       {catSheet === 'new' && <NewModelSheet d={d} onClose={() => setCatSheet(null)} onCreated={() => setView('all')} />}
       {editModel && <EditCatalogSheet key={editModel} d={d} initial={editModel} onClose={() => setEditModel(null)} />}

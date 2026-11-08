@@ -70,7 +70,7 @@ final class Restore
             $req->since = 0;
             $req->moves = $list($S->moves ?? []);
             $coll = [];
-            foreach (['docs', 'orders', 'pickups', 'closes', 'shops', 'emps', 'archPk', 'archDocs', 'oldOrd', 'holds'] as $c) {
+            foreach (['docs', 'orders', 'pickups', 'closes', 'shops', 'emps', 'archPk', 'archDocs', 'oldOrd', 'holds', 'settles'] as $c) {
                 $coll[$c] = (object)['up' => $list($S->$c ?? [])];
             }
             $coll['sup_items'] = (object)['up' => $list($S->sup->items ?? [])];

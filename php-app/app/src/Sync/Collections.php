@@ -31,6 +31,7 @@ final class Collections
         'archDocs'  => 'd.id',
         'oldOrd'    => 'ref',     // old pickups (before the system started): a reference for returns, never orders
         'holds'     => 'no',      // pieces out on a hold, with their event log (out / return / write-off)
+        'settles'   => 'id',      // the channel's settlement sheets (تسوية): which shipped orders were collected, and the amounts
     ];
 
     /** meta keys that clients may write, with the permission each needs (null = any signed-in user). */

@@ -14,6 +14,7 @@
 import seed from '../seed.json';
 import type { DayClose, Doc, Move, OpDraft, Order, OriginalFile, Pickup, Sku, Supply, SupplyEntry } from '@/femini/domain/types';
 import type { Hold } from '@/femini/domain/holds';
+import type { Settlement } from '@/femini/domain/settle';
 import { cairoDay } from '@/femini/domain/dates';
 import type { State } from '../memory';
 
@@ -25,6 +26,7 @@ export const COLLS = {
   sup_items: (r: Row) => String(r.id), sup_log: (r: Row) => String(r.id), closes: (r: Row) => String(r.id),
   shops: (r: unknown) => String(r), emps: (r: unknown) => String(r), archPk: (r: Row) => String(r.p?.id),
   archDocs: (r: Row) => String(r.d?.id), oldOrd: (r: Row) => String(r.ref), holds: (r: Row) => String(r.no),
+  settles: (r: Row) => String(r.id),
 } as const;
 export type Coll = keyof typeof COLLS;
 export const META_KEYS = ['mid', 'did', 'seq', 'sup_eid', 'bk', 'st', 'costs', 'alias', 'img', 'cat', 'lock'] as const;
@@ -65,7 +67,7 @@ export function mirrorFromBoot(b: Boot): Mirror {
   const m = emptyMirror(); const s = b.state ?? {};
   const lists: Record<Coll, unknown[]> = {
     docs: s.docs ?? [], orders: s.orders ?? [], pickups: s.pickups ?? [], sup_items: s.sup?.items ?? [], sup_log: s.sup?.log ?? [], closes: s.closes ?? [],
-    shops: s.shops ?? [], emps: s.emps ?? [], archPk: s.archPk ?? [], archDocs: s.archDocs ?? [], oldOrd: s.oldOrd ?? [], holds: s.holds ?? [],
+    shops: s.shops ?? [], emps: s.emps ?? [], archPk: s.archPk ?? [], archDocs: s.archDocs ?? [], oldOrd: s.oldOrd ?? [], holds: s.holds ?? [], settles: s.settles ?? [],
   };
   for (const c of Object.keys(COLLS) as Coll[]) for (const r of lists[c]) m.rows[c].set(COLLS[c](r as Row), r as Row);
   for (const mv of s.moves ?? []) { m.moves.push(mv); m.moveIds.add(mv.id); }
@@ -248,6 +250,7 @@ export function toLovable(m: Mirror): State {
     autoClose: meta.st ? meta.st.autoClose !== false : true,
     lastBackup: typeof meta.bk === 'number' ? new Date(meta.bk).toISOString() : undefined,
     holds: rows<Hold>('holds').map((h) => structuredClone(h)),
+    settles: rows<Settlement>('settles').map((x) => structuredClone(x)),
     lock: typeof meta.lock === 'string' ? meta.lock : '',
     did: Number(meta.did) || 1,
   };
@@ -290,6 +293,7 @@ export function toPush(S: State, m: Mirror, actor: string, now = Date.now()): Pu
   sync('sup_log', S.log, (e) => String(e.id), (e, orig) => logV(e, orig));
   sync('shops', S.shops ?? [], (s) => s, (s) => s);
   sync('holds', S.holds ?? [], (h) => h.no, (h) => structuredClone(h));
+  sync('settles', S.settles ?? [], (x) => x.id, (x) => structuredClone(x));
   sync('archPk', S.archivedPickups ?? [], (a) => a.pickup.id, (a, orig) => ({ ...(orig ?? {}), p: pickupV(a.pickup, orig?.p), orders: a.orders.map((o) => orderV(o, (orig?.orders ?? []).find((x: Row) => x.ref === o.ref))) }));
   sync('archDocs', S.archivedDrafts ?? [], (d) => d.id, (d, orig) => (orig ?? { d: m.rows.docs.get(d.id) ?? draftV(d, undefined, { actor, now }), at: now, by: actor }), (r) => isOwnedArchDoc(r as Row));
   let cn = Math.max(0, ...[...m.rows.closes.keys()].map((k) => Number(String(k).replace(/\D/g, '')) || 0));
@@ -348,6 +352,6 @@ export function stateFromPull(p: Pulled): Row {
     v: 3, moves: [...(p.moves ?? [])].sort((a, b) => a.id - b.id), mid: mv('mid'), docs: live('docs'), did: mv('did'), seq: mv('seq') ?? {},
     pickups: live('pickups'), orders: live('orders'), emps: live('emps'), sup: { log: live('sup_log'), items: live('sup_items'), eid: mv('sup_eid') },
     st: mv('st') ?? {}, costs: mv('costs') ?? {}, alias: mv('alias') ?? {}, img: mv('img') ?? {}, cat: mv('cat'), lock: mv('lock') ?? '', bk: mv('bk'),
-    shops: live('shops'), closes: live('closes'), archPk: live('archPk'), archDocs: live('archDocs'), oldOrd: live('oldOrd'), holds: live('holds'),
+    shops: live('shops'), closes: live('closes'), archPk: live('archPk'), archDocs: live('archDocs'), oldOrd: live('oldOrd'), holds: live('holds'), settles: live('settles'),
   };
 }

@@ -16,8 +16,8 @@ export interface Transport {
   upload(file: Blob, name: string, kind: string, ownerType: string, ownerId: string): Promise<ServerFile>;
 }
 /** what an attached file belongs to, in the app's terms */
-export type FileOwner = { type: 'pickup'; id: string } | { type: 'doc'; no: string } | { type: 'order'; ref: string };
-export type FileKind = 'pickup' | 'scan' | 'doc_photo' | 'cancel';
+export type FileOwner = { type: 'pickup'; id: string } | { type: 'doc'; no: string } | { type: 'order'; ref: string } | { type: 'settle'; id: string };
+export type FileKind = 'pickup' | 'scan' | 'doc_photo' | 'cancel' | 'doc_file';
 
 export interface Backend {
   readonly user: { id: string; name: string; role: string; perms: string[] };
@@ -70,6 +70,7 @@ export function createServerBackend(boot: Boot, transport: Transport = httpTrans
   const ownerOf = (o: FileOwner): [string, string] | null => {
     if (o.type === 'pickup') return ['pickup', o.id];
     if (o.type === 'order') return ['order', o.ref];
+    if (o.type === 'settle') return ['doc', o.id];   // a settlement sheet is kept as a document file under its number
     const d = [...m.rows.docs.values()].find((r) => (r as { no?: string }).no === o.no) as { id: string } | undefined;
     return d ? ['doc', String(d.id)] : null;
   };

@@ -1,6 +1,6 @@
 import { addDays } from '@/femini/domain/dates';
 import { useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Empty, Pill, Seg, TableWrap, th, td } from '@/femini/components/ui';
@@ -18,18 +18,20 @@ import { skuLabel } from '@/femini/domain/orders';
 import { cn, fmt, pct } from '@/femini/cn';
 import type { Derived } from '@/femini/hooks/data';
 import { FinancialReport, financialSheets } from '@/femini/components/FinancialReport';
+import { CollectionsView } from '@/femini/components/Collections';
 import { Deferred } from '@/femini/components/Deferred';
 
 const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : 'موديلات أخرى');
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
 const topN = (o: Record<string, number>, n: number) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
 
-type Sec = 'summary' | 'demand' | 'risk' | 'team' | 'finance';
+type Sec = 'summary' | 'demand' | 'risk' | 'team' | 'collect' | 'finance';
 const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'summary', label: 'الملخص', icon: Sparkles },
   { id: 'demand', label: 'الطلب', icon: Flame },
   { id: 'risk', label: 'المخاطر', icon: AlertTriangle },
   { id: 'team', label: 'الفريق', icon: Users },
+  { id: 'collect', label: 'التحصيل', icon: Wallet },
   { id: 'finance', label: 'القيمة المالية', icon: FileSpreadsheet },
 ];
 
@@ -100,7 +102,7 @@ export default function Insights() {
         <div>الفترة: {periodLabel}</div><div>الفلاتر: {filters}</div><div>تاريخ التصدير: {d.today}</div>
       </div>
 
-      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-6 grid grid-cols-5 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:overflow-x-auto max-sm:grid-cols-none max-sm:grid-flow-col max-sm:auto-cols-[minmax(128px,1fr)]">
+      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-6 grid grid-cols-6 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:overflow-x-auto max-sm:grid-cols-none max-sm:grid-flow-col max-sm:auto-cols-[minmax(128px,1fr)]">
         {SECTIONS.map(({ id, label, icon: Icon }) => (
           <Button key={id} variant={sec === id ? 'primary' : 'ghost'} onClick={() => go(id)} aria-pressed={sec === id}
             className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
@@ -115,6 +117,7 @@ export default function Insights() {
       {sec === 'demand' && <Demand d={d} st={st} />}
       {sec === 'risk' && <Risk d={d} st={st} alerts={alerts} />}
       {sec === 'team' && <Team d={d} />}
+      {sec === 'collect' && range && <CollectionsView d={d} from={range.from} to={range.to} />}
       {sec === 'finance' && <FinancialReport s={d.snap} />}
     </>
   );

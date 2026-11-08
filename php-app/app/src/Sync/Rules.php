@@ -218,6 +218,9 @@ final class Rules
             case 'holds':
                 $this->need('internal');
                 break;
+            case 'settles':
+                $this->need('pickup');   // uploaded with the channel's files
+                break;
             case 'oldOrd':
                 if (!Permissions::canAny($this->user, ['pickup', 'returns'])) {
                     throw new HttpError(403, 'forbidden', 'دورك مش بيسمح بالبيك أب القديم.', ['needs' => 'pickup']);

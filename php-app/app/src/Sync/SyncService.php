@@ -84,15 +84,19 @@ final class SyncService
         foreach (Collections::TABLES as $name => $def) {
             $out['coll'][$name] = $this->pullTable($def['table'], $since);
         }
+        // Unit costs and prices are only for roles that may see money (or edit the settings): the browser hiding them is not enough.
+        $seeMoney = Permissions::canAny($this->user, ['money', 'settings']);
         foreach (array_keys(Collections::ROWS) as $name) {
+            if ($name === 'settles' && !$seeMoney) {   // the settlement amounts too
+                $out['coll'][$name] = [];
+                continue;
+            }
             $rows = [];
             foreach (Database::all('SELECT k, payload, gone, rev FROM coll_rows WHERE coll = ? AND rev > ? ORDER BY ord', [$name, $since]) as $r) {
                 $rows[] = ['k' => $r['k'], 'row' => json_decode($r['payload']), 'gone' => (bool)$r['gone'], 'rev' => (int)$r['rev']];
             }
             $out['coll'][$name] = $rows;
         }
-        // Unit costs and prices are only for roles that may see money (or edit the settings): the browser hiding them is not enough.
-        $seeMoney = Permissions::canAny($this->user, ['money', 'settings']);
         foreach (Database::all('SELECT k, v, rev FROM meta WHERE rev > ?', [$since]) as $r) {
             if ($r['k'] === 'costs' && !$seeMoney) {
                 continue;

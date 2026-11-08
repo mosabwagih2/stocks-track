@@ -44,6 +44,9 @@ export interface Repo {
   /** admin: move a scan sheet to its real day (reversed and recorded again on that day, in one save) */
   redateShipment(doc: string, date: string): Promise<{ doc: string; orders: number }>;
   pickupDelete(id: string): Promise<number>;
+  /** the channel's settlement sheet: which shipped orders were collected (the money came), and the amounts */
+  importSettlement(i: { settle: Omit<import('@/femini/domain/settle').Settlement, 'id' | 'source' | 'at' | 'by'>; source: string; file?: File | null }): Promise<{ id: string; collected: number; returned: number; due: number }>;
+  deleteSettlement(id: string): Promise<void>;
   renameShipmentEmployee(doc: string, name: string): Promise<number>;
   exportBackup(): Promise<import('./backup').Backup>;
   restoreBackup(backup: import('./backup').Backup): Promise<void>;

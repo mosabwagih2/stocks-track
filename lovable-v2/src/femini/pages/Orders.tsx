@@ -9,12 +9,13 @@ import { Thumb } from '@/femini/components/Thumb';
 import { Spinner } from '@/femini/components/Spinner';
 import { CancelSheet, OrderSheet, UploadSheet } from '@/femini/components/OrderSheets';
 import { PickupOrders } from '@/femini/components/PickupOrders';
+import { SettleUpload } from '@/femini/components/Collections';
 import { channelName } from '@/femini/domain/constants';
 import { fmt } from '@/femini/cn';
 import { qty } from '@/femini/domain/ledger';
 import { skuLabel } from '@/femini/domain/orders';
 
-type Filter = 'all' | 'wait' | 'blocked' | 'done' | 'cx' | 'bad' | 'returned';
+type Filter = 'all' | 'wait' | 'blocked' | 'done' | 'cx' | 'bad' | 'returned' | 'paid';
 const PAGE = 60;
 
 export default function Orders() {
@@ -24,7 +25,7 @@ export default function Orders() {
   const [q, setQ] = useState(''); const dq = useDeferredValue(q);
   const [tab, setTab] = useState<'list' | 'pk' | 'pick'>('list'); const [n, setN] = useState(PAGE);
   const [sel, setSel] = useState<Set<string>>(new Set());
-  const [pkSheet, setPkSheet] = useState<string | null>(null);   // a pickup's orders; an order opened from it returns to it
+  const [pkSheet, setPkSheet] = useState<string | null>(null); const [settle, setSettle] = useState(false);   // a pickup's orders; an order opened from it returns to it
   const [orderRef, setOrderRef] = useState<string | null>(null); const [upload, setUpload] = useState<'scan' | 'pickup' | null>(null);
   const [manual, setManual] = useState<string[] | null>(null); const [cancel, setCancel] = useState<string | null>(null);
 
@@ -33,7 +34,7 @@ export default function Orders() {
     const live = d.snap.orders.filter((o) => o.status !== 'cancelled');
     return {
       all: live.length, wait: live.filter((o) => o.status === 'open' && !d.blocked.has(o.ref)).length, blocked: live.filter((o) => o.status === 'open' && d.blocked.has(o.ref)).length,
-      done: live.filter((o) => o.status === 'shipped' && !o.returned).length, returned: live.filter((o)=>o.returned).length, cx: d.snap.orders.length - live.length, bad: live.filter((o) => o.unmapped.length).length,
+      done: live.filter((o) => o.status === 'shipped' && !o.returned && !d.collected.has(o.ref)).length, paid: live.filter((o) => o.status === 'shipped' && !o.returned && d.collected.has(o.ref)).length, returned: live.filter((o)=>o.returned).length, cx: d.snap.orders.length - live.length, bad: live.filter((o) => o.unmapped.length).length,
     };
   }, [d]);
   const list = useMemo(() => {
@@ -44,7 +45,8 @@ export default function Orders() {
       if (f === 'cx') { if (o.status !== 'cancelled') return false; } else if (o.status === 'cancelled') return false;
       if (f === 'wait' && !(o.status === 'open' && !d.blocked.has(o.ref))) return false;
       if (f === 'blocked' && !(o.status === 'open' && d.blocked.has(o.ref))) return false;
-      if (f === 'done' && (o.status !== 'shipped' || o.returned)) return false;
+      if (f === 'done' && (o.status !== 'shipped' || o.returned || d.collected.has(o.ref))) return false;   // shipped, money not in yet
+      if (f === 'paid' && (o.status !== 'shipped' || o.returned || !d.collected.has(o.ref))) return false;
       if (f === 'returned' && !o.returned) return false;
       if (f === 'bad' && !o.unmapped.length) return false;
       return !s || o.ref.toLowerCase().includes(s) || o.waybill.includes(s) || o.gov.includes(s);
@@ -54,7 +56,7 @@ export default function Orders() {
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d || !counts) return <Spinner />;
   const setF = (v: Filter) => { const p = new URLSearchParams(sp); if (v === 'all') p.delete('f'); else p.set('f', v); setSp(p, { replace: true }); setN(PAGE); };
-  const chips: [Filter, string][] = [['all', 'الأوردرات'], ['wait', 'بانتظار الشحن'], ['blocked', 'متوقف'], ['done', 'مشحون'], ['returned','مرتجع']];
+  const chips: [Filter, string][] = [['all', 'الأوردرات'], ['wait', 'بانتظار الشحن'], ['blocked', 'متوقف'], ['done', 'مشحون'], ['paid', 'تم التحصيل'], ['returned','مرتجع']];
   const pick = (() => {
     const m: Record<string, number> = {}; for (const o of d.open) for (const s of o.lines) m[s] = (m[s] ?? 0) + 1;
     return Object.keys(m).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })).map((s) => ({ sku: s, need: m[s], ready: qty(d.snap.balances, s, 'READY') }));
@@ -66,6 +68,7 @@ export default function Orders() {
     <>
       <PageHead title="الأوردرات" sub="البيك أب = الطلب. الشحن (بالسكان) = ما خرج فعلًا. الفرق بينهما هو الأوردرات المتوقفة.">
         <Button variant="danger" onClick={() => setCancel('')}><XCircle className="size-4" /> إلغاء أوردر</Button>
+        <Button onClick={() => setSettle(true)}><Upload className="size-4" /> رفع شيت التحصيل</Button>
         <Button onClick={() => setUpload('pickup')}><Upload className="size-4" /> رفع بيك أب</Button>
         <Button variant="primary" onClick={() => setUpload('scan')}><Upload className="size-4" /> رفع ملف الإسكان</Button>
       </PageHead>
@@ -126,6 +129,7 @@ export default function Orders() {
           {list.length > n && <div className="mt-3 text-center"><Button onClick={() => setN((x) => x + PAGE)}>عرض المزيد ({fmt(list.length - n)} متبقي)</Button></div>}
         </>
       )}
+      {settle && <SettleUpload d={d} onClose={() => setSettle(false)} />}
       {pkSheet && !orderRef && <PickupOrders d={d} pickupId={pkSheet} onClose={() => setPkSheet(null)} onOrder={setOrderRef} />}
       {orderRef && <OrderSheet d={d} orderRef={orderRef} onClose={() => setOrderRef(null)} onCancel={(c) => { setOrderRef(null); setPkSheet(null); setCancel(c); }} />}
       {upload && <UploadSheet d={d} mode={upload} onClose={() => setUpload(null)} />}

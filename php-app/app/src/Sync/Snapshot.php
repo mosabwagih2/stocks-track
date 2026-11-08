@@ -51,6 +51,7 @@ final class Snapshot
             'archDocs' => $live($data['coll']['archDocs']),
             'oldOrd'   => $live($data['coll']['oldOrd']),
             'holds'    => $live($data['coll']['holds']),
+            'settles'  => $live($data['coll']['settles']),
             'audit'    => array_slice($data['audit'], -300),
             'roles'    => self::rolesForApp(),
             'users'    => self::usersForApp($user),

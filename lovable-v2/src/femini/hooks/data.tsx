@@ -1,3 +1,4 @@
+import { collectedOf } from '@/femini/domain/settle';
 import { serverEdition } from '@/femini/data';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,6 +35,8 @@ export interface Derived {
   modelMap: Map<string, Model>;
   orderMap: Map<string, Order>;
   pickupDate: Map<string, string>;
+  /** orders the channel's settlement sheets say were collected (the money came), and returned per the courier */
+  collected: Map<string, import('@/femini/domain/settle').Collected>; settleReturned: Map<string, string>;
   open: Order[];
   blocked: ReturnType<typeof allocate>['blocked'];
   demand: Record<string, number>;
@@ -67,7 +70,8 @@ export function useDerived(): { d: Derived | null; isLoading: boolean; error: un
     const days = dset.size; const span = days ? Math.max(1, Math.round((Date.parse(today) - Date.parse([...dset].sort()[0])) / 864e5) + 1) : 1;
     for (const k in velocity) velocity[k] /= span;
     const modelsByPull = data.models.map((m) => m.code).sort((a, b) => (pull[b] ?? 0) - (pull[a] ?? 0) || a.localeCompare(b, 'en', { numeric: true }));
-    return { snap: data, today, skuMap, modelMap, orderMap, pickupDate, open, blocked, demand, velocity, velocityOK: days >= 3, days, modelsByPull, pull };
+    const { collected, returned: settleReturned } = collectedOf(data.settles ?? []);
+    return { snap: data, today, skuMap, modelMap, orderMap, pickupDate, collected, settleReturned, open, blocked, demand, velocity, velocityOK: days >= 3, days, modelsByPull, pull };
   }, [data, today]);
   return { d, isLoading, error };
 }

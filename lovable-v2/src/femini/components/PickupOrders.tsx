@@ -6,8 +6,8 @@ import { fmt } from '@/femini/cn';
 import { Chip, Empty, Kpi, Sheet, TableWrap, th, td } from './ui';
 import { OrderPill } from './shared';
 
-type F = 'all' | 'wait' | 'blocked' | 'done' | 'returned' | 'cx' | 'bad';
-const FILTERS: [F, string][] = [['all', 'الكل'], ['wait', 'بانتظار الشحن'], ['blocked', 'متوقف'], ['done', 'مشحون'], ['returned', 'مرتجع'], ['cx', 'ملغي'], ['bad', 'كود غير مربوط']];
+type F = 'all' | 'wait' | 'blocked' | 'done' | 'paid' | 'returned' | 'cx' | 'bad';
+const FILTERS: [F, string][] = [['all', 'الكل'], ['wait', 'بانتظار الشحن'], ['blocked', 'متوقف'], ['done', 'مشحون'], ['paid', 'تم التحصيل'], ['returned', 'مرتجع'], ['cx', 'ملغي'], ['bad', 'كود غير مربوط']];
 
 /** One pickup's orders: search a waybill, filter by state, open an order. */
 export function PickupOrders({ d, pickupId, onClose, onOrder }: { d: Derived; pickupId: string; onClose: () => void; onOrder: (ref: string) => void }) {
@@ -20,7 +20,8 @@ export function PickupOrders({ d, pickupId, onClose, onOrder }: { d: Derived; pi
     if (x === 'all') return true;
     if (x === 'wait') return o.status === 'open' && !d.blocked.has(o.ref);
     if (x === 'blocked') return o.status === 'open' && d.blocked.has(o.ref);
-    if (x === 'done') return o.status === 'shipped' && !o.returned;
+    if (x === 'done') return o.status === 'shipped' && !o.returned && !d.collected.has(o.ref);
+    if (x === 'paid') return o.status === 'shipped' && !o.returned && d.collected.has(o.ref);
     if (x === 'returned') return !!o.returned;
     return o.unmapped.length > 0;
   };

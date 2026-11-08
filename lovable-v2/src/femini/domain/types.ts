@@ -74,6 +74,7 @@ export interface Snapshot {
   archivedPickups: { pickup: Pickup; orders: Order[] }[];
   archivedDrafts: OpDraft[];
   holds: import('./holds').Hold[];
+  settles: import('./settle').Settlement[];
   closes: DayClose[];
   autoClose: boolean;
   lastBackup: string | null;

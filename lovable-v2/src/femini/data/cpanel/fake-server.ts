@@ -55,7 +55,7 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
     moves = (s.moves ?? []).map((m: Row) => ({ ...m, rev: r }));
     rows = Object.fromEntries(Object.keys(COLLS).map((c) => [c, new Map()])) as Record<Coll, Map<string, Stored>>;
     meta = new Map();
-    const lists: Record<Coll, unknown[]> = { docs: s.docs ?? [], orders: s.orders ?? [], pickups: s.pickups ?? [], sup_items: s.sup?.items ?? [], sup_log: s.sup?.log ?? [], closes: s.closes ?? [], shops: s.shops ?? [], emps: s.emps ?? [], archPk: s.archPk ?? [], archDocs: s.archDocs ?? [], oldOrd: s.oldOrd ?? [], holds: s.holds ?? [] };
+    const lists: Record<Coll, unknown[]> = { docs: s.docs ?? [], orders: s.orders ?? [], pickups: s.pickups ?? [], sup_items: s.sup?.items ?? [], sup_log: s.sup?.log ?? [], closes: s.closes ?? [], shops: s.shops ?? [], emps: s.emps ?? [], archPk: s.archPk ?? [], archDocs: s.archDocs ?? [], oldOrd: s.oldOrd ?? [], holds: s.holds ?? [], settles: s.settles ?? [] };
     for (const c of Object.keys(COLLS) as Coll[]) lists[c].forEach((x, i) => rows[c].set(COLLS[c](x as Row), { payload: encode(x), gone: false, rev: r, ord: i + 1 }));
     for (const [k, v] of Object.entries({ mid: s.mid, did: s.did, seq: s.seq, sup_eid: s.sup?.eid, bk: s.bk, st: s.st, costs: s.costs, alias: s.alias, img: s.img, cat: s.cat, lock: s.lock })) if (v !== undefined) meta.set(k, { v: encode(v), rev: r });
   }
@@ -171,7 +171,7 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
 
   function pull(since: number): PullResult {
     const coll: PullResult['coll'] = {};
-    for (const [c, map] of Object.entries(rows)) coll[c] = [...map.entries()].filter(([, x]) => x.rev > since).sort((a, b) => a[1].ord - b[1].ord).map(([k, x]) => ({ k, row: JSON.parse(x.payload), gone: x.gone }));
+    for (const [c, map] of Object.entries(rows)) coll[c] = c === 'settles' && !(user.role === 'admin' || ['money', 'settings'].some((p) => user.perms.includes(p))) ? [] : [...map.entries()].filter(([, x]) => x.rev > since).sort((a, b) => a[1].ord - b[1].ord).map(([k, x]) => ({ k, row: JSON.parse(x.payload), gone: x.gone }));
     // costs are only sent to roles that may see money (or edit settings)
     const seeMoney = user.role === 'admin' || ['money', 'settings'].some((p) => user.perms.includes(p));
     const metaOut: PullResult['meta'] = {}; for (const [k, x] of meta) if (x.rev > since && (k !== 'costs' || seeMoney)) metaOut[k] = { v: JSON.parse(x.v) };
@@ -194,7 +194,7 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
   function stateFromRows(): Row {
     const live = (c: Coll) => [...rows[c].values()].filter((x) => !x.gone).sort((a, b) => a.ord - b.ord).map((x) => JSON.parse(x.payload));
     const mv = (k: string) => (meta.has(k) ? JSON.parse(meta.get(k)!.v) : undefined);
-    return { v: 3, moves: moves.map(({ rev: _r, ...m }) => m).sort((a, b) => a.id - b.id), mid: mv('mid'), docs: live('docs'), did: mv('did'), seq: mv('seq') ?? {}, pickups: live('pickups'), orders: live('orders'), emps: live('emps'), sup: { log: live('sup_log'), items: live('sup_items'), eid: mv('sup_eid') }, st: mv('st') ?? {}, costs: mv('costs') ?? {}, alias: mv('alias') ?? {}, img: mv('img') ?? {}, cat: mv('cat'), lock: mv('lock') ?? '', bk: mv('bk'), shops: live('shops'), closes: live('closes'), archPk: live('archPk'), archDocs: live('archDocs'), oldOrd: live('oldOrd'), holds: live('holds') };
+    return { v: 3, moves: moves.map(({ rev: _r, ...m }) => m).sort((a, b) => a.id - b.id), mid: mv('mid'), docs: live('docs'), did: mv('did'), seq: mv('seq') ?? {}, pickups: live('pickups'), orders: live('orders'), emps: live('emps'), sup: { log: live('sup_log'), items: live('sup_items'), eid: mv('sup_eid') }, st: mv('st') ?? {}, costs: mv('costs') ?? {}, alias: mv('alias') ?? {}, img: mv('img') ?? {}, cat: mv('cat'), lock: mv('lock') ?? '', bk: mv('bk'), shops: live('shops'), closes: live('closes'), archPk: live('archPk'), archDocs: live('archDocs'), oldOrd: live('oldOrd'), holds: live('holds'), settles: live('settles') };
   }
 }
 
@@ -220,4 +220,5 @@ function checkRows(coll: string, row: Row, old: Row | null, x: { need: (p: strin
   else if (coll === 'shops') x.need('ship');
   else if (coll === 'archPk') x.need('pickup');
   else if (coll === 'holds') x.need('internal');
+  else if (coll === 'settles') x.need('pickup');
 }
