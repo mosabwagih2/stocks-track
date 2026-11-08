@@ -15,3 +15,5 @@ php-app/dist/
 # the app's own images (the logo) are part of the build that cPanel serves
 !lovable-v2/src/femini/assets/*.png
 !php-app/public/app/assets/*.png
+!lovable-v2/public/*.png
+!php-app/public/app/*.png

@@ -143,7 +143,8 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
         const d = ent ? JSON.parse(ent.payload) : null;
         if (!d || d.type !== type || d.status !== (isRev ? 'reversed' : 'done') || ent!.rev !== nrev) throw failM('مفيش مستند مؤكّد بالرقم ده في نفس الحفظ');
         for (const dt of dates) if (!isRev && dt !== d.date) throw failM('تاريخ الحركة مش تاريخ المستند');
-        const total = M.filter((x) => x.doc === doc).length;
+        // a reversal may come in parts (e.g. orders moved later): count its distinct lines, each must mirror one of the original
+        const total = isRev ? new Set(M.filter((x) => x.doc === doc).map((x) => `${x.sku}|${x.from}|${x.to}`)).size : M.filter((x) => x.doc === doc).length;
         if (Number.isInteger(d.nMoves) && (isRev ? total > d.nMoves : d.nMoves !== total)) throw failM(`عدد الحركات (${total}) مش زي اللي المستند معلنه (${d.nMoves})`);
         if (isRev) {   // SyncService::checkReversalMirrorsOriginal: a reversal only undoes what the document moved, at most as much
           const sum = (docNo: string) => { const g: Record<string, number> = {}; for (const x of M) if (x.doc === docNo) g[`${x.sku}|${x.from}|${x.to}`] = (g[`${x.sku}|${x.from}|${x.to}`] ?? 0) + x.q; return g; };

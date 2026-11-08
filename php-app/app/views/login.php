@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Fémini Stock · تسجيل الدخول</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="/app/femini-icon.png">
 <style>
   :root{--ink:#1f1738;--accent:#43316f;--bg:#f8f6fc;--line:#d9d2ea;--crit:#a3262c}
   @media (prefers-color-scheme:dark){:root{--ink:#efeaf8;--accent:#9b84d8;--bg:#17122b;--line:#3b3162;--crit:#ff8d92}}

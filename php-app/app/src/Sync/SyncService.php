@@ -188,7 +188,11 @@ final class SyncService
                 }
             }
             $declared = json_decode($row['payload'], true)['nMoves'] ?? null;
-            $total = (int)Database::value('SELECT COUNT(*) FROM moves WHERE doc = ?', [$doc]);
+            // A reversal may come in parts (orders moved to their real day later): count its distinct lines (sku, from, to);
+            // each must mirror a line of the original and never exceed its quantity (checkReversalMirrorsOriginal).
+            $total = $isRev
+                ? (int)Database::value('SELECT COUNT(*) FROM (SELECT 1 FROM moves WHERE doc = ? GROUP BY sku, from_loc, to_loc) g', [$doc])
+                : (int)Database::value('SELECT COUNT(*) FROM moves WHERE doc = ?', [$doc]);
             if (is_int($declared) && ($isRev ? $total > $declared : $declared !== $total)) {
                 throw $fail("عدد الحركات ($total) مش زي اللي المستند معلنه ($declared)");
             }

@@ -410,24 +410,49 @@ export function createMemoryRepo(backend?: Backend): Repo {
       Object.assign(p as Pickup, { label: label.trim(), date, channel }); save();
     },
     async redateShipment(doc, date) {
-      // A scan sheet is a confirmed document: the ledger is never edited. Moving it to its real day = reversing it and
-      // recording its orders again on that day, in ONE save (one push on the server). Returned or cancelled orders keep
-      // the old sheet. The new sheet keeps the scanner's name and points to the old one.
+      // A scan sheet is a confirmed document: the ledger is never edited. Moving it to its real day = counter-moves under
+      // "<no> (عكس)" dated on the sheet's OWN day (so that day nets to zero and no other day changes), then its orders recorded
+      // again on the right day, in ONE save (one push on the server). Orders a customer returned later move too: their return
+      // stays as recorded. Works again on a sheet already reversed, for orders still left on it (e.g. returned ones that an
+      // older version of this tool left behind). The new sheet keeps the scanner's name and points to the old one.
       const d = S.docs.find((x) => x.no === doc && x.type === 'SCN'); if (!d) return fail('ورقة شحن غير معروفة');
-      if (d.status !== 'done') fail('الورقة دي اتعكست قبل كده');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > cairoToday()) fail('لا يمكن أن يكون التاريخ في المستقبل');
       if (date === d.date) fail('الورقة متسجلة على اليوم ده فعلًا');
-      unlocked(date);
-      const refs = S.orders.filter((o) => o.shipDoc === doc && o.status === 'shipped' && !o.returned).map((o) => o.ref);
-      if (!refs.length) fail('كل أوردرات الورقة دي اترجعت أو اتلغت؛ مفيش حاجة تتنقل.');
-      const late = S.orders.filter((o) => refs.includes(o.ref) && (S.pickups.find((p) => p.id === o.pickupId)?.date ?? '') > date);
+      unlocked(date); unlocked(d.date);
+      const os = S.orders.filter((o) => o.shipDoc === doc && o.status === 'shipped');
+      if (!os.length) fail('مفيش أوردرات مشحونة على الورقة دي تتنقل.');
+      const late = os.filter((o) => (S.pickups.find((p) => p.id === o.pickupId)?.date ?? '') > date);
       if (late.length) fail(`${late.length} أوردر البيك أب بتاعه بتاريخ بعد ${date} (مثلًا ${late[0].ref}). صحّح تاريخ البيك أب الأول.`);
-      // an order of this sheet cancelled without its pieces coming back: the reversal would put pieces on the shelf that are not there
+      // an order of this sheet cancelled without its pieces coming back: moving would put pieces on the shelf that are not there
       const gone = S.orders.filter((o) => o.shipDoc === doc && o.status === 'cancelled' && o.cancel?.was === 'shipped' && !o.cancel.returned && !o.returned);
       if (gone.length) fail(`الورقة فيها ${gone.length} أوردر اتلغى من غير ما القطع ترجع (مثلًا ${gone[0].ref})؛ نقلها هيرجّع قطع مش موجودة. استرجع الأوردر الأول أو سيب الورقة على تاريخها.`);
+      const rev = `${doc} (عكس)`;
+      // what is still out under this sheet per sku: its moves minus what an earlier reversal already put back
+      const left: Record<string, number> = {}; const way: Record<string, Move> = {};
+      for (const m of S.moves) {
+        if (m.doc === doc && m.type === 'SCN') { left[m.sku] = (left[m.sku] ?? 0) + m.qty; way[m.sku] ??= m; }
+        else if (m.doc === rev) left[m.sku] = (left[m.sku] ?? 0) - m.qty;
+      }
+      const need = agg(os.flatMap((o) => o.lines));
+      const short = Object.keys(need).find((sku) => (left[sku] ?? 0) < need[sku]);
+      if (short) fail(`الورقة مش شايلة كل قطع أوردراتها (${short})؛ مينفعش تتنقل.`);
       const scanner = String(d.hdr.employee ?? d.by);
-      await api.reverseShipment(doc);
-      const r = await api.shipOrders({ refs, employee: actor(), source: String(d.hdr.source ?? ''), date, as: { employee: scanner, redateOf: doc } } as Parameters<Repo['shipOrders']>[0]);
+      post(Object.keys(need).map((sku) => ({ date: d.date, sku, qty: need[sku], from: way[sku].to, to: way[sku].from, type: 'SCN', doc: rev, by: actor(), note: `نقل ${doc} ليوم ${date}` })));
+      // packaging of the same orders comes back (capped by what this sheet took and what was already given back)
+      const refund: Record<string, number> = {}; for (const o of os) for (const c of consumption(o.lines, S.supplies, modelOf)) refund[c.item] = (refund[c.item] ?? 0) + c.qty;
+      const given: Record<string, number> = {}; for (const e of S.log) if (e.doc === rev && e.kind === 'rev') given[e.item] = (given[e.item] ?? 0) + e.qty;
+      for (const e of S.log.filter((x) => x.doc === doc && x.kind === 'auto')) {
+        const room = -e.qty - (given[e.item] ?? 0); const give = Math.min(room, refund[e.item] ?? 0);
+        refund[e.item] = (refund[e.item] ?? 0) - Math.max(give, 0); given[e.item] = (given[e.item] ?? 0) + Math.max(give, 0);
+        if (give > 0) supPush(e.item, give, 'rev', `نقل ${doc} ليوم ${date}`, rev, d.date); e.reversed = true;
+      }
+      const wasDone = d.status === 'done'; d.status = 'reversed';
+      // the orders reopen for a moment and are recorded again on the right day; a customer return stays on the order
+      for (const o of os) { o.status = 'open'; o.shippedBy = null; o.shippedAt = null; o.shipDoc = null; }
+      const r = await api.shipOrders({ refs: os.map((o) => o.ref), employee: actor(), source: String(d.hdr.source ?? ''), date, as: { employee: scanner, redateOf: doc } } as Parameters<Repo['shipOrders']>[0]);
+      // history line on the old sheet (on the server a reversed sheet only takes history lines)
+      d.hdr._note = `${wasDone ? '' : 'اتنقل الباقي: '}${os.length} أوردر اتنقلوا لـ ${r.doc} يوم ${date}`;
+      save();
       return { doc: r.doc, orders: r.shipped };
     },
     async pickupDelete(id) {

@@ -1,5 +1,5 @@
 import logo from '@/femini/assets/femini-logo.png';
-import { serverEdition } from '@/femini/data';
+import { Notifications } from '@/femini/components/Notifications';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { whenIdle } from '@/femini/components/Deferred';
@@ -56,15 +56,15 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="min-h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)] print:block">
       {menu && <div className="fixed inset-0 z-40 bg-black/40 md:hidden print:hidden" onClick={() => setMenu(false)} aria-hidden="true" />}
       <nav aria-label="التنقل" className={`print:hidden fixed inset-y-0 start-0 z-50 w-72 max-w-[85vw] flex-col gap-0.5 overflow-y-auto border-e border-line bg-rail p-4 shadow-xl transition-transform md:sticky md:top-0 md:z-auto md:flex md:h-screen md:w-auto md:max-w-none md:translate-x-0 md:shadow-none ${menu ? 'flex translate-x-0' : 'hidden'}`}>
-        <div className="mb-5 flex items-start justify-between gap-2 px-2 pt-1">
-          <div className="grid justify-items-center gap-1">
-            <img src={logo} alt="Fémini" width={120} height={120} className="h-24 w-auto object-contain md:h-28" />
-            <small className="text-[11px] text-rail-mute">Stock · نظام المخزن</small>
+        <div className="mb-5 flex items-center justify-between gap-2 px-2 pt-1">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="" width={28} height={28} className="h-7 w-auto object-contain" />
+            <b className="font-display text-[15px] font-semibold tracking-tight text-on-rail" dir="ltr">Femini inventory</b>
           </div>
           <button type="button" className="rounded-lg p-1.5 text-rail-mute hover:bg-lav md:hidden" onClick={() => setMenu(false)} aria-label="اقفل القائمة"><X className="size-5" /></button>
         </div>
         <span className="mb-1 px-3 text-[11px] font-semibold tracking-wide text-rail-mute">القائمة</span>
-        {NAV.map(({ to, label, icon: Icon }) => (
+        {NAV.filter((n) => n.to !== '/settings').map(({ to, label, icon: Icon }) => (
           <Link key={to} to={to} preload="intent" activeOptions={{ exact: to === '/' }}
             className="group relative flex flex-row items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rail-mute transition hover:bg-lav hover:text-on-rail data-[status=active]:bg-accent-soft data-[status=active]:text-accent">
             <Icon className="size-[18px] shrink-0" strokeWidth={1.8} />
@@ -73,9 +73,10 @@ export default function Shell({ children }: { children: ReactNode }) {
           </Link>
         ))}
         <div className="flex-1" />
-        <div className="mt-4 grid gap-2 rounded-2xl border border-line bg-lav p-3 text-xs text-rail-mute">
-          <span className="flex items-center gap-2 px-2"><i className="size-2 rounded-full bg-good" />{serverEdition ? 'متصل بالسيرفر' : 'البيانات محفوظة في هذا المتصفح'}</span>
-        </div>
+        <Link to="/settings" preload="intent"
+          className="mt-4 flex flex-row items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-sm font-medium text-rail-mute transition hover:bg-lav hover:text-on-rail data-[status=active]:bg-accent-soft data-[status=active]:text-accent">
+          <Cog className="size-[18px] shrink-0" strokeWidth={1.8} /><span>الإعدادات</span>
+        </Link>
       </nav>
       <div className="min-w-0">
         <header className="print:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-page/80 px-4 py-3 backdrop-blur md:px-8">
@@ -87,7 +88,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             {isToday ? <h1 className="font-display text-lg font-semibold">اليوم</h1> : current && <b className="font-display text-base font-semibold md:hidden">{current.label}</b>}
             <span className="text-sm text-muted">{d ? dayLabel(d.today) : ' '}</span>
           </div>
-          <img src={logo} alt="Fémini" width={40} height={40} className="ms-auto h-10 w-auto object-contain md:hidden" />
+          <div className="ms-auto"><Notifications /></div>
         </header>
         <main className="mx-auto max-w-[1320px] px-4 pt-6 pb-12 md:px-8 md:pb-14 print:max-w-none print:p-0">{children}</main>
       </div>

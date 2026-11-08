@@ -153,6 +153,8 @@ export function docV(x: Doc, orig: Row | undefined, ctx: { id: string; actor: st
   const row = structuredClone(orig); const before = docL(orig); const log = (m: string) => { row.log = [...(Array.isArray(row.log) ? row.log : []), { t: ctx.now, by: ctx.actor, m }]; };
   if (x.status !== before.status) { row.status = x.status; log(x.status === 'reversed' ? 'اتعكس المستند' : 'اتغيرت الحالة'); }
   if (x.type === 'SCN' && x.hdr.employee !== before.hdr.employee) { row.hdr = { ...row.hdr, emp: x.hdr.employee }; log(`اتعدّل اسم الموظف إلى ${String(x.hdr.employee)}`); }
+  const note = typeof x.hdr._note === 'string' ? x.hdr._note : '';
+  if (note && !(Array.isArray(row.log) ? row.log : []).some((l: Row) => l.m === note)) log(note);
   if (x.hdr.delivered && !before.hdr.delivered) { row.hdr = { ...row.hdr, delivered: { at: ctx.now, date: cairoDay(new Date(ctx.now).toISOString()), by: ctx.actor } }; log('اتأكد التسليم بالإذن الموقّع'); }
   return row;
 }
@@ -239,7 +241,7 @@ export function toLovable(m: Mirror): State {
     cat: catL(meta.cat),
     drafts: docRows.filter((d) => d.status === 'draft' && DRAFTABLE.includes(String(d.type))).map(draftL),
     shops: rows<string>('shops').map(String),
-    files: m.files.map((f): OriginalFile => ({ id: `srv-${f.id}`, owner: f.ownerId, kind: f.kind, name: f.name, mime: f.mime, size: f.size, at: new Date(f.uploadedAt.replace(' ', 'T') + 'Z').toISOString(), path: `srvfile:${f.id}` })),
+    files: m.files.map((f): OriginalFile => ({ id: `srv-${f.id}`, owner: f.ownerType === 'doc' ? String((m.rows.docs.get(String(f.ownerId)) as Row | undefined)?.no ?? f.ownerId) : f.ownerId, kind: f.kind, name: f.name, mime: f.mime, size: f.size, at: new Date(f.uploadedAt.replace(' ', 'T') + 'Z').toISOString(), path: `srvfile:${f.id}` })),
     archivedPickups: rows<Row>('archPk').map((a) => ({ pickup: pickupL(a.p), orders: (a.orders ?? []).map(orderL) })),
     archivedDrafts: rows<Row>('archDocs').filter(isOwnedArchDoc).map((a) => draftL(a.d)),
     closes: rows<Row>('closes').map(closeL),

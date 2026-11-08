@@ -40,12 +40,32 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
       {o.status === 'cancelled' && o.cancel && (
         <>
           <Alert tone="warn">أُلغي {cairoDay(o.cancel.at)} بواسطة {o.cancel.by}{o.cancel.reason ? ` · ${o.cancel.reason}` : ''}{o.cancel.returned ? ` · أُعيدت القطع إلى المخزون (${o.cancel.doc})` : o.cancel.was === 'shipped' ? ' · كان مشحونًا ولم تُعد القطع' : ''}</Alert>
-          <Photo path={o.cancel.attachment} className="w-full rounded-xl border border-line" />
-          <div><Button onClick={async () => { await act(() => repo.restoreOrder(o.ref), 'تمت استعادة الأوردر'); onClose(); }}>استعادة الأوردر</Button></div>
+          <Photo path={o.cancel.attachment} zoom className="max-h-[70vh] w-full rounded-xl border border-line object-contain" />
+          <RestoreOrder code={o.ref} onDone={onClose} />
         </>
       )}
       {o.status !== 'cancelled' && <div><Button variant="danger" size="sm" onClick={() => onCancel(o.ref)}>{o.status === 'shipped' ? 'طلب إلغاء بعد الشحن' : 'إلغاء الأوردر (بصورة البوليصة)'}</Button></div>}
     </Sheet>
+  );
+}
+
+/** Bringing a cancelled order back: asked twice, the second time by typing the word. */
+function RestoreOrder({ code, onDone }: { code: string; onDone: () => void }) {
+  const act = useAct(); const [step, setStep] = useState(0); const [word, setWord] = useState('');
+  if (step === 0) return <div><Button onClick={() => setStep(1)}>استعادة الأوردر</Button></div>;
+  return (
+    <div className="grid gap-3 rounded-xl border border-warn-line bg-warn-bg p-3">
+      {step === 1 ? <>
+        <p className="text-sm"><b>متأكد إنك عايز ترجّع {code}؟</b> هيرجع للأوردرات بحالته قبل الإلغاء.</p>
+        <div className="flex gap-2"><Button variant="primary" onClick={() => setStep(2)}>أيوه، كمّل</Button><Button onClick={() => setStep(0)}>لأ</Button></div>
+      </> : <>
+        <Field label="للتأكيد اكتب كلمة «استعادة»"><input value={word} onChange={(e) => setWord(e.target.value)} autoFocus autoComplete="off" /></Field>
+        <div className="flex gap-2">
+          <Button variant="primary" disabled={word.trim() !== 'استعادة'} onClick={async () => { const r = await act(() => repo.restoreOrder(code).then(() => true), 'تمت استعادة الأوردر'); if (r) onDone(); }}>استعادة {code}</Button>
+          <Button onClick={() => { setStep(0); setWord(''); }}>إلغاء</Button>
+        </div>
+      </>}
+    </div>
   );
 }
 
