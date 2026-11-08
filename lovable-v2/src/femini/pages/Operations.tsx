@@ -11,7 +11,8 @@ import { qty } from '@/femini/domain/ledger';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
 import { addDays } from '@/femini/domain/dates';
 import { buildOp, effects, expectedReturn, GROUP_AR, OPS, type OpGroup, type OpHdr, type OpLine, type OpType } from '@/femini/domain/ops';
-import { deliveryNoteExcel, downloadDeliveryNote, downloadDeliveryNoteHtml, printDeliveryNote } from '@/femini/components/DeliveryNote';
+import { LostOrders } from '@/femini/components/LostOrders';
+import { deliveryNoteExcel, downloadDeliveryNote, printDeliveryNote } from '@/femini/components/DeliveryNote';
 import { Holds } from '@/femini/components/Holds';
 import { isOverdue } from '@/femini/domain/holds';
 import { useNavigate, useSearchParams } from '@/femini/router';
@@ -289,6 +290,9 @@ function OpForm({ d, type, draft, onDone, onBack }: { d: Derived; type: OpType; 
               : type === 'SWP' ? <SwapLines d={d} lines={lines} set={set} />
               : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : {}))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}
           </Card>
+          {type === 'LOS' && <Card title="الأوردرات اللي فيها قطع مفقودة" hint="اضغط على القطعة الناقصة تضيفها">
+            <LostOrders d={d} onPick={(s) => set((l) => addLine(l, s, 1, { res: 'FOUND' }))} />
+          </Card>}
         </div>
         <div className="grid h-fit gap-4 lg:sticky lg:top-4">
           <Card title="الأثر على المخزون" hint="اللي هيتغيّر بعد التأكيد">
@@ -339,8 +343,7 @@ function ShopActions({ d, doc }: { d: Derived; doc: Doc }) {
         <Button onClick={() => printDeliveryNote(doc, d.skuMap)}><Printer className="size-4" /> طباعة</Button>
         <Button onClick={() => act(()=>downloadDeliveryNote(doc,d.skuMap,'pdf'),'تم تجهيز PDF')}><Download className="size-4" />PDF</Button>
         <Button onClick={() => act(()=>downloadDeliveryNote(doc,d.skuMap,'png'),'تم تجهيز الصورة')}><Download className="size-4" />PNG</Button>
-        <Button onClick={() => deliveryNoteExcel(doc, d.skuMap)}><Download className="size-4" /> Excel</Button>
-        <Button onClick={() => downloadDeliveryNoteHtml(doc, d.skuMap)}><FileText className="size-4" /> HTML</Button>
+        <Button onClick={() => act(() => deliveryNoteExcel(doc, d.skuMap).then(() => true), 'تم تجهيز Excel')}><Download className="size-4" /> Excel</Button>
       </div>
       {!doc.hdr.delivered && doc.status === 'done' && <>
         <Alert tone="warn">صورة الإذن الموقّع من الطرفين إجبارية لتأكيد التسليم، وبعد التأكيد مش بتتغيّر.</Alert>
@@ -422,7 +425,6 @@ export default function Operations() {
       {tab === 'holds' && <Holds d={d} openNew={sp.get('new') === 'yes'} onOpenNew={(v) => go({ new: v ? 'yes' : null })} />}
       {tab === 'shops' && <Shops d={d} onOpen={(no) => go({ doc: no })} />}
       {openDoc && <DocSheet d={d} doc={openDoc} onClose={() => go({ doc: null })} />}
-      {tab === 'new' && !op && <Alert className="mt-6"><Ban className="me-1 inline size-4" />العملية المؤكدة ثابتة ومش بتتعدّل. أي تصحيح بيتم بعملية جديدة (تصنيف حالة أو جرد).</Alert>}
     </>
   );
 }

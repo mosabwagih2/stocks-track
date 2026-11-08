@@ -4,6 +4,7 @@ import { LOC_AR, LOC_HINT } from '@/femini/domain/constants';
 import { locTotal, qty } from '@/femini/domain/ledger';
 import { fmt } from '@/femini/cn';
 import { MoveRows } from './MoveRows';
+import { LostOrders } from './LostOrders';
 import type { Derived } from '@/femini/hooks/data';
 import type { Loc } from '@/femini/domain/types';
 
@@ -43,6 +44,10 @@ export function LocDetail({ d, loc, onClose }: { d: Derived; loc: Loc; onClose: 
             ))}
           </section>
         )}
+        {loc === 'LOST' && <section className="grid gap-1.5">
+          <h3 className="text-xs font-semibold text-muted">الأوردرات اللي فيها قطع مفقودة</h3>
+          <LostOrders d={d} />
+        </section>}
         <section className="grid gap-1.5">
           <h3 className="text-xs font-semibold text-muted">آخر الحركات</h3>
           {moves.length === 0 ? <Empty>مفيش حركات على الحالة دي.</Empty> : <MoveRows d={d} moves={moves} loc={loc} max={30} />}

@@ -126,9 +126,10 @@ export default function Today() {
       <section aria-label="إجراءات اليوم" className="mb-5 border-b border-line pb-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">
-            <Button className="size-10 shrink-0 p-0" aria-label="اليوم السابق" title="اليوم السابق" onClick={()=>setDate(addDays(selected,-1))}><ChevronRight className="size-4" /></Button>
+            {/* right = newer, left = older (like a timeline read from the left) */}
+            <Button className="size-10 shrink-0 p-0" aria-label="اليوم التالي" title="اليوم التالي" disabled={!historical} onClick={()=>setDate(addDays(selected,1))}><ChevronRight className="size-4" /></Button>
             <input className="h-10 w-40 min-w-0" aria-label="يوم التقرير" type="date" value={selected} max={d.today} onChange={(e)=>setDate(e.target.value)} />
-            <Button className="size-10 shrink-0 p-0" aria-label="اليوم التالي" title="اليوم التالي" disabled={!historical} onClick={()=>setDate(addDays(selected,1))}><ChevronLeft className="size-4" /></Button>
+            <Button className="size-10 shrink-0 p-0" aria-label="اليوم السابق" title="اليوم السابق" onClick={()=>setDate(addDays(selected,-1))}><ChevronLeft className="size-4" /></Button>
             {historical && <Button size="sm" onClick={()=>setDate('')}>العودة لليوم</Button>}
           </div>
           <Button className="h-10" onClick={()=>setClosing(true)}><LockKeyhole className="size-4" />{dayClosed(d.snap,selected) ? 'تقرير اليوم المقفول' : 'قفل اليوم'}</Button>

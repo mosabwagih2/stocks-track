@@ -52,16 +52,16 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
 /** Bringing a cancelled order back: asked twice, the second time by typing the word. */
 function RestoreOrder({ code, onDone }: { code: string; onDone: () => void }) {
   const act = useAct(); const [step, setStep] = useState(0); const [word, setWord] = useState('');
-  if (step === 0) return <div><Button onClick={() => setStep(1)}>استعادة الأوردر</Button></div>;
+  if (step === 0) return <div><Button variant="danger" onClick={() => setStep(1)}>استعادة الأوردر</Button></div>;
   return (
     <div className="grid gap-3 rounded-xl border border-warn-line bg-warn-bg p-3">
       {step === 1 ? <>
         <p className="text-sm"><b>متأكد إنك عايز ترجّع {code}؟</b> هيرجع للأوردرات بحالته قبل الإلغاء.</p>
-        <div className="flex gap-2"><Button variant="primary" onClick={() => setStep(2)}>أيوه، كمّل</Button><Button onClick={() => setStep(0)}>لأ</Button></div>
+        <div className="flex gap-2"><Button variant="danger" onClick={() => setStep(2)}>أيوه، كمّل</Button><Button onClick={() => setStep(0)}>لأ</Button></div>
       </> : <>
         <Field label="للتأكيد اكتب كلمة «استعادة»"><input value={word} onChange={(e) => setWord(e.target.value)} autoFocus autoComplete="off" /></Field>
         <div className="flex gap-2">
-          <Button variant="primary" disabled={word.trim() !== 'استعادة'} onClick={async () => { const r = await act(() => repo.restoreOrder(code).then(() => true), 'تمت استعادة الأوردر'); if (r) onDone(); }}>استعادة {code}</Button>
+          <Button variant="danger" disabled={word.trim() !== 'استعادة'} onClick={async () => { const r = await act(() => repo.restoreOrder(code).then(() => true), 'تمت استعادة الأوردر'); if (r) onDone(); }}>استعادة {code}</Button>
           <Button onClick={() => { setStep(0); setWord(''); }}>إلغاء</Button>
         </div>
       </>}

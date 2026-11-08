@@ -8,6 +8,7 @@ import { OrderPill, ErrorBox } from '@/femini/components/shared';
 import { Thumb } from '@/femini/components/Thumb';
 import { Spinner } from '@/femini/components/Spinner';
 import { CancelSheet, OrderSheet, UploadSheet } from '@/femini/components/OrderSheets';
+import { PickupOrders } from '@/femini/components/PickupOrders';
 import { channelName } from '@/femini/domain/constants';
 import { fmt } from '@/femini/cn';
 import { qty } from '@/femini/domain/ledger';
@@ -23,6 +24,7 @@ export default function Orders() {
   const [q, setQ] = useState(''); const dq = useDeferredValue(q);
   const [tab, setTab] = useState<'list' | 'pk' | 'pick'>('list'); const [n, setN] = useState(PAGE);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [pkSheet, setPkSheet] = useState<string | null>(null);   // a pickup's orders; an order opened from it returns to it
   const [orderRef, setOrderRef] = useState<string | null>(null); const [upload, setUpload] = useState<'scan' | 'pickup' | null>(null);
   const [manual, setManual] = useState<string[] | null>(null); const [cancel, setCancel] = useState<string | null>(null);
 
@@ -75,8 +77,8 @@ export default function Orders() {
             {[...d.snap.pickups].sort((a,b)=>b.date.localeCompare(a.date)).map((p) => {
               const po = d.snap.orders.filter((o) => o.pickupId === p.id && o.status !== 'cancelled'); const done = po.filter((o) => o.status === 'shipped').length;
               return (
-                <button key={p.id} type="button" onClick={() => { const x = new URLSearchParams(sp); x.set('pk', p.id); setSp(x, { replace: true }); setTab('list'); setN(PAGE); }}
-                  className={`grid gap-2 rounded-2xl border bg-surface p-3.5 text-start transition hover:border-accent ${pk === p.id ? 'border-accent' : 'border-line'}`}>
+                <button key={p.id} type="button" onClick={() => setPkSheet(p.id)}
+                  className="grid gap-2 rounded-2xl border border-line bg-surface p-3.5 text-start transition hover:border-accent">
                   <span className="flex justify-between"><b>{p.label}</b><span className="text-xs text-muted">{p.date}</span></span>
                   <span className="text-xs text-muted">{channelName(p.channel)}</span>
                   <span className="h-2 overflow-hidden rounded-full bg-grid"><i className="block h-full bg-ready" style={{ width: `${po.length ? (done / po.length) * 100 : 0}%` }} /></span>
@@ -124,7 +126,8 @@ export default function Orders() {
           {list.length > n && <div className="mt-3 text-center"><Button onClick={() => setN((x) => x + PAGE)}>عرض المزيد ({fmt(list.length - n)} متبقي)</Button></div>}
         </>
       )}
-      {orderRef && <OrderSheet d={d} orderRef={orderRef} onClose={() => setOrderRef(null)} onCancel={(c) => { setOrderRef(null); setCancel(c); }} />}
+      {pkSheet && !orderRef && <PickupOrders d={d} pickupId={pkSheet} onClose={() => setPkSheet(null)} onOrder={setOrderRef} />}
+      {orderRef && <OrderSheet d={d} orderRef={orderRef} onClose={() => setOrderRef(null)} onCancel={(c) => { setOrderRef(null); setPkSheet(null); setCancel(c); }} />}
       {upload && <UploadSheet d={d} mode={upload} onClose={() => setUpload(null)} />}
       {manual && <UploadSheet d={d} mode="scan" manualRefs={manual} onClose={() => { setManual(null); setSel(new Set()); }} />}
       {cancel !== null && <CancelSheet d={d} initial={cancel} onClose={() => setCancel(null)} />}
