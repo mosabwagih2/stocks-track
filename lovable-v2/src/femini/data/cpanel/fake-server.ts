@@ -14,6 +14,28 @@ const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS
 export const DOC_PERM: Record<string, string> = { SCN: 'scan', RTN: 'returns', RCV: 'receive', FRC: 'internal', FSD: 'internal', CLN: 'internal', LOS: 'internal', SHP: 'ship', CNT: 'count', CXL: 'cancel', SWP: 'count', HLD: 'internal', MOV: 'internal' };
 const META_PERM: Record<string, string | null> = { mid: null, did: null, seq: null, sup_eid: null, bk: null, st: 'settings', costs: 'settings', alias: 'catalog', img: 'catalog', cat: 'catalog', lock: 'close' };
 const COUNTERS = ['mid', 'did', 'sup_eid'];
+const MAX_COUNTER_JUMP = 100000;
+/** Rules::placesFit on the live server: the pairs of places each move type uses, in either direction */
+function placesFit(type: string, a: string, b: string): boolean {
+  const inside = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST'];
+  const pair = (x: string, y: string) => (a === x && b === y) || (a === y && b === x);
+  const outIn = (out: string, inn: string[]) => (a === out && inn.includes(b)) || (b === out && inn.includes(a));
+  switch (type) {
+    case 'RCV': return pair('EXT_FACTORY', 'READY');
+    case 'SHP': return pair('READY', 'EXT_SHOP');
+    case 'SCN': case 'CXL': return pair('READY', 'EXT_CH');
+    case 'FSD': return pair('DIRTY', 'FACTORY') || pair('SCRAP', 'EXT_FACTORY');
+    case 'FRC': return pair('FACTORY', 'READY') || pair('FACTORY', 'SCRAP');
+    case 'LOS': return pair('LOST', 'READY') || pair('LOST', 'EXT_OFF');
+    case 'SWP': return pair('READY', 'EXT_ADJ');
+    case 'CLN': case 'MOV': return a !== b && inside.includes(a) && inside.includes(b);
+    case 'RTN': { const r = ['READY', 'DIRTY', 'SCRAP', 'LOST']; return outIn('EXT_CH', r) || (a !== b && r.includes(a) && r.includes(b)); }
+    case 'CNT': return outIn('EXT_ADJ', inside);
+    case 'OPN': return outIn('EXT_OPEN', inside);
+    case 'HLD': return outIn('EXT_HOLD', inside) || pair('EXT_HOLD', 'EXT_OFF');
+    default: return false;
+  }
+}
 const DOC_MUTABLE_HDR = ['delivered', 'file', 'shpRecv', 'emp'];
 const DOC_MUTABLE_TOP = ['log', 'photo'];
 
@@ -57,6 +79,7 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
         if (type !== 'OPN') openDay(m.date);
         for (const f of ['from', 'to']) if (!LOCATIONS.includes(m[f])) throw new HttpError(422, 'bad_move', `مكان الحركة غلط: ${m[f]}`);
         if (!Number.isInteger(m.id) || m.id < 1 || !Number.isInteger(m.q) || m.q === 0 || Math.abs(m.q) > 1e6 || typeof m.sku !== 'string' || !/^[A-Za-z0-9_.-]{1,40}$/.test(m.sku) || typeof m.doc !== 'string' || m.doc.length > 40) throw new HttpError(422, 'bad_move', `بيانات الحركة ناقصة أو غلط: ${encode(m)}`);
+        if (!placesFit(type, m.from, m.to)) throw new HttpError(422, 'bad_move', `العملية دي ما بتنقلش القطع بين المكانين دول (${type} ${m.from}→${m.to}).`);
         const dup = M.find((x) => x.id === m.id);
         if (dup) { if (!(dup.sku === m.sku && dup.q === m.q && dup.from === m.from && dup.to === m.to && dup.doc === m.doc)) conflicts.push({ coll: 'moves', k: m.id }); continue; }
         M.push({ ...m, by: type === 'OPN' ? m.by : user.name, rev: nrev }); changed++;
@@ -101,6 +124,7 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
         else {
           if (META_PERM[key]) need(META_PERM[key]!);
           if (COUNTERS.includes(key) && (!Number.isInteger(v) || (old !== null && (v as number) < old))) throw new HttpError(409, 'counter_back', `العداد ${key} ما ينفعش يرجع لورا.`);
+          if (COUNTERS.includes(key) && (v as number) > (Number(old) || 0) + MAX_COUNTER_JUMP) throw new HttpError(422, 'counter_jump', `العداد ${key} قفز قفزة غير طبيعية.`);
           if (key === 'seq') for (const [p, n] of Object.entries((old ?? {}) as Row)) if (((v as Row)?.[p] ?? 0) < n) throw new HttpError(409, 'counter_back', 'ترقيم المستندات ما ينفعش يرجع لورا.');
         }
         ME.set(key, { v: json, rev: nrev }); changed++;
@@ -121,6 +145,11 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
         for (const dt of dates) if (!isRev && dt !== d.date) throw failM('تاريخ الحركة مش تاريخ المستند');
         const total = M.filter((x) => x.doc === doc).length;
         if (Number.isInteger(d.nMoves) && (isRev ? total > d.nMoves : d.nMoves !== total)) throw failM(`عدد الحركات (${total}) مش زي اللي المستند معلنه (${d.nMoves})`);
+        if (isRev) {   // SyncService::checkReversalMirrorsOriginal: a reversal only undoes what the document moved, at most as much
+          const sum = (docNo: string) => { const g: Record<string, number> = {}; for (const x of M) if (x.doc === docNo) g[`${x.sku}|${x.from}|${x.to}`] = (g[`${x.sku}|${x.from}|${x.to}`] ?? 0) + x.q; return g; };
+          const orig = sum(no);
+          for (const [k, q] of Object.entries(sum(doc))) { const [sku, f, t] = k.split('|'); const mir = `${sku}|${t}|${f}`; if (q <= 0 || !(mir in orig) || q > orig[mir]) throw failM('حركة العكس لازم تكون عكس حركة من المستند الأصلي ومش أكتر منها'); }
+        }
       }
       if (conflicts.length) throw Object.assign(new HttpError(409, 'stale', 'حد تاني عدّل نفس البيانات. اتحدّث البيانات.'), { conflicts });
       if (!changed) return { ok: true, rev: prev, prev };
@@ -135,7 +164,9 @@ export function createFakeServer(boot: Boot, user: FakeUser) {
   function pull(since: number): PullResult {
     const coll: PullResult['coll'] = {};
     for (const [c, map] of Object.entries(rows)) coll[c] = [...map.entries()].filter(([, x]) => x.rev > since).sort((a, b) => a[1].ord - b[1].ord).map(([k, x]) => ({ k, row: JSON.parse(x.payload), gone: x.gone }));
-    const metaOut: PullResult['meta'] = {}; for (const [k, x] of meta) if (x.rev > since) metaOut[k] = { v: JSON.parse(x.v) };
+    // costs are only sent to roles that may see money (or edit settings)
+    const seeMoney = user.role === 'admin' || ['money', 'settings'].some((p) => user.perms.includes(p));
+    const metaOut: PullResult['meta'] = {}; for (const [k, x] of meta) if (x.rev > since && (k !== 'costs' || seeMoney)) metaOut[k] = { v: JSON.parse(x.v) };
     return { rev, moves: moves.filter((m) => m.rev > since).map(({ rev: _r, ...m }) => m), coll, meta: metaOut };
   }
 

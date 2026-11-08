@@ -86,7 +86,12 @@ final class SyncService
             }
             $out['coll'][$name] = $rows;
         }
+        // Unit costs and prices are only for roles that may see money (or edit the settings): the browser hiding them is not enough.
+        $seeMoney = Permissions::canAny($this->user, ['money', 'settings']);
         foreach (Database::all('SELECT k, v, rev FROM meta WHERE rev > ?', [$since]) as $r) {
+            if ($r['k'] === 'costs' && !$seeMoney) {
+                continue;
+            }
             $out['meta'][$r['k']] = ['v' => json_decode($r['v']), 'rev' => (int)$r['rev']];
         }
         foreach (Database::all('SELECT t, by_name, msg FROM audit WHERE rev > ? ORDER BY id', [$since]) as $r) {
@@ -186,6 +191,31 @@ final class SyncService
             $total = (int)Database::value('SELECT COUNT(*) FROM moves WHERE doc = ?', [$doc]);
             if (is_int($declared) && ($isRev ? $total > $declared : $declared !== $total)) {
                 throw $fail("عدد الحركات ($total) مش زي اللي المستند معلنه ($declared)");
+            }
+            if ($isRev) {
+                $this->checkReversalMirrorsOriginal($no, $doc, $fail);
+            }
+        }
+    }
+
+    /**
+     * A reversal ("<no> (عكس)") may only put back what the document moved: every counter-move must go the opposite way of a
+     * move of the original document, and per sku and direction it may not exceed the original quantity. (The app can send
+     * less, e.g. it skips orders that were already returned.) Without this, a reversal could be used to post any stock change.
+     * @param callable(string):\Throwable $fail
+     */
+    private function checkReversalMirrorsOriginal(string $no, string $revDoc, callable $fail): void
+    {
+        $sql = 'SELECT sku, from_loc, to_loc, SUM(q) AS q FROM moves WHERE doc = ? GROUP BY sku, from_loc, to_loc';
+        $orig = [];
+        foreach (Database::all($sql, [$no]) as $r) {
+            $orig[$r['sku'] . '|' . $r['from_loc'] . '|' . $r['to_loc']] = (int)$r['q'];
+        }
+        foreach (Database::all($sql, [$revDoc]) as $r) {
+            $q = (int)$r['q'];
+            $mirror = $r['sku'] . '|' . $r['to_loc'] . '|' . $r['from_loc'];
+            if ($q <= 0 || !isset($orig[$mirror]) || $q > $orig[$mirror]) {
+                throw $fail('حركة العكس لازم تكون عكس حركة من المستند الأصلي ومش أكتر منها');
             }
         }
     }

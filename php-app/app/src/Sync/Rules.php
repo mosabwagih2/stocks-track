@@ -18,6 +18,9 @@ final class Rules
     // HLD: a hold (out / return / write-off), MOV: a direct state change
     public const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP', 'HLD', 'MOV'];
 
+    /** The most a counter (move ids, document ids...) may grow in one push. */
+    private const MAX_COUNTER_JUMP = 100000;
+
     /** Fields of a confirmed document that may still change (delivery proof, attached files, history). */
     private const DOC_MUTABLE_HDR = ['delivered', 'file', 'shpRecv', 'emp'];   // 'emp': a scan sheet's employee name can be corrected (logged in the document's history)
     private const DOC_MUTABLE_TOP = ['log', 'photo'];
@@ -62,6 +65,35 @@ final class Rules
             || !is_string($m['doc'] ?? null) || strlen($m['doc']) > 40) {
             throw new HttpError(422, 'bad_move', 'بيانات الحركة ناقصة أو غلط.');
         }
+        // Each operation only uses its own places. (The CLI import of an old backup keeps whatever history it holds.)
+        if (!$this->trustActors && !self::placesFit($type, (string)$m['from'], (string)$m['to'])) {
+            throw new HttpError(422, 'bad_move', 'العملية دي ما بتنقلش القطع بين المكانين دول.');
+        }
+    }
+
+    /** The pairs of places each move type uses, in either direction (a reversal goes the other way). */
+    private static function placesFit(string $type, string $a, string $b): bool
+    {
+        $inside = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST'];
+        $pair = static fn(string $x, string $y): bool => ($a === $x && $b === $y) || ($a === $y && $b === $x);
+        $outsideAndInside = static fn(string $out, array $in): bool => ($a === $out && in_array($b, $in, true)) || ($b === $out && in_array($a, $in, true));
+        return match ($type) {
+            'RCV' => $pair('EXT_FACTORY', 'READY'),
+            'SHP' => $pair('READY', 'EXT_SHOP'),
+            'SCN', 'CXL' => $pair('READY', 'EXT_CH'),
+            'FSD' => $pair('DIRTY', 'FACTORY') || $pair('SCRAP', 'EXT_FACTORY'),
+            'FRC' => $pair('FACTORY', 'READY') || $pair('FACTORY', 'SCRAP'),
+            'LOS' => $pair('LOST', 'READY') || $pair('LOST', 'EXT_OFF'),
+            'SWP' => $pair('READY', 'EXT_ADJ'),
+            'CLN', 'MOV' => $a !== $b && in_array($a, $inside, true) && in_array($b, $inside, true),
+            'RTN' => $outsideAndInside('EXT_CH', ['READY', 'DIRTY', 'SCRAP', 'LOST'])
+                || ($a !== $b && in_array($a, ['READY', 'DIRTY', 'SCRAP', 'LOST'], true) && in_array($b, ['READY', 'DIRTY', 'SCRAP', 'LOST'], true)),
+            'CNT' => $outsideAndInside('EXT_ADJ', $inside),
+            'OPN' => $outsideAndInside('EXT_OPEN', $inside),
+            // a hold: out from READY, back into the warehouse, or written off
+            'HLD' => $outsideAndInside('EXT_HOLD', $inside) || $pair('EXT_HOLD', 'EXT_OFF'),
+            default => false,
+        };
     }
 
     /** @param array<string,mixed>|null $existing the stored row's decoded payload, if any */
@@ -214,6 +246,11 @@ final class Rules
         if (in_array($key, Collections::COUNTERS, true)) {
             if (!is_int($new) || ($old !== null && $new < $old)) {
                 throw new HttpError(409, 'counter_back', "العداد $key ما ينفعش يرجع لورا.");
+            }
+            // A counter can never be moved back, so a huge value would lock everybody out for good: allow normal growth only
+            // (the CLI import, which restores a whole backup, is exempt).
+            if (!$this->trustActors && $new > (int)$old + self::MAX_COUNTER_JUMP) {
+                throw new HttpError(422, 'counter_jump', "العداد $key قفز قفزة غير طبيعية.");
             }
         }
         if ($key === 'seq') {
