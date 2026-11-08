@@ -25,6 +25,14 @@ function fakeServer(): Plugin {
         const url = req.url ?? '/';
         if (url.startsWith('/api/sync/pull')) return json(res, 200, srv.pull(Number(new URL(url, 'http://x').searchParams.get('since') ?? 0)));
         if (url.startsWith('/api/sync/push')) { const r = srv.push(JSON.parse(await read(req))); return r.ok ? json(res, 200, { ok: true, rev: r.rev, prev: r.prev }) : json(res, r.status, { ok: false, error: r.error, message: r.message }); }
+        // files from the backup (tools/backup-to-boot.mjs wrote them to .local/files); thumbnails are the file itself
+        const fileGet = /^\/api\/files\/(\d+)/.exec(url);
+        if (fileGet && req.method === 'GET') {
+          const f = path.join(path.dirname(BOOT), 'files', fileGet[1]);
+          if (!fs.existsSync(f)) return json(res, 404, { ok: false, message: 'not in the local test server' });
+          const type = fs.existsSync(`${f}.type`) ? fs.readFileSync(`${f}.type`, 'utf8') : 'application/octet-stream';
+          res.setHeader('Content-Type', type); return res.end(fs.readFileSync(f));
+        }
         if (url.startsWith('/api/files') && req.method === 'POST') { await read(req); return json(res, 201, { ok: true, file: { id: Date.now() % 100000, name: 'file', mime: 'image/jpeg', size: 1, hasThumb: false, uploadedAt: '2026-11-08 10:00:00' } }); }
         if (url.startsWith('/api/users')) return json(res, 200, { ok: true, users: (boot.state.users ?? []).map((x: Record<string, unknown>) => ({ ...x, active: x.on, hasPassword: true })), roles: boot.state.roles ?? {} });
         if (url.startsWith('/api/')) return json(res, 404, { ok: false, message: 'not in the local test server' });

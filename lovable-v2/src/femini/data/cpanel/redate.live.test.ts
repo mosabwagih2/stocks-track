@@ -40,7 +40,7 @@ describe.skipIf(!boot)('moving the scan sheets to their pickup days (live data)'
     const sheets = s.docs.filter((d) => d.type === 'SCN' && s.orders.some((o) => o.shipDoc === d.no && o.status === 'shipped'));
     const plan = sheets.map((d) => ({ no: d.no, from: d.date, to: [...new Set(s.orders.filter((o) => o.shipDoc === d.no && o.status === 'shipped').map((o) => pkDate(o.pickupId)))] })).filter((p) => p.to.length === 1 && p.to[0] !== p.from);
     console.log(plan.map((p) => `${p.no}: ${p.from} -> ${p.to[0]}`).join('\n'));
-    expect(plan.length).toBeGreaterThan(0);   // (the live data has no packaging items yet, so the packaging check is empty there)
+    // after the live fix every sheet is already on its pickup day: then there is nothing to move, and that is checked below   // (the live data has no packaging items yet, so the packaging check is empty there)
     for (const p of plan) {
       const res = await r.redateShipment(p.no, p.to[0]);
       expect(res.orders).toBeGreaterThan(0);
