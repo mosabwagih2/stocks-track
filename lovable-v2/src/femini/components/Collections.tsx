@@ -49,8 +49,8 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
           <tr><td className={td}>إجمالي المبيعات (اللي دفعه العملاء)</td><td className={td + ' font-mono'}>{money(parsed.totals.sales)}</td></tr>
           <tr><td className={td}>مستحق شركة الشحن (مصاريف الشحن)</td><td className={td + ' font-mono'}>{money(parsed.totals.shipping)}</td></tr>
           <tr><td className={td}>الصافي بعد الشحن</td><td className={td + ' font-mono'}>{money(parsed.totals.cod)}</td></tr>
-          <tr><td className={td}><b>مستحق فيميني</b></td><td className={td + ' font-mono font-semibold'}>{money(parsed.totals.due)}</td></tr>
           <tr><td className={td}>مستحق فيندور</td><td className={td + ' font-mono'}>{money(parsed.totals.vendoor)}</td></tr>
+          <tr><td className={td}><b>مستحق فيميني</b></td><td className={td + ' font-mono font-semibold'}>{money(parsed.totals.due)}</td></tr>
         </tbody></table></TableWrap>
         {parsed.dateNote && <Alert tone="warn">{parsed.dateNote}</Alert>}
         {pv.allDup && <Alert tone="crit">الشيت ده اترفع قبل كده؛ مش هيتسجل تاني.</Alert>}
@@ -95,12 +95,12 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
       </div>
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>
         {!settles.length ? <Empty>لسه ما اترفعش شيت تسوية.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'المبيعات', 'شركة الشحن', 'فيميني', 'فيندور', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'المبيعات', 'شركة الشحن', 'فيندور', 'فيميني', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{settles.map((s) => (
               <tr key={s.id}>
                 <td className={td + ' font-mono'} title={s.source}>{s.date}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' font-mono'}>{s.rows.length}</td>
                 <td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'collect').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'return').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'partial').length}</td>
-                <td className={td + ' font-mono'}>{fmt(s.totals.sales)}</td><td className={td + ' font-mono'}>{fmt(s.totals.shipping)}</td><td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td + ' font-mono'}>{fmt(s.totals.vendoor)}</td><td className={td}>{s.by}</td>
+                <td className={td + ' font-mono'}>{fmt(s.totals.sales)}</td><td className={td + ' font-mono'}>{fmt(s.totals.shipping)}</td><td className={td + ' font-mono'}>{fmt(s.totals.vendoor)}</td><td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td}>{s.by}</td>
                 <td className={td}><div className="flex gap-1">
                   {fileOf(s.id) && <Button size="sm" onClick={() => download(s.id)} aria-label={`تنزيل ${s.id}`}><Download className="size-4" /></Button>}
                   {admin && (del === s.id
