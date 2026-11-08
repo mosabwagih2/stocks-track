@@ -42,6 +42,8 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
           <tr><td className={td}>رجع (رفض الاستلام)</td><td className={td + ' font-mono'}>{pv.ret}</td></tr>
           <tr><td className={td}>تسليم جزئي / استبدال</td><td className={td + ' font-mono'}>{pv.partial}</td></tr>
           {pv.adjust > 0 && <tr><td className={td}>تعديل (فرق تحصيل)</td><td className={td + ' font-mono'}>{pv.adjust}</td></tr>}
+          <tr><td className={td}>منهم في السيستم</td><td className={td + ' font-mono'}>{pv.inSystem}</td></tr>
+          <tr><td className={td}>منهم مش في السيستم</td><td className={td + ' font-mono'}>{pv.unknown.length}</td></tr>
         </tbody></table></TableWrap>
         <TableWrap><table className="text-sm"><thead><tr><th className={th}>الفلوس</th><th className={th}>جنيه</th></tr></thead><tbody>
           <tr><td className={td}>إجمالي المبيعات (اللي دفعه العملاء)</td><td className={td + ' font-mono'}>{money(parsed.totals.sales)}</td></tr>
@@ -50,14 +52,11 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
           <tr><td className={td}><b>مستحق فيميني</b></td><td className={td + ' font-mono font-semibold'}>{money(parsed.totals.due)}</td></tr>
           <tr><td className={td}>مستحق فيندور</td><td className={td + ' font-mono'}>{money(parsed.totals.vendoor)}</td></tr>
         </tbody></table></TableWrap>
-        <TableWrap><table className="text-sm"><tbody>
-          <tr><td className={td}>أوردرات في السيستم / مش في السيستم</td><td className={td + ' font-mono'}>{pv.inSystem} / {pv.unknown.length}</td></tr>
-        </tbody></table></TableWrap>
         {parsed.dateNote && <Alert tone="warn">{parsed.dateNote}</Alert>}
         {pv.allDup && <Alert tone="crit">الشيت ده اترفع قبل كده؛ مش هيتسجل تاني.</Alert>}
         {!pv.allDup && pv.dup > 0 && <Alert tone="warn">{pv.dup} سطر متسجّل قبل كده في شيت تاني.</Alert>}
-        {pv.notShipped.length > 0 && <Alert tone="warn">{pv.notShipped.length} أوردر اتحصّل في الشيت ومش متسجّل شحنه عندك: <span className="font-mono">{pv.notShipped.slice(0, 8).map((r) => r.ref).join('، ')}</span>. راجع الإسكان بتاعهم.</Alert>}
-        {pv.unknown.length > 0 && <Alert>{pv.unknown.length} أوردر مش في السيستم (غالبًا من قبل ما السيستم يبدأ)، بيتسجلوا في التسوية بس: <span className="font-mono">{pv.unknown.slice(0, 10).map((r) => r.ref).join('، ')}</span></Alert>}
+        {pv.notShipped.length > 0 && <Alert tone="warn">{pv.notShipped.length} أوردر اتحصّل في الشيت ومش متسجّل شحنه عندك: <span className="font-mono">{pv.notShipped.map((r) => r.ref).join('، ')}</span>. راجع الإسكان بتاعهم.</Alert>}
+        {pv.unknown.length > 0 && <Alert>{pv.unknown.length} أوردر مش في السيستم (غالبًا من قبل ما السيستم يبدأ)، بيتسجلوا في التسوية بس: <span className="font-mono">{pv.unknown.map((r) => r.ref).join('، ')}</span></Alert>}
         <div><Button variant="primary" disabled={pv.allDup} onClick={async () => { const r = await act(() => repo.importSettlement({ settle: parsed, source: file?.name ?? 'settlement.xlsx', file }), (x) => `اتسجلت ${x.id}: ${x.collected} أوردر اتحصّل`); if (r) onClose(); }}><Upload className="size-4" />تسجيل التسوية</Button></div>
       </>}
     </Sheet>

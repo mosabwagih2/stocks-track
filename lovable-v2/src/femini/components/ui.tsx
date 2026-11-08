@@ -156,7 +156,7 @@ export function Sheet({ title, onClose, children, wide, footer }: { title: React
           <h2 id={id} className="font-display text-lg font-semibold">{title}</h2>
           <button type="button" className="ms-auto grid size-8 place-items-center rounded-lg text-muted hover:bg-lav hover:text-ink" onClick={onClose} aria-label="إغلاق"><X className="size-4" /></button>
         </header>
-        <div ref={bodyRef} tabIndex={-1} className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-5 pb-safe outline-none">{children}</div>
+        <div ref={bodyRef} tabIndex={-1} className="grid min-h-0 flex-1 auto-rows-max content-start gap-4 overflow-y-auto p-5 pb-safe outline-none">{children}</div>
         {footer && <footer className="shrink-0 border-t border-line bg-surface px-5 py-4 pb-safe">{footer}</footer>}
       </aside>
     </>,
