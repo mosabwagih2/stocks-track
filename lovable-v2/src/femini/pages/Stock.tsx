@@ -87,7 +87,7 @@ function SkuSheet({ d, sku, onClose }: { d: Derived; sku: Sku; onClose: () => vo
   const have = qty(b, sku.id, from);
   return (
     <Sheet title={skuLabel(d.skuMap, sku.id)} onClose={onClose}>
-      <div className="flex items-center gap-3"><Thumb model={d.modelMap.get(sku.model)} size={72} /><div><b>{sku.model} · {d.modelMap.get(sku.model)?.name}</b><div className="text-muted"><Swatch c={sku.color} /> {sku.color} · مقاس {sku.size}</div></div></div>
+      <div className="flex items-center gap-3"><Thumb model={d.modelMap.get(sku.model)} size={104} /><div><b>{sku.model} · {d.modelMap.get(sku.model)?.name}</b><div className="text-muted"><Swatch c={sku.color} /> {sku.color} · مقاس {sku.size}</div></div></div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="جاهز للبيع" value={fmt(info.ready)} tone={info.ready < 0 ? 'crit' : undefined} /><Kpi label="مطلوب (مفتوح)" value={fmt(info.demand)} tone={info.demand > info.ready ? 'crit' : undefined} />
         <Kpi label="سرعة السحب" value={info.velocity ? info.velocity.toFixed(1) : '—'} sub="قطعة / يوم" /><Kpi label="يغطّي" value={info.cover != null ? Math.floor(info.cover) : '—'} sub="يوم" />
@@ -139,7 +139,7 @@ export default function Stock() {
   const head = (c: string) => (
     <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
       <div className="flex min-w-0 items-center gap-3">
-        <button type="button" onClick={() => setImgModel(c)} aria-label={`صورة ${c}`} title="عرض الصورة أو تغييرها" className="relative"><Thumb model={d.modelMap.get(c)} size={64} /><span className="absolute -bottom-1 -end-1 grid size-[18px] place-items-center rounded-full bg-accent text-[11px] text-on-accent">✎</span></button>
+        <button type="button" onClick={() => setImgModel(c)} aria-label={`صورة ${c}`} title="عرض الصورة أو تغييرها" className="relative"><Thumb model={d.modelMap.get(c)} size={84} /></button>
         <div className="min-w-0"><h2 className="break-words font-display text-base font-semibold">{mName(c)}</h2><span className="text-xs text-muted sm:text-sm">{LOC_AR[loc]}: <b className="font-mono">{fmt(modelSum(c, loc))}</b> قطعة · طلب مفتوح <span className="font-mono">{fmt(modelDemand(c))}</span></span></div>
       </div>
       <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
@@ -187,7 +187,7 @@ export default function Stock() {
           <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'جاهز', 'هالك نظافة', 'عند المصنع', 'مفقود', 'طلب مفتوح', 'يغطّي (يوم)', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{rows.slice(0, 200).map((s) => { const c = cellInfo(s, d.snap.balances, d.demand, d.velocity, d.velocityOK, 14); return (
               <tr key={s.id} className="cursor-pointer hover:bg-lav" onClick={() => setSku(s)}>
-                <td className={td}><Thumb model={d.modelMap.get(s.model)} size={26} className="me-1.5" /><Swatch c={s.color} /> <b className="font-mono">{s.model}</b> {s.color} · {s.size}</td><td className={td + ' font-mono'}>{fmt(c.ready)}</td>
+                <td className={td}><Thumb model={d.modelMap.get(s.model)} size={36} className="me-1.5" /><Swatch c={s.color} /> <b className="font-mono">{s.model}</b> {s.color} · {s.size}</td><td className={td + ' font-mono'}>{fmt(c.ready)}</td>
                 <td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'DIRTY')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'FACTORY')}</td><td className={td + ' font-mono'}>{qty(d.snap.balances, s.id, 'LOST')}</td>
                 <td className={td + ' font-mono'}>{c.demand}</td><td className={td + ' font-mono'}>{c.cover != null ? Math.floor(c.cover) : '—'}</td>
                 <td className={td}>{c.ready < 0 ? <Pill tone="crit">سالب</Pill> : c.level === 'crit' ? <Pill tone="crit">سينفد</Pill> : c.level === 'warn' ? <Pill tone="warn">منخفض</Pill> : null}</td></tr>); })}

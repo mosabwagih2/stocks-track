@@ -39,7 +39,10 @@ export interface Repo {
   supplySave(i: { id?: string; name: string; unit: string; pack: number; packName: string; minAlert: number; note: string; rule: SupplyRule; open: number }): Promise<string>;
   supplyArchive(id: string, archived: boolean): Promise<void>;
   // ---- pickup / shipment files ----
-  pickupUpdate(i: { id: string; label: string; date: string; channel: string }): Promise<void>;
+  /** `force`: admin date correction on a closed day (a pickup moves no stock) */
+  pickupUpdate(i: { id: string; label: string; date: string; channel: string; force?: boolean }): Promise<void>;
+  /** admin: move a scan sheet to its real day (reversed and recorded again on that day, in one save) */
+  redateShipment(doc: string, date: string): Promise<{ doc: string; orders: number }>;
   pickupDelete(id: string): Promise<number>;
   renameShipmentEmployee(doc: string, name: string): Promise<number>;
   exportBackup(): Promise<import('./backup').Backup>;

@@ -1,3 +1,4 @@
+import { addDays } from '@/femini/domain/dates';
 import { useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
@@ -6,7 +7,7 @@ import { Alert, Button, Card, Empty, Pill, Seg, TableWrap, th, td } from '@/femi
 import { ErrorBox } from '@/femini/components/shared';
 import { Thumb } from '@/femini/components/Thumb';
 import { Spinner } from '@/femini/components/Spinner';
-import { C, CompareArea, HBars, Heatmap, Pareto, Sparkline, StateDonut } from '@/femini/components/charts';
+import { C, CompareArea, HBars, Heatmap, Pareto, ShareRows, Sparkline, StateDonut } from '@/femini/components/charts';
 import { PERIODS, change, comparePeriods, exportExcel, riskAlerts, type ExportSheet, type Period, type RiskAlert } from '@/femini/insights-tools';
 import { useNavigate } from '@/femini/router';
 import { useToast } from '@/femini/components/toast';
@@ -32,13 +33,16 @@ const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'finance', label: 'القيمة المالية', icon: FileSpreadsheet },
 ];
 
-function useStats(d: Derived | null) {
+function useStats(d: Derived | null, period: number) {
   return useMemo(() => {
     if (!d) return null;
-    const live = d.snap.orders.filter((o) => o.status !== 'cancelled');
+    // requested in the chosen window: orders whose pickup day is inside it (the same rule as the period comparison)
+    const from = addDays(d.today, -(period - 1));
+    const live = d.snap.orders.filter((o) => { const pd = d.pickupDate.get(o.pickupId) ?? ''; return o.status !== 'cancelled' && pd >= from && pd <= d.today; });
+    const pull: Record<string, number> = {}; for (const o of live) for (const s of o.lines) { const m = d.skuMap.get(s)?.model; if (m) pull[m] = (pull[m] ?? 0) + 1; }
     const pieces = live.reduce((a, o) => a + o.lines.length, 0);
     const shipped = live.filter((o) => o.status === 'shipped');
-    const sorted = Object.entries(d.pull).sort((a, b) => b[1] - a[1]); const total = sorted.reduce((a, x) => a + x[1], 0);
+    const sorted = Object.entries(pull).sort((a, b) => b[1] - a[1]); const total = sorted.reduce((a, x) => a + x[1], 0);
     let cum = 0, n80 = 0; for (const [, v] of sorted) { cum += v; n80++; if (cum / (total || 1) >= 0.8) break; }
     const byLine: Record<string, number> = {}; for (const [m, v] of sorted) byLine[lineOf(m)] = (byLine[lineOf(m)] ?? 0) + v;
     const neg = d.snap.skus.filter((s) => qty(d.snap.balances, s.id, 'READY') < 0);
@@ -47,8 +51,10 @@ function useStats(d: Derived | null) {
     // most requested variants with how long the ready stock lasts
     const skuPull: Record<string, number> = {}; for (const o of live) for (const s of o.lines) skuPull[s] = (skuPull[s] ?? 0) + 1;
     const hot = topN(skuPull, 10).map(([id, n]) => { const r = qty(d.snap.balances, id, 'READY'); const v = d.velocity[id] ?? 0; return { id, n, ready: r, open: d.demand[id] ?? 0, cover: v > 0 ? r / v : null }; });
-    return { live, pieces, shipped, sorted, total, n80, byLine, neg, dead, stuckPcs, hot };
-  }, [d]);
+    // ready stock per production line (now), for the demand / stock switch
+    const stockLine: Record<string, number> = {}; for (const k of d.snap.skus) { const r = qty(d.snap.balances, k.id, 'READY'); if (r) stockLine[lineOf(k.model)] = (stockLine[lineOf(k.model)] ?? 0) + r; }
+    return { live, pieces, shipped, sorted, total, n80, byLine, stockLine, pull, neg, dead, stuckPcs, hot };
+  }, [d, period]);
 }
 
 export default function Insights() {
@@ -58,7 +64,7 @@ export default function Insights() {
   const go = (v: Sec) => { const p = new URLSearchParams(sp); if (v === 'summary') p.delete('tab'); else p.set('tab', v); setSp(p, { replace: true }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const period = (PERIODS.find((x) => String(x) === sp.get('p')) ?? 14) as Period;
   const setParam = (k: string, v: string | null) => { const p = new URLSearchParams(sp); if (v === null) p.delete(k); else p.set(k, v); setSp(p, { replace: true }); };
-  const st = useStats(d);
+  const st = useStats(d, period);
   const cmp = useMemo(() => (d ? comparePeriods(d, period) : null), [d, period]);
   const alerts = useMemo(() => (d && cmp ? riskAlerts(d, cmp) : []), [d, cmp]);
   const toast = useToast();
@@ -90,8 +96,8 @@ export default function Insights() {
           <Button key={id} variant={sec === id ? 'primary' : 'ghost'} onClick={() => go(id)} aria-pressed={sec === id}
             className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
             <Icon className="size-[18px] shrink-0" />
-            <span className="min-w-0 truncate">{label}</span>
-            {counts[id] ? <span className={cn('ms-auto rounded-full px-1.5 font-mono text-[11px]', sec === id ? 'bg-on-accent/20' : 'bg-crit-bg text-crit')}>{counts[id]}</span> : null}
+            {/* the count sits right next to its own label, so it cannot be read as the neighbour's */}
+            <span className="inline-flex min-w-0 items-center gap-1.5"><span className="truncate">{label}</span>{counts[id] ? <span aria-label={`${counts[id]} عاجل`} className={cn('grid min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] leading-5', sec === id ? 'bg-on-accent/25' : 'bg-crit text-on-accent')}>{counts[id]}</span> : null}</span>
           </Button>
         ))}
       </nav>
@@ -156,8 +162,8 @@ function Summary({ d, st, cmp, period, go }: { d: Derived; st: Stats; cmp: Cmp; 
     <div className="grid gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={Truck} label="نسبة الشحن" value={`${rate}%`} sub={`${fmt(cur.shipped)} شحنة من ${fmt(cur.orders)} أوردر`} tone="good"><div className="absolute top-4 left-4 max-sm:hidden"><Ring value={rate} /></div><div className="mt-2"><Delta cur={cur.rate} prev={prev.rate} suffix="%" /></div></Stat>
-        <Stat icon={BarChart3} label="القطع المطلوبة" value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر · آخر ${period} يوم`}><div className="mt-2"><Delta cur={cur.pieces} prev={prev.pieces} /></div><Sparkline data={cmp.curDays.map((r) => r.pcs)} /></Stat>
-        <Stat icon={Truck} label="القطع المشحونة" value={fmt(cur.shippedPcs)} sub={`${fmt(cur.shipped)} أوردر`} tone="good"><div className="mt-2"><Delta cur={cur.shippedPcs} prev={prev.shippedPcs} /></div><Sparkline data={cmp.curDays.map((r) => r.shipPcs)} color={C.ready} /></Stat>
+        <Stat icon={BarChart3} label="القطع المطلوبة" value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر · آخر ${period} يوم`}><div className="mt-2"><Delta cur={cur.pieces} prev={prev.pieces} /></div><Sparkline data={cmp.curDays.map((r) => r.pcs)} labels={cmp.curDays.map((r) => r.day)} /></Stat>
+        <Stat icon={Truck} label="القطع المشحونة" value={fmt(cur.shippedPcs)} sub={`${fmt(cur.shipped)} أوردر`} tone="good"><div className="mt-2"><Delta cur={cur.shippedPcs} prev={prev.shippedPcs} /></div><Sparkline data={cmp.curDays.map((r) => r.shipPcs)} labels={cmp.curDays.map((r) => r.day)} color={C.ready} /></Stat>
         <Stat icon={PackageX} label="ملغاة" value={fmt(cur.cancelled)} sub="أوردرات ألغيت في الفترة" tone={cur.cancelled ? 'warn' : 'good'}><div className="mt-2"><Delta cur={cur.cancelled} prev={prev.cancelled} upIsGood={false} /></div></Stat>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -187,18 +193,14 @@ function Summary({ d, st, cmp, period, go }: { d: Derived; st: Stats; cmp: Cmp; 
         </Card>
         </Deferred>
         <Deferred minHeight={300}>
-        <Card title="الطلب حسب خط الإنتاج">
-          <HBars rows={Object.entries(st.byLine).sort((a, b) => b[1] - a[1]).map(([l, v]) => ({ label: l, value: v, color: LINE_COLOR[l] }))} unit="قطع" />
-          <div className="mt-3 grid gap-1.5">{Object.entries(st.byLine).sort((a, b) => b[1] - a[1]).map(([l, v]) => (
-            <div key={l} className="flex items-center gap-2 text-sm"><i className="size-2.5 rounded-full" style={{ background: LINE_COLOR[l] }} />{l}<b className="num ms-auto">{pct(v, st.total)}%</b></div>))}</div>
-        </Card>
+        <LineCard st={st} />
         </Deferred>
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Deferred minHeight={420}>
         <Card title="باريتو 80/20: الموديلات الأكثر طلبًا" hint={`${st.n80} موديل = 80% من الطلب`}>
-          {st.sorted.length ? <Pareto pull={d.pull} /> : <Empty>لا توجد طلبات بعد.</Empty>}
+          {st.sorted.length ? <Pareto pull={st.pull} /> : <Empty>لا توجد طلبات في الفترة دي.</Empty>}
           <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-primary" />فئة A</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-dirty" />فئة B</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-previous" />فئة C</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-scrap" />تراكمي</span></div>
         </Card>
         </Deferred>
@@ -213,16 +215,16 @@ function Summary({ d, st, cmp, period, go }: { d: Derived; st: Stats; cmp: Cmp; 
 function Demand({ d, st }: { d: Derived; st: Stats }) {
   const m: Record<string, Record<string, number>> = {}; const col: Record<string, number> = {}; const gov: Record<string, number> = {}; const bk = { '1': 0, '2': 0, '3-4': 0, '5+': 0 };
   for (const o of st.live) { for (const s of o.lines) { const k = d.skuMap.get(s); if (!k) continue; (m[k.model] ??= {})[k.size] = (m[k.model][k.size] ?? 0) + 1; col[k.color] = (col[k.color] ?? 0) + 1; } if (o.gov) gov[o.gov] = (gov[o.gov] ?? 0) + 1; const n = o.lines.length; bk[n === 1 ? '1' : n === 2 ? '2' : n <= 4 ? '3-4' : '5+']++; }
-  const models = Object.keys(m).sort((a, b) => (d.pull[b] ?? 0) - (d.pull[a] ?? 0)).slice(0, 14); const sizes = d.snap.sizes.filter((z) => models.some((x) => m[x][z]));
+  const models = Object.keys(m).sort((a, b) => (st.pull[b] ?? 0) - (st.pull[a] ?? 0)).slice(0, 14); const sizes = d.snap.sizes.filter((z) => models.some((x) => m[x][z]));
   if (!st.live.length) return <Card><Empty>لا توجد أوردرات بعد.</Empty></Card>;
   return (
     <div className="grid gap-4">
-      <Card title="خريطة الطلب: الموديل × المقاس" hint="أعلى 14 موديل"><Heatmap models={models} sizes={sizes} value={(x, z) => m[x][z] ?? 0} total={(x) => d.pull[x] ?? 0} /></Card>
+      <Card title="خريطة الطلب: الموديل × المقاس" hint="أعلى 14 موديل"><Heatmap models={models} sizes={sizes} value={(x, z) => m[x][z] ?? 0} total={(x) => st.pull[x] ?? 0} /></Card>
       <Card title="الأصناف الأكثر طلبًا" hint="مع الرصيد الجاهز وكم يكفي">
         <TableWrap><table className="text-sm"><thead><tr>{['', 'الصنف', 'مطلوب', 'طلب مفتوح', 'جاهز', 'يكفي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
           <tbody>{st.hot.map((r, i) => { const k = d.skuMap.get(r.id); return (
             <tr key={r.id} className="hover:bg-lav"><td className={td + ' w-10 font-mono text-muted'}>{i + 1}</td>
-              <td className={td}><span className="flex items-center gap-2"><Thumb model={k ? d.modelMap.get(k.model) : undefined} size={28} />{skuLabel(d.skuMap, r.id)}</span></td>
+              <td className={td}><span className="flex items-center gap-2"><Thumb model={k ? d.modelMap.get(k.model) : undefined} size={36} />{skuLabel(d.skuMap, r.id)}</span></td>
               <td className={td + ' font-mono font-semibold'}>{fmt(r.n)}</td><td className={td + ' font-mono'}>{fmt(r.open)}</td><td className={td + ' font-mono'}>{fmt(r.ready)}</td>
               <td className={td}>{r.cover === null ? <span className="text-muted">—</span> : <Pill tone={r.cover < 7 ? 'crit' : r.cover < 14 ? 'warn' : 'good'}>{Math.round(r.cover)} يوم</Pill>}</td></tr>); })}</tbody></table></TableWrap>
       </Card>
@@ -340,4 +342,16 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
     sheets.push({ name: 'الفريق', rows: [['الموظف', 'أوردرات', 'قطع'], ...Object.entries(e).sort((a, b) => b[1].o - a[1].o).map(([k, v]) => [k, v.o, v.p])] });
   }
   return sheets;
+}
+
+/** Demand (in the chosen period) or ready stock (now) per production line, in aligned rows. */
+function LineCard({ st }: { st: Stats }) {
+  const [view, setView] = useState<'demand' | 'stock'>('demand');
+  const src = view === 'demand' ? st.byLine : st.stockLine;
+  const rows = Object.entries(src).sort((a, b) => b[1] - a[1]).map(([l, v]) => ({ label: l, value: v, color: LINE_COLOR[l] ?? C.dirty }));
+  return (
+    <Card title={view === 'demand' ? 'الطلب حسب خط الإنتاج' : 'المخزون حسب خط الإنتاج'} hint={view === 'demand' ? 'قطع مطلوبة في الفترة' : 'جاهز للبيع دلوقتي'} action={<Seg value={view} onChange={setView} options={[['demand', 'الطلب'], ['stock', 'المخزون']]} />}>
+      {rows.length ? <ShareRows rows={rows} unit="قطعة" /> : <Empty>{view === 'demand' ? 'لا توجد طلبات في الفترة دي.' : 'لا يوجد مخزون جاهز.'}</Empty>}
+    </Card>
+  );
 }

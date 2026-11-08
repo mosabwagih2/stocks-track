@@ -29,6 +29,8 @@ export interface Backend {
   refresh(): Promise<State | null>;
   /** a file attached by the action being saved: uploaded right after that action is accepted */
   queueFile(owner: FileOwner, kind: FileKind, file: File, path?: string): void;
+  /** every file the server holds (originals and photos), as known to this page */
+  files(): ServerFile[];
   fileUrl(path: string): Promise<string | null>;
 }
 
@@ -101,6 +103,7 @@ export function createServerBackend(boot: Boot, transport: Transport = httpTrans
       applyPull(m, p); return toLovable(m);
     },
     queueFile(owner, kind, file) { pending.push({ owner, kind, file }); },
+    files: () => [...m.files],
     async fileUrl(path) {
       const direct = /^srvfile:(\d+)$/.exec(path); if (direct) return `/api/files/${direct[1]}`;
       const docs = [...m.rows.docs.values()] as { id: string; no?: string }[];

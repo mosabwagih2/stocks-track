@@ -73,7 +73,7 @@ export default function Orders() {
           <>
             <div className="mb-3 grid grid-cols-3 gap-3"><Kpi label="أصناف مطلوبة" value={pick.length} /><Kpi label="قطع مطلوبة (لم تُشحن)" value={fmt(pick.reduce((a, x) => a + x.need, 0))} /><Kpi label="أصناف ناقصة" value={pick.filter((x) => x.ready < x.need).length} tone={pick.some((x) => x.ready < x.need) ? 'crit' : 'good'} /></div>
             <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>مطلوب</th><th className={th}>جاهز</th><th className={th}>الفرق</th></tr></thead>
-              <tbody>{pick.map((x) => <tr key={x.sku}><td className={td}><Thumb model={d.modelMap.get(d.skuMap.get(x.sku)?.model ?? '')} size={26} className="me-1.5" />{skuLabel(d.skuMap, x.sku)}</td><td className={td + ' font-mono'}>{x.need}</td><td className={td + ' font-mono'}>{fmt(x.ready)}</td><td className={td}>{x.ready >= x.need ? <span className="font-mono text-muted">{fmt(x.ready - x.need)} متبقي</span> : <Pill tone="crit">ناقص {x.need - Math.max(0, x.ready)}</Pill>}</td></tr>)}</tbody></table></TableWrap>
+              <tbody>{pick.map((x) => <tr key={x.sku}><td className={td}><Thumb model={d.modelMap.get(d.skuMap.get(x.sku)?.model ?? '')} size={36} className="me-1.5" />{skuLabel(d.skuMap, x.sku)}</td><td className={td + ' font-mono'}>{x.need}</td><td className={td + ' font-mono'}>{fmt(x.ready)}</td><td className={td}>{x.ready >= x.need ? <span className="font-mono text-muted">{fmt(x.ready - x.need)} متبقي</span> : <Pill tone="crit">ناقص {x.need - Math.max(0, x.ready)}</Pill>}</td></tr>)}</tbody></table></TableWrap>
           </>
         )
       ) : (

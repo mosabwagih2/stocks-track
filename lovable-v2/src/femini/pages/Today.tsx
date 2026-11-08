@@ -9,7 +9,8 @@ import { EventDetails } from '@/femini/components/EventDetails';
 import type { Move } from '@/femini/domain/types';
 import { Alert, Button, Card, Kpi, Pill, Sheet, TableWrap, th, td, Empty } from '@/femini/components/ui';
 import { OrderPill, ErrorBox } from '@/femini/components/shared';
-import { FlowArea, Sparkline, StateDonut, useDaily, C } from '@/femini/components/charts';
+import { FlowArea, Sparkline, StateDonut, StockArea, useDaily, useStockDaily, C } from '@/femini/components/charts';
+import { EventTable, docEvents } from '@/femini/components/MoveRows';
 import { Seg } from '@/femini/components/ui';
 import { Spinner } from '@/femini/components/Spinner';
 import { OrderSheet, UploadSheet, CancelSheet } from '@/femini/components/OrderSheets';
@@ -74,7 +75,12 @@ export default function Today() {
   const [orderRef, setOrderRef] = useState<string | null>(null);
   const [cancel, setCancel] = useState<string | null>(null);
   const [metric, setMetric] = useState<'orders' | 'pieces'>('orders');
-  const daily = useDaily(d, 14);
+  // the period of the charts on this page (7 / 14 / 30 days), remembered in this browser
+  const [range, setRangeState] = useState<number>(() => { try { return Number(localStorage.getItem('femini-today-range')) || 14; } catch { return 14; } });
+  const setRange = (v: string) => { setRangeState(Number(v)); try { localStorage.setItem('femini-today-range', v); } catch { /* private mode */ } };
+  const daily = useDaily(d, range);
+  const stockDaily = useStockDaily(d, range);
+  const dayEvents = useMemo(() => (d ? docEvents(d.snap.moves.filter((m) => m.date === selected)) : []), [d, selected]);
 
   const x = useMemo(() => {
     if (!d) return null;
@@ -145,9 +151,9 @@ export default function Today() {
           {!total ? <Empty>لا يوجد بيك أب اليوم. ارفع ملف البيك أب.</Empty> : (
             <>
               <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Kpi label="المطلوب (بيك أب)" value={fmt(total)} sub={`${fmt(x.pcs(x.orders))} قطعة`} onClick={() => setFlow('all')}><Sparkline data={daily.map((r) => r.req)} /></Kpi>
-                <Kpi label="تم الشحن (خرج فعلًا)" value={fmt(x.done.length)} sub={`${fmt(x.pcs(x.done))} قطعة · ${pct(x.done.length, total)}%`} tone="good" onClick={x.done.length ? () => setFlow('done') : undefined}><Sparkline data={daily.map((r) => r.ship)} color={C.ready} /></Kpi>
-                <Kpi label="لم يُشحن بعد" value={fmt(x.wait.length)} sub={`${fmt(x.pcs(x.wait))} قطعة`} tone={x.wait.length ? 'warn' : undefined} onClick={x.wait.length ? () => setFlow('wait') : undefined}><Sparkline data={daily.map((r) => Math.max(0, r.req - r.ship))} color={C.dirty} /></Kpi>
+                <Kpi label="المطلوب (بيك أب)" value={fmt(total)} sub={`${fmt(x.pcs(x.orders))} قطعة`} onClick={() => setFlow('all')}><Sparkline data={daily.map((r) => r.req)} labels={daily.map((r) => r.day)} /></Kpi>
+                <Kpi label="تم الشحن (خرج فعلًا)" value={fmt(x.done.length)} sub={`${fmt(x.pcs(x.done))} قطعة · ${pct(x.done.length, total)}%`} tone="good" onClick={x.done.length ? () => setFlow('done') : undefined}><Sparkline data={daily.map((r) => r.ship)} labels={daily.map((r) => r.day)} color={C.ready} /></Kpi>
+                <Kpi label="لم يُشحن بعد" value={fmt(x.wait.length)} sub={`${fmt(x.pcs(x.wait))} قطعة`} tone={x.wait.length ? 'warn' : undefined} onClick={x.wait.length ? () => setFlow('wait') : undefined}><Sparkline data={daily.map((r) => Math.max(0, r.req - r.ship))} labels={daily.map((r) => r.day)} color={C.dirty} /></Kpi>
                 <Kpi label="متوقف بسبب المخزون" value={fmt(x.blk.length)} sub={`${fmt(x.pcs(x.blk))} قطعة`} tone={x.blk.length ? 'crit' : undefined} onClick={x.blk.length ? () => setFlow('blocked') : undefined}><div className="mt-2 h-2 overflow-hidden rounded-full bg-grid"><i className="block h-full rounded-full bg-scrap" style={{ width: `${pct(x.blk.length, total)}%` }} /></div><span className="mt-1 text-[11px] text-muted">{pct(x.blk.length, total)}% من طلب اليوم</span></Kpi>
               </div>
               <div className="flex h-2 gap-1 overflow-hidden rounded-full bg-grid" role="img" aria-label={`تم شحن ${x.done.length} من ${total}`}>
@@ -159,12 +165,18 @@ export default function Today() {
           )}
         </Card>
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <div className="grid content-start gap-4">
           <Deferred minHeight={400}>
-          <Card title="حركة الأوردرات والشحن" hint="آخر 14 يومًا" action={<Seg value={metric} onChange={setMetric} options={[['orders', 'أوردرات'], ['pieces', 'قطع']]} />}>
+          <Card title="حركة الأوردرات والشحن" hint={`آخر ${range} يوم`} action={<div className="flex flex-wrap gap-2"><Seg label="الفترة" value={String(range)} onChange={setRange} options={[['7', '7 يوم'], ['14', '14 يوم'], ['30', '30 يوم']]} /><Seg value={metric} onChange={setMetric} options={[['orders', 'أوردرات'], ['pieces', 'قطع']]} /></div>}>
             <FlowArea data={daily} metric={metric} />
-            <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-primary" />المطلوب (بيك أب)</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-secondary" />تم الشحن (الإسكان)</span></div>
           </Card>
           </Deferred>
+          <Deferred minHeight={320}>
+          <Card title="حركة المخزون" hint={`رصيد آخر كل يوم · آخر ${range} يوم`}>
+            <StockArea data={stockDaily} />
+          </Card>
+          </Deferred>
+          </div>
           <Deferred minHeight={300}>
           <Card title="المخزون حسب الحالة" hint="من دفتر الحركات"><StateDonut d={d} compact /></Card>
           </Deferred>
@@ -190,7 +202,11 @@ export default function Today() {
             </Card>
           </div>
         </div>
-        <Deferred minHeight={220}><section><h2 className="mb-3 font-display font-semibold">حصل إيه في اليوم ده</h2><div className="grid gap-2">{[...new Set(d.snap.moves.filter((m)=>m.date===selected).map((m)=>m.doc))].map((doc)=>{const ms=d.snap.moves.filter((m)=>m.date===selected&&m.doc===doc);return <Button key={doc} className="h-auto justify-between py-3" onClick={()=>setEvent(ms)}><span>{doc} · {ms[0]?.by}</span><Pill>{fmt(ms.reduce((a,m)=>a+m.qty,0))} قطعة</Pill></Button>;})}</div></section></Deferred>
+        <Deferred minHeight={220}>
+          <Card title="حصل إيه في اليوم ده" hint={dayEvents.length ? `${dayEvents.length} عملية · ${fmt(dayEvents.reduce((a, e) => a + e.pieces, 0))} قطعة` : ''}>
+            {!dayEvents.length ? <Empty>مفيش عمليات اتسجلت في اليوم ده.</Empty> : <EventTable events={dayEvents} onOpen={(e) => setEvent(e.moves)} />}
+          </Card>
+        </Deferred>
       </div>
       {event && <EventDetails d={d} moves={event} title={event[0]?.doc ?? 'حدث'} onClose={()=>setEvent(null)} />}
       {closing && <Sheet title={`تقرير يوم ${selected}`} onClose={()=>setClosing(false)}>

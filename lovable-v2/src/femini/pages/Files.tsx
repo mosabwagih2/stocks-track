@@ -9,13 +9,14 @@ import { Alert, Button, Card, Empty, Field, Kpi, Pill, Sheet, TableWrap, Tabs, t
 import { ErrorBox, Photo } from '@/femini/components/shared';
 import { Spinner } from '@/femini/components/Spinner';
 import { CHANNELS, channelName, TYPE_AR } from '@/femini/domain/constants';
-import { repo } from '@/femini/data';
+import { isAdmin, repo } from '@/femini/data';
+import { dayClosed } from '@/femini/domain/reports';
 import { fmt } from '@/femini/cn';
 import type { Derived } from '@/femini/hooks/data';
 import type { Doc, Pickup } from '@/femini/domain/types';
 
 function PickupSheet({ d, p, onClose }: { d: Derived; p: Pickup; onClose: () => void }) {
-  const act = useAct(); const nav = useNavigate();
+  const act = useAct(); const nav = useNavigate(); const admin = isAdmin();
   const [label, setLabel] = useState(p.label); const [date, setDate] = useState(p.date); const [channel, setChannel] = useState(p.channel); const [del, setDel] = useState(false);
   const os = d.snap.orders.filter((o) => o.pickupId === p.id); const shipped = os.filter((o) => o.status === 'shipped').length;
   return (
@@ -24,10 +25,11 @@ function PickupSheet({ d, p, onClose }: { d: Derived; p: Pickup; onClose: () => 
       <p className="text-[13px] text-muted">الملف الأصلي: <b>{p.source || '—'}</b></p>
       <div className="grid grid-cols-2 gap-3">
         <Field label="اسم البيك أب" className="col-span-2"><input value={label} onChange={(e) => setLabel(e.target.value)} /></Field>
-        <Field label="التاريخ"><input type="date" value={date} max={d.today} onChange={(e) => setDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
+        <Field label="التاريخ (اليوم اللي اتطلب فيه)"><input type="date" value={date} max={d.today} onChange={(e) => setDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
         <Field label="القناة"><select value={channel} onChange={(e) => setChannel(e.target.value)}>{CHANNELS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
       </div>
-      <div className="flex gap-2"><Button variant="primary" disabled={!label.trim()} onClick={async () => { const r = await act(() => repo.pickupUpdate({ id: p.id, label, date, channel }).then(() => true), 'تم حفظ التعديل'); if (r) onClose(); }}>حفظ التعديل</Button><Button onClick={() => { onClose(); nav(`/orders?pk=${p.id}`); }}>عرض أوردراته</Button></div>
+      {admin && (dayClosed(d.snap, p.date) || dayClosed(d.snap, date)) && <p className="-mt-2 text-xs text-muted">اليوم مقفول، بس كمدير تقدر تصحّح تاريخ البيك أب. البيك أب ما بيحرّكش مخزون، فالدفتر ما بيتأثرش.</p>}
+      <div className="flex gap-2"><Button variant="primary" disabled={!label.trim()} onClick={async () => { const r = await act(() => repo.pickupUpdate({ id: p.id, label, date, channel, force: admin }).then(() => true), 'تم حفظ التعديل'); if (r) onClose(); }}>حفظ التعديل</Button><Button onClick={() => { onClose(); nav(`/orders?pk=${p.id}`); }}>عرض أوردراته</Button></div>
       <div className="rounded-xl border border-line p-3"><h3 className="mb-1 font-display font-semibold">أرشفة البيك أب</h3>
         {shipped ? <Alert tone="warn">لا يمكن الأرشفة لأن فيه {shipped} أوردر مشحون (خُصم رصيده). يبقى البيك أب محفوظًا لحماية سجل الشحن.</Alert>
           : del ? <Alert tone="crit">سيتم أرشفة {os.length} أوردر من «{p.label}» ولن تُحتسب طلبًا. لا يتأثر المخزون لأن البيك أب لا يخصم. هل أنت متأكد؟<div className="mt-2 flex gap-2"><Button variant="danger" size="sm" onClick={async () => { const r = await act(() => repo.pickupDelete(p.id), (n) => `تمت أرشفة ${p.label} (${n} أوردر)`); if (r !== undefined) onClose(); }}>نعم، أرشف</Button><Button size="sm" onClick={() => setDel(false)}>لا</Button></div></Alert>
@@ -38,17 +40,32 @@ function PickupSheet({ d, p, onClose }: { d: Derived; p: Pickup; onClose: () => 
 }
 
 function ShipmentSheet({ d, doc, onClose }: { d: Derived; doc: Doc; onClose: () => void }) {
-  const act = useAct(); const [emp, setEmp] = useState(String(doc.hdr.employee ?? doc.by)); const [rev, setRev] = useState(false);
+  const act = useAct(); const [emp, setEmp] = useState(String(doc.hdr.employee ?? doc.by)); const admin = isAdmin();
   const refs = d.snap.orders.filter((o) => o.shipDoc === doc.no); const done = doc.status === 'done';
+  // pieces of the sheet from the ledger (older sheets did not store the count)
+  const pieces = d.snap.moves.filter((m) => m.doc === doc.no).reduce((a, m) => a + m.qty, 0);
+  const orders = Number(doc.hdr.orders ?? (Array.isArray(doc.hdr.refs) ? (doc.hdr.refs as unknown[]).length : refs.length));
+  const [newDate, setNewDate] = useState(doc.date); const closed = dayClosed(d.snap, newDate);
+  const movable = refs.filter((o) => o.status === 'shipped' && !o.returned).length;
   return (
     <Sheet title={`ملف شحن ${doc.no}`} onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3"><Kpi label="أوردرات" value={Number(doc.hdr.orders ?? refs.length)} sub={`${fmt(Number(doc.hdr.pieces ?? 0))} قطعة`} /><Kpi label="الحالة" value={<span className="font-sans text-lg">{done ? 'مؤكد' : 'معكوس'}</span>} /></div>
+      <div className="grid grid-cols-2 gap-3"><Kpi label="أوردرات" value={orders} sub={`${fmt(pieces)} قطعة`} /><Kpi label="الحالة" value={<span className="font-sans text-lg">{done ? 'مؤكد' : 'معكوس'}</span>} /></div>
       <p className="text-[13px] text-muted">{doc.date} · الملف الأصلي: <b>{String(doc.hdr.source ?? '—')}</b></p>
       {done ? (
         <>
           <Field label="اسم الموظف"><input value={emp} onChange={(e) => setEmp(e.target.value)} /></Field>
           <div><Button variant="primary" disabled={!emp.trim() || emp.trim() === String(doc.hdr.employee ?? doc.by)} onClick={async () => { const r = await act(() => repo.renameShipmentEmployee(doc.no, emp), 'تم تحديث اسم الموظف'); if (r !== undefined) onClose(); }}>حفظ اسم الموظف</Button>
             <p className="mt-1 text-xs text-muted">يحدّث الأوردرات وإحصائيات الموظفين. تبقى حركات المخزون القديمة كما هي في السجل.</p></div>
+          {admin && <div className="grid gap-2 rounded-xl border border-line bg-surface p-3">
+            <h3 className="text-sm font-semibold">تصحيح تاريخ الورقة <span className="text-xs font-normal text-muted">(للمدير)</span></h3>
+            <p className="text-xs text-muted">الورقة المؤكدة ما بتتعدلش في الدفتر. النقل بيعكسها، ويسجّل أوردراتها ({movable}) تاني على اليوم الصحيح في حفظة واحدة، باسم نفس الموظف. الأوردرات اللي ليها مرتجع بتفضل على الورقة القديمة.</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="اليوم الصحيح"><input type="date" value={newDate} max={d.today} onChange={(e) => e.target.value && setNewDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
+              {closed && newDate !== doc.date && <Button size="sm" onClick={() => act(() => repo.reopenDay(newDate), `اتفتح يوم ${newDate}`)}>افتح يوم {newDate}</Button>}
+              <Button variant="primary" disabled={newDate === doc.date || closed || !movable} onClick={async () => { const r = await act(() => repo.redateShipment(doc.no, newDate), (x) => `اتنقلت الورقة: ${x.doc} على ${newDate} (${x.orders} أوردر)`); if (r) onClose(); }}>نقل الورقة لليوم ده</Button>
+            </div>
+            {closed && newDate !== doc.date && <p className="text-xs text-warn">يوم {newDate} مقفول؛ افتحه الأول (بيفتح الأيام اللي بعده لحد النهارده، وبتتقفل تاني بكره لوحدها).</p>}
+          </div>}
 
         </>
       ) : <Alert>تم عكس هذا الملف.</Alert>}

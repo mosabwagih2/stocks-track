@@ -173,9 +173,11 @@ export function createMemoryRepo(backend?: Backend): Repo {
       for (const o of i.orders) { if (have.has(o.ref)) { d++; continue; } have.add(o.ref); S.orders.push({ ...o, pickupId: id, status: 'open' }); n++; }
       await original(id, 'pickup', i.file); save(); return { pickup: id, imported: n, duplicates: d };
     },
-    async shipOrders({ refs, employee, source, file, date: day }): Promise<ShipResult> {
-      const today = cairoToday(); const date = day ?? today; inWindow(date); unlocked(date);
-      const emp = employee.trim(); if (!emp) fail('أدخل اسم الموظف');
+    async shipOrders({ refs, employee, source, file, date: day, ...rest }): Promise<ShipResult> {
+      // `as`: internal use by redateShipment only (an admin moving a sheet to its real day keeps the original scanner)
+      const as = (rest as { as?: { employee: string; redateOf: string } }).as;
+      const today = cairoToday(); const date = day ?? today; if (!as) inWindow(date); unlocked(date);
+      const emp = employee.trim(); if (!emp) fail('أدخل اسم الموظف'); const scanner = as?.employee ?? emp;
       const os = S.orders.filter((o) => refs.includes(o.ref) && o.status === 'open'); if (!os.length) fail('لا توجد أوردرات مفتوحة ضمن المحدد');
       // Pieces that are not in the catalog could never leave the stock: the order would ship with part of it uncounted.
       const bad = os.filter((o) => o.unmapped.length); if (bad.length) fail(`أوردرات فيها أصناف مش متعرّفة، صحّحها الأول: ${bad.map((o) => o.ref).join('، ')}`);
@@ -187,10 +189,10 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const doc = docNo('SCN'); const a = agg(os.flatMap((o) => o.lines));
       post(Object.keys(a).map((sku) => ({ date, sku, qty: a[sku], from: 'READY' as const, to: 'EXT_CH' as const, type: 'SCN', doc, by: emp, note: `سكان: ${emp} (${source})` })));
       const sup: Record<string, number> = {};
-      for (const o of os) { o.status = 'shipped'; o.shippedBy = emp; o.shippedAt = at; o.shipDoc = doc; for (const c of consumption(o.lines, S.supplies, modelOf)) sup[c.item] = (sup[c.item] ?? 0) + c.qty; }
+      for (const o of os) { o.status = 'shipped'; o.shippedBy = scanner; o.shippedAt = at; o.shipDoc = doc; for (const c of consumption(o.lines, S.supplies, modelOf)) sup[c.item] = (sup[c.item] ?? 0) + c.qty; }
       for (const item of Object.keys(sup)) supPush(item, -sup[item], 'auto', `سكان ${emp}: ${os.length} أوردر`, doc, date);
       const pieces = os.reduce((x, o) => x + o.lines.length, 0);
-      S.docs.push({ no: doc, type: 'SCN', date, by: emp, status: 'done', hdr: { employee: emp, source, orders: os.length, pieces, ...(date !== today ? { recordedAt: new Date().toISOString() } : {}) }, lines: [] });
+      S.docs.push({ no: doc, type: 'SCN', date, by: emp, status: 'done', hdr: { employee: scanner, source, orders: os.length, pieces, ...(as ? { redateOf: as.redateOf } : {}), ...(date !== today ? { recordedAt: new Date().toISOString() } : {}) }, lines: [] });
       const b = bal(); const negative = Object.keys(a).map((sku) => ({ sku, ready: qty(b, sku, 'READY') })).filter((x) => x.ready < 0);
       await original(doc, 'scan', file); save(); return { doc, shipped: os.length, pieces, negative };
     },
@@ -397,10 +399,36 @@ export function createMemoryRepo(backend?: Backend): Repo {
     },
     async supplyArchive(id, archived) { const s = S.supplies.find((x) => x.id === id); if (s) s.archived = archived; save(); },
     // ---------- files ----------
-    async pickupUpdate({ id, label, date, channel }) {
+    async pickupUpdate({ id, label, date, channel, force }) {
       const p = S.pickups.find((x) => x.id === id); if (!p) fail('بيك أب غير معروف'); if (!label.trim()) fail('أدخل اسم البيك أب');
-      if(p)unlocked(p.date);unlocked(date);
-      if (date > cairoToday()) fail('لا يمكن أن يكون التاريخ في المستقبل'); Object.assign(p as Pickup, { label: label.trim(), date, channel }); save();
+      // `force`: an admin correcting the date of a pickup on a closed day (a pickup moves no stock, so no ledger is touched)
+      if (!force) { if (p) unlocked(p.date); unlocked(date); }
+      if (date > cairoToday()) fail('لا يمكن أن يكون التاريخ في المستقبل');
+      // its orders cannot have left before the day they were requested
+      const early = S.orders.filter((o) => o.pickupId === id && o.shippedAt && cairoDay(o.shippedAt) < date);
+      if (early.length) fail(`فيه ${early.length} أوردر من البيك أب ده اتشحن قبل ${date} (مثلًا ${early[0].ref}). اختار تاريخ قبل أول شحن، أو صحّح تاريخ ورقة الشحن الأول.`);
+      Object.assign(p as Pickup, { label: label.trim(), date, channel }); save();
+    },
+    async redateShipment(doc, date) {
+      // A scan sheet is a confirmed document: the ledger is never edited. Moving it to its real day = reversing it and
+      // recording its orders again on that day, in ONE save (one push on the server). Returned or cancelled orders keep
+      // the old sheet. The new sheet keeps the scanner's name and points to the old one.
+      const d = S.docs.find((x) => x.no === doc && x.type === 'SCN'); if (!d) return fail('ورقة شحن غير معروفة');
+      if (d.status !== 'done') fail('الورقة دي اتعكست قبل كده');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > cairoToday()) fail('لا يمكن أن يكون التاريخ في المستقبل');
+      if (date === d.date) fail('الورقة متسجلة على اليوم ده فعلًا');
+      unlocked(date);
+      const refs = S.orders.filter((o) => o.shipDoc === doc && o.status === 'shipped' && !o.returned).map((o) => o.ref);
+      if (!refs.length) fail('كل أوردرات الورقة دي اترجعت أو اتلغت؛ مفيش حاجة تتنقل.');
+      const late = S.orders.filter((o) => refs.includes(o.ref) && (S.pickups.find((p) => p.id === o.pickupId)?.date ?? '') > date);
+      if (late.length) fail(`${late.length} أوردر البيك أب بتاعه بتاريخ بعد ${date} (مثلًا ${late[0].ref}). صحّح تاريخ البيك أب الأول.`);
+      // an order of this sheet cancelled without its pieces coming back: the reversal would put pieces on the shelf that are not there
+      const gone = S.orders.filter((o) => o.shipDoc === doc && o.status === 'cancelled' && o.cancel?.was === 'shipped' && !o.cancel.returned && !o.returned);
+      if (gone.length) fail(`الورقة فيها ${gone.length} أوردر اتلغى من غير ما القطع ترجع (مثلًا ${gone[0].ref})؛ نقلها هيرجّع قطع مش موجودة. استرجع الأوردر الأول أو سيب الورقة على تاريخها.`);
+      const scanner = String(d.hdr.employee ?? d.by);
+      await api.reverseShipment(doc);
+      const r = await api.shipOrders({ refs, employee: actor(), source: String(d.hdr.source ?? ''), date, as: { employee: scanner, redateOf: doc } } as Parameters<Repo['shipOrders']>[0]);
+      return { doc: r.doc, orders: r.shipped };
     },
     async pickupDelete(id) {
       const existing=S.pickups.find((p)=>p.id===id);if(existing)unlocked(existing.date);
@@ -439,6 +467,10 @@ export function createMemoryRepo(backend?: Backend): Repo {
       if (backend) {   // reopening a day reopens the days after it too (the server's single lock)
         if (!S.lock || date > S.lock) return; const at = new Date().toISOString();
         for (const c of S.closes ?? []) if (c.date >= date && c.date <= S.lock && c.status === 'closed') { c.status = 'reopened'; c.reopenedAt = at; }
+        // The automatic close recognises "reopened today" by the day's record. A day with no moves never got one (the lock
+        // simply passed it), so without this it was closed again on the very next refresh.
+        S.closes ??= [];
+        if (!S.closes.some((c) => c.date === date && c.status === 'reopened' && c.reopenedAt === at)) S.closes.push({ ...closeRecord(date, false), status: 'reopened', reopenedAt: at });
         S.lock = addDays(date, -1); save(); return;
       }
       guard(); const at = new Date().toISOString(); for (const c of S.closes ?? []) if (c.date === date && c.status === 'closed') { c.status = 'reopened'; c.reopenedAt = at; } save(); },

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LogOut, UserPlus } from 'lucide-react';
+import { Download, LogOut, UserPlus } from 'lucide-react';
 import { Alert, Button, Card, Field, TableWrap, th, td } from './ui';
 import { useToast } from './toast';
-import { boot } from '@/femini/data';
+import { boot, server } from '@/femini/data';
+import { stateFromPull } from '@/femini/data/cpanel/v3';
+import { downloadBlob } from '@/femini/data/backup';
 
 /** Server edition: the signed-in account, sign out, own password, and (with the "users" permission) users and roles.
  * Everything goes through the server API; the server checks every permission again. */
@@ -40,9 +42,7 @@ export function ServerAccount() {
         {err && <Alert tone="crit" className="mt-2">{err}</Alert>}
         <div className="mt-3 flex flex-wrap gap-2"><Button disabled={busy || !cur || pw.length < 8} onClick={changePw}>تغيير كلمة السر</Button><Button variant="ghost" onClick={logout}><LogOut className="size-4" /> تسجيل الخروج</Button></div>
       </Card>
-      <Card title="النسخة الاحتياطية">
-        <Alert>البيانات على السيرفر. النسخة الاحتياطية بتتاخد من cPanel: قاعدة البيانات وفولدر الملفات (storage) مع بعض، يوميًا بـ Cron.</Alert>
-      </Card>
+      <BackupCard canUsers={can('users')} />
       {can('users') && <UsersCard isAdmin={me?.role === 'admin'} />}
     </>
   );
@@ -77,6 +77,42 @@ function UsersCard({ isAdmin }: { isAdmin: boolean }) {
       <TableWrap><table className="text-xs"><thead><tr><th className={th}>الصلاحية</th>{Object.keys(roles).map((r) => <th key={r} className={th}>{ROLE_AR[r] ?? roles[r].name}</th>)}</tr></thead>
         <tbody>{PERMS.map(([p, label]) => (
           <tr key={p}><td className={td}>{label}</td>{Object.keys(roles).map((r) => { const all = roles[r].perms.includes('*'); return <td key={r} className={td}><input type="checkbox" aria-label={`${label} · ${r}`} checked={all || roles[r].perms.includes(p)} disabled={!isAdmin || r === 'admin' || all} onChange={(e) => togglePerm(r, p, e.target.checked)} /></td>; })}</tr>))}</tbody></table></TableWrap>
+    </Card>
+  );
+}
+
+/** A complete copy of the server data, downloaded to this computer as one file: every move, order, document, pickup,
+ * setting and the catalog, the users list, and the attached files themselves (photos and original sheets).
+ * Same shape as the original app's backup (femini-stock v3), so php-app/tools/import_backup.php can restore it. */
+function BackupCard({ canUsers }: { canUsers: boolean }) {
+  const [busy, setBusy] = useState(false); const [msg, setMsg] = useState(''); const [err, setErr] = useState('');
+  const run = async () => {
+    setBusy(true); setErr(''); setMsg('بجيب البيانات من السيرفر…');
+    try {
+      const pr = await fetch('/api/sync/pull?since=0', { credentials: 'same-origin' }); if (!pr.ok) throw new Error('مقدرتش أجيب البيانات من السيرفر.');
+      const pull = await pr.json();
+      const files = server()?.files() ?? []; const photos: Record<string, string> = {}; const fileList: unknown[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i]; setMsg(`بنزّل الملفات ${i + 1} من ${files.length}…`);
+        const r = await fetch(`/api/files/${f.id}`, { credentials: 'same-origin' }); if (!r.ok) continue;
+        const b = await r.blob(); const data = await new Promise<string>((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result)); fr.onerror = () => no(fr.error); fr.readAsDataURL(b); });
+        photos[`f${f.id}`] = data; fileList.push({ ...f, data: `f${f.id}` });
+      }
+      const users = canUsers ? await fetch('/api/users', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => null) : null;
+      const at = Date.now(); const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(new Date(at));
+      const backup = { app: 'femini-stock', v: 3, at, source: location.host, rev: pull.rev, state: stateFromPull(pull), photos, files: fileList, users: users?.users ?? null, roles: users?.roles ?? null };
+      downloadBlob(new Blob([JSON.stringify(backup)], { type: 'application/json' }), `femini-backup-${day}.json`);
+      const n = (pull.moves ?? []).length;
+      setMsg(`اتنزّلت النسخة: ${n.toLocaleString('en')} حركة، ${(backup.state.orders as unknown[]).length.toLocaleString('en')} أوردر، ${fileList.length} ملف.`);
+    } catch (e) { setErr((e as Error).message); setMsg(''); } finally { setBusy(false); }
+  };
+  return (
+    <Card title="النسخة الاحتياطية">
+      <p className="text-sm text-muted">بتنزّل كل البيانات على الكمبيوتر في ملف واحد: الحركات والأوردرات والمستندات والبيك أب والكتالوج والإعدادات والمستخدمين، ومعاهم الملفات والصور نفسها.</p>
+      {err && <Alert tone="crit" className="mt-2">{err}</Alert>}
+      {msg && <p className="mt-2 text-xs text-muted" aria-live="polite">{msg}</p>}
+      <Button variant="primary" className="mt-3" disabled={busy} onClick={run}><Download className="size-4" /> {busy ? 'بيتنزّل…' : 'نزّل نسخة احتياطية كاملة'}</Button>
+      <p className="mt-2 text-[11px] text-muted">احتفظ بيها في مكان تاني غير الجهاز ده. السيرفر نفسه بيتعمله نسخة كمان من cPanel.</p>
     </Card>
   );
 }

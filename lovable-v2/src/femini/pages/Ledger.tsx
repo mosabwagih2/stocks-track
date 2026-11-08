@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
-import { Button, Empty, Pill, Sheet, TableWrap, Tabs, th, td } from '@/femini/components/ui';
+import { Button, Empty, Sheet, TableWrap, Tabs, th, td } from '@/femini/components/ui';
 import { EventDetails } from '@/femini/components/EventDetails';
 import { repo } from '@/femini/data';
 import type { Move } from '@/femini/domain/types';
@@ -9,6 +9,8 @@ import { ErrorBox } from '@/femini/components/shared';
 import { Spinner } from '@/femini/components/Spinner';
 import { LOC_AR, TYPE_AR } from '@/femini/domain/constants';
 import { skuLabel } from '@/femini/domain/orders';
+import { dayLabel } from '@/femini/domain/dates';
+import { EventTable, docEvents, type DocEvent } from '@/femini/components/MoveRows';
 
 export default function Ledger() {
   const { d, isLoading, error } = useDerived();
@@ -20,6 +22,8 @@ export default function Ledger() {
     const w = dq.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return d.snap.moves.filter((m) => (!type || m.type === type) && (!person || m.by === person) && (!date || m.date === date) && w.every((x) => `${m.sku} ${skuLabel(d.skuMap, m.sku)} ${m.doc}`.toLowerCase().includes(x)));
   }, [d, dq, type, person, date]);
+  const byDay = useMemo(() => { const m = new Map<string, DocEvent[]>(); for (const e of docEvents(rows)) (m.get(e.date) ?? m.set(e.date, []).get(e.date)!).push(e); return [...m].sort((a, b) => (a[0] < b[0] ? 1 : -1)); }, [rows]);
+  const supplyRows = useMemo(() => (d ? d.snap.supplyLog.filter((e) => (!date || e.date === date) && (!person || e.by === person)).slice().reverse() : []), [d, date, person]);
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
   const types = [...new Set(d.snap.moves.map((m) => m.type))];
@@ -40,7 +44,14 @@ export default function Ledger() {
         <select aria-label="الشخص" value={person} onChange={(e)=>setPerson(e.target.value)}><option value="">كل الأشخاص</option>{[...new Set(d.snap.moves.map((m)=>m.by))].map((p)=><option key={p}>{p}</option>)}</select>
         <input type="date" aria-label="اليوم" value={date} onChange={(e)=>setDate(e.target.value)} />
       </div>
-      {tab === 'events' ? <div className="grid gap-4">{[...new Set(rows.map((m)=>m.date))].sort().reverse().map((day)=><section key={day}><h2 className="mb-2 text-sm font-semibold text-muted">{day}</h2><div className="grid gap-2">{[...new Set(rows.filter((m)=>m.date===day).map((m)=>m.doc))].map((doc)=>{const ms=rows.filter((m)=>m.date===day&&m.doc===doc);return <Button key={doc} className="h-auto justify-between gap-4 py-3" onClick={()=>setEvent(ms)}><span>{TYPE_AR[ms[0]?.type ?? '']} · {doc}</span><span className="text-xs text-muted">{ms[0]?.by}</span><Pill>{ms.reduce((a,m)=>a+m.qty,0)} قطعة</Pill></Button>;})}</div></section>)}{d.snap.supplyLog.filter((e)=>(!date||e.date===date)&&(!person||e.by===person)).slice().reverse().map((e)=><div className="flex justify-between gap-3 border-b border-line py-3 text-sm" key={`s${e.id}`}><span>مستلزمات · {d.snap.supplies.find((s)=>s.id===e.item)?.name} · {e.why}</span><span>{e.qty} · {e.date} · {e.by}</span></div>)}{!rows.length && <Empty>لا توجد أحداث مطابقة.</Empty>}</div> : <>
+      {tab === 'events' ? <div className="grid gap-5">
+        {/* one clean row per operation: time · operation · code · by · from → to · pieces (same layout as the variant history) */}
+        {byDay.map(([day, evs]) => <section key={day}>
+          <h2 className="mb-2 flex items-baseline gap-2 text-sm font-semibold"><span className="font-mono">{day}</span><span className="text-xs font-normal text-muted">{dayLabel(day)} · {evs.length} عملية · {evs.reduce((a, e) => a + e.pieces, 0).toLocaleString('en')} قطعة</span></h2>
+          <EventTable events={evs} onOpen={(e) => setEvent(e.moves)} />
+        </section>)}
+        {supplyRows.length > 0 && <section><h2 className="mb-2 text-sm font-semibold">المستلزمات</h2><TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'المستلزم', 'السبب', 'بواسطة', 'الكمية'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{supplyRows.map((e) => <tr key={`s${e.id}`}><td className={td + ' whitespace-nowrap font-mono text-muted'}>{e.date}</td><td className={td}>{d.snap.supplies.find((s) => s.id === e.item)?.name ?? e.item}</td><td className={td + ' text-muted'}>{e.why}</td><td className={td + ' whitespace-nowrap'}>{e.by}</td><td className={td + ' num font-semibold ' + (e.qty < 0 ? 'text-crit' : 'text-good')}>{e.qty > 0 ? '+' : ''}{e.qty}</td></tr>)}</tbody></table></TableWrap></section>}
+        {!rows.length && <Empty>لا توجد أحداث مطابقة.</Empty>}</div> : <>
       <p className="mb-3 text-sm text-muted">ابحث بكود صنف كامل لعرض رحلته؛ الرصيد التالي محسوب بعد الحركة من كامل السجل.</p>
       <TableWrap>
         <table className="text-sm"><thead><tr>{['التاريخ', 'المستند', 'الصنف', 'كمية', 'من', 'إلى', 'ملاحظة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>

@@ -11,6 +11,8 @@ import type { Boot } from './cpanel/v3';
  */
 export const boot: Boot | null = typeof window !== 'undefined' ? ((window as unknown as { FEM_BOOT?: Boot }).FEM_BOOT ?? null) : null;
 export const serverEdition = !!boot?.state;
+/** admin of the server edition (the browser edition has one user, who owns everything) */
+export const isAdmin = (): boolean => !serverEdition || boot?.user?.role === 'admin';
 let backend: Backend | undefined;
 export const server = (): Backend | undefined => (serverEdition ? (backend ??= createServerBackend(boot!)) : undefined);
 

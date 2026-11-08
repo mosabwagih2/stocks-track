@@ -1,3 +1,4 @@
+import logo from '@/femini/assets/femini-logo.png';
 import { serverEdition } from '@/femini/data';
 import { useEffect, type ReactNode } from 'react';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
@@ -51,7 +52,7 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="min-h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)] print:block">
       <nav aria-label="التنقل" className="print:hidden fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-line bg-rail/95 px-1.5 pt-1.5 pb-safe backdrop-blur md:sticky md:inset-auto md:top-0 md:h-screen md:flex-col md:gap-0.5 md:overflow-y-auto md:border-t-0 md:border-e md:p-4">
         <div className="mb-6 hidden items-center gap-3 px-2 pt-1 md:flex">
-          <span className="grid size-10 place-items-center rounded-xl bg-accent font-display text-lg font-bold text-on-accent shadow-card">F</span>
+          <img src={logo} alt="Fémini" width={44} height={44} className="size-11 shrink-0 rounded-xl border border-line bg-white object-contain p-1 shadow-card" />
           <div className="leading-tight">
             <b className="font-display text-lg font-semibold tracking-tight">Fémini</b>
             <small className="block text-[11px] text-rail-mute">Stock · نظام المخزن</small>
@@ -73,7 +74,7 @@ export default function Shell({ children }: { children: ReactNode }) {
       </nav>
       <div className="min-w-0">
         <header className="print:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-page/80 px-4 py-3 backdrop-blur md:px-8">
-          <span className="grid size-8 place-items-center rounded-lg bg-accent font-display font-bold text-on-accent md:hidden">F</span>
+          <img src={logo} alt="Fémini" width={32} height={32} className="size-8 shrink-0 rounded-lg border border-line bg-white object-contain p-0.5 md:hidden" />
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
             {isToday && <h1 className="font-display text-lg font-semibold">اليوم</h1>}
             <span className="text-sm text-muted">{d ? dayLabel(d.today) : ' '}</span>

@@ -337,3 +337,15 @@ export function applyPush(m: Mirror, p: Push, rev: number, actor: string): Mirro
 }
 
 export const serverSeedSkus = seed.skus.length;
+
+/** The whole server state in the original app's backup shape (state v3), from a full pull (since=0). */
+export function stateFromPull(p: Pulled): Row {
+  const live = (c: string) => (p.coll?.[c] ?? []).filter((r) => !r.gone).map((r) => r.row);
+  const mv = (k: string) => p.meta?.[k]?.v;
+  return {
+    v: 3, moves: [...(p.moves ?? [])].sort((a, b) => a.id - b.id), mid: mv('mid'), docs: live('docs'), did: mv('did'), seq: mv('seq') ?? {},
+    pickups: live('pickups'), orders: live('orders'), emps: live('emps'), sup: { log: live('sup_log'), items: live('sup_items'), eid: mv('sup_eid') },
+    st: mv('st') ?? {}, costs: mv('costs') ?? {}, alias: mv('alias') ?? {}, img: mv('img') ?? {}, cat: mv('cat'), lock: mv('lock') ?? '', bk: mv('bk'),
+    shops: live('shops'), closes: live('closes'), archPk: live('archPk'), archDocs: live('archDocs'), oldOrd: live('oldOrd'), holds: live('holds'),
+  };
+}

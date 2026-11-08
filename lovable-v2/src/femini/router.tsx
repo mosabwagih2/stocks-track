@@ -19,7 +19,9 @@ export function useNavigate() {
 export function useSearchParams(): [URLSearchParams, (p: URLSearchParams, o?: { replace?: boolean }) => void] {
   const loc = useLocation();
   const nav = useTNavigate();
-  const sp = useMemo(() => new URLSearchParams(loc.searchStr ?? ''), [loc.searchStr]);
+  // Read the parsed search, not the raw string: TanStack Router writes a number-like value such as "7" as JSON ("%227%22"),
+  // so URLSearchParams on the raw string read back '"7"' and every 7 / 30-day choice fell back to the default.
+  const sp = useMemo(() => new URLSearchParams(Object.entries((loc.search ?? {}) as Record<string, unknown>).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)])), [loc.search]);
   const set = useCallback((p: URLSearchParams, o?: { replace?: boolean }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nav({ to: loc.pathname as any, search: Object.fromEntries(p) as any, replace: o?.replace });

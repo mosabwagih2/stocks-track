@@ -51,6 +51,30 @@ describe('server edition', () => {
     await r.reopenDay(T); await check(srv, r);
   });
 
+  it('an admin moves a scan sheet to its real day and a pickup to its real day (one save each, server rules pass)', async () => {
+    const srv = createFakeServer(boot(), ADMIN); setActor(ADMIN.name);
+    const r = createMemoryRepo(createServerBackend(srv.bootNow(), srv.transport));
+    await r.snapshot();
+    const y = addDays(T, -1);
+    const ord = (ref: string, lines: string[]) => ({ ref, waybill: `9${ref}`, type: 'new' as const, gov: '', total: 0, lines, unmapped: [] });
+    const { pickup } = await r.importPickup({ label: 'ب', date: T, channel: 'VENDOOR', source: 'x', orders: [ord('B1', [skus[0]]), ord('B2', [skus[1], skus[1]])] });
+    const a = await r.shipOrders({ refs: ['B1', 'B2'], employee: ADMIN.name, source: 'scan.csv' }); await check(srv, r);
+    // the pickup has to move first: a sheet cannot go before its orders were requested
+    await expect(r.redateShipment(a.doc, y)).rejects.toThrow(/مقفول/);   // yesterday closed by itself: reopen it first
+    await r.reopenDay(y);
+    await expect(r.redateShipment(a.doc, y)).rejects.toThrow(/البيك أب/);
+    await r.pickupUpdate({ id: pickup, label: 'ب', date: y, channel: 'VENDOOR', force: true }); await check(srv, r);
+    const before = (await r.snapshot()).balances;
+    const moved = await r.redateShipment(a.doc, y); await check(srv, r);
+    const s = await r.snapshot();
+    expect(s.docs.find((x) => x.no === a.doc)!.status).toBe('reversed');
+    expect(s.docs.find((x) => x.no === moved.doc)!.date).toBe(y);
+    expect(s.moves.filter((m) => m.doc === moved.doc).every((m) => m.date === y)).toBe(true);
+    expect(s.orders.filter((o) => ['B1', 'B2'].includes(o.ref)).every((o) => o.shipDoc === moved.doc && o.status === 'shipped')).toBe(true);
+    expect(s.balances).toEqual(before);                       // the stock today is exactly the same
+    expect(moved.orders).toBe(2);
+  });
+
   it('a role without the permission is refused and nothing is kept', async () => {
     const pack: FakeUser = { id: 'u2', name: 'Abdallah', role: 'pack', perms: ['scan', 'returns'] };
     const srv = createFakeServer(boot(), pack); setActor(pack.name);
