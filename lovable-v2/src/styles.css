@@ -217,6 +217,9 @@
 }
 
 /* Analytical surfaces: distinct series, restrained grids, readable focus states. */
+/* the money split of a settlement: Fémini in the brand purple (the logo), Vendoor in its orange, the courier in a calm blue */
+:root { --chart-femini: #4b3486; --chart-vendoor: #ffa046; --chart-shipping: oklch(0.6 0.08 225); }
+.dark { --chart-femini: oklch(0.72 0.12 295); --chart-vendoor: #ffad5c; --chart-shipping: oklch(0.7 0.07 225); }
 :root { --chart-primary: oklch(0.57 0.18 290); --chart-secondary: oklch(0.57 0.12 180); --chart-grid: oklch(0.92 0.009 280); --chart-track: oklch(0.96 0.007 280); --chart-previous: oklch(0.64 0.025 270); --chart-tooltip-shadow: 0 8px 28px oklch(0.25 0.025 280 / 0.12); }
 .dark { --chart-primary: oklch(0.76 0.14 290); --chart-secondary: oklch(0.76 0.12 180); --chart-grid: oklch(0.3 0.015 280); --chart-track: oklch(0.25 0.015 280); --chart-previous: oklch(0.65 0.025 270); --chart-tooltip-shadow: 0 8px 28px oklch(0 0 0 / 0.3); }
 .chart-tooltip { box-shadow: var(--chart-tooltip-shadow); }

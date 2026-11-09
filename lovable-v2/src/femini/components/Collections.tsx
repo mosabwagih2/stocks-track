@@ -142,10 +142,10 @@ function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string })
       <TrendArea bars data={rows} series={[{ key: 'shipped', name: 'اتشحن', color: C.accent }, { key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} />
     </Card>
     <Card title="فلوس التسويات" hint="جنيه · بتاريخ التسوية">
-      <TrendArea bars money data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.ready }, { key: 'vendoor', name: 'مستحق فيندور', color: C.accent }, { key: 'shipping', name: 'شركة الشحن', color: C.muted }]} />
+      <TrendArea bars money data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.femini }, { key: 'vendoor', name: 'مستحق فيندور', color: C.vendoor }, { key: 'shipping', name: 'شركة الشحن', color: C.shipping }]} />
     </Card>
     <Card title="مستحق فيميني يوم بيوم" hint="جنيه · كل يوم لوحده بتاريخ التسوية" className="lg:col-span-2">
-      <TrendArea money height={220} data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.ready }, { key: 'avg', name: 'متوسط يوم التسوية', color: C.muted, dash: true, total: 'last' }]} />
+      <TrendArea money height={220} data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.femini }, { key: 'avg', name: 'متوسط يوم التسوية', color: C.muted, dash: true, total: 'last' }]} />
     </Card>
   </div>;
 }

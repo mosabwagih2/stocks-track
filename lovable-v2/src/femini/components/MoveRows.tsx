@@ -3,6 +3,7 @@ import { skuLabel } from '@/femini/domain/orders';
 import { timeCairo } from '@/femini/domain/dates';
 import { cn, fmt } from '@/femini/cn';
 import { TableWrap, th, td } from './ui';
+import { TONE } from './tones';
 import type { Derived } from '@/femini/hooks/data';
 import type { Loc, Move } from '@/femini/domain/types';
 
@@ -10,10 +11,6 @@ import type { Loc, Move } from '@/femini/domain/types';
 export interface DocEvent { doc: string; type: string; by: string; pieces: number; ts: string; date: string; from: string; to: string; moves: Move[] }
 
 const SHORT: Record<string, string> = { READY: 'جاهز', DIRTY: 'نظافة', FACTORY: 'المصنع', SCRAP: 'هالك', LOST: 'مفقود', EXT_OPEN: 'افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'جرد', EXT_OFF: 'شطب', EXT_HOLD: 'هولد' };
-const TONE: Record<string, string> = {
-  SCN: 'bg-good-bg text-good', RTN: 'bg-info-bg text-info', RCV: 'bg-info-bg text-info', SHP: 'bg-lav text-accent', CXL: 'bg-crit-bg text-crit',
-  CNT: 'bg-warn-bg text-warn', CLN: 'bg-warn-bg text-warn', LOS: 'bg-warn-bg text-warn', HLD: 'bg-lav text-accent', OPN: 'bg-lav text-muted',
-};
 
 /** Groups moves by document, newest first. A reversal ("SCN-0001 (عكس)") is its own event. */
 export function docEvents(moves: Move[]): DocEvent[] {

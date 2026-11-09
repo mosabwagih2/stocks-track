@@ -15,7 +15,6 @@ import { LOCS, LOC_AR, LOC_COLOR, LOC_HINT } from '@/femini/domain/constants';
 import { locTotal, qty, totalOwned } from '@/femini/domain/ledger';
 import { cellInfo } from '@/femini/domain/stock';
 import { NEXT } from '@/femini/domain/flow';
-import { WasteView } from '@/femini/components/WasteView';
 import { cn, fmt } from '@/femini/cn';
 import { skuLabel } from '@/femini/domain/orders';
 import { swatchOf } from '@/femini/components/swatch';
@@ -122,7 +121,7 @@ function SkuSheet({ d, sku, start, onClose }: { d: Derived; sku: Sku; start: Loc
 export default function Stock() {
   const { d, isLoading, error } = useDerived();
   const [sp, setSp] = useSearchParams(); const v0 = sp.get('view'); // (the all-SKUs table was removed: an old link with view=table opens the models)
-  const view: 'all' | 'map' | 'supplies' | 'waste' = v0 === 'map' || v0 === 'supplies' || v0 === 'waste' ? v0 : 'all';
+  const view: 'all' | 'map' | 'supplies' = v0 === 'map' || v0 === 'supplies' ? v0 : 'all';   // an old ?view=waste link lands on all models
   const setView = (v: string) => { const n = new URLSearchParams(sp); if (v === 'all') n.delete('view'); else n.set('view', v); setSp(n, { replace: true }); }; const [loc, setLoc] = useState<Loc>('READY');
   const [line, setLine] = useState('all'); const [otherModel, setOtherModel] = useState('all');
   const [q, setQ] = useState(''); const dq = useDeferredValue(q); const [archOpen, setArchOpen] = useState(false); const [sku, setSku] = useState<Sku | null>(null);
@@ -152,7 +151,7 @@ export default function Stock() {
     <>
       <PageHead title="المخزون" sub="متابعة الموديلات والأصناف ومستلزمات التغليف في مكان واحد." actionsClassName="flex w-full min-w-0 items-center gap-2">
         <div className="min-w-0 overflow-x-auto [&>div]:w-max [&_button]:whitespace-nowrap">
-          <Seg value={view} onChange={setView} options={[['all', 'كل الموديلات'], ['supplies', 'المستلزمات'], ['map', 'خريطة المخزون'], ['waste', 'الهالك والمصنع']]} label="العرض" />
+          <Seg value={view} onChange={setView} options={[['all', 'كل الموديلات'], ['supplies', 'المستلزمات'], ['map', 'خريطة المخزون']]} label="العرض" />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="w-9">{view === 'supplies' && <Button className="size-9 p-0" aria-label={supArch ? 'المستلزمات الحالية' : `المؤرشفة (${d.snap.supplies.filter((s) => s.archived).length})`} title={supArch ? 'المستلزمات الحالية' : 'المستلزمات المؤرشفة'} onClick={() => setSupArch((x) => !x)}><Archive className="size-4" /></Button>}</div>
@@ -160,7 +159,7 @@ export default function Stock() {
           <Button className="w-32 sm:w-36" variant="primary" onClick={() => view === 'supplies' ? setSupAdd((n) => n + 1) : setCatSheet('new')}><Plus className="size-4 shrink-0" />{view === 'supplies' ? 'إضافة مستلزم' : 'موديل جديد'}</Button>
         </div>
       </PageHead>
-      {view === 'supplies' ? <Supplies embedded addSignal={supAdd} arch={supArch} setArch={setSupArch} /> : view === 'waste' ? <WasteView d={d} onSku={setSku} /> : <>
+      {view === 'supplies' ? <Supplies embedded addSignal={supAdd} arch={supArch} setArch={setSupArch} /> : <>
       <div className="mb-3 border-b border-line pb-3">
         <div role="group" aria-label="حالات المخزون" className="flex flex-wrap gap-2 [&>button]:h-11 [&>button]:whitespace-nowrap">
           {LOCS.map((l) => <Button key={l} aria-pressed={loc === l} variant={loc === l ? 'primary' : 'default'} onClick={(e) => { setLoc(l === loc ? 'READY' : l); e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); }}><Dot className={LOC_COLOR[l]} />{LOC_AR[l]} <span className="font-mono text-xs opacity-75">{fmt(locTotal(d.snap.balances, l))}</span>{loc === l && <Check className="size-4" />}</Button>)}
@@ -202,7 +201,7 @@ export default function Stock() {
       )}
       </>}
       {archOpen && <Sheet title={`الأصناف المؤرشفة (${d.snap.archivedSkus.length})`} onClose={() => setArchOpen(false)} wide><ArchivedList d={d} /></Sheet>}
-      {sku && <SkuSheet d={d} sku={sku} start={view === 'waste' ? ((['DIRTY', 'FACTORY', 'SCRAP'] as Loc[]).find((l) => qty(d.snap.balances, sku.id, l) > 0) ?? 'DIRTY') : loc} onClose={() => setSku(null)} />}
+      {sku && <SkuSheet d={d} sku={sku} start={loc} onClose={() => setSku(null)} />}
       {catSheet === 'new' && <NewModelSheet d={d} onClose={() => setCatSheet(null)} onCreated={() => setView('all')} />}
       {editModel && <EditCatalogSheet key={editModel} d={d} initial={editModel} onClose={() => setEditModel(null)} />}
       {imgModel && (() => { const model = d.modelMap.get(imgModel); return model ? <ModelImageSheet model={model} onClose={() => setImgModel(null)} /> : null; })()}

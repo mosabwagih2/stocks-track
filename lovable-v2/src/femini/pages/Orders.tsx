@@ -113,16 +113,16 @@ export default function Orders() {
               <span className="flex gap-2"><Button size="sm" onClick={() => setSel(new Set())}>إلغاء الاختيار</Button><Button size="sm" variant="primary" onClick={() => setManual(selOpen)}>سجّلها كأوردرات شُحنت</Button></span></Alert>
           )}
           <TableWrap>
-            <table className="text-sm"><thead><tr><th className={th + ' w-9'} /><th className={th}>البوليصة</th><th className={th}>رقم الأوردر</th><th className={th}>تاريخ البيك أب</th><th className={th}>النوع</th><th className={th}>المحافظة</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
+            <table className="text-sm"><thead><tr><th className={th + ' w-9'} /><th className={th}>البوليصة</th><th className={th}>تاريخ البيك أب</th><th className={th}>تاريخ التحصيل</th><th className={th}>النوع</th><th className={th}>المحافظة</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
               <tbody>
                 {list.slice(0, n).map((o) => (
                   <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${o.status === 'open' && d.blocked.has(o.ref) ? 'bg-crit-bg/60' : o.status === 'shipped' ? 'bg-good-bg/50' : o.status === 'cancelled' ? 'opacity-70' : ''}`} onClick={() => setOrderRef(o.ref)}>
                     <td className={td} onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.ref)} disabled={o.status !== 'open' || o.unmapped.length > 0} title={o.unmapped.length ? 'فيه أصناف مش متعرّفة؛ صحّحها الأول' : undefined} onChange={() => toggle(o.ref)} aria-label="تحديد" /></td>
-                    <td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{o.waybill}</td><td className={td + ' font-mono text-muted whitespace-nowrap'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td>
+                    <td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted whitespace-nowrap'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono whitespace-nowrap'} title={d.collected.get(o.ref) ? `التسوية ${d.collected.get(o.ref)!.stl}` : undefined}>{d.collected.get(o.ref)?.date ?? <span className="text-muted">—</span>}</td>
                     <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{o.returned ? <Pill tone="warn">مرتجع · {o.returned.doc}</Pill> : <OrderPill o={o} d={d} />}{o.status==='open' && d.blocked.has(o.ref) && <p className="mt-1 text-xs text-crit">ناقص {d.blocked.get(o.ref)?.map((x)=>`${skuLabel(d.skuMap,x.sku)} (${x.short})`).join('، ')}</p>}</td>
                   </tr>
                 ))}
-                {!list.length && <tr><td colSpan={7}><Empty>لا توجد أوردرات مطابقة للفلتر.</Empty></td></tr>}
+                {!list.length && <tr><td colSpan={8}><Empty>لا توجد أوردرات مطابقة للفلتر.</Empty></td></tr>}
               </tbody>
             </table>
           </TableWrap>

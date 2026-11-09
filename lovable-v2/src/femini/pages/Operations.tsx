@@ -14,6 +14,8 @@ import { buildOp, effects, expectedReturn, GROUP_AR, OPS, type OpGroup, type OpH
 import { LostOrders } from '@/femini/components/LostOrders';
 import { deliveryNoteExcel, downloadDeliveryNote, printDeliveryNote } from '@/femini/components/DeliveryNote';
 import { Holds } from '@/femini/components/Holds';
+import { DocDetails } from '@/femini/components/DocDetails';
+import { OpHistory } from '@/femini/components/OpHistory';
 import { isOverdue } from '@/femini/domain/holds';
 import { useNavigate, useSearchParams } from '@/femini/router';
 import { cn, fmt } from '@/femini/cn';
@@ -249,7 +251,7 @@ function CountSheet({ d, hdr, setHdr }: { d: Derived; hdr: OpHdr; setHdr: (h: Op
 }
 
 /* ------------------------------------------------------------------ operation form */
-function OpForm({ d, type, draft, onDone, onBack }: { d: Derived; type: OpType; draft?: OpDraft | null; onDone: (doc: string) => void; onBack: () => void }) {
+function OpForm({ d, type, draft, onDone, onBack, onOpen }: { d: Derived; type: OpType; draft?: OpDraft | null; onDone: (doc: string) => void; onBack: () => void; onOpen: (no: string) => void }) {
   const act = useAct(); const meta = OPS.find((o) => o.type === type)!; const I = ICON[type];
   const [hdr, setHdr] = useState<OpHdr>((draft?.hdr as OpHdr) ?? defaults(type));
   const [lines, setLinesState] = useState<OpLine[]>((draft?.lines as unknown as OpLine[]) ?? []);
@@ -323,29 +325,12 @@ function OpForm({ d, type, draft, onDone, onBack }: { d: Derived; type: OpType; 
           </Card>
         </div>
       </div>
+      <OpHistory d={d} type={type} label={meta.ar} onOpen={onOpen} />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ doc details, delivery note */
-function DocSheet({ d, doc, onClose }: { d: Derived; doc: Doc; onClose: () => void }) {
-  const moves = (doc.hdr.moves as { sku: string; qty: number; from: string; to: string }[] | undefined) ?? doc.lines.map((l) => ({ ...l, from: '', to: '' }));
-  return (
-    <Sheet title={<span className="font-mono">{doc.no} · {TYPE_AR[doc.type] ?? doc.type}</span>} onClose={onClose} wide>
-      <div className="grid gap-4">
-        <div className="flex flex-wrap gap-2 text-sm"><Pill tone={doc.status === 'done' ? 'good' : 'neutral'}>{doc.status === 'done' ? 'مؤكد' : 'معكوس'}</Pill><span className="text-muted">{doc.date} · {doc.by}</span>
-          {doc.type === 'SHP' && <Pill tone={doc.hdr.delivered ? 'good' : 'warn'}>{doc.hdr.delivered ? 'اتسلم للمحل' : 'مستني تأكيد التسليم'}</Pill>}
-          {doc.hdr.shop ? <span>المحل: <b>{String(doc.hdr.shop)}</b></span> : null}{doc.hdr.ref ? <span>إذن: <b>{String(doc.hdr.ref)}</b></span> : null}
-          {Array.isArray(doc.hdr.refs) && doc.hdr.refs.length ? <span>أوردرات: <b className="font-mono">{(doc.hdr.refs as string[]).join('، ')}</b></span> : null}</div>
-        {(doc.type === 'SHP' || doc.type === 'SRT') && <ShopActions d={d} doc={doc} />}
-        <TableWrap className="max-h-96"><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>من</th><th className={th}>إلى</th><th className={th}>الكمية</th></tr></thead>
-          <tbody>{moves.map((m, i) => <tr key={i}><td className={td}>{skuLabel(d.skuMap, m.sku)}</td><td className={td}>{LOC_AR[m.from] ?? '—'}</td><td className={td}>{LOC_AR[m.to] ?? '—'}</td><td className={td + ' font-mono'}>{fmt(m.qty)}</td></tr>)}</tbody></table></TableWrap>
-        {doc.attachment && <Photo path={doc.attachment} className="max-h-96 w-full rounded-xl border border-line object-contain" />}
-      </div>
-    </Sheet>
-  );
-}
-
 function ShopActions({ d, doc }: { d: Derived; doc: Doc }) {
   const act = useAct(); const [photo, setPhoto] = useState<File | null>(null); const [busy, setBusy] = useState(false);
   return (
@@ -432,12 +417,13 @@ export default function Operations() {
       <PageHead title="العمليات" sub="قلب التشغيل: كل حركة بتغيّر المخزون بتتسجل هنا بفحوص قبل التأكيد. الشحن بالسكان من صفحة الأوردرات." />
       <Tabs value={tab} onChange={(t) => go({ tab: t === 'new' ? null : t, op: null, draft: null, new: null })} tabs={[['new', 'عملية جديدة'], ['docs', `آخر العمليات (${d.snap.docs.length})`], ['shops', `توريدات المحل${pendingShop ? ` · ${pendingShop}` : ''}`], ['holds', `هولد${openHolds ? ` · ${openHolds}` : ''}`]]} />
       {tab === 'new' && (op && OPS.some((o) => o.type === op)
-        ? <OpForm key={`${op}-${draftId ?? ''}`} d={d} type={op} draft={draft} onBack={() => go({ op: null, draft: null })} onDone={(no) => go({ op: null, draft: null, ...(op === 'SHP' ? { tab: 'shops', doc: no } : {}) })} />
+        ? <OpForm key={`${op}-${draftId ?? ''}`} d={d} type={op} draft={draft} onBack={() => go({ op: null, draft: null })} onDone={(no) => go({ op: null, draft: null, ...(op === 'SHP' ? { tab: 'shops', doc: no } : {}) })} onOpen={(no) => go({ doc: no })} />
         : <Launcher d={d} onPick={(t) => go({ op: t, draft: null })} onDraft={(x) => go({ op: x.type, draft: x.id })} onHold={() => go({ tab: 'holds', new: 'yes' })} />)}
       {tab === 'docs' && <Docs d={d} onOpen={(no) => go({ doc: no })} />}
       {tab === 'holds' && <Holds d={d} openNew={sp.get('new') === 'yes'} onOpenNew={(v) => go({ new: v ? 'yes' : null })} />}
       {tab === 'shops' && <Shops d={d} onOpen={(no) => go({ doc: no })} />}
-      {openDoc && <DocSheet d={d} doc={openDoc} onClose={() => go({ doc: null })} />}
+      {openDoc && <DocDetails key={openDoc.no} d={d} doc={openDoc} onClose={() => go({ doc: null })} onOpen={(no) => go({ doc: no })}
+        actions={(openDoc.type === 'SHP' || openDoc.type === 'SRT') && <ShopActions d={d} doc={openDoc} />} />}
     </>
   );
 }
