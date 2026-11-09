@@ -12,7 +12,7 @@ import type { Settlement } from './settle';
  *  - pending: neither yet.
  */
 export type WhState = 'collected' | 'returned' | 'pending';
-export interface WhOrder { ref: string; waybill: string; pieces: number; expected: number; state: WhState; sales: number; fees: number; cod: number; due: number; stl: string[]; on: string }
+export interface WhOrder { ref: string; /** the day it left the warehouse */ day: string; waybill: string; pieces: number; expected: number; state: WhState; sales: number; fees: number; cod: number; due: number; stl: string[]; on: string }
 export interface WhDay {
   day: string; orders: number; pieces: number; expected: number;
   collected: number; returned: number; pending: number; pendingValue: number;
@@ -45,7 +45,7 @@ export function warehouseDays(s: Pick<Snapshot, 'orders' | 'settles'>, from: str
     const day = cairoDay(o.shippedAt); if (day < from || day > to) continue;
     const m = money.get(o.ref);
     const state: WhState = m?.collect ? 'collected' : m?.ret || o.returned ? 'returned' : 'pending';
-    const w: WhOrder = { ref: o.ref, waybill: o.waybill, pieces: o.lines.length, expected: o.total || 0, state, sales: m?.total ?? 0, fees: m?.fees ?? 0, cod: m?.cod ?? 0, due: m?.due ?? 0, stl: m ? [...m.stl] : [], on: m?.on ?? '' };
+    const w: WhOrder = { ref: o.ref, day, waybill: o.waybill, pieces: o.lines.length, expected: o.total || 0, state, sales: m?.total ?? 0, fees: m?.fees ?? 0, cod: m?.cod ?? 0, due: m?.due ?? 0, stl: m ? [...m.stl] : [], on: m?.on ?? '' };
     const d = days.get(day) ?? { day, orders: 0, pieces: 0, expected: 0, collected: 0, returned: 0, pending: 0, pendingValue: 0, sales: 0, fees: 0, cod: 0, due: 0, paidOn: [], list: [] };
     d.orders++; d.pieces += w.pieces; d.expected += w.expected; d[state]++;
     if (state === 'pending') d.pendingValue += w.expected;

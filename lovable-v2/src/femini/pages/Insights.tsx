@@ -1,6 +1,6 @@
 import { addDays } from '@/femini/domain/dates';
 import { useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, ChevronLeft, ChevronRight, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Empty, Pill, Seg, TableWrap, th, td } from '@/femini/components/ui';
@@ -63,6 +63,32 @@ function useStats(d: Derived | null, range: Range | null) {
   }, [d, range]);
 }
 
+/** The period picker: length (يوم / 7 / 14 / 30), the two dates, and arrows that move the whole window by its own
+ * length (one day at a time on «يوم»). Changing the length keeps the last day; «النهارده» brings the window back to today. */
+function RangeBar({ range, today, set }: { range: Range; today: string; set: (r: Range) => void }) {
+  const n = rangeDays(range); const atToday = range.to >= today;
+  const lens: [string, string][] = [['1', 'يوم'], ...PERIODS.map((x) => [String(x), `${x} يوم`] as [string, string])];
+  const move = (dir: 1 | -1) => {
+    let to = addDays(range.to, dir * n); if (to > today) to = today;
+    set({ from: addDays(to, -(n - 1)), to });
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Seg<string> label="الفترة" value={lens.some(([v]) => v === String(n)) ? String(n) : ''} onChange={(v) => set({ from: addDays(range.to, -(Number(v) - 1)), to: range.to })} options={lens} />
+      <span className="flex items-center gap-1 text-xs text-muted" aria-label="فترة بالتاريخ">
+        {/* right = newer, left = older, like the day picker on Today */}
+        <Button className="size-9 shrink-0 p-0" aria-label={n === 1 ? 'اليوم التالي' : 'الفترة التالية'} title={n === 1 ? 'اليوم التالي' : 'الفترة التالية'} disabled={atToday} onClick={() => move(1)}><ChevronRight className="size-4" /></Button>
+        {n === 1
+          ? <input type="date" aria-label="اليوم" className="h-9 w-36" value={range.to} max={today} onChange={(e) => e.target.value && set({ from: e.target.value, to: e.target.value })} />
+          : <>من <input type="date" className="h-9 w-36" value={range.from} max={range.to} onChange={(e) => e.target.value && set({ from: e.target.value, to: range.to })} />
+            لـ <input type="date" className="h-9 w-36" value={range.to} min={range.from} max={today} onChange={(e) => e.target.value && set({ from: range.from, to: e.target.value })} /></>}
+        <Button className="size-9 shrink-0 p-0" aria-label={n === 1 ? 'اليوم السابق' : 'الفترة السابقة'} title={n === 1 ? 'اليوم السابق' : 'الفترة السابقة'} onClick={() => move(-1)}><ChevronLeft className="size-4" /></Button>
+        {!atToday && <Button size="sm" onClick={() => set({ from: addDays(today, -(n - 1)), to: today })}>النهارده</Button>}
+      </span>
+    </div>
+  );
+}
+
 export default function Insights() {
   const { d, isLoading, error } = useDerived();
   const [sp, setSp] = useSearchParams();
@@ -75,6 +101,14 @@ export default function Insights() {
   const range = useMemo<Range | null>(() => (d ? (custom ? { from: fromP, to: toP } : lastDays(d.today, period)) : null), [d, custom, fromP, toP, period]);
   const days = range ? rangeDays(range) : period;
   const rangeLabel = custom ? `${fromP} → ${toP} (${days} يوم)` : `آخر ${period} يوم`;
+  // one place that writes the range: the last N days up to today keep the short address (?p=N)
+  const setRange = (r: Range) => {
+    const p = new URLSearchParams(sp); const n = rangeDays(r);
+    p.delete('from'); p.delete('to'); p.delete('p');
+    if (r.to === d?.today && (PERIODS as readonly number[]).includes(n)) { if (n !== 14) p.set('p', String(n)); }
+    else { p.set('from', r.from); p.set('to', r.to); }
+    setSp(p, { replace: true });
+  };
   const setParam = (k: string, v: string | null) => { const p = new URLSearchParams(sp); if (v === null) p.delete(k); else p.set(k, v); setSp(p, { replace: true }); };
   const st = useStats(d, range);
   const cmp = useMemo(() => (d && range ? comparePeriods(d, range) : null), [d, range]);
@@ -92,11 +126,8 @@ export default function Insights() {
     <>
       <PageHead title="التحليلات" sub="قرارات مبنية على الطلب الفعلي ودفتر الحركات — في مكان واحد.">
         {!d.velocityOK && <Pill tone="warn">بيانات {d.days} يوم فقط · السرعة تقديرية</Pill>}
-        <div className="flex items-center gap-2 print:hidden">
-          {sec !== 'finance' && <Seg<string> label="الفترة" value={custom ? '' : String(period)} onChange={(v) => { const p = new URLSearchParams(sp); p.delete('from'); p.delete('to'); if (v === '14') p.delete('p'); else p.set('p', v); setSp(p, { replace: true }); }} options={PERIODS.map((x) => [String(x), `${x} يوم`] as [string, string])} />}
-          {sec !== 'finance' && <span className="flex items-center gap-1 text-xs text-muted" aria-label="فترة بالتاريخ">من
-            <input type="date" className="h-9 w-36" value={range?.from ?? ''} max={range?.to ?? d.today} onChange={(e) => { if (!e.target.value) return; const p = new URLSearchParams(sp); p.set('from', e.target.value); p.set('to', range?.to ?? d.today); setSp(p, { replace: true }); }} />
-            لـ <input type="date" className="h-9 w-36" value={range?.to ?? ''} min={range?.from} max={d.today} onChange={(e) => { if (!e.target.value) return; const p = new URLSearchParams(sp); p.set('from', range?.from ?? e.target.value); p.set('to', e.target.value); setSp(p, { replace: true }); }} /></span>}
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          {sec !== 'finance' && range && <RangeBar range={range} today={d.today} set={setRange} />}
           <Button onClick={doExcel}><FileSpreadsheet className="size-4" /> Excel</Button>
           <Button onClick={() => window.print()}><FileDown className="size-4" /> PDF</Button>
         </div>
