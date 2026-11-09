@@ -13,13 +13,14 @@ import { useNavigate } from '@/femini/router';
 import { useToast } from '@/femini/components/toast';
 import { useSearchParams } from '@/femini/router';
 import { qty } from '@/femini/domain/ledger';
-import { timeCairo } from '@/femini/domain/dates';
+import { cairoDay, timeCairo } from '@/femini/domain/dates';
 import { skuLabel } from '@/femini/domain/orders';
 import { cn, fmt, pct } from '@/femini/cn';
 import type { Derived } from '@/femini/hooks/data';
 import { FinancialReport, financialSheets } from '@/femini/components/FinancialReport';
 import { CollectionsView } from '@/femini/components/Collections';
 import { Deferred } from '@/femini/components/Deferred';
+import { CancelSheet, OrderSheet } from '@/femini/components/OrderSheets';
 
 const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : 'موديلات أخرى');
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
@@ -28,11 +29,11 @@ const topN = (o: Record<string, number>, n: number) => Object.entries(o).sort((a
 type Sec = 'summary' | 'demand' | 'risk' | 'team' | 'collect' | 'finance';
 const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'summary', label: 'الملخص', icon: Sparkles },
-  { id: 'demand', label: 'الطلب', icon: Flame },
-  { id: 'risk', label: 'المخاطر', icon: AlertTriangle },
-  { id: 'team', label: 'الفريق', icon: Users },
   { id: 'collect', label: 'التحصيل', icon: Wallet },
   { id: 'finance', label: 'القيمة المالية', icon: FileSpreadsheet },
+  { id: 'risk', label: 'المخاطر', icon: AlertTriangle },
+  { id: 'demand', label: 'الطلب', icon: Flame },
+  { id: 'team', label: 'الفريق', icon: Users },
 ];
 
 function useStats(d: Derived | null, range: Range | null) {
@@ -252,6 +253,7 @@ function Demand({ d, st }: { d: Derived; st: Stats }) {
 }
 
 function Risk({ d, st, alerts }: { d: Derived; st: Stats; alerts: RiskAlert[] }) {
+  const [openRef, setOpenRef] = useState<string | null>(null); const [cancelRef, setCancelRef] = useState<string | null>(null);
   const bl = d.open.filter((o) => d.blocked.has(o.ref)); const old = d.open.filter((o) => (d.pickupDate.get(o.pickupId) ?? d.today) < d.today).length;
   const bv: Record<string, { n: number; q: number }> = {}; for (const o of bl) for (const x of d.blocked.get(o.ref) ?? []) { const e = (bv[x.sku] ??= { n: 0, q: 0 }); e.n++; e.q += x.short; }
   const ks = Object.entries(bv).sort((a, b) => b[1].n - a[1].n).slice(0, 10);
@@ -274,8 +276,10 @@ function Risk({ d, st, alerts }: { d: Derived; st: Stats; alerts: RiskAlert[] })
       </div>
       </Deferred>
       <Deferred minHeight={300}>
-      {bl.length > 0 && <Card title="الأوردرات المتوقفة"><TableWrap><table className="text-sm"><thead><tr>{['الكود', 'قطع', 'الناقص فيه', 'عمره (يوم)'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{bl.slice(0, 25).map((o) => <tr key={o.ref}><td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{(d.blocked.get(o.ref) ?? []).map((x) => <span key={x.sku} className="m-0.5 inline-block"><Pill tone="crit">{skuLabel(d.skuMap, x.sku)} ×{x.short}</Pill></span>)}</td><td className={td + ' font-mono'}>{Math.max(0, Math.round((Date.parse(d.today) - Date.parse(d.pickupDate.get(o.pickupId) ?? d.today)) / 864e5))}</td></tr>)}</tbody></table></TableWrap></Card>}
+      {bl.length > 0 && <Card title="الأوردرات المتوقفة"><TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'تاريخ البيك أب', 'قطع', 'الناقص فيه', 'عمره (يوم)'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{bl.slice(0, 25).map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => setOpenRef(o.ref)}><td className={td + ' font-mono text-accent underline-offset-2 hover:underline'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{(d.blocked.get(o.ref) ?? []).map((x) => <span key={x.sku} className="m-0.5 inline-block"><Pill tone="crit">{skuLabel(d.skuMap, x.sku)} ×{x.short}</Pill></span>)}</td><td className={td + ' font-mono'}>{Math.max(0, Math.round((Date.parse(d.today) - Date.parse(d.pickupDate.get(o.pickupId) ?? d.today)) / 864e5))}</td></tr>)}</tbody></table></TableWrap></Card>}
       </Deferred>
+      {openRef && <OrderSheet d={d} orderRef={openRef} onClose={() => setOpenRef(null)} onCancel={(c) => { setOpenRef(null); setCancelRef(c); }} />}
+      {cancelRef && <CancelSheet d={d} initial={cancelRef} onClose={() => setCancelRef(null)} />}
       <Deferred minHeight={260}>
       <Card title="أكبر الأصناف الراكدة" hint="رصيد جاهز بلا طلب">{st.dead.length ? <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th></tr></thead><tbody>{[...st.dead].sort((a, b) => qty(d.snap.balances, b.id, 'READY') - qty(d.snap.balances, a.id, 'READY')).slice(0, 10).map((s) => <tr key={s.id}><td className={td}>{skuLabel(d.skuMap, s.id)}</td><td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, s.id, 'READY'))}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا يوجد.</Empty>}</Card>
       </Deferred>
@@ -346,7 +350,19 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
   }
   if (sec === 'summary' || sec === 'risk') {
     sheets.push({ name: 'التنبيهات', rows: [['المستوى', 'التنبيه', 'التفاصيل'], ...alerts.map((a) => [a.level === 'crit' ? 'عاجل' : a.level === 'warn' ? 'انتبه' : 'للعلم', a.title, a.body])] });
-    sheets.push({ name: 'المتوقف', rows: [['الكود', 'قطع', 'الناقص'], ...d.open.filter((o) => d.blocked.has(o.ref)).map((o) => [o.ref, o.lines.length, (d.blocked.get(o.ref) ?? []).map((x) => `${skuLabel(d.skuMap, x.sku)} ×${x.short}`).join('، ')])] });
+    sheets.push({ name: 'المتوقف', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'قطع', 'الناقص'], ...d.open.filter((o) => d.blocked.has(o.ref)).map((o) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', o.lines.length, (d.blocked.get(o.ref) ?? []).map((x) => `${skuLabel(d.skuMap, x.sku)} ×${x.short}`).join('، ')])] });
+  }
+  if (sec === 'summary' || sec === 'collect') {
+    // the settlement sheets of the period, and what is shipped and not collected yet
+    const inRange = (d.snap.settles ?? []).filter((s) => s.date >= cur.from && s.date <= cur.to).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    const n = (s: { rows: { type: string }[] }, t: string) => s.rows.filter((r) => r.type === t).length;
+    const tot = (k: 'sales' | 'shipping' | 'cod' | 'vendoor' | 'due') => inRange.reduce((a, s) => a + s.totals[k], 0);
+    sheets.push({ name: 'التسويات', rows: [['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'المبيعات', 'مستحق شركة الشحن', 'الصافي', 'مستحق فيندور', 'مستحق فيميني', 'رفعه'],
+      ...inRange.map((s) => [s.date, s.id, s.rows.length, n(s, 'collect'), n(s, 'return'), n(s, 'partial'), s.totals.sales, s.totals.shipping, s.totals.cod, s.totals.vendoor, s.totals.due, s.by]),
+      ['الإجمالي', `${inRange.length} تسوية`, inRange.reduce((a, s) => a + s.rows.length, 0), '', '', '', tot('sales'), tot('shipping'), tot('cod'), tot('vendoor'), tot('due'), '']] });
+    const waiting = d.snap.orders.filter((o) => o.status === 'shipped' && !o.returned && !d.collected.has(o.ref) && !d.settleReturned.has(o.ref))
+      .map((o) => ({ o, day: o.shippedAt ? cairoDay(o.shippedAt) : '' })).sort((a, b) => a.day.localeCompare(b.day));
+    sheets.push({ name: 'لسه ما اتحصلش', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'المبلغ', 'قطع'], ...waiting.map(({ o, day }) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', day, o.total || 0, o.lines.length])] });
   }
   if (sec === 'team') {
     const e: Record<string, { o: number; p: number }> = {};

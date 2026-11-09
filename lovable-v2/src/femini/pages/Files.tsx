@@ -77,7 +77,7 @@ function ShipmentSheet({ d, doc, onClose }: { d: Derived; doc: Doc; onClose: () 
   );
 }
 
-type FileTab = 'pk' | 'sc' | 'ph' | 'cx';
+type FileTab = 'pk' | 'sc' | 'st' | 'ph' | 'cx';
 
 /** the original file of a pickup / scan sheet, kept on the server: downloads from any device */
 function useDownload() {
@@ -123,12 +123,15 @@ export default function Files() {
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
   const ships = d.snap.docs.filter((x) => x.type === 'SCN').slice().reverse(); const rcv = d.snap.docs.filter((x) => x.attachment).slice().reverse();
+  const settles = (d.snap.settles ?? []).slice().sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   const cx = d.snap.orders.filter((o) => o.status === 'cancelled' && o.cancel).sort((a, b) => b.cancel!.at.localeCompare(a.cancel!.at));
   const piecesOf = (no: string) => d.snap.moves.filter((m) => m.doc === no).reduce((a, m) => a + m.qty, 0);
   return (
     <>
       <PageHead title="الملفات" sub="اختار نوع الملفات. تعديل أي ملف وتنزيل الأصلي من نفس السطر، والكارت بيفتح التفاصيل." />
-      <Tabs value={tab} onChange={setTab} tabs={[['pk', `ملفات البيك أب (${d.snap.pickups.length})`], ['sc', `ملفات الشحن (${ships.length})`], ['ph', `صور المستندات (${rcv.length})`], ['cx', `الإلغاءات (${cx.length})`]]} />
+      <Tabs value={tab} onChange={setTab} tabs={[['pk', `ملفات البيك أب (${d.snap.pickups.length})`], ['sc', `ملفات الشحن (${ships.length})`], ...(settles.length ? [['st', `شيتات التسوية (${settles.length})`] as [FileTab, string]] : []), ['ph', `صور المستندات (${rcv.length})`], ['cx', `الإلغاءات (${cx.length})`]]} />
+      {tab === 'st' && <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الملف', 'الأوردرات', 'مستحق فيميني', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+        <tbody>{settles.map((x) => { const f = d.snap.files.filter((y) => y.owner === x.id).at(-1); return <tr key={x.id}><td className={td + ' font-mono'}>{x.date}</td><td className={td + ' font-mono'}>{x.id}</td><td className={td + ' text-muted'}>{x.source}</td><td className={td + ' font-mono'}>{fmt(x.rows.length)}</td><td className={td + ' font-mono'}>{fmt(x.totals.due)}</td><td className={td}>{x.by}</td><td className={td}>{f ? <Button size="sm" onClick={() => download(f)}>تنزيل الأصلي</Button> : null}</td></tr>; })}</tbody></table></TableWrap>}
       {tab === 'pk' && (d.snap.pickups.length ? <TableWrap><table className="text-sm"><thead><tr>{['البيك أب', 'الملف', 'التاريخ', 'القناة', 'أوردرات', 'مشحون', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
         <tbody>{[...d.snap.pickups].reverse().map((p) => { const os = d.snap.orders.filter((o) => o.pickupId === p.id && o.status !== 'cancelled'); return <tr key={p.id}><td className={td}><b>{p.label}</b></td><td className={td + ' text-muted'}>{p.source}</td><td className={td + ' font-mono'}>{p.date}</td><td className={td}>{channelName(p.channel)}</td><td className={td + ' font-mono'}>{os.length}</td><td className={td + ' font-mono'}>{os.filter((o) => o.status === 'shipped').length}</td><td className={td}><div className="flex gap-1.5"><Button size="sm" onClick={() => setPk(p)}>تعديل</Button>{(() => { const f = fileOf(d, p.id, 'pickup'); return f ? <Button size="sm" aria-label={`تنزيل ${f.name}`} title={f.name} onClick={() => download(f)}><Download className="size-4" />تنزيل</Button> : null; })()}</div></td></tr>; })}</tbody></table></TableWrap> : <Card><Empty>لا توجد ملفات بيك أب بعد. ارفع ملفًا من صفحة الأوردرات.</Empty></Card>)}
       {tab === 'sc' && (ships.length ? <TableWrap><table className="text-sm"><thead><tr>{['الرقم', 'الموظف', 'الملف', 'التاريخ', 'أوردرات', 'قطع', 'الحالة', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>

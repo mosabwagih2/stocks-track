@@ -18,10 +18,10 @@ import type { Backend } from './cpanel/backend';
 import type { OriginalFile, DayClose } from '@/femini/domain/types';
 import { dayReport } from '@/femini/domain/reports';
 
-interface Catalog { skus: Sku[]; models: Model[]; archived: Record<string, true>; names: Record<string, string>; colors: { code: string; ar: string }[]; sizes: string[] }
+interface Catalog { skus: Sku[]; models: Model[]; archived: Record<string, true | { by: string; at: string }>; names: Record<string, string>; colors: { code: string; ar: string }[]; sizes: string[] }
 export interface State {
   v: 2; mid: number; sid: number; moves: Move[]; pickups: Pickup[]; orders: Order[]; supplies: Supply[]; log: SupplyEntry[]; docs: Doc[]; seq: Record<string, number>; costs?: Record<string,{cost:number;price:number}>;
-  images: Record<string, string | null>; cat: Catalog; drafts?: OpDraft[]; shops?: string[]; files?: OriginalFile[]; archivedPickups?: { pickup: Pickup; orders: Order[] }[]; archivedDrafts?: OpDraft[]; closes?: DayClose[]; autoClose?: boolean; lastBackup?: string; holds?: Hold[]; settles?: Settlement[];
+  images: Record<string, string | null>; cat: Catalog; drafts?: OpDraft[]; shops?: string[]; files?: OriginalFile[]; archivedPickups?: { pickup: Pickup; orders: Order[]; by?: string; at?: string }[]; archivedDrafts?: OpDraft[]; closes?: DayClose[]; autoClose?: boolean; lastBackup?: string; holds?: Hold[]; settles?: Settlement[];
   /** server edition only: every day up to this date is closed (the server's single lock), and the next document id */
   lock?: string; did?: number;
 }
@@ -76,9 +76,17 @@ export function createMemoryRepo(backend?: Backend): Repo {
   const unlocked = (date = cairoToday()) => { guard(); if (backend) { if (S.lock && date <= S.lock) fail('اليوم مقفول؛ افتحه من تقرير اليوم قبل تسجيل عملية.'); return; } if ((S.closes ?? []).some((c) => c.date === date && c.status === 'closed')) fail('اليوم مقفول؛ افتحه من تقرير اليوم قبل تسجيل عملية.'); };
   // the server edition keeps every photo and original on the server (uploaded right after the action is accepted)
   const keepPhoto = backend ? async (_path: string, _blob: Blob) => {} : putPhoto;
+  // the browser edition keeps a display copy; the server edition does not (it shrinks only what it uploads)
+  const keepShrunk = backend ? async (_path: string, _file: File) => {} : async (path: string, file: File) => putPhoto(path, await shrinkImage(file));
+  /** photos go to the server as a 2000px JPEG: a phone picture is 3–6 MB and the upload + server thumbnail took seconds */
+  const forUpload = async (file: File, kind: string): Promise<File> => {
+    if (!['photo', 'cancel'].includes(kind) || !file.type.startsWith('image/') || file.type === 'image/gif' || file.size < 700_000) return file;
+    const b = await shrinkImage(file, 2000); return b === file ? file : new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  };
   const original = async (owner: string, kind: string, file?: File | null) => {
     if (!file) return;
     if (backend) {
+      file = await forUpload(file, kind);
       if (kind === 'pickup') backend.queueFile({ type: 'pickup', id: owner }, 'pickup', file);
       else if (kind === 'scan') backend.queueFile({ type: 'doc', no: owner }, 'scan', file);
       else if (kind === 'cancel') backend.queueFile({ type: 'order', ref: owner }, 'cancel', file);
@@ -159,13 +167,18 @@ export function createMemoryRepo(backend?: Backend): Repo {
         if (changed) save();
       }
       const all = allSkus(); const skus = all.filter((k) => !S.cat.archived[k.id]); const archivedSkus = all.filter((k) => S.cat.archived[k.id]);
+      const archivedSkuBy = Object.fromEntries(archivedSkus.map((k) => { const v = S.cat.archived[k.id]; return [k.id, typeof v === 'object' ? v.by : '']; }));
       const active = new Set(skus.map((k) => k.model));
-      const models = baseModels.concat(S.cat.models).filter((m) => active.has(m.code)).map((m) => ({ code: m.code, name: S.cat.names[m.code] ?? m.name, image: m.code in S.images ? S.images[m.code] : seedImg[m.code] ?? null }));
+      const modelOf = (m: Model) => ({ code: m.code, name: S.cat.names[m.code] ?? m.name, image: m.code in S.images ? S.images[m.code] : seedImg[m.code] ?? null });
+      const models = baseModels.concat(S.cat.models).filter((m) => active.has(m.code)).map(modelOf);
+      // removed models keep their name and photo for the archive list
+      const gone = new Set(archivedSkus.map((k) => k.model).filter((c) => !active.has(c)));
+      const archivedModels = baseModels.concat(S.cat.models).filter((m) => gone.has(m.code)).map(modelOf);
       const sizes = [...new Set([...seed.sizes, ...S.cat.sizes])];
       const colors = [...seed.colors, ...S.cat.colors];
       // copies, so React Query's structural sharing can see in-place edits of the demo state
       const c = structuredClone({ drafts: S.drafts ?? [], shops: S.shops ?? [], pickups: S.pickups, orders: S.orders, supplies: S.supplies, supplyLog: S.log, docs: S.docs, moves: S.moves.slice().reverse() });
-      return { today: cairoToday(), models, skus, archivedSkus, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), settles: structuredClone(S.settles ?? []), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}), ...(backend ? { lock: S.lock ?? '' } : {}) };
+      return { today: cairoToday(), models, archivedModels, skus, archivedSkus, archivedSkuBy, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), settles: structuredClone(S.settles ?? []), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}), ...(backend ? { lock: S.lock ?? '' } : {}) };
     },
     async importPickup(i) {
       inWindow(i.date); unlocked(i.date);
@@ -227,7 +240,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const total = lines.reduce((a, l) => a + l.qty, 0);
       if (total <= 0) fail('لا توجد قطع'); if (declared !== total) fail(`الإجمالي المكتوب في الورقة (${declared}) لا يساوي المضاف (${total})`);
       const today = cairoToday(); if (date > today) fail('لا يمكن أن يكون التاريخ في المستقبل');
-      const no = docNo('RCV'); const path = `documents/${no}.jpg`; await keepPhoto(path, await shrinkImage(photo)); await original(no, 'photo', photo);
+      const no = docNo('RCV'); const path = `documents/${no}.jpg`; await keepShrunk(path, photo); await original(no, 'photo', photo);
       post(lines.filter((l) => l.qty > 0).map((l) => ({ date, sku: l.sku, qty: l.qty, from: 'EXT_FACTORY' as const, to: 'READY' as const, type: 'RCV', doc: no, by: actor(), note: `استلام ${ref}` })));
       S.docs.push({ no, type: 'RCV', date, by: actor(), status: 'done', hdr: { ref, declared }, lines, attachment: path }); save(); return { doc: no, pieces: total };
     },
@@ -250,11 +263,12 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const r = buildOp(type, h, lines, bal(), date, today, (s) => skuLabel(skuMap, s));
       if (!r.ok) fail(r.err[0] ?? r.checks.find((c) => !c.ok)?.t ?? 'العملية ناقصة');
       const no = docNo(type); let attachment: string | null = null;
-      if (photo) { attachment = `documents/${no}.jpg`; await keepPhoto(attachment, await shrinkImage(photo)); await original(no, 'photo', photo); }
+      if (photo) { attachment = `documents/${no}.jpg`; await keepShrunk(attachment, photo); await original(no, 'photo', photo); }
       post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from, to: m.to, type, doc: no, by: actor(), note: m.note })));
       const pieces = r.moves.reduce((a, m) => a + m.qty, 0);
       const { hasPhoto: _p, snap: _s, ...keep } = h as typeof h & { snap?: unknown };
       if (type === 'SHP') { const shop = (h.shop ?? '').trim(); keep.shop = shop; S.shops = S.shops ?? []; if (shop && !S.shops.includes(shop)) S.shops.push(shop); (keep as Record<string, unknown>).delivered = false; (keep as Record<string, unknown>).at = new Date().toISOString(); }
+      if (type === 'SRT') { const shop = (h.shop ?? '').trim(); keep.shop = shop; S.shops = S.shops ?? []; if (shop && !S.shops.includes(shop)) S.shops.push(shop); (keep as Record<string, unknown>).at = new Date().toISOString(); }
       if (type === 'RTN') for (const ref of h.refs ?? []) { const o = S.orders.find((x) => x.ref === ref); if (o) o.returned = { doc: no, at: new Date().toISOString() }; }
       S.docs.push({ no, type, date, by: actor(), status: 'done', hdr: { ...keep, pieces, moves: r.moves.map((m) => ({ sku: m.sku, qty: m.qty, from: m.from, to: m.to })) }, lines: r.moves.map((m) => ({ sku: m.sku, qty: m.qty })), attachment });
       save(); return { doc: no, pieces };
@@ -264,7 +278,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const skuMap = new Map(allSkus().map((k) => [k.id, k]));
       const r = buildHoldOut({ who, reason, reasonText, lines, hasPhoto: !!photo }, bal(), (s) => skuLabel(skuMap, s));
       if (!r.ok) fail(r.err[0]);
-      const no = docNo('HLD'); const path = `documents/${no}.jpg`; await keepPhoto(path, await shrinkImage(photo!)); await original(no, 'photo', photo);
+      const no = docNo('HLD'); const path = `documents/${no}.jpg`; await keepShrunk(path, photo!); await original(no, 'photo', photo);
       post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from as Move['from'], to: m.to as Move['to'], type: 'HLD', doc: no, by: actor(), note: m.note })));
       const at = new Date().toISOString(); const ls = r.moves.map((m) => ({ sku: m.sku, q: m.qty }));
       S.holds ??= []; S.holds.push({ no, who: who.trim(), note: note.trim(), reason, reasonText: reasonText.trim(), at, date, by: actor(), lines: ls, photo: path, status: 'open', events: [{ at, by: actor(), kind: 'out', lines: ls, photo: path, note: note.trim() }] });
@@ -278,7 +292,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const r = buildHoldSettle(h, { ret, off, hasPhoto: !!photo }, (s) => skuLabel(skuMap, s));
       if (!r.ok) fail(r.err[0]);
       const k = h.events.length; let path: string | null = null;
-      if (photo) { path = `documents/${no}-${k}.jpg`; await keepPhoto(path, await shrinkImage(photo)); await original(no, 'photo', photo); }
+      if (photo) { path = `documents/${no}-${k}.jpg`; await keepShrunk(path, photo); await original(no, 'photo', photo); }
       post(r.moves.map((m) => ({ date, sku: m.sku, qty: m.qty, from: m.from as Move['from'], to: m.to as Move['to'], type: 'HLD', doc: no, by: actor(), note: m.note })));
       const at = new Date().toISOString();
       const rl = ret.filter((l) => l.q > 0), ol = off.filter((l) => l.q > 0);
@@ -291,7 +305,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       unlocked();
       const d = S.docs.find((x) => x.no === doc && x.type === 'SHP'); if (!d) return fail('إذن توريد غير معروف');
       if (d.hdr.delivered) fail('التسليم متأكد قبل كده'); if (!photo) fail('صورة الإذن الموقّع إجبارية');
-      const path = `documents/${doc}-signed.jpg`; await keepPhoto(path, await shrinkImage(photo));
+      const path = `documents/${doc}-signed.jpg`; await keepShrunk(path, photo);
       await original(doc, 'signed', photo); d.attachment = path; d.hdr.delivered = true; d.hdr.deliveredAt = new Date().toISOString(); save();
     },
     async saveDraft(i) {
@@ -300,13 +314,13 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const rec: OpDraft = { id, type: i.type, date: i.date, hdr: i.hdr, lines: i.lines, updatedAt: new Date().toISOString() };
       const k = S.drafts.findIndex((x) => x.id === id); if (k >= 0) S.drafts[k] = rec; else S.drafts.push(rec); save(); return id;
     },
-    async deleteDraft(id) { guard(); const draft = (S.drafts ?? []).find((x) => x.id === id); if (draft) { unlocked(draft.date); S.archivedDrafts ??= []; S.archivedDrafts.push(draft); } S.drafts = (S.drafts ?? []).filter((x) => x.id !== id); save(); },
+    async deleteDraft(id) { guard(); const draft = (S.drafts ?? []).find((x) => x.id === id); if (draft) { unlocked(draft.date); S.archivedDrafts ??= []; S.archivedDrafts.push({ ...draft, archivedBy: actor(), archivedAt: new Date().toISOString() }); } S.drafts = (S.drafts ?? []).filter((x) => x.id !== id); save(); },
     async cancelOrder({ code, reason, returnStock, photo }) {
       unlocked();
       if (!photo) fail('صورة البوليصة المشطوبة إجبارية');
       const o = findByCode(S.orders, code); if (!o) fail('لا يوجد أوردر بهذا الكود'); const ord = o as Order;
       if (ord.status === 'cancelled') fail('الأوردر ملغى مسبقًا');
-      await original(ord.ref, 'cancel', photo); const was = ord.status as 'open' | 'shipped'; const path = `documents/cancel-${ord.ref}.jpg`; await keepPhoto(path, await shrinkImage(photo));
+      await original(ord.ref, 'cancel', photo); const was = ord.status as 'open' | 'shipped'; const path = `documents/cancel-${ord.ref}.jpg`; await keepShrunk(path, photo);
       let doc: string | null = null;
       if (was === 'shipped' && returnStock && ord.returned) {
         doc = ord.returned.doc;   // the pieces came back with the return: nothing more to post, only the link to it
@@ -374,13 +388,13 @@ export function createMemoryRepo(backend?: Backend): Repo {
         const ex = allSkus().find((k) => k.model === code && k.color === x.color && k.size === x.size);
         if (ex) { if (S.cat.archived[ex.id]) { delete S.cat.archived[ex.id]; a++; } } else { S.cat.skus.push({ id: `${code}-${colorCode(x.color)}-${x.size}`, model: code, color: x.color, size: x.size, minAlert: 0 }); a++; }
       }
-      for (const id of remove) { const b = blockers(id); if (b) fail(`لا يمكن إزالته: ${b}`); S.cat.archived[id] = true; r++; }
+      for (const id of remove) { const b = blockers(id); if (b) fail(`لا يمكن إزالته: ${b}`); S.cat.archived[id] = { by: actor(), at: new Date().toISOString() }; r++; }
       relink(); save(); return { added: a, removed: r };
     },
     async catalogRemoveModel(code) {
       const ids = allSkus().filter((k) => k.model === code && !S.cat.archived[k.id]).map((k) => k.id);
       for (const id of ids) { const b = blockers(id); if (b) fail(`لا يمكن إزالة الموديل: ${b}`); }
-      for (const id of ids) S.cat.archived[id] = true; save(); return ids.length;
+      for (const id of ids) S.cat.archived[id] = { by: actor(), at: new Date().toISOString() }; save(); return ids.length;
     },
     async catalogRestore({ model, sku }) {
       let n = 0; for (const k of allSkus()) if (k.model === model && (!sku || k.id === sku) && S.cat.archived[k.id]) { delete S.cat.archived[k.id]; n++; }
@@ -399,7 +413,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const id = `S${n}`; S.supplies.push({ id, archived: false, ...body });
       if (i.open > 0) supPush(id, Math.floor(i.open), 'open', 'رصيد افتتاحي'); save(); return id;
     },
-    async supplyArchive(id, archived) { const s = S.supplies.find((x) => x.id === id); if (s) s.archived = archived; save(); },
+    async supplyArchive(id, archived) { const s = S.supplies.find((x) => x.id === id); if (s) { s.archived = archived; s.archivedBy = archived ? actor() : undefined; } save(); },
     // ---------- files ----------
     async pickupUpdate({ id, label, date, channel, force }) {
       const p = S.pickups.find((x) => x.id === id); if (!p) fail('بيك أب غير معروف'); if (!label.trim()) fail('أدخل اسم البيك أب');
@@ -477,7 +491,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
     async pickupDelete(id) {
       const existing=S.pickups.find((p)=>p.id===id);if(existing)unlocked(existing.date);
       if (S.orders.some((o) => o.pickupId === id && o.status === 'shipped')) fail('لا يمكن حذف بيك أب فيه أوردرات مشحونة');
-      const p = S.pickups.find((p) => p.id === id); if (!p) fail('بيك أب غير معروف'); S.archivedPickups ??= []; S.archivedPickups.push({ pickup: p as Pickup, orders: S.orders.filter((o) => o.pickupId === id) }); const n = S.orders.filter((o) => o.pickupId === id).length; S.orders = S.orders.filter((o) => o.pickupId !== id); S.pickups = S.pickups.filter((p) => p.id !== id); save(); return n;
+      const p = S.pickups.find((p) => p.id === id); if (!p) fail('بيك أب غير معروف'); S.archivedPickups ??= []; S.archivedPickups.push({ by: actor(), at: new Date().toISOString(), pickup: p as Pickup, orders: S.orders.filter((o) => o.pickupId === id) }); const n = S.orders.filter((o) => o.pickupId === id).length; S.orders = S.orders.filter((o) => o.pickupId !== id); S.pickups = S.pickups.filter((p) => p.id !== id); save(); return n;
     },
     async renameShipmentEmployee(doc, name) {
       if (!name.trim()) fail('أدخل اسم الموظف'); const os = S.orders.filter((o) => o.shipDoc === doc); if (!os.length) fail('مستند شحن غير معروف');

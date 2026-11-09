@@ -9,7 +9,7 @@ import { Thumb } from './Thumb';
 
 /** model -> color -> size selectors (three separate fields, never a typed code) */
 export function VariantPicker({ d, onAdd, from }: { d: Derived; onAdd: (sku: string, q: number) => void; from?: Loc }) {
-  const models = useMemo(() => [...d.snap.models].map((m) => m.code).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), [d]);
+  const models = d.modelOrder;
   const [model, setModel] = useState(models[0] ?? ''); const [color, setColor] = useState(''); const [size, setSize] = useState(''); const [q, setQ] = useState(1);
   const ms = useMemo(() => d.snap.skus.filter((s) => s.model === model), [d, model]);
   const colors = useMemo(() => [...new Set(ms.map((s) => s.color))], [ms]);

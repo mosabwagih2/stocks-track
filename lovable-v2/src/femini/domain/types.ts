@@ -36,7 +36,7 @@ export type SupplyRule =
   | { kind: 'pieces'; qty: number; model?: string }
   | { kind: 'range'; qty: number; from: number; to: number };
 export interface Supply {
-  id: string; name: string; unit: string; pack: number; packName: string; minAlert: number; note: string; archived: boolean; rule: SupplyRule;
+  id: string; name: string; unit: string; pack: number; packName: string; minAlert: number; note: string; archived: boolean; archivedBy?: string; rule: SupplyRule;
 }
 export type SupplyKind = 'open' | 'rcv' | 'issue' | 'count' | 'auto' | 'rev';
 export interface SupplyEntry {
@@ -56,6 +56,8 @@ export interface Snapshot {
   skus: Sku[];
   /** removed (archived) variants, kept for the history and for restoring */
   archivedSkus: Sku[];
+  /** models removed whole: their name and photo, for the archive list */
+  archivedModels?: Model[];
   balances: Balances;
   pickups: Pickup[];
   orders: Order[];
@@ -71,7 +73,9 @@ export interface Snapshot {
   colors: { code: string; ar: string }[];
   sizes: string[];
   files: OriginalFile[];
-  archivedPickups: { pickup: Pickup; orders: Order[] }[];
+  archivedPickups: { pickup: Pickup; orders: Order[]; by?: string; at?: string }[];
+  /** who archived each catalog variant ('' for older ones) */
+  archivedSkuBy: Record<string, string>;
   archivedDrafts: OpDraft[];
   holds: import('./holds').Hold[];
   settles: import('./settle').Settlement[];
@@ -83,4 +87,4 @@ export interface Snapshot {
   lock?: string | null;
 }
 
-export interface OpDraft { id: string; type: string; date: string; hdr: Record<string, unknown>; lines: Record<string, unknown>[]; updatedAt: string }
+export interface OpDraft { id: string; type: string; date: string; hdr: Record<string, unknown>; lines: Record<string, unknown>[]; updatedAt: string; archivedBy?: string; archivedAt?: string }

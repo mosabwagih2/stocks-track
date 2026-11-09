@@ -27,7 +27,7 @@ final class Permissions
     /** Document / move type => permission needed to post it. */
     public const DOC = [
         'SCN' => 'scan', 'RTN' => 'returns', 'RCV' => 'receive', 'FRC' => 'internal',
-        'FSD' => 'internal', 'CLN' => 'internal', 'LOS' => 'internal', 'SHP' => 'ship',
+        'FSD' => 'internal', 'CLN' => 'internal', 'LOS' => 'internal', 'SHP' => 'ship', 'SRT' => 'ship',
         'CNT' => 'count', 'CXL' => 'cancel', 'SWP' => 'count',
         'HLD' => 'internal', 'MOV' => 'internal',
     ];

@@ -87,7 +87,7 @@ function SkuSheet({ d, sku, start, onClose }: { d: Derived; sku: Sku; start: Loc
   const act = useAct(); const b = d.snap.balances; const info = cellInfo(sku, b, d.demand, d.velocity, d.velocityOK, 14);
   // starts from the state the stock page is showing (or the first one that has pieces), on its usual next step
   const first = qty(b, sku.id, start) > 0 ? start : (LOCS.find((l) => qty(b, sku.id, l) > 0) as Loc | undefined) ?? start;
-  const [from, setFromState] = useState<Loc>(first); const [stepI, setStepI] = useState(0); const [q, setQ] = useState(1); const [reason, setReason] = useState(''); const [date, setDate] = useState(d.today);
+  const [from, setFromState] = useState<Loc>(first); const [stepI, setStepI] = useState(0); const [q, setQ] = useState(1); const [reason, setReason] = useState('');
   const setFrom = (l: Loc) => { setFromState(l); setStepI(0); setQ(1); };
   const step = NEXT[from][stepI] ?? NEXT[from][0];
   const moves = d.snap.moves.filter((m) => m.sku === sku.id).slice(0, 15);
@@ -104,15 +104,14 @@ function SkuSheet({ d, sku, start, onClose }: { d: Derived; sku: Sku; start: Loc
         <tr><td className={td}><b>إجمالي الكمية المملوكة</b></td><td className={td + ' font-mono font-semibold'}>{fmt(totalOwned(b, sku.id))}</td></tr>
       </tbody></table></TableWrap>
       <Card title="النقل بين الحالات" hint="كل خطوة بتتسجل بعمليتها (تصنيف، إرسال للمصنع، استلام من المصنع، المفقود)">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          <Field label="التاريخ"><input type="date" value={date} max={d.today} onChange={(e) => e.target.value && setDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Field label="من"><select value={from} onChange={(e) => setFrom(e.target.value as Loc)}>{LOCS.map((l) => <option key={l} value={l}>{LOC_AR[l]}</option>)}</select></Field>
           <Field label="إلى"><select value={stepI} onChange={(e) => setStepI(+e.target.value)}>{NEXT[from].map((x, i) => <option key={i} value={i}>{x.label}</option>)}</select></Field>
           <Field label="الكمية"><input type="number" min={1} max={Math.max(1, have)} value={q} onChange={(e) => setQ(Math.max(1, Math.min(Math.max(1, have), Math.floor(+e.target.value || 1))))} /></Field>
           <Field label="السبب"><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="بقعة..." /></Field>
         </div>
         <p className="mt-2 text-sm">{LOC_AR[from]}: <b className="font-mono">{fmt(have)}</b> ← <b className="font-mono">{fmt(have - q)}</b> {q > have && <Pill tone="crit">الكمية غير كافية</Pill>}</p>
-        <div className="mt-3"><Button variant="primary" disabled={q > have || q < 1} onClick={async () => { const r = await act(() => repo.postOp({ type: step.op, date, hdr: step.hdr(reason.trim()), lines: [step.line(sku.id, q)] }), (x) => `تم تسجيل ${x.doc}`); if (r) onClose(); }}>تأكيد: {step.label}</Button></div>
+        <div className="mt-3"><Button variant="primary" disabled={q > have || q < 1} onClick={async () => { const r = await act(() => repo.postOp({ type: step.op, date: d.today, hdr: step.hdr(reason.trim()), lines: [step.line(sku.id, q)] }), (x) => `تم تسجيل ${x.doc}`); if (r) onClose(); }}>تأكيد: {step.label}</Button></div>
       </Card>
       <h3 className="font-display font-semibold">آخر الحركات</h3>
       {moves.length ? <TableWrap><table className="text-sm"><tbody>{moves.map((m) => <tr key={m.id}><td className={td + ' font-mono text-muted'}>{m.date}</td><td className={td}>{m.note || m.type}<div className="text-xs text-muted">من {LOC_AR[m.from]} إلى {LOC_AR[m.to]} · <span className="font-mono">{m.doc}</span></div></td><td className={td + ' text-xs'}>{m.by}</td><td className={td + ' font-mono'}>{m.qty}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا توجد حركات.</Empty>}
@@ -128,14 +127,14 @@ export default function Stock() {
   const [line, setLine] = useState('all'); const [otherModel, setOtherModel] = useState('all');
   const [q, setQ] = useState(''); const dq = useDeferredValue(q); const [archOpen, setArchOpen] = useState(false); const [sku, setSku] = useState<Sku | null>(null);
   const [supAdd, setSupAdd] = useState(0); const [supArch, setSupArch] = useState(false); const [imgModel, setImgModel] = useState<string | null>(null); const [catSheet, setCatSheet] = useState<'new' | null>(null); const [editModel, setEditModel] = useState<string | null>(null);
-  const order = useMemo(() => (d ? d.modelsByPull : []), [d]);
+  const order = useMemo(() => (d ? d.modelOrder : []), [d]);
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
   const mName = (c: string) => `${c} · ${d.modelMap.get(c)?.name ?? ''}`;
   const modelSum = (m: string, l: Loc) => d.snap.skus.reduce((a, s) => a + (s.model === m ? qty(d.snap.balances, s.id, l) : 0), 0);
   const modelDemand = (m: string) => d.snap.skus.reduce((a, s) => a + (s.model === m ? d.demand[s.id] ?? 0 : 0), 0);
   const words = dq.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const otherCodes = order.filter((c) => lineOf(c) === OTHER).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  const otherCodes = d ? d.modelOrder.filter((c) => lineOf(c) === OTHER) : [];
   const shown = order.filter((c) => (line === 'all' || lineOf(c) === line) && (line !== OTHER || otherModel === 'all' || c === otherModel) && (loc === 'READY' || modelSum(c,loc) !== 0) && (!words.length || d.snap.skus.some((s)=>s.model===c && words.every((w)=>`${c} ${mName(c)} ${s.color} ${s.size}`.toLowerCase().includes(w)))));
   const head = (c: string) => (
     <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -176,7 +175,7 @@ export default function Stock() {
         const cell = new Map<string, number>();
         for (const s of d.snap.skus) { const k = `${s.model}|${s.size}`; cell.set(k, (cell.get(k) ?? 0) + qty(d.snap.balances, s.id, loc)); }
         const sizes = d.snap.sizes.filter((z) => ms.some((m) => cell.get(`${m}|${z}`)));
-        return ms.length ? <Card title={`خريطة المخزون: الموديل × المقاس`} hint={`${LOC_AR[loc]} · ${ms.length} موديل`}><Heatmap models={ms} sizes={sizes} value={(m, z) => cell.get(`${m}|${z}`) ?? 0} total={(m) => modelSum(m, loc)} /></Card> : <Empty>لا يوجد رصيد في هذه الحالة.</Empty>;
+        return ms.length ? <Card title={`خريطة المخزون: الموديل × المقاس`} hint={`${LOC_AR[loc]} · ${ms.length} موديل`}><Heatmap models={ms} sizes={sizes} value={(m, z) => cell.get(`${m}|${z}`) ?? 0} total={(m) => modelSum(m, loc)} breakdown={(m, z) => d.snap.skus.filter((k) => k.model === m && k.size === z).map((k) => ({ label: k.color, n: qty(d.snap.balances, k.id, loc) })).filter((x) => x.n !== 0).sort((a, b) => b.n - a.n)} /></Card> : <Empty>لا يوجد رصيد في هذه الحالة.</Empty>;
       })() : (
         <>
           <input type="search" aria-label="بحث الموديلات" placeholder="بحث بالموديل أو اللون أو المقاس" value={q} onChange={(e)=>setQ(e.target.value)} className="mb-3 w-full sm:max-w-sm" />

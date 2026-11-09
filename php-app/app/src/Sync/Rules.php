@@ -16,7 +16,7 @@ final class Rules
     // EXT_HOLD: pieces out on a hold (photoshoot, sample, gift), until they come back or are written off
     public const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF', 'EXT_HOLD'];
     // HLD: a hold (out / return / write-off), MOV: a direct state change
-    public const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP', 'HLD', 'MOV'];
+    public const MOVE_TYPES = ['RCV', 'RTN', 'SRT', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP', 'HLD', 'MOV'];
 
     /** The most a counter (move ids, document ids...) may grow in one push. */
     private const MAX_COUNTER_JUMP = 100000;
@@ -80,6 +80,8 @@ final class Rules
         return match ($type) {
             'RCV' => $pair('EXT_FACTORY', 'READY'),
             'SHP' => $pair('READY', 'EXT_SHOP'),
+            // back from the shop: sound, to clean, or scrap
+            'SRT' => $outsideAndInside('EXT_SHOP', ['READY', 'DIRTY', 'SCRAP']),
             'SCN', 'CXL' => $pair('READY', 'EXT_CH'),
             'FSD' => $pair('DIRTY', 'FACTORY') || $pair('SCRAP', 'EXT_FACTORY'),
             'FRC' => $pair('FACTORY', 'READY') || $pair('FACTORY', 'SCRAP'),

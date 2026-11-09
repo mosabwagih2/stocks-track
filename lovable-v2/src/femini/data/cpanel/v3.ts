@@ -84,7 +84,7 @@ const iso = (ms: unknown): string => new Date(typeof ms === 'number' ? ms : Date
 const ms = (s: string | null | undefined): number => (s ? Date.parse(s) : Date.now());
 const canon = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, x[k]])) : x));
 export const same = (a: unknown, b: unknown) => canon(a) === canon(b);
-const DRAFTABLE = ['RCV', 'RTN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'SWP'];
+const DRAFTABLE = ['RCV', 'RTN', 'SRT', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'SWP'];
 const isOwnedDoc = (d: Row) => d.status !== 'draft' || DRAFTABLE.includes(String(d.type));
 const isOwnedArchDoc = (a: Row) => DRAFTABLE.includes(String(a.d?.type));
 
@@ -167,11 +167,11 @@ export function draftV(x: OpDraft, orig: Row | undefined, ctx: { actor: string; 
   return patch(orig, draftL(orig), x, [[['date'], (r, v) => { r.date = v.date; }], [['hdr'], (r, v) => { r.hdr = structuredClone(v.hdr); }], [['lines'], (r, v) => { r.lines = structuredClone(v.lines); }]]);
 }
 
-export const supplyL = (i: Row): Supply => ({ id: String(i.id), name: String(i.name ?? ''), unit: String(i.unit ?? ''), pack: Number(i.pack) || 1, packName: String(i.packName ?? ''), minAlert: Number(i.min) || 0, note: String(i.note ?? ''), archived: !!i.arch, rule: (i.auto ?? { kind: 'none' }) as Supply['rule'] });
+export const supplyL = (i: Row): Supply => ({ id: String(i.id), name: String(i.name ?? ''), unit: String(i.unit ?? ''), pack: Number(i.pack) || 1, packName: String(i.packName ?? ''), minAlert: Number(i.min) || 0, note: String(i.note ?? ''), archived: !!i.arch, ...(i.archBy ? { archivedBy: String(i.archBy) } : {}), rule: (i.auto ?? { kind: 'none' }) as Supply['rule'] });
 export const supplyV = (s: Supply, orig?: Row): Row => patch(orig, orig ? supplyL(orig) : undefined, s, [
   [['id'], (r, v) => { r.id = v.id; }], [['name'], (r, v) => { r.name = v.name; }], [['unit'], (r, v) => { r.unit = v.unit; }], [['pack'], (r, v) => { r.pack = v.pack; }],
   [['packName'], (r, v) => { r.packName = v.packName; }], [['minAlert'], (r, v) => { r.min = v.minAlert; }], [['note'], (r, v) => { r.note = v.note; }],
-  [['archived'], (r, v) => { r.arch = v.archived; }], [['rule'], (r, v) => { r.auto = v.rule; }],
+  [['archived', 'archivedBy'], (r, v) => { r.arch = v.archived; if (v.archivedBy) r.archBy = v.archivedBy; else delete r.archBy; }], [['rule'], (r, v) => { r.auto = v.rule; }],
 ]);
 const kindOf = (e: Row): SupplyEntry['kind'] => (e.kind ?? (e.doc ? (/عكس/.test(String(e.doc)) ? 'rev' : 'auto') : /افتتاحي/.test(String(e.why)) ? 'open' : Number(e.q) > 0 ? 'rcv' : 'count')) as SupplyEntry['kind'];
 export const logL = (e: Row): SupplyEntry => ({ id: Number(e.id), date: String(e.date), item: String(e.item), qty: Number(e.q), kind: kindOf(e), why: String(e.why ?? ''), doc: e.doc ? String(e.doc) : null, by: String(e.by ?? ''), reversed: !!e.rev });
@@ -244,8 +244,8 @@ export function toLovable(m: Mirror): State {
     drafts: docRows.filter((d) => d.status === 'draft' && DRAFTABLE.includes(String(d.type))).map(draftL),
     shops: rows<string>('shops').map(String),
     files: m.files.map((f): OriginalFile => ({ id: `srv-${f.id}`, owner: f.ownerType === 'doc' ? String((m.rows.docs.get(String(f.ownerId)) as Row | undefined)?.no ?? f.ownerId) : f.ownerId, kind: f.kind, name: f.name, mime: f.mime, size: f.size, at: new Date(f.uploadedAt.replace(' ', 'T') + 'Z').toISOString(), path: `srvfile:${f.id}` })),
-    archivedPickups: rows<Row>('archPk').map((a) => ({ pickup: pickupL(a.p), orders: (a.orders ?? []).map(orderL) })),
-    archivedDrafts: rows<Row>('archDocs').filter(isOwnedArchDoc).map((a) => draftL(a.d)),
+    archivedPickups: rows<Row>('archPk').map((a) => ({ pickup: pickupL(a.p), orders: (a.orders ?? []).map(orderL), ...(a.by ? { by: String(a.by), at: String(a.at ?? '') } : {}) })),
+    archivedDrafts: rows<Row>('archDocs').filter(isOwnedArchDoc).map((a) => ({ ...draftL(a.d), ...(a.by ? { archivedBy: String(a.by), archivedAt: iso(a.at) } : {}) })),
     closes: rows<Row>('closes').map(closeL),
     autoClose: meta.st ? meta.st.autoClose !== false : true,
     lastBackup: typeof meta.bk === 'number' ? new Date(meta.bk).toISOString() : undefined,
@@ -294,7 +294,7 @@ export function toPush(S: State, m: Mirror, actor: string, now = Date.now()): Pu
   sync('shops', S.shops ?? [], (s) => s, (s) => s);
   sync('holds', S.holds ?? [], (h) => h.no, (h) => structuredClone(h));
   sync('settles', S.settles ?? [], (x) => x.id, (x) => structuredClone(x));
-  sync('archPk', S.archivedPickups ?? [], (a) => a.pickup.id, (a, orig) => ({ ...(orig ?? {}), p: pickupV(a.pickup, orig?.p), orders: a.orders.map((o) => orderV(o, (orig?.orders ?? []).find((x: Row) => x.ref === o.ref))) }));
+  sync('archPk', S.archivedPickups ?? [], (a) => a.pickup.id, (a, orig) => ({ ...(orig ?? (a.by ? { by: a.by, at: a.at } : {})), p: pickupV(a.pickup, orig?.p), orders: a.orders.map((o) => orderV(o, (orig?.orders ?? []).find((x: Row) => x.ref === o.ref))) }));
   sync('archDocs', S.archivedDrafts ?? [], (d) => d.id, (d, orig) => (orig ?? { d: m.rows.docs.get(d.id) ?? draftV(d, undefined, { actor, now }), at: now, by: actor }), (r) => isOwnedArchDoc(r as Row));
   let cn = Math.max(0, ...[...m.rows.closes.keys()].map((k) => Number(String(k).replace(/\D/g, '')) || 0));
   sync('closes', (S.closes ?? []) as (DayClose & { id?: string })[], (c) => (c.id ??= `c${++cn}`), (c, orig) => closeV(c, orig, { id: c.id!, actor }));

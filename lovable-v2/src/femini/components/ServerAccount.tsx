@@ -56,7 +56,9 @@ function UsersCard({ isAdmin }: { isAdmin: boolean }) {
   const [nu, setNu] = useState({ username: '', name: '', role: 'pack', password: '' });
   const load = useCallback(async () => { try { const d = await api<{ users: User[]; roles: Roles }>('GET', '/api/users'); setUsers(d.users); setRoles(d.roles); } catch (e) { setErr((e as Error).message); } }, []);
   useEffect(() => { void load(); }, [load]);
-  const run = async (fn: () => Promise<unknown>, ok: string) => { setErr(''); try { await fn(); toast(ok); await load(); } catch (e) { setErr((e as Error).message); } };
+  const run = async (fn: () => Promise<unknown>, ok: string) => { setErr(''); try { await fn(); toast(ok); await load(); return true; } catch (e) { setErr((e as Error).message); return false; } };
+  const [adding, setAdding] = useState(false); const [saving, setSaving] = useState(false);
+  const missing = !nu.name.trim() ? 'اكتب الاسم الظاهر.' : !/^[A-Za-z0-9_.@-]{3,60}$/.test(nu.username) ? 'اسم الدخول: 3 حروف أو أكتر، إنجليزي وأرقام بس.' : users.some((u) => u.username.toLowerCase() === nu.username.toLowerCase()) ? 'اسم الدخول ده مستخدم قبل كده.' : nu.password.length < 8 ? 'كلمة السر 8 حروف أو أكتر.' : '';
   const reset = (u: User) => { const p = window.prompt(`كلمة سر جديدة لـ ${u.name} (8 حروف أو أكتر)`); if (p) void run(() => api('POST', `/api/users/${u.id}/password`, { password: p }), `اتغيرت كلمة سر ${u.name}`); };
   const togglePerm = (role: string, p: string, on: boolean) => { const perms = new Set(roles[role].perms); if (on) perms.add(p); else perms.delete(p); void run(() => api('PUT', `/api/roles/${role}`, { perms: [...perms] }), 'اتعدّلت الصلاحيات'); };
   return (
@@ -68,13 +70,21 @@ function UsersCard({ isAdmin }: { isAdmin: boolean }) {
             <td className={td}><select value={u.role} onChange={(e) => run(() => api('PATCH', `/api/users/${u.id}`, { role: e.target.value }), 'اتغير الدور')}>{Object.keys(roles).filter((r) => isAdmin || r !== 'admin').map((r) => <option key={r} value={r}>{ROLE_AR[r] ?? roles[r].name}</option>)}</select></td>
             <td className={td}><label className="flex items-center gap-1.5"><input type="checkbox" checked={u.active} onChange={(e) => run(() => api('PATCH', `/api/users/${u.id}`, { active: e.target.checked }), e.target.checked ? 'اتفعّل' : 'اتوقف')} /> {u.active ? 'شغّال' : 'موقوف'}</label></td>
             <td className={td}><Button size="sm" variant="ghost" onClick={() => reset(u)}>كلمة سر جديدة</Button></td></tr>))}</tbody></table></TableWrap>
-      <div className="mt-4 grid gap-2 sm:grid-cols-5">
-        <input placeholder="اسم الدخول" value={nu.username} onChange={(e) => setNu({ ...nu, username: e.target.value })} />
-        <input placeholder="الاسم الظاهر" value={nu.name} onChange={(e) => setNu({ ...nu, name: e.target.value })} />
-        <select value={nu.role} onChange={(e) => setNu({ ...nu, role: e.target.value })}>{Object.keys(roles).filter((r) => isAdmin || r !== 'admin').map((r) => <option key={r} value={r}>{ROLE_AR[r] ?? roles[r].name}</option>)}</select>
-        <input type="password" placeholder="كلمة السر" autoComplete="new-password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} />
-        <Button variant="primary" disabled={!nu.username.trim() || !nu.name.trim() || nu.password.length < 8} onClick={() => run(() => api('POST', '/api/users', nu), `اتضاف ${nu.name}`).then(() => setNu({ username: '', name: '', role: 'pack', password: '' }))}><UserPlus className="size-4" /> إضافة</Button>
-      </div>
+      {!adding ? <div className="mt-4"><Button variant="primary" onClick={() => setAdding(true)}><UserPlus className="size-4" /> حساب جديد</Button></div> : (
+        <div className="mt-4 grid gap-3 rounded-xl border border-line bg-lav p-3">
+          <b className="text-sm">حساب جديد</b>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="الاسم الظاهر (بيتسجل على كل عملية)"><input value={nu.name} onChange={(e) => setNu({ ...nu, name: e.target.value })} placeholder="مثلًا: أحمد" autoFocus /></Field>
+            <Field label="اسم الدخول (حروف إنجليزي وأرقام)"><input dir="ltr" autoComplete="off" value={nu.username} onChange={(e) => setNu({ ...nu, username: e.target.value.trim() })} placeholder="ahmed" /></Field>
+            <Field label="الدور"><select value={nu.role} onChange={(e) => setNu({ ...nu, role: e.target.value })}>{Object.keys(roles).filter((r) => isAdmin || r !== 'admin').map((r) => <option key={r} value={r}>{ROLE_AR[r] ?? roles[r].name}</option>)}</select></Field>
+            <Field label="كلمة السر (8 حروف أو أكتر)"><input type="password" autoComplete="new-password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} /></Field>
+          </div>
+          {missing && <p className="text-xs text-muted">{missing}</p>}
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" disabled={!!missing || saving} onClick={async () => { setSaving(true); await run(() => api('POST', '/api/users', nu), `اتعمل حساب ${nu.name}`).then((ok) => { if (ok) { setNu({ username: '', name: '', role: 'pack', password: '' }); setAdding(false); } }); setSaving(false); }}><UserPlus className="size-4" /> {saving ? 'جارٍ الحفظ…' : 'إنشاء الحساب'}</Button>
+            <Button onClick={() => { setAdding(false); setNu({ username: '', name: '', role: 'pack', password: '' }); }}>إلغاء</Button>
+          </div>
+        </div>)}
       <h3 className="mb-2 mt-5 text-sm font-semibold">صلاحيات الأدوار {isAdmin ? '' : '(المدير بس بيعدّلها)'}</h3>
       <TableWrap><table className="text-xs"><thead><tr><th className={th}>الصلاحية</th>{Object.keys(roles).map((r) => <th key={r} className={th}>{ROLE_AR[r] ?? roles[r].name}</th>)}</tr></thead>
         <tbody>{PERMS.map(([p, label]) => (

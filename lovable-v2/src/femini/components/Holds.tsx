@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpFromLine, Ban, CheckCircle2, Clock, Hand, Plus, RotateCcw, Trash2, User } from 'lucide-react';
+import { AlertTriangle, ArrowUpFromLine, CheckCircle2, Clock, Hand, Plus, Trash2, User } from 'lucide-react';
 import { useAct } from '@/femini/hooks/data';
 import type { Derived } from '@/femini/hooks/data';
 import { Alert, Button, Card, Empty, Field, Pill, Seg, Sheet, Tabs } from '@/femini/components/ui';
@@ -62,13 +62,13 @@ function HoldSheet({ d, h, onClose }: { d: Derived; h: Hold; onClose: () => void
   const act = useAct();
   const left = outstanding(h);
   const [rows, setRows] = useState<Row[]>(() => Object.entries(left).map(([sku, q]) => ({ sku, ret: q, to: 'READY' })));
-  const [rest, setRest] = useState<'off' | 'keep'>('off'); const [note, setNote] = useState(''); const [photo, setPhoto] = useState<File | null>(null); const [busy, setBusy] = useState(false);
+  const [rest, setRest] = useState<'off' | 'keep'>('keep'); const [note, setNote] = useState(''); const [photo, setPhoto] = useState<File | null>(null); const [busy, setBusy] = useState(false);
   const offOf = (r: Row) => (rest === 'off' ? Math.max(0, (left[r.sku] ?? 0) - r.ret) : 0);
   const set = (sku: string, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.sku === sku ? { ...r, ...p } : r)));
   const tRet = rows.reduce((a, r) => a + r.ret, 0), tOff = rows.reduce((a, r) => a + offOf(r), 0);
   const bad = rows.some((r) => r.ret > (left[r.sku] ?? 0));
   const remaining = outstandingTotal(h) - tRet - tOff;
-  const quick = (all: boolean) => setRows((rs) => rs.map((r) => ({ ...r, ret: all ? left[r.sku] : 0 })));
+  const short = rows.some((r) => r.ret < (left[r.sku] ?? 0));
   const save = async () => {
     setBusy(true);
     const r = await act(() => repo.holdSettle({ no: h.no, note, photo, ret: rows.map((x) => ({ sku: x.sku, q: x.ret, to: x.to })), off: rows.map((x) => ({ sku: x.sku, q: offOf(x) })) }), (x) => (x.closed ? 'اتقفل الهولد' : 'اتسجل والباقي لسه برا'));
@@ -83,19 +83,15 @@ function HoldSheet({ d, h, onClose }: { d: Derived; h: Hold; onClose: () => void
         </div>
 
         {h.status === 'open' && (
-          <Card title="تسوية الهولد" hint="الراجع بيرجع جاهز للبيع تلقائيًا، وتقدر تغيّر حالة أي قطعة فيها مشكلة">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <Button size="sm" onClick={() => quick(true)}><RotateCcw className="size-4" /> رجع كله</Button>
-              <Button size="sm" onClick={() => quick(false)}><Ban className="size-4" /> مرجعش حاجة</Button>
-              <span className="ms-auto flex items-center gap-2 text-sm text-muted">اللي مرجعش: <Seg value={rest} onChange={setRest} options={[['off', 'يتخصم نهائي'], ['keep', 'يفضل برا']]} /></span>
-            </div>
+          <Card title="تسوية الهولد">
             <div className="grid gap-2">{rows.map((r) => { const l = left[r.sku] ?? 0; const over = r.ret > l; const off = offOf(r); return (
               <div key={r.sku} className={cn('grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end', over ? 'border-crit/50 bg-crit/5' : 'border-line')}>
-                <div><b className="text-sm">{skuLabel(d.skuMap, r.sku)}</b><p className="text-xs text-muted">برا: {fmt(l)}{rest === 'keep' ? ` · هيفضل برا ${fmt(Math.max(0, l - r.ret))}` : ''}</p></div>
+                <div><b className="text-sm">{skuLabel(d.skuMap, r.sku)}</b><p className="text-xs text-muted">برا: {fmt(l)}</p></div>
                 <Field label="رجع"><input type="number" min={0} max={l} value={r.ret} className="w-20 text-center" onChange={(e) => set(r.sku, { ret: Math.max(0, Math.floor(+e.target.value || 0)) })} /></Field>
                 <Field label="حالته"><Seg value={r.to} onChange={(to) => set(r.sku, { to })} options={[['READY', 'سليم'], ['DIRTY', 'نضافة'], ['SCRAP', 'هالك']]} /></Field>
-                <Field label="خصم نهائي"><div className={cn('grid h-10 w-20 place-items-center rounded-xl border border-dashed font-mono', off ? 'border-crit/40 text-crit' : 'border-line text-muted')} title="بيتحسب تلقائي">{fmt(off)}</div></Field>
+                <Field label="مرجعش"><div className={cn('grid h-10 w-20 place-items-center rounded-xl border border-dashed font-mono', off ? 'border-crit/40 text-crit' : 'border-line text-muted')}>{fmt(l - Math.min(l, r.ret))}</div></Field>
               </div>); })}</div>
+            {short && <div className="mt-3 flex flex-wrap items-center gap-2 text-sm"><span className="text-muted">اللي مرجعش:</span><Seg value={rest} onChange={setRest} options={[['keep', 'لسه برا'], ['off', 'مش هيرجع (خصم)']]} /></div>}
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Field label="ملاحظة"><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="مثلًا: القطعة رجعت فيها بقعة" /></Field>
               <PhotoInput file={photo} onChange={setPhoto} label={tOff ? 'صورة إثبات الخصم (إجباري)' : 'صورة (اختياري)'} />

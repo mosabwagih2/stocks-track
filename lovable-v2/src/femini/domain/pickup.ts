@@ -15,7 +15,7 @@ export function itemMapper(skus: Sku[], alias: Record<string, string> = {}) {
   const toModel = (code: string): string | null => {
     const c = String(code).trim(); if (alias[c]) return alias[c];
     const bare = c.replace(/^(FC-|Women\s+)/i, '');
-    return [c, bare, bare.toUpperCase()].find((m) => models.has(m)) ?? null;
+    return [c, bare, bare.toUpperCase(), bare.toUpperCase().replace(/[^A-Z0-9]/g, '')].find((m) => models.has(m)) ?? null;
   };
   return (code: string, size: string, color: string) => { const model = toModel(code); return { model, id: model ? idx.get(`${model}|${String(color).trim()}|${String(size).trim()}`) : undefined }; };
 }

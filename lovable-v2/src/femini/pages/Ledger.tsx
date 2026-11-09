@@ -23,7 +23,15 @@ export default function Ledger() {
     return d.snap.moves.filter((m) => (!type || m.type === type) && (!person || m.by === person) && (!date || m.date === date) && w.every((x) => `${m.sku} ${skuLabel(d.skuMap, m.sku)} ${m.doc}`.toLowerCase().includes(x)));
   }, [d, dq, type, person, date]);
   const byDay = useMemo(() => { const m = new Map<string, DocEvent[]>(); for (const e of docEvents(rows)) (m.get(e.date) ?? m.set(e.date, []).get(e.date)!).push(e); return [...m].sort((a, b) => (a[0] < b[0] ? 1 : -1)); }, [rows]);
+  // READY of each sku right after each move, in one pass over the ledger (it was recomputed from the whole ledger per row)
+  const readyAfter = useMemo(() => {
+    const out = new Map<number, number>(); if (!d || tab !== 'sku') return out; const run: Record<string, number> = {};
+    for (const m of [...d.snap.moves].sort((a, b) => a.id - b.id)) { run[m.sku] = (run[m.sku] ?? 0) + (m.to === 'READY' ? m.qty : 0) - (m.from === 'READY' ? m.qty : 0); out.set(m.id, run[m.sku]); }
+    return out;
+  }, [d, tab]);
   const supplyRows = useMemo(() => (d ? d.snap.supplyLog.filter((e) => (!date || e.date === date) && (!person || e.by === person)).slice().reverse() : []), [d, date, person]);
+  /** who archived it (from the account name), and when */
+  const who = (by?: string, at?: string) => (by ? `أرشفه ${by}${at ? ` · ${at.slice(0, 10)}` : ''}` : 'أرشفه: مش متسجّل (قبل التحديث)');
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
   const types = [...new Set(d.snap.moves.map((m) => m.type))];
@@ -32,10 +40,10 @@ export default function Ledger() {
       <PageHead title="السجل" sub="الأحداث وتتبّع الأصناف والأرشيف؛ الحركات المؤكدة ثابتة." />
       <Tabs value={tab} onChange={setTab} tabs={[['events','اللي حصل'],['sku','تتبّع صنف'],['archive','المؤرشف']]} />
       {tab === 'archive' ? <div className="grid gap-3">
-        {d.snap.archivedPickups.map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.pickup.id}><div><b>{x.pickup.label}</b><p className="text-xs text-muted">بيك أب · {x.orders.length} أوردر</p></div><Button onClick={()=>setRestore({label:x.pickup.label,run:()=>repo.restoreArchive('pickup',x.pickup.id)})}>استرجاع</Button></div>)}
-        {d.snap.archivedDrafts.map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{TYPE_AR[x.type]} · {x.id}</b><p className="text-xs text-muted">مسودة · {x.date}</p></div><Button onClick={()=>setRestore({label:x.id,run:()=>repo.restoreArchive('draft',x.id)})}>استرجاع</Button></div>)}
-        {d.snap.supplies.filter((x)=>x.archived).map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{x.name}</b><p className="text-xs text-muted">مستلزم</p></div><Button onClick={()=>setRestore({label:x.name,run:()=>repo.supplyArchive(x.id,false)})}>استرجاع</Button></div>)}
-        {[...new Set(d.snap.archivedSkus.map((s)=>s.model))].map((model)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={model}><div><b>{model}</b><p className="text-xs text-muted">كتالوج · {d.snap.archivedSkus.filter((s)=>s.model===model).length} صنف</p></div><Button onClick={()=>setRestore({label:model,run:()=>repo.catalogRestore({model})})}>استرجاع</Button></div>)}
+        {d.snap.archivedPickups.map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.pickup.id}><div><b>{x.pickup.label}</b><p className="text-xs text-muted">بيك أب · {x.orders.length} أوردر · {who(x.by, x.at)}</p></div><Button onClick={()=>setRestore({label:x.pickup.label,run:()=>repo.restoreArchive('pickup',x.pickup.id)})}>استرجاع</Button></div>)}
+        {d.snap.archivedDrafts.map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{TYPE_AR[x.type]} · {x.id}</b><p className="text-xs text-muted">مسودة · {x.date} · {who(x.archivedBy, x.archivedAt)}</p></div><Button onClick={()=>setRestore({label:x.id,run:()=>repo.restoreArchive('draft',x.id)})}>استرجاع</Button></div>)}
+        {d.snap.supplies.filter((x)=>x.archived).map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{x.name}</b><p className="text-xs text-muted">مستلزم · {who(x.archivedBy)}</p></div><Button onClick={()=>setRestore({label:x.name,run:()=>repo.supplyArchive(x.id,false)})}>استرجاع</Button></div>)}
+        {[...new Set(d.snap.archivedSkus.map((s)=>s.model))].map((model)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={model}><div><b>{model}</b><p className="text-xs text-muted">كتالوج · {d.snap.archivedSkus.filter((s)=>s.model===model).length} صنف · {who([...new Set(d.snap.archivedSkus.filter((s)=>s.model===model).map((s)=>d.snap.archivedSkuBy[s.id]).filter(Boolean))].join('، '))}</p></div><Button onClick={()=>setRestore({label:model,run:()=>repo.catalogRestore({model})})}>استرجاع</Button></div>)}
         {!d.snap.archivedPickups.length && !d.snap.archivedDrafts.length && !d.snap.archivedSkus.length && !d.snap.supplies.some((s)=>s.archived) && <Empty>الأرشيف فارغ.</Empty>}
       </div> : <>
       <div className="mb-3 flex flex-wrap gap-2">
@@ -52,11 +60,11 @@ export default function Ledger() {
         </section>)}
         {supplyRows.length > 0 && <section><h2 className="mb-2 text-sm font-semibold">المستلزمات</h2><TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'المستلزم', 'السبب', 'بواسطة', 'الكمية'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{supplyRows.map((e) => <tr key={`s${e.id}`}><td className={td + ' whitespace-nowrap font-mono text-muted'}>{e.date}</td><td className={td}>{d.snap.supplies.find((s) => s.id === e.item)?.name ?? e.item}</td><td className={td + ' text-muted'}>{e.why}</td><td className={td + ' whitespace-nowrap'}>{e.by}</td><td className={td + ' num font-semibold ' + (e.qty < 0 ? 'text-crit' : 'text-good')}>{e.qty > 0 ? '+' : ''}{e.qty}</td></tr>)}</tbody></table></TableWrap></section>}
         {!rows.length && <Empty>لا توجد أحداث مطابقة.</Empty>}</div> : <>
-      <p className="mb-3 text-sm text-muted">ابحث بكود صنف كامل لعرض رحلته؛ الرصيد التالي محسوب بعد الحركة من كامل السجل.</p>
+      <p className="mb-3 text-sm text-muted">ابحث بكود الصنف (مثلًا BR2 احمر L) لعرض رحلته. "جاهز بعد الحركة" محسوب من كامل السجل.{rows.length > 300 ? ` بيظهر أحدث 300 من ${rows.length.toLocaleString('en')} حركة؛ ضيّق البحث.` : ''}</p>
       <TableWrap>
         <table className="text-sm"><thead><tr>{['التاريخ', 'المستند', 'الصنف', 'كمية', 'من', 'إلى', 'ملاحظة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
-          <tbody>{rows.map((m) => (
-            <tr key={m.id} onClick={()=>setEvent(d.snap.moves.filter((x)=>x.doc===m.doc))} className="cursor-pointer hover:bg-lav"><td className={td + ' font-mono'}>{m.date}</td><td className={td + ' font-mono'}>{m.doc}</td><td className={td}>{skuLabel(d.skuMap, m.sku)}</td><td className={td + ' font-mono'}>{m.qty}</td><td className={td}>{LOC_AR[m.from]}</td><td className={td}>{LOC_AR[m.to]}</td><td className={td + ' text-muted'}>{m.note}<div>جاهز بعد الحركة: {d.snap.moves.filter((x)=>x.sku===m.sku&&x.id<=m.id).reduce((a,x)=>a+(x.to==='READY'?x.qty:0)-(x.from==='READY'?x.qty:0),0)}</div></td></tr>
+          <tbody>{rows.slice(0, 300).map((m) => (
+            <tr key={m.id} onClick={()=>setEvent(d.snap.moves.filter((x)=>x.doc===m.doc))} className="cursor-pointer hover:bg-lav"><td className={td + ' font-mono'}>{m.date}</td><td className={td + ' font-mono'}>{m.doc}</td><td className={td}>{skuLabel(d.skuMap, m.sku)}</td><td className={td + ' font-mono'}>{m.qty}</td><td className={td}>{LOC_AR[m.from]}</td><td className={td}>{LOC_AR[m.to]}</td><td className={td + ' text-muted'}>{m.note}<div>جاهز بعد الحركة: {readyAfter.get(m.id) ?? 0}</div></td></tr>
           ))}{!rows.length && <tr><td colSpan={7}><Empty>لا توجد حركات.</Empty></td></tr>}</tbody></table>
       </TableWrap>
       </> }</>}

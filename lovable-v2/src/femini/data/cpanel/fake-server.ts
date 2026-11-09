@@ -10,8 +10,8 @@ import { cairoToday } from '@/femini/domain/dates';
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF', 'EXT_HOLD'];
-const MOVE_TYPES = ['RCV', 'RTN', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP', 'HLD', 'MOV'];
-export const DOC_PERM: Record<string, string> = { SCN: 'scan', RTN: 'returns', RCV: 'receive', FRC: 'internal', FSD: 'internal', CLN: 'internal', LOS: 'internal', SHP: 'ship', CNT: 'count', CXL: 'cancel', SWP: 'count', HLD: 'internal', MOV: 'internal' };
+const MOVE_TYPES = ['RCV', 'RTN', 'SRT', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP', 'HLD', 'MOV'];
+export const DOC_PERM: Record<string, string> = { SCN: 'scan', RTN: 'returns', RCV: 'receive', FRC: 'internal', FSD: 'internal', CLN: 'internal', LOS: 'internal', SHP: 'ship', SRT: 'ship', CNT: 'count', CXL: 'cancel', SWP: 'count', HLD: 'internal', MOV: 'internal' };
 const META_PERM: Record<string, string | null> = { mid: null, did: null, seq: null, sup_eid: null, bk: null, st: 'settings', costs: 'settings', alias: 'catalog', img: 'catalog', cat: 'catalog', lock: 'close' };
 const COUNTERS = ['mid', 'did', 'sup_eid'];
 const MAX_COUNTER_JUMP = 100000;
@@ -23,6 +23,7 @@ function placesFit(type: string, a: string, b: string): boolean {
   switch (type) {
     case 'RCV': return pair('EXT_FACTORY', 'READY');
     case 'SHP': return pair('READY', 'EXT_SHOP');
+    case 'SRT': return outIn('EXT_SHOP', ['READY', 'DIRTY', 'SCRAP']);
     case 'SCN': case 'CXL': return pair('READY', 'EXT_CH');
     case 'FSD': return pair('DIRTY', 'FACTORY') || pair('SCRAP', 'EXT_FACTORY');
     case 'FRC': return pair('FACTORY', 'READY') || pair('FACTORY', 'SCRAP');

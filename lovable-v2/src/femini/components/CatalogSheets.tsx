@@ -18,13 +18,13 @@ const addTo = (a: string[], v: string) => (a.includes(v) ? a : [...a, v]);
 const toggle = (a: string[], v: string) => (a.includes(v) ? a.filter((x) => x !== v) : [...a, v]);
 
 /** + New model */
-export function NewModelSheet({ d, onClose, onCreated }: { d: Derived; onClose: () => void; onCreated: (code: string) => void }) {
+export function NewModelSheet({ d, onClose, onCreated, prefill }: { d: Derived; onClose: () => void; onCreated: (code: string) => void; prefill?: { code: string; color: string; size: string } }) {
   const act = useAct();
-  const [code, setCode] = useState(''); const [name, setName] = useState(''); const [min, setMin] = useState('');
+  const [code, setCode] = useState(prefill?.code ?? ''); const [name, setName] = useState(''); const [min, setMin] = useState('');
   const [tried, setTried] = useState(false); const [saving, setSaving] = useState(false); const [saveError, setSaveError] = useState('');
   const known = useMemo(() => [...new Set(d.snap.colors.map((c) => c.ar).concat(d.snap.skus.map((s) => s.color)))], [d]);
-  const [colors, setColors] = useState<string[]>([]); const [sizes, setSizes] = useState<string[]>([]);
-  const [extraC, setExtraC] = useState<string[]>([]); const [extraS, setExtraS] = useState<string[]>([]); const [nc, setNc] = useState(''); const [ns, setNs] = useState('');
+  const [colors, setColors] = useState<string[]>(prefill?.color ? [prefill.color] : []); const [sizes, setSizes] = useState<string[]>(prefill?.size ? [prefill.size] : []);
+  const [extraC, setExtraC] = useState<string[]>(prefill?.color && !known.includes(prefill.color) ? [prefill.color] : []); const [extraS, setExtraS] = useState<string[]>(prefill?.size && !d.snap.sizes.includes(prefill.size) ? [prefill.size] : []); const [nc, setNc] = useState(''); const [ns, setNs] = useState('');
   const allC = [...known, ...extraC.filter((c) => !known.includes(c))]; const allS = [...d.snap.sizes, ...extraS.filter((z) => !d.snap.sizes.includes(z))];
   const [nh, setNh] = useState('#7c5cff');
   const codeU = normalizeModelCode(code); const exists = d.modelMap.has(codeU) || d.snap.archivedSkus.some((s) => s.model === codeU);
@@ -73,14 +73,14 @@ export function NewModelSheet({ d, onClose, onCreated }: { d: Derived; onClose: 
 }
 
 /** Edit: rename a model, toggle its color x size variants on/off, add colors/sizes, or remove the whole model. */
-export function EditCatalogSheet({ d, initial, onClose }: { d: Derived; initial: string; onClose: () => void }) {
+export function EditCatalogSheet({ d, initial, onClose, addVariant }: { d: Derived; initial: string; onClose: () => void; addVariant?: { color: string; size: string } }) {
   const act = useAct();
   const [saving, setSaving] = useState(false); const [tried, setTried] = useState(false); const [saveError, setSaveError] = useState('');
   const [model, setModel] = useState(initial); const [nh, setNh] = useState('#7c5cff');
-  const models = useMemo(() => [...d.snap.models].map((m) => m.code).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), [d]);
+  const models = d.modelOrder;
   const m = d.modelMap.get(model); const ms = useMemo(() => d.snap.skus.filter((s) => s.model === model), [d, model]);
-  const [name, setName] = useState(m?.name ?? ''); const [want, setWant] = useState<Record<string, boolean>>(() => Object.fromEntries(ms.map((s) => [`${s.color}|${s.size}`, true])));
-  const [extraC, setExtraC] = useState<string[]>([]); const [extraS, setExtraS] = useState<string[]>([]); const [nc, setNc] = useState(''); const [ns, setNs] = useState(''); const [confirmRm, setConfirmRm] = useState(false);
+  const [name, setName] = useState(m?.name ?? ''); const [want, setWant] = useState<Record<string, boolean>>(() => ({ ...Object.fromEntries(ms.map((s) => [`${s.color}|${s.size}`, true])), ...(addVariant ? { [`${addVariant.color}|${addVariant.size}`]: true } : {}) }));
+  const [extraC, setExtraC] = useState<string[]>(addVariant && !ms.some((s) => s.color === addVariant.color) ? [addVariant.color] : []); const [extraS, setExtraS] = useState<string[]>(addVariant && !ms.some((s) => s.size === addVariant.size) ? [addVariant.size] : []); const [nc, setNc] = useState(''); const [ns, setNs] = useState(''); const [confirmRm, setConfirmRm] = useState(false);
   const pick = (code: string) => { const x = d.snap.skus.filter((s) => s.model === code); setModel(code); setName(d.modelMap.get(code)?.name ?? ''); setWant(Object.fromEntries(x.map((s) => [`${s.color}|${s.size}`, true]))); setExtraC([]); setExtraS([]); setConfirmRm(false); setTried(false); setSaveError(''); };
   const colors = [...new Set(ms.map((s) => s.color).concat(extraC))]; const sizes = [...new Set(d.snap.sizes.filter((z) => ms.some((s) => s.size === z)).concat(extraS))].sort((a, b) => d.snap.sizes.indexOf(a) - d.snap.sizes.indexOf(b));
   const by = new Map(ms.map((s) => [`${s.color}|${s.size}`, s])); const busy = (id: string) => totalOwned(d.snap.balances, id) !== 0 || (d.demand[id] ?? 0) !== 0;
@@ -145,10 +145,11 @@ export function ArchivedList({ d }: { d: Derived }) {
   if (!by.size) return <Empty>لا توجد موديلات أو أصناف مؤرشفة.</Empty>;
   return (
     <div className="grid gap-3">{[...by.entries()].map(([model, list]) => {
-      const gone = !d.modelMap.has(model);
+      const gone = !d.modelMap.has(model); const mo = d.modelMap.get(model) ?? d.snap.archivedModels?.find((x) => x.code === model);
       return (
         <div key={model} className="rounded-xl border border-line bg-surface p-4">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h3 className="font-display font-semibold">{model}{gone && <Pill tone="lost">الموديل كله مُزال</Pill>}</h3>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-3"><Thumb model={mo ?? { code: model, image: null }} size={64} /><div><h3 className="font-display font-semibold">{model} <span className="text-sm font-normal text-muted">{mo?.name ?? ''}</span>{gone && <Pill tone="lost">الموديل كله مُزال</Pill>}</h3>
+            {(() => { const who = [...new Set(list.map((s) => d.snap.archivedSkuBy[s.id]).filter(Boolean))]; return <p className="text-xs text-muted">{who.length ? `أرشفه ${who.join('، ')}` : 'أرشفه: مش متسجّل (قبل التحديث)'}</p>; })()}</div></div>
             <Button size="sm" variant="primary" onClick={() => act(() => repo.catalogRestore({ model }), (n) => `تمت استعادة ${n} صنف من ${model}`)}>{gone ? 'استعادة الموديل كله' : 'استعادة الكل'}</Button></div>
           <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th} /></tr></thead><tbody>{list.map((s) => <tr key={s.id}><td className={td}><Dotc c={s.color} /> {s.color} · {s.size}</td><td className={td}><Button size="sm" onClick={() => act(() => repo.catalogRestore({ model, sku: s.id }), 'تمت الاستعادة')}>استعادة</Button></td></tr>)}</tbody></table></TableWrap>
         </div>);

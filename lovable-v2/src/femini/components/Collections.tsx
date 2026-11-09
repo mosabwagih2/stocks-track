@@ -112,9 +112,9 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
       </Card>
       <Card title="مشحون ولسه ما اتحصّلش" hint="الأقدم الأول">
         {!waiting.length ? <Empty>كل المشحون اتحصّل.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'رقم الأوردر', 'اتشحن', 'من كام يوم', 'المبلغ', 'قطع'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'من كام يوم', 'المبلغ', 'قطع'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{waiting.slice(0, 100).map(({ o, day }) => (
-              <tr key={o.ref}><td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{o.waybill}</td><td className={td + ' font-mono'}>{day}</td>
+              <tr key={o.ref}><td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{o.waybill}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{day}</td>
                 <td className={td + ' font-mono'}>{age(day)}</td><td className={td + ' font-mono'}>{fmt(o.total || 0)}</td><td className={td + ' font-mono'}>{o.lines.length}</td></tr>))}</tbody></table></TableWrap>
         )}
         {waiting.length > 100 && <p className="mt-2 text-xs text-muted">أول 100 من {fmt(waiting.length)}.</p>}

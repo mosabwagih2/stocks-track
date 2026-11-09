@@ -17,6 +17,9 @@ export function DayCloseReport({ s, date }: { s: Snapshot; date: string }) {
   const details = closed?.report ?? r;
   const status = closed ? `مقفول بواسطة ${closed.by} · ${new Date(closed.at).toLocaleString('ar-EG-u-nu-latn')}` : 'معاينة قبل القفل';
   const sheets: ExportSheet[] = [{ name: 'ملخص اليوم', rows: [['الحالة', status], ['المؤشر', 'العدد'], ...Object.entries(summary).map(([k, n]) => [DAY_LABELS[k] ?? k, n]), ['أوردرات واردة', details.requestedOrders], ['أوردرات مفتوحة بنهاية اليوم', details.open], ['أوردرات متوقفة', details.blocked]] }, { name: 'الفريق', rows: [['الموظف', 'صافي القطع المشحونة'], ...details.team] }, { name: 'الحركات', rows: [['رقم الحركة', 'المستند', 'الصنف', 'من', 'إلى', 'الكمية', 'الموظف'], ...r.moves.map((m) => [m.id, m.doc, m.sku, m.from, m.to, m.qty, m.by])] }];
+  // the settlement sheets dated this day (money: only for who can see settlements)
+  const daySettles = (s.settles ?? []).filter((x) => x.date === date);
+  if (daySettles.length) sheets.push({ name: 'تسويات اليوم', rows: [['الرقم', 'الأوردرات', 'المبيعات', 'مستحق شركة الشحن', 'الصافي', 'مستحق فيندور', 'مستحق فيميني', 'رفعه'], ...daySettles.map((x) => [x.id, x.rows.length, x.totals.sales, x.totals.shipping, x.totals.cod, x.totals.vendoor, x.totals.due, x.by])] });
   const print = () => {
     const w = window.open('', '_blank'); if (!w) { toast('اسمح بفتح نافذة التقرير للطباعة', { tone: 'err' }); return; }
     const styles = Array.from(document.querySelectorAll('style,link[rel="stylesheet"]')).map((e) => e.outerHTML).join('');

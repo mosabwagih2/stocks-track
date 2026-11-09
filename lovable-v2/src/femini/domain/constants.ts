@@ -20,5 +20,5 @@ export const CHANNELS = [
 ];
 export const channelName = (id: string) => CHANNELS.find((c) => c.id === id)?.name ?? id;
 export const TYPE_AR: Record<string, string> = {
-  OPN: 'رصيد افتتاحي', RCV: 'استلام توريد', SCN: 'شحن أوردرات', MOV: 'تغيير حالة', CXL: 'إلغاء أوردر', RTN: 'مرتجعات العملاء', SHP: 'توريد للمحل', CNT: 'جرد', CLN: 'تصنيف حالة', FSD: 'إرسال للمصنع', FRC: 'استلام من المصنع', LOS: 'معالجة المفقود', SWP: 'تبديل مقاس', HLD: 'هولد',
+  OPN: 'رصيد افتتاحي', RCV: 'استلام توريد', SCN: 'شحن أوردرات', MOV: 'تغيير حالة', CXL: 'إلغاء أوردر', RTN: 'مرتجعات العملاء', SRT: 'مرتجع المحل', SHP: 'توريد للمحل', CNT: 'جرد', CLN: 'تصنيف حالة', FSD: 'إرسال للمصنع', FRC: 'استلام من المصنع', LOS: 'معالجة المفقود', SWP: 'تبديل مقاس', HLD: 'هولد',
 };

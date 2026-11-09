@@ -19,7 +19,7 @@ export function SupplyFormSheet({ d, supply, onClose }: { d: Derived; supply?: S
   const [confirmArchive, setConfirmArchive] = useState(false); const [busy, setBusy] = useState(false);
   const rule: SupplyRule = kind === 'none' ? { kind } : kind === 'order' ? { kind, qty: +qty } : kind === 'pieces' ? { kind, qty: +qty, model } : { kind, qty: +qty, from: Math.floor(+from), to: Math.floor(+to) || 0 };
   const err = !name.trim() ? 'أدخل اسم المستلزم' : kind !== 'none' && !(+qty > 0) ? 'يجب أن تكون الكمية في القاعدة أكبر من صفر' : kind === 'range' && !(+from >= 1) ? '«من عدد قطع» يجب أن يكون 1 أو أكثر' : kind === 'range' && +to && +to < +from ? '«لحد» يجب أن يكون أكبر من أو يساوي «من»' : '';
-  const models = [...d.snap.models].map((m) => m.code).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  const models = d.modelOrder;
   return (
     <Sheet title={supply ? `إعدادات ${supply.name}` : 'إضافة مستلزم'} onClose={onClose}>
       <div className="grid grid-cols-2 gap-3">

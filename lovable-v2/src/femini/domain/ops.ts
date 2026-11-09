@@ -4,12 +4,13 @@ import { qty } from './ledger';
 import { addDays } from './dates';
 
 /** Stock operations, as in the main Fémini app. Pure: given the inputs and current balances, compute the ledger moves and the checks. */
-export type OpType = 'RCV' | 'RTN' | 'SHP' | 'CLN' | 'FSD' | 'FRC' | 'CNT' | 'LOS' | 'SWP';
+export type OpType = 'RCV' | 'RTN' | 'SRT' | 'SHP' | 'CLN' | 'FSD' | 'FRC' | 'CNT' | 'LOS' | 'SWP';
 export type OpGroup = 'in' | 'out' | 'internal' | 'control';
 
 export const OPS: { type: OpType; ar: string; grp: OpGroup; desc: string }[] = [
   { type: 'RCV', ar: 'استلام توريد', grp: 'in', desc: 'قطع جت من المصنع بورقة موقّعة' },
   { type: 'RTN', ar: 'مرتجعات العملاء', grp: 'in', desc: 'اللي رجع من القنوات بالبوليصة: سليم، نضافة، هالك، والناقص مفقود' },
+  { type: 'SRT', ar: 'مرتجع المحل', grp: 'in', desc: 'قطع راجعة من المحل بحالتها، وبتطلع إذن استلام للطباعة' },
   { type: 'SHP', ar: 'توريد للمحل', grp: 'out', desc: 'قطع للمحل، وبتطلع إذن تسليم للطباعة' },
   { type: 'CLN', ar: 'تصنيف حالة', grp: 'internal', desc: 'قطعة بقت هالك نظافة أو هالك نهائي' },
   { type: 'FSD', ar: 'إرسال للمصنع', grp: 'internal', desc: 'غسيل (هيرجع) أو هالك للتسليم' },
@@ -25,7 +26,7 @@ export const opName = (t: string) => OPS.find((o) => o.type === t)?.ar;
 export interface OpLine { sku: string; q: number; rej?: number; r?: number; d?: number; x?: number; exp?: number; res?: 'FOUND' | 'OFF'; to?: string }
 export interface OpHdr {
   ref?: string; declared?: number | null; hasPhoto?: boolean; // RCV
-  shop?: string; note?: string; // SHP
+  shop?: string; note?: string; // SHP, SRT
   from?: Loc; to?: Loc; reason?: string; // CLN
   kind?: 'wash' | 'scrap'; // FSD
   refs?: string[]; counted?: boolean; // RTN
@@ -35,6 +36,8 @@ export interface OpMove { sku: string; qty: number; from: AnyLoc; to: AnyLoc; no
 export interface OpResult { moves: OpMove[]; checks: { ok: boolean; t: string }[]; warn: string[]; err: string[]; ok: boolean }
 
 const n = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
+/** the states a piece can come back from the shop in */
+export const SRT_TO: Loc[] = ['READY', 'DIRTY', 'SCRAP'];
 const INTERNAL = new Set<string>(LOCS);
 
 export function buildOp(type: OpType, hdr: OpHdr, lines: OpLine[], b: Balances, date: string, today: string, name: (sku: string) => string = (s) => s): OpResult {
@@ -52,6 +55,10 @@ export function buildOp(type: OpType, hdr: OpHdr, lines: OpLine[], b: Balances, 
   } else if (type === 'SHP') {
     L.forEach((l) => add(l.sku, n(l.q), 'READY', 'EXT_SHOP', 'توريد للمحل' + (hdr.shop ? ` · ${hdr.shop}` : '') + (hdr.note ? ` · ${hdr.note}` : '')));
     chk(L.length > 0, 'فيه أصناف مضافة'); chk((hdr.shop ?? '').trim(), 'اسم المحل مكتوب');
+  } else if (type === 'SRT') {
+    // back from the shop, each line in the state it came back in (سليم / نضافة / هالك)
+    L.forEach((l) => add(l.sku, n(l.q), 'EXT_SHOP', SRT_TO.includes(l.to as Loc) ? (l.to as Loc) : 'READY', 'مرتجع من المحل' + (hdr.shop ? ` · ${hdr.shop}` : '') + (hdr.note ? ` · ${hdr.note}` : '')));
+    chk(L.some((l) => n(l.q) > 0), 'فيه أصناف مضافة'); chk((hdr.shop ?? '').trim(), 'اسم المحل مكتوب');
   } else if (type === 'CLN') {
     const from = hdr.from ?? 'READY'; const to = hdr.to ?? 'DIRTY';
     L.forEach((l) => add(l.sku, n(l.q), from, to, 'تصنيف حالة' + (hdr.reason ? ` · ${hdr.reason}` : '')));

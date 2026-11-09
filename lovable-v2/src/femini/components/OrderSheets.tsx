@@ -15,15 +15,21 @@ import { fmt } from '@/femini/cn';
 import { addDays, cairoDay, timeCairo } from '@/femini/domain/dates';
 import { useAccountName } from '@/femini/data/account';
 import { Link } from '@/femini/router';
+import { EditCatalogSheet, NewModelSheet } from './CatalogSheets';
+import { normalizeModelCode } from './catalog-validation';
 
 export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; orderRef: string; onClose: () => void; onCancel: (code: string) => void }) {
   const act = useAct();
+  const [link, setLink] = useState<{ model: string | null; code: string; color: string; size: string } | null>(null);
   const o = d.orderMap.get(orderRef);
   if (!o) return null;
+  const relink = () => act(() => repo.remapUnmapped(), (n) => (n ? `اتربط ${n} صنف بالكتالوج` : 'لسه مفيش صنف مطابق في الكتالوج'));
+  // the pickup writes the model as "BR2", "FC-BR2" or "Women A6": the catalog's own code, when it has one
+  const toLink = (u: unknown[]) => { const code = String(u[0]).trim(); const bare = normalizeModelCode(code.replace(/^(FC-|Women\s+)/i, '')); const model = [code, bare].find((x) => d.modelMap.has(x)) ?? null; return { model, code: bare, size: String(u[1]).trim(), color: String(u[2]).trim() }; };
   const n = need(o); const pk = d.snap.pickups.find((p) => p.id === o.pickupId);
   return (
     <Sheet title={`بوليصة ${o.ref}`} onClose={onClose}>
-      <div className="flex flex-wrap items-center gap-2"><OrderPill o={o} d={d} /><span className="text-muted">{channelName(pk?.channel ?? '')} · {pk?.label}</span></div>
+      <div className="flex flex-wrap items-center gap-2"><OrderPill o={o} d={d} /><span className="text-muted">{channelName(pk?.channel ?? '')} · {pk?.label} · بيك أب يوم <span className="font-mono">{pk?.date ?? '—'}</span></span></div>
       <div className="grid grid-cols-2 gap-3"><Kpi label="رقم الأوردر" value={<span className="text-lg">{o.waybill}</span>} /><Kpi label="المحافظة / النوع" value={<span className="font-sans text-lg">{o.gov} · {o.type === 'exchange' ? 'استبدال' : 'جديد'}</span>} /></div>
       <TableWrap>
         <table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>في الأوردر</th><th className={th}>جاهز حاليًا</th></tr></thead>
@@ -32,9 +38,11 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
       </TableWrap>
       {o.unmapped.length > 0 && <Alert tone="warn">
         <b>أصناف مش متعرّفة، والأوردر مش هيتشحن غير لما تتربط:</b>
-        <ul className="mt-1 list-disc ps-5 font-mono text-xs">{o.unmapped.map((u, i) => <li key={i}>{Array.isArray(u) ? (u.length === 4 ? `${u[0]} · ${u[1]} · ${u[2]} × ${u[3]}` : String(u[0])) : String(u)}</li>)}</ul>
-        <p className="mt-1 text-xs">لو الموديل أو اللون أو المقاس مش في الكتالوج، ضيفه الأول وبعدين اربط.</p>
-        {o.status === 'open' && <Button size="sm" className="mt-2" onClick={() => act(() => repo.remapUnmapped(), (n) => (n ? `اتربط ${n} صنف بالكتالوج` : 'لسه مفيش صنف مطابق في الكتالوج'))}>اربط بالكتالوج</Button>}
+        <ul className="mt-2 grid gap-1.5 text-xs">{o.unmapped.map((u, i) => { const l = Array.isArray(u) && u.length === 4 ? toLink(u) : null; return (
+          <li key={i} className="flex flex-wrap items-center gap-2"><span className="font-mono">{Array.isArray(u) ? (u.length === 4 ? `${u[0]} · ${u[1]} · ${u[2]} × ${u[3]}` : String(u[0])) : String(u)}</span>
+            {l && o.status === 'open' && <Button size="sm" onClick={() => setLink(l)}>{l.model ? `ضيف ${l.color} ${l.size} لـ ${l.model}` : `ضيف الموديل ${l.code} للكتالوج`}</Button>}</li>); })}</ul>
+        <p className="mt-1 text-xs">الزرار بيفتح الكتالوج بالكود واللون والمقاس زي ما في البيك أب، وبعد الحفظ الأوردر بيتربط لوحده.</p>
+        {o.status === 'open' && <Button size="sm" className="mt-2" onClick={relink}>اربط بالكتالوج</Button>}
       </Alert>}
       {o.status === 'shipped' && <Alert tone="good">شُحن بواسطة {o.shippedBy}{o.shippedAt ? ` الساعة ${timeCairo(o.shippedAt)}` : ''} · {o.shipDoc}</Alert>}
       {o.status === 'cancelled' && o.cancel && (
@@ -44,6 +52,10 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
           <RestoreOrder code={o.ref} onDone={onClose} />
         </>
       )}
+      {link && (link.model
+        // saving the catalog links every waiting order by itself
+        ? <EditCatalogSheet d={d} initial={link.model} addVariant={{ color: link.color, size: link.size }} onClose={() => setLink(null)} />
+        : <NewModelSheet d={d} prefill={link} onCreated={() => {}} onClose={() => setLink(null)} />)}
       {o.status !== 'cancelled' && <div><Button variant="danger" size="sm" onClick={() => onCancel(o.ref)}>{o.status === 'shipped' ? 'طلب إلغاء بعد الشحن' : 'إلغاء الأوردر (بصورة البوليصة)'}</Button></div>}
     </Sheet>
   );

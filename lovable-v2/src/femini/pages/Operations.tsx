@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Save, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, X } from 'lucide-react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Chip, Empty, Field, Pill, Seg, Sheet, Tabs, TableWrap, th, td } from '@/femini/components/ui';
@@ -21,7 +21,7 @@ import { repo } from '@/femini/data';
 import type { Derived } from '@/femini/hooks/data';
 import type { Doc, Loc, OpDraft } from '@/femini/domain/types';
 
-const ICON: Record<string, typeof Truck> = { RCV: ArrowDownToLine, RTN: RotateCcw, SHP: Store, CLN: Shuffle, FSD: Factory, FRC: Recycle, CNT: ClipboardCheck, LOS: Search, SWP: ArrowLeftRight, SCN: ScanLine };
+const ICON: Record<string, typeof Truck> = { RCV: ArrowDownToLine, RTN: RotateCcw, SRT: Undo2, SHP: Store, CLN: Shuffle, FSD: Factory, FRC: Recycle, CNT: ClipboardCheck, LOS: Search, SWP: ArrowLeftRight, SCN: ScanLine };
 const GROUP_TONE: Record<OpGroup, string> = { in: 'text-good bg-good/10', out: 'text-info bg-info/10', internal: 'text-warn bg-warn/10', control: 'text-accent bg-accent/10' };
 const SOURCE: Partial<Record<OpType, (h: OpHdr) => Loc | undefined>> = { SHP: () => 'READY', CLN: (h) => h.from ?? 'READY', FSD: (h) => (h.kind === 'scrap' ? 'SCRAP' : 'DIRTY'), FRC: () => 'FACTORY', LOS: () => 'LOST', SWP: () => 'READY' };
 const defaults = (t: OpType): OpHdr => (t === 'CLN' ? { from: 'READY', to: 'DIRTY' } : t === 'FSD' ? { kind: 'wash' } : t === 'CNT' ? { state: 'READY', cnt: {}, snap: {} } : t === 'RTN' ? { refs: [] } : {});
@@ -94,9 +94,11 @@ function Stepper({ v, on, min = 0, max, label }: { v: number; on: (n: number) =>
 const upd = (set: SetLines, i: number, p: Partial<OpLine>) => set((ls) => ls.map((x, j) => (j === i ? { ...x, ...p } : x)));
 /** `max`: what the source state holds; adding again never goes past it */
 const addLine = (ls: OpLine[], sku: string, q: number, extra: Partial<OpLine> = {}, max?: number) => {
-  const cur = ls.find((l) => l.sku === sku)?.q ?? 0; const next = max === undefined ? cur + q : Math.min(max, cur + q);
+  // a line is the variant (and, for a shop return, the state it came back in): the same piece in two states is two lines
+  const same = (l: OpLine) => l.sku === sku && (extra.to === undefined || l.to === extra.to);
+  const cur = ls.find(same)?.q ?? 0; const next = max === undefined ? cur + q : Math.min(max, cur + q);
   if (next <= 0 || next === cur) return ls;
-  return ls.some((l) => l.sku === sku) ? ls.map((l) => (l.sku === sku ? { ...l, q: next } : l)) : [...ls, { sku, q: next, ...extra }];
+  return ls.some(same) ? ls.map((l) => (same(l) ? { ...l, q: next } : l)) : [...ls, { sku, q: next, ...extra }];
 };
 
 function SimpleLines({ d, type, lines, set, from }: { d: Derived; type: OpType; lines: OpLine[]; set: SetLines; from?: Loc }) {
@@ -104,14 +106,15 @@ function SimpleLines({ d, type, lines, set, from }: { d: Derived; type: OpType; 
   return (
     <TableWrap><table className="text-sm"><thead><tr>
       <th className={th}>الصنف</th>{from && <th className={th}>المتاح في {LOC_AR[from]}</th>}
-      <th className={th}>{type === 'FRC' ? 'رجع سليم' : 'الكمية'}</th>{type === 'FRC' && <th className={th}>مرفوض (هالك)</th>}{type === 'LOS' && <th className={th}>القرار</th>}<th className={th} /></tr></thead>
+      <th className={th}>{type === 'FRC' ? 'رجع سليم' : 'الكمية'}</th>{type === 'FRC' && <th className={th}>مرفوض (هالك)</th>}{type === 'LOS' && <th className={th}>القرار</th>}{type === 'SRT' && <th className={th}>حالتها</th>}<th className={th} /></tr></thead>
       <tbody>{lines.map((l, i) => (
-        <tr key={l.sku}>
+        <tr key={`${l.sku}|${l.to ?? ''}|${i}`}>
           <td className={td}>{skuLabel(d.skuMap, l.sku)}</td>
           {from && <td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, l.sku, from))}</td>}
           {/* never more than the source state holds (for FRC the rejected pieces come out of the same total) */}
           <td className={td}><Stepper v={l.q} on={(q) => upd(set, i, { q })} min={type === 'FRC' ? 0 : 1} max={from ? Math.max(type === 'FRC' ? 0 : 1, qty(d.snap.balances, l.sku, from) - (type === 'FRC' ? l.rej ?? 0 : 0)) : undefined} label="الكمية" /></td>
           {type === 'FRC' && <td className={td}><Stepper v={l.rej ?? 0} on={(rej) => upd(set, i, { rej })} label="مرفوض" /></td>}
+          {type === 'SRT' && <td className={td}><Seg value={(l.to as Loc) ?? 'READY'} onChange={(to) => upd(set, i, { to })} options={[['READY', 'سليم'], ['DIRTY', 'نضافة'], ['SCRAP', 'هالك']]} /></td>}
           {type === 'LOS' && <td className={td}><Seg value={l.res ?? 'FOUND'} onChange={(res) => upd(set, i, { res })} options={[['FOUND', 'لقيناه'], ['OFF', 'شطب']]} /></td>}
           <td className={td}><Button size="sm" variant="ghost" aria-label="حذف" onClick={() => set((ls) => ls.filter((_, j) => j !== i))}><Trash2 className="size-4" /></Button></td>
         </tr>))}</tbody></table></TableWrap>
@@ -119,7 +122,7 @@ function SimpleLines({ d, type, lines, set, from }: { d: Derived; type: OpType; 
 }
 
 function SwapLines({ d, lines, set }: { d: Derived; lines: OpLine[]; set: SetLines }) {
-  const models = useMemo(() => [...new Set(d.snap.skus.map((s) => s.model))].sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), [d]);
+  const models = useMemo(() => { const has = new Set(d.snap.skus.map((s) => s.model)); return d.modelOrder.filter((m) => has.has(m)); }, [d]);
   const [m, setM] = useState(models[0] ?? ''); const [c, setC] = useState(''); const [a, setA] = useState(''); const [b, setB] = useState(''); const [q, setQ] = useState(1);
   const ms = d.snap.skus.filter((s) => s.model === m);
   const colors = [...new Set(ms.map((s) => s.color))]; const color = colors.includes(c) ? c : colors[0] ?? '';
@@ -215,7 +218,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
 }
 
 function CountSheet({ d, hdr, setHdr }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void }) {
-  const models = useMemo(() => d.snap.models.map((m) => m.code).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), [d]);
+  const models = d.modelOrder;
   const [model, setModel] = useState(models[0] ?? ''); const [q, setQ] = useState('');
   const state = hdr.state ?? 'READY'; const cnt = hdr.cnt ?? {}; const snap = hdr.snap ?? {};
   const skus = d.snap.skus.filter((s) => s.model === model && (!q || `${s.color} ${s.size}`.includes(q)));
@@ -280,7 +283,7 @@ function OpForm({ d, type, draft, onDone, onBack }: { d: Derived; type: OpType; 
             {type === 'RCV' && <>
               <Field label="رقم الإذن / الورقة"><input value={hdr.ref ?? ''} onChange={(e) => setHdr({ ...hdr, ref: e.target.value })} /></Field>
               <Field label="إجمالي القطع المكتوب في الورقة"><input type="number" min={0} value={hdr.declared ?? ''} onChange={(e) => setHdr({ ...hdr, declared: e.target.value === '' ? null : +e.target.value })} /></Field></>}
-            {type === 'SHP' && <>
+            {(type === 'SHP' || type === 'SRT') && <>
               <Field label="اسم المحل (إجباري)"><input list="shops" value={hdr.shop ?? ''} onChange={(e) => setHdr({ ...hdr, shop: e.target.value })} /><datalist id="shops">{(d.snap.shops ?? []).map((s) => <option key={s} value={s} />)}</datalist></Field>
               <Field label="ملاحظة"><input value={hdr.note ?? ''} onChange={(e) => setHdr({ ...hdr, note: e.target.value })} /></Field></>}
             {type === 'CLN' && <>
@@ -299,7 +302,7 @@ function OpForm({ d, type, draft, onDone, onBack }: { d: Derived; type: OpType; 
             {type === 'RTN' ? <ReturnLines d={d} hdr={hdr} setHdr={setHdr} lines={lines} set={set} />
               : type === 'CNT' ? <CountSheet d={d} hdr={hdr} setHdr={setHdr} />
               : type === 'SWP' ? <SwapLines d={d} lines={lines} set={set} />
-              : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : {}, from ? qty(d.snap.balances, s, from) : undefined))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}
+              : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : type === 'SRT' ? { to: 'READY' } : {}, from ? qty(d.snap.balances, s, from) : undefined))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}
           </Card>
         </div>
         <div className="grid h-fit gap-4 lg:sticky lg:top-4">
@@ -309,7 +312,7 @@ function OpForm({ d, type, draft, onDone, onBack }: { d: Derived; type: OpType; 
                 <div key={e.sku} className="rounded-lg border border-line p-2"><b className="text-xs">{name(e.sku)}</b>
                   {e.ch.map((c) => <div key={c.loc} className="flex items-center justify-between text-xs"><span className="text-muted">{LOC_AR[c.loc]}</span><span className="font-mono">{fmt(c.now)} ← <b className={c.after < 0 ? 'text-crit' : c.after > c.now ? 'text-good' : 'text-warn'}>{fmt(c.after)}</b></span></div>)}
                 </div>))}</div>)}
-            {type === 'SHP' || type === 'RCV' || type === 'RTN' ? <p className="mt-2 text-xs text-muted">إجمالي {fmt(total)} قطعة</p> : null}
+            {type === 'SHP' || type === 'SRT' || type === 'RCV' || type === 'RTN' ? <p className="mt-2 text-xs text-muted">إجمالي {fmt(total)} قطعة</p> : null}
           </Card>
           <Card title="قبل التأكيد">
             <div className="grid gap-1.5 text-sm">{r.checks.map((c) => <div key={c.t} className="flex items-start gap-2"><span className={c.ok ? 'text-good' : 'text-crit'}>{c.ok ? '✓' : '●'}</span><span>{c.t}</span></div>)}</div>
@@ -334,7 +337,7 @@ function DocSheet({ d, doc, onClose }: { d: Derived; doc: Doc; onClose: () => vo
           {doc.type === 'SHP' && <Pill tone={doc.hdr.delivered ? 'good' : 'warn'}>{doc.hdr.delivered ? 'اتسلم للمحل' : 'مستني تأكيد التسليم'}</Pill>}
           {doc.hdr.shop ? <span>المحل: <b>{String(doc.hdr.shop)}</b></span> : null}{doc.hdr.ref ? <span>إذن: <b>{String(doc.hdr.ref)}</b></span> : null}
           {Array.isArray(doc.hdr.refs) && doc.hdr.refs.length ? <span>أوردرات: <b className="font-mono">{(doc.hdr.refs as string[]).join('، ')}</b></span> : null}</div>
-        {doc.type === 'SHP' && <ShopActions d={d} doc={doc} />}
+        {(doc.type === 'SHP' || doc.type === 'SRT') && <ShopActions d={d} doc={doc} />}
         <TableWrap className="max-h-96"><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>من</th><th className={th}>إلى</th><th className={th}>الكمية</th></tr></thead>
           <tbody>{moves.map((m, i) => <tr key={i}><td className={td}>{skuLabel(d.skuMap, m.sku)}</td><td className={td}>{LOC_AR[m.from] ?? '—'}</td><td className={td}>{LOC_AR[m.to] ?? '—'}</td><td className={td + ' font-mono'}>{fmt(m.qty)}</td></tr>)}</tbody></table></TableWrap>
         {doc.attachment && <Photo path={doc.attachment} className="max-h-96 w-full rounded-xl border border-line object-contain" />}
@@ -348,12 +351,12 @@ function ShopActions({ d, doc }: { d: Derived; doc: Doc }) {
   return (
     <div className="grid gap-3 rounded-xl border border-line bg-lav p-3">
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => printDeliveryNote(doc, d.skuMap)}><Printer className="size-4" /> طباعة</Button>
-        <Button onClick={() => act(()=>downloadDeliveryNote(doc,d.skuMap,'pdf'),'تم تجهيز PDF')}><Download className="size-4" />PDF</Button>
-        <Button onClick={() => act(()=>downloadDeliveryNote(doc,d.skuMap,'png'),'تم تجهيز الصورة')}><Download className="size-4" />PNG</Button>
-        <Button onClick={() => act(() => deliveryNoteExcel(doc, d.skuMap).then(() => true), 'تم تجهيز Excel')}><Download className="size-4" /> Excel</Button>
+        <Button onClick={() => printDeliveryNote(doc, d.skuMap, d.modelMap)}><Printer className="size-4" /> طباعة</Button>
+        <Button onClick={() => act(() => downloadDeliveryNote(doc, d.skuMap, 'pdf', d.modelMap), 'تم تجهيز PDF')}><Download className="size-4" />PDF</Button>
+        <Button onClick={() => act(() => downloadDeliveryNote(doc, d.skuMap, 'png', d.modelMap), 'تم تجهيز الصورة')}><Download className="size-4" />PNG</Button>
+        <Button onClick={() => act(() => deliveryNoteExcel(doc, d.skuMap, d.modelMap).then(() => true), 'تم تجهيز Excel')}><Download className="size-4" /> Excel</Button>
       </div>
-      {!doc.hdr.delivered && doc.status === 'done' && <>
+      {doc.type === 'SHP' && !doc.hdr.delivered && doc.status === 'done' && <>
         <Alert tone="warn">صورة الإذن الموقّع من الطرفين إجبارية لتأكيد التسليم، وبعد التأكيد مش بتتغيّر.</Alert>
         <PhotoInput file={photo} onChange={setPhoto} label="صورة الإذن الموقّع" />
         <Button variant="primary" disabled={!photo || busy} onClick={async () => { setBusy(true); await act(() => repo.confirmShopDelivery(doc.no, photo!), 'اتأكد التسليم للمحل'); setBusy(false); }}><Truck className="size-4" /> تأكيد التسليم للمحل</Button></>}
@@ -383,28 +386,30 @@ function Docs({ d, onOpen }: { d: Derived; onOpen: (no: string) => void }) {
 }
 
 function Shops({ d, onOpen }: { d: Derived; onOpen: (no: string) => void }) {
-  const [shop, setShop] = useState('all'); const [st, setSt] = useState<'all' | 'pending' | 'done'>('all');
+  const [shop, setShop] = useState('all'); const [st, setSt] = useState<'all' | 'pending' | 'done' | 'ret'>('all');
   const all = d.snap.docs.filter((x) => x.type === 'SHP' && x.status === 'done');
-  const rows = [...all].reverse().filter((x) => (shop === 'all' || x.hdr.shop === shop) && (st === 'all' || (st === 'done') === !!x.hdr.delivered));
-  const shops = [...new Set(all.map((x) => String(x.hdr.shop)))];
+  const rets = d.snap.docs.filter((x) => x.type === 'SRT' && x.status === 'done');
+  const rows = [...all, ...rets].sort((a, b) => (b.date + b.no).localeCompare(a.date + a.no)).filter((x) => (shop === 'all' || x.hdr.shop === shop) && (st === 'all' || (x.type === 'SHP' && (st === 'done') === !!x.hdr.delivered) || (x.type === 'SRT' && st === 'ret')));
+  const shops = [...new Set([...all, ...rets].map((x) => String(x.hdr.shop)))];
   const pcs = (x: Doc) => x.lines.reduce((a, l) => a + l.qty, 0);
   return (
     <div className="grid gap-3">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-4">
         <Card><p className="text-xs text-muted">توريدات</p><b className="num text-2xl">{fmt(all.length)}</b></Card>
         <Card><p className="text-xs text-muted">قطع اتوردت</p><b className="num text-2xl">{fmt(all.reduce((a, x) => a + pcs(x), 0))}</b></Card>
+        <Card><p className="text-xs text-muted">رجع من المحل</p><b className="num text-2xl">{fmt(rets.reduce((a, x) => a + pcs(x), 0))}</b></Card>
         <Card><p className="text-xs text-muted">مستني تأكيد التسليم</p><b className="num text-2xl text-warn">{fmt(all.filter((x) => !x.hdr.delivered).length)}</b></Card>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <select value={shop} onChange={(e) => setShop(e.target.value)} className="w-auto"><option value="all">كل المحلات</option>{shops.map((s) => <option key={s}>{s}</option>)}</select>
-        <Seg value={st} onChange={setSt} options={[['all', 'الكل'], ['pending', 'مستني التسليم'], ['done', 'اتسلم']]} />
+        <Seg value={st} onChange={setSt} options={[['all', 'الكل'], ['pending', 'مستني التسليم'], ['done', 'اتسلم'], ['ret', 'مرتجع']]} />
       </div>
       {!rows.length ? <Card><Empty>مفيش توريدات للمحل لسه. ابدأ من «توريد للمحل».</Empty></Card> : (
         <TableWrap><table className="text-sm"><thead><tr><th className={th}>الإذن</th><th className={th}>المحل</th><th className={th}>التاريخ</th><th className={th}>القطع</th><th className={th}>الحالة</th><th className={th} /></tr></thead>
           <tbody>{rows.map((x) => (
             <tr key={x.no}><td className={td + ' font-mono font-semibold'}>{x.no}</td><td className={td}>{String(x.hdr.shop)}</td><td className={td}>{x.date}</td><td className={td + ' font-mono'}>{fmt(pcs(x))}</td>
-              <td className={td}>{x.hdr.delivered ? <Pill tone="good">اتسلم</Pill> : <Pill tone="warn">مستني التسليم</Pill>}</td>
-              <td className={td}><div className="flex gap-1"><Button size="sm" variant="ghost" aria-label="طباعة الإذن" onClick={() => printDeliveryNote(x, d.skuMap)}><Printer className="size-4" /></Button><Button size="sm" onClick={() => onOpen(x.no)}>{x.hdr.delivered ? 'تفاصيل' : 'تأكيد التسليم'}</Button></div></td></tr>))}</tbody></table></TableWrap>)}
+              <td className={td}>{x.type === 'SRT' ? <Pill tone="info">مرتجع من المحل</Pill> : x.hdr.delivered ? <Pill tone="good">اتسلم</Pill> : <Pill tone="warn">مستني التسليم</Pill>}</td>
+              <td className={td}><div className="flex gap-1"><Button size="sm" variant="ghost" aria-label="طباعة الإذن" onClick={() => printDeliveryNote(x, d.skuMap, d.modelMap)}><Printer className="size-4" /></Button><Button size="sm" onClick={() => onOpen(x.no)}>{x.type === 'SRT' || x.hdr.delivered ? 'تفاصيل' : 'تأكيد التسليم'}</Button></div></td></tr>))}</tbody></table></TableWrap>)}
     </div>
   );
 }
