@@ -8,6 +8,8 @@ import { cairoDay } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { fmt } from '@/femini/cn';
 import { Alert, Button, Card, Empty, Field, Kpi, Sheet, TableWrap, th, td } from './ui';
+import { C, TrendArea } from './charts';
+import { collectByDay } from '@/femini/domain/trends';
 
 const money = (n: number) => fmt(n);   // amounts in EGP (the labels say so)
 
@@ -93,6 +95,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         <Kpi label="أوردرات اتحصّلت" value={fmt(paid.length)} sub={`من ${fmt(shipped.length)} مشحون`} tone="good" />
         <Kpi label="مشحون ولسه ما اتحصّلش" value={fmt(waiting.length)} sub={`متوقع ${money(waiting.reduce((a, x) => a + (x.o.total || 0), 0))} جنيه`} tone={waiting.length ? 'warn' : undefined} />
       </div>
+      <CollectTrend d={d} from={from} to={to} />
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>
         {!settles.length ? <Empty>لسه ما اترفعش شيت تسوية.</Empty> : (
           <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'المبيعات', 'شركة الشحن', 'فيندور', 'فيميني', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
@@ -122,4 +125,22 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
       {up && <SettleUpload d={d} onClose={() => setUp(false)} />}
     </div>
   );
+}
+
+/** Collections over the chosen period: orders that left vs got paid vs came back, the money of each settlement day,
+ * and Fémini's due adding up. */
+function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string }) {
+  const rows = useMemo(() => collectByDay(d.snap, from, to), [d, from, to]);
+  if (!(d.snap.settles ?? []).length) return null;
+  return <div className="grid gap-4 lg:grid-cols-2">
+    <Card title="المشحون والمحصّل" hint="أوردرات · المحصّل بتاريخ التحصيل في الشيت">
+      <TrendArea bars data={rows} series={[{ key: 'shipped', name: 'اتشحن', color: C.accent }, { key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} />
+    </Card>
+    <Card title="فلوس التسويات" hint="جنيه · بتاريخ التسوية">
+      <TrendArea bars money data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.ready }, { key: 'vendoor', name: 'مستحق فيندور', color: C.accent }, { key: 'shipping', name: 'شركة الشحن', color: C.muted }]} />
+    </Card>
+    <Card title="مستحق فيميني المتراكم" hint="من أول تسوية لحد كل يوم" className="lg:col-span-2">
+      <TrendArea money height={220} data={rows} series={[{ key: 'paidSoFar', name: 'إجمالي مستحق فيميني', color: C.ready, total: 'last' }]} />
+    </Card>
+  </div>;
 }
