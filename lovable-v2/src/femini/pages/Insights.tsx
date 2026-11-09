@@ -1,6 +1,6 @@
 import { addDays } from '@/femini/domain/dates';
 import { useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, ChevronLeft, ChevronRight, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Empty, Pill, Seg, TableWrap, th, td } from '@/femini/components/ui';
@@ -21,6 +21,7 @@ import { FinancialReport, financialSheets } from '@/femini/components/FinancialR
 import { CollectionsView } from '@/femini/components/Collections';
 import { Deferred } from '@/femini/components/Deferred';
 import { WarehouseDayView } from '@/femini/components/WarehouseDay';
+import { PeriodPicker } from '@/femini/components/PeriodPicker';
 import { warehouseDays } from '@/femini/domain/warehouseDay';
 import { CancelSheet, OrderSheet } from '@/femini/components/OrderSheets';
 
@@ -63,32 +64,6 @@ function useStats(d: Derived | null, range: Range | null) {
   }, [d, range]);
 }
 
-/** The period picker: length (يوم / 7 / 14 / 30), the two dates, and arrows that move the whole window by its own
- * length (one day at a time on «يوم»). Changing the length keeps the last day; «النهارده» brings the window back to today. */
-function RangeBar({ range, today, set }: { range: Range; today: string; set: (r: Range) => void }) {
-  const n = rangeDays(range); const atToday = range.to >= today;
-  const lens: [string, string][] = [['1', 'يوم'], ...PERIODS.map((x) => [String(x), `${x} يوم`] as [string, string])];
-  const move = (dir: 1 | -1) => {
-    let to = addDays(range.to, dir * n); if (to > today) to = today;
-    set({ from: addDays(to, -(n - 1)), to });
-  };
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Seg<string> label="الفترة" value={lens.some(([v]) => v === String(n)) ? String(n) : ''} onChange={(v) => set({ from: addDays(range.to, -(Number(v) - 1)), to: range.to })} options={lens} />
-      <span className="flex items-center gap-1 text-xs text-muted" aria-label="فترة بالتاريخ">
-        {/* right = newer, left = older, like the day picker on Today */}
-        <Button className="size-9 shrink-0 p-0" aria-label={n === 1 ? 'اليوم التالي' : 'الفترة التالية'} title={n === 1 ? 'اليوم التالي' : 'الفترة التالية'} disabled={atToday} onClick={() => move(1)}><ChevronRight className="size-4" /></Button>
-        {n === 1
-          ? <input type="date" aria-label="اليوم" className="h-9 w-36" value={range.to} max={today} onChange={(e) => e.target.value && set({ from: e.target.value, to: e.target.value })} />
-          : <>من <input type="date" className="h-9 w-36" value={range.from} max={range.to} onChange={(e) => e.target.value && set({ from: e.target.value, to: range.to })} />
-            لـ <input type="date" className="h-9 w-36" value={range.to} min={range.from} max={today} onChange={(e) => e.target.value && set({ from: range.from, to: e.target.value })} /></>}
-        <Button className="size-9 shrink-0 p-0" aria-label={n === 1 ? 'اليوم السابق' : 'الفترة السابقة'} title={n === 1 ? 'اليوم السابق' : 'الفترة السابقة'} onClick={() => move(-1)}><ChevronLeft className="size-4" /></Button>
-        {!atToday && <Button size="sm" onClick={() => set({ from: addDays(today, -(n - 1)), to: today })}>النهارده</Button>}
-      </span>
-    </div>
-  );
-}
-
 export default function Insights() {
   const { d, isLoading, error } = useDerived();
   const [sp, setSp] = useSearchParams();
@@ -127,7 +102,7 @@ export default function Insights() {
       <PageHead title="التحليلات" sub="قرارات مبنية على الطلب الفعلي ودفتر الحركات — في مكان واحد.">
         {!d.velocityOK && <Pill tone="warn">بيانات {d.days} يوم فقط · السرعة تقديرية</Pill>}
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          {sec !== 'finance' && range && <RangeBar range={range} today={d.today} set={setRange} />}
+          {sec !== 'finance' && range && <PeriodPicker value={range} today={d.today} onChange={setRange} />}
           <Button onClick={doExcel}><FileSpreadsheet className="size-4" /> Excel</Button>
           <Button onClick={() => window.print()}><FileDown className="size-4" /> PDF</Button>
         </div>

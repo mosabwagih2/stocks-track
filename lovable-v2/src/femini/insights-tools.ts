@@ -31,7 +31,8 @@ function windowStats(d: Derived, from: string, to: string): { w: Window; days: D
 }
 
 /** a chosen window of days (both ends included) */
-export interface Range { from: string; to: string }
+export type { Range } from './domain/range';
+import type { Range } from './domain/range';
 export const rangeDays = (r: Range) => Math.round((Date.parse(r.to) - Date.parse(r.from)) / 864e5) + 1;
 export const lastDays = (today: string, n: number): Range => ({ from: addDays(today, -(n - 1)), to: today });
 
