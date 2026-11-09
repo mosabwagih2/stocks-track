@@ -131,7 +131,9 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
  * and Fémini's due adding up. */
 function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string }) {
   const rows = useMemo(() => {
-    const r = collectByDay(d.snap, from, to); const avg = Math.round(r.reduce((a, x) => a + x.due, 0) / Math.max(1, r.length));
+    // the average of the days a settlement came on (days with no settlement would pull it down)
+    const r = collectByDay(d.snap, from, to); const paid = r.filter((x) => x.due > 0);
+    const avg = Math.round(paid.reduce((a, x) => a + x.due, 0) / Math.max(1, paid.length));
     return r.map((x) => ({ ...x, avg }));
   }, [d, from, to]);
   if (!(d.snap.settles ?? []).length) return null;
@@ -143,7 +145,7 @@ function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string })
       <TrendArea bars money data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.ready }, { key: 'vendoor', name: 'مستحق فيندور', color: C.accent }, { key: 'shipping', name: 'شركة الشحن', color: C.muted }]} />
     </Card>
     <Card title="مستحق فيميني يوم بيوم" hint="جنيه · كل يوم لوحده بتاريخ التسوية" className="lg:col-span-2">
-      <TrendArea money height={220} data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.ready }, { key: 'avg', name: 'متوسط اليوم في الفترة', color: C.muted, dash: true, total: 'last' }]} />
+      <TrendArea money height={220} data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.ready }, { key: 'avg', name: 'متوسط يوم التسوية', color: C.muted, dash: true, total: 'last' }]} />
     </Card>
   </div>;
 }
