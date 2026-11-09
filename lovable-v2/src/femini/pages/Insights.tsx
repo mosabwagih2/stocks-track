@@ -227,12 +227,14 @@ function Summary({ d, st, cmp, period, label, go }: { d: Derived; st: Stats; cmp
 
 function Demand({ d, st }: { d: Derived; st: Stats }) {
   const m: Record<string, Record<string, number>> = {}; const col: Record<string, number> = {}; const gov: Record<string, number> = {}; const bk = { '1': 0, '2': 0, '3-4': 0, '5+': 0 };
-  for (const o of st.live) { for (const s of o.lines) { const k = d.skuMap.get(s); if (!k) continue; (m[k.model] ??= {})[k.size] = (m[k.model][k.size] ?? 0) + 1; col[k.color] = (col[k.color] ?? 0) + 1; } if (o.gov) gov[o.gov] = (gov[o.gov] ?? 0) + 1; const n = o.lines.length; bk[n === 1 ? '1' : n === 2 ? '2' : n <= 4 ? '3-4' : '5+']++; }
+  // pieces requested per model x size, and per colour inside each cell (shown on hover)
+  const byColor: Record<string, Record<string, number>> = {};
+  for (const o of st.live) { for (const s of o.lines) { const k = d.skuMap.get(s); if (!k) continue; (m[k.model] ??= {})[k.size] = (m[k.model][k.size] ?? 0) + 1; const cc = (byColor[`${k.model}|${k.size}`] ??= {}); cc[k.color] = (cc[k.color] ?? 0) + 1; col[k.color] = (col[k.color] ?? 0) + 1; } if (o.gov) gov[o.gov] = (gov[o.gov] ?? 0) + 1; const n = o.lines.length; bk[n === 1 ? '1' : n === 2 ? '2' : n <= 4 ? '3-4' : '5+']++; }
   const models = Object.keys(m).sort((a, b) => (st.pull[b] ?? 0) - (st.pull[a] ?? 0)).slice(0, 14); const sizes = d.snap.sizes.filter((z) => models.some((x) => m[x][z]));
   if (!st.live.length) return <Card><Empty>لا توجد أوردرات بعد.</Empty></Card>;
   return (
     <div className="grid gap-4">
-      <Card title="خريطة الطلب: الموديل × المقاس" hint="أعلى 14 موديل"><Heatmap models={models} sizes={sizes} value={(x, z) => m[x][z] ?? 0} total={(x) => st.pull[x] ?? 0} /></Card>
+      <Card title="خريطة الطلب: الموديل × المقاس" hint="أعلى 14 موديل"><Heatmap models={models} sizes={sizes} value={(x, z) => m[x][z] ?? 0} total={(x) => st.pull[x] ?? 0} breakdown={(x, z) => Object.entries(byColor[`${x}|${z}`] ?? {}).sort((p, q) => q[1] - p[1]).map(([label, n]) => ({ label, n }))} /></Card>
       <Card title="الأصناف الأكثر طلبًا" hint="مع الرصيد الجاهز وكم يكفي">
         <TableWrap><table className="text-sm"><thead><tr>{['', 'الصنف', 'مطلوب', 'طلب مفتوح', 'جاهز', 'يكفي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
           <tbody>{st.hot.map((r, i) => { const k = d.skuMap.get(r.id); return (
