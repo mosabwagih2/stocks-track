@@ -65,7 +65,14 @@ export function createServerBackend(boot: Boot, transport: Transport = httpTrans
   // the data's epoch: a restore from a backup changes it, and a page that still shows the old data must reload
   const epoch = boot.epoch ?? '';
   const restored = () => { const e = (m.meta as Record<string, { id?: string } | undefined>).epoch?.id ?? ''; return e !== '' && e !== epoch; };
-  const reloadPage = () => { if (typeof location !== 'undefined' && typeof location.reload === 'function') location.reload(); };
+  // A reload after a restore gets the new epoch with the page. If the page comes back with the same (wrong) epoch, reloading
+  // again cannot help: stop and show the error instead of reloading forever. (Once per epoch, kept for this tab only.)
+  const reloadPage = () => {
+    if (typeof location === 'undefined' || typeof location.reload !== 'function') return;
+    const key = 'femini.restoredReload', mark = `${epoch}|${boot.rev ?? ''}`;
+    try { if (sessionStorage.getItem(key) === mark) return; sessionStorage.setItem(key, mark); } catch { /* no storage: reload once anyway */ }
+    location.reload();
+  };
   const reload = async () => { const files = m.files; m = applyPull(emptyMirror(), await transport.pull(0)); m.files = files; };
   const ownerOf = (o: FileOwner): [string, string] | null => {
     if (o.type === 'pickup') return ['pickup', o.id];

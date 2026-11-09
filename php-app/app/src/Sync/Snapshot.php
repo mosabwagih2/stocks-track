@@ -64,8 +64,11 @@ final class Snapshot
         if ($state['bk'] === null) {
             unset($state['bk']);
         }
+        // pull() decodes meta values as objects (json_decode without `true`): read the id from either shape. Reading only
+        // arrays gave every page an empty epoch after a restore, so every save was refused and the page reloaded forever.
         $epoch = $meta('epoch');
-        return ['state' => $state, 'rev' => $data['rev'], 'empty' => $empty, 'epoch' => is_array($epoch) ? (string)($epoch['id'] ?? '') : ''];
+        $epochId = is_array($epoch) ? ($epoch['id'] ?? '') : (is_object($epoch) ? ($epoch->id ?? '') : '');
+        return ['state' => $state, 'rev' => $data['rev'], 'empty' => $empty, 'epoch' => (string)$epochId];
     }
 
     /** Users and roles are managed by the server (UsersController), never by sync. */

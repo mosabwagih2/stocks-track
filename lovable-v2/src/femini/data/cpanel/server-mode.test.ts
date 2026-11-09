@@ -30,6 +30,21 @@ async function check(srv: ReturnType<typeof createFakeServer>, r: ReturnType<typ
 }
 
 describe('server edition', () => {
+  it('a page that boots with the wrong epoch after a restore reloads once, then stops and shows the error (no endless reload)', async () => {
+    const srv = createFakeServer(boot(), ADMIN); setActor(ADMIN.name);
+    srv.restore(srv.bootNow().state as unknown as Record<string, unknown>);
+    // what the live server did: the page was handed an empty epoch while the server held the new one
+    const reloads: number[] = []; const loc = globalThis.location; sessionStorage.clear();
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: { ...loc, reload: () => reloads.push(1) } });
+    try {
+      for (let i = 0; i < 3; i++) {
+        const r = createMemoryRepo(createServerBackend({ ...srv.bootNow(), epoch: '' }, srv.transport));
+        await expect(r.moveState({ lines: [{ sku: skus[6], qty: 1 }], from: 'READY', to: 'DIRTY', reason: 'x' })).rejects.toThrow(/نسخة احتياطية/);
+      }
+      expect(reloads).toHaveLength(1);
+    } finally { Object.defineProperty(globalThis, 'location', { configurable: true, value: loc }); sessionStorage.clear(); }
+  });
+
   it('a working day goes through the server rules and reloads identically', async () => {
     const srv = createFakeServer(boot(), ADMIN); setActor(ADMIN.name);
     const r = createMemoryRepo(createServerBackend(srv.bootNow(), srv.transport));
