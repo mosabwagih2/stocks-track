@@ -14,18 +14,15 @@ import { BACKDATE_DAYS, CHANNELS, channelName } from '@/femini/domain/constants'
 import { fmt } from '@/femini/cn';
 import { addDays, cairoDay, timeCairo } from '@/femini/domain/dates';
 import { useAccountName } from '@/femini/data/account';
-import { Link } from '@/femini/router';
+import { Link, useNavigate } from '@/femini/router';
 import { EditCatalogSheet, NewModelSheet } from './CatalogSheets';
 import { normalizeModelCode } from './catalog-validation';
 
 export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; orderRef: string; onClose: () => void; onCancel: (code: string) => void }) {
   const act = useAct();
-  const [link, setLink] = useState<{ model: string | null; code: string; color: string; size: string } | null>(null);
   const o = d.orderMap.get(orderRef);
   if (!o) return null;
   const relink = () => act(() => repo.remapUnmapped(), (n) => (n ? `اتربط ${n} صنف بالكتالوج` : 'لسه مفيش صنف مطابق في الكتالوج'));
-  // the pickup writes the model as "BR2", "FC-BR2" or "Women A6": the catalog's own code, when it has one
-  const toLink = (u: unknown[]) => { const code = String(u[0]).trim(); const bare = normalizeModelCode(code.replace(/^(FC-|Women\s+)/i, '')); const model = [code, bare].find((x) => d.modelMap.has(x)) ?? null; return { model, code: bare, size: String(u[1]).trim(), color: String(u[2]).trim() }; };
   const n = need(o); const pk = d.snap.pickups.find((p) => p.id === o.pickupId);
   return (
     <Sheet title={`بوليصة ${o.ref}`} onClose={onClose}>
@@ -38,9 +35,7 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
       </TableWrap>
       {o.unmapped.length > 0 && <Alert tone="warn">
         <b>أصناف مش متعرّفة، والأوردر مش هيتشحن غير لما تتربط:</b>
-        <ul className="mt-2 grid gap-1.5 text-xs">{o.unmapped.map((u, i) => { const l = Array.isArray(u) && u.length === 4 ? toLink(u) : null; return (
-          <li key={i} className="flex flex-wrap items-center gap-2"><span className="font-mono">{Array.isArray(u) ? (u.length === 4 ? `${u[0]} · ${u[1]} · ${u[2]} × ${u[3]}` : String(u[0])) : String(u)}</span>
-            {l && o.status === 'open' && <Button size="sm" onClick={() => setLink(l)}>{l.model ? `ضيف ${l.color} ${l.size} لـ ${l.model}` : `ضيف الموديل ${l.code} للكتالوج`}</Button>}</li>); })}</ul>
+        {o.status === 'open' ? <LinkLines d={d} lines={o.unmapped} /> : <ul className="mt-1 list-disc ps-5 font-mono text-xs">{o.unmapped.map((u, i) => <li key={i}>{lineText(u)}</li>)}</ul>}
         <p className="mt-1 text-xs">الزرار بيفتح الكتالوج بالكود واللون والمقاس زي ما في البيك أب، وبعد الحفظ الأوردر بيتربط لوحده.</p>
         {o.status === 'open' && <Button size="sm" className="mt-2" onClick={relink}>اربط بالكتالوج</Button>}
       </Alert>}
@@ -52,10 +47,6 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
           <RestoreOrder code={o.ref} onDone={onClose} />
         </>
       )}
-      {link && (link.model
-        // saving the catalog links every waiting order by itself
-        ? <EditCatalogSheet d={d} initial={link.model} addVariant={{ color: link.color, size: link.size }} onClose={() => setLink(null)} />
-        : <NewModelSheet d={d} prefill={link} onCreated={() => {}} onClose={() => setLink(null)} />)}
       {o.status !== 'cancelled' && <div><Button variant="danger" size="sm" onClick={() => onCancel(o.ref)}>{o.status === 'shipped' ? 'طلب إلغاء بعد الشحن' : 'إلغاء الأوردر (بصورة البوليصة)'}</Button></div>}
     </Sheet>
   );
@@ -120,7 +111,10 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
   const [mode, setMode] = useState<Mode>(manualRefs ? 'scan' : m0);
   const [fname, setFname] = useState(''); const [err, setErr] = useState(''); const [emp, setEmp] = useState(() => localStorage.getItem('femini-last-emp') ?? '');
   const [original, setOriginal] = useState<File | null>(null);
-  const [scan, setScan] = useState<ScanMatch | null>(manualRefs ? { scans: manualRefs.length, matched: manualRefs, duplicates: [], already: [], unknown: [], unmapped: [] } : null);
+  const [rows, setRows] = useState<ScanRow[] | null>(null);
+  const scan = useMemo<ScanMatch | null>(() => (manualRefs ? { scans: manualRefs.length, matched: manualRefs.filter((r) => !d.orderMap.get(r)?.unmapped.length), duplicates: [], already: [], unknown: [], unmapped: manualRefs.filter((r) => d.orderMap.get(r)?.unmapped.length) } : rows ? matchScans(rows, d.snap.orders) : null), [manualRefs, rows, d]);
+  const setScan = (x: null) => setRows(x);
+  const nav = useNavigate();
   const [pickup, setPickup] = useState<{ orders: ParsedOrder[]; duplicates: string[]; unknownModels: string[] } | null>(null);
   const [channel, setChannel] = useState('VENDOOR'); const [busy, setBusy] = useState(false);
   const pcs = (refs: string[]) => refs.reduce((a, r) => a + (d.orderMap.get(r)?.lines.length ?? 0), 0);
@@ -138,7 +132,7 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
         if (/\.csv$/i.test(f.name)) rows = parseCsv(await f.text());
         else { const X = await import('xlsx'); const wb = X.read(await f.arrayBuffer(), { type: 'array' }); rows = X.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' }); }
         const scans: ScanRow[] = parseScan(rows); const nm = scans.find((s) => s.name)?.name; if (nm && !emp) setEmp(nm);
-        setScan(matchScans(scans, d.snap.orders));
+        setRows(scans);
       } else {
         const X = await import('xlsx'); const wb = X.read(await f.arrayBuffer(), { type: 'array' });
         const rows = X.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
@@ -186,9 +180,13 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
           {scan.duplicates.length > 0 && <Alert tone="warn">{scan.duplicates.length} سكان مكرر في الملف نفسه (تم تجاهله).</Alert>}
           {scan.already.length > 0 && <Alert tone="warn">{scan.already.length} أوردر سُجّل مسبقًا{scan.already[0].by ? ` (مثلًا بواسطة ${scan.already[0].by})` : ''} ولن يُخصم مرة أخرى.</Alert>}
           {scan.unknown.length > 0 && <Alert tone="crit">أكواد غير موجودة في أي بيك أب: <span className="font-mono">{scan.unknown.slice(0, 12).join('، ')}</span>{scan.unknown.length > 12 ? ' ...' : ''}<br />ارفع البيك أب الخاص بها أولًا.</Alert>}
-          {scan.unmapped.length > 0 && <Alert tone="warn">{scan.unmapped.length} أوردر يحتوي على صنف غير مرتبط بالكتالوج. اربطه أولًا.</Alert>}
-          {neg.length > 0 && <Alert tone="warn"><b>الرصيد غير كافٍ لـ {neg.length} صنف</b>، لكن لن يُمنع التسجيل. سيصبح الرصيد سالبًا وسيظهر ضمن «يتطلب إجراء»:<ul className="mt-1 list-disc ps-5">{neg.slice(0, 6).map((x) => <li key={x.sku}>{skuLabel(d.skuMap, x.sku)}: رصيد {x.ready} والمشحون {x.need}</li>)}</ul></Alert>}
-          <Button variant="primary" disabled={!scan.matched.length || !(account ?? emp).trim() || closed || busy} onClick={async () => {
+          {scan.unmapped.length > 0 && <Alert tone="warn"><b>{scan.unmapped.length} أوردر فيه صنف مش مربوط بالكتالوج</b>، ومش هيتشحن غير لما يتربط. اربطه من هنا:
+            <LinkLines d={d} lines={scan.unmapped.flatMap((r) => d.orderMap.get(r)?.unmapped ?? [])} /></Alert>}
+          {neg.length > 0 && <Alert tone="crit"><b>الرصيد مش كفاية لـ {neg.length} صنف</b>، فالتأكيد مقفول لحد ما تصلّح الرصيد (جرد أو تبديل مقاس)، علشان الرصيد مايبقاش بالسالب:
+            <ul className="mt-1 list-disc ps-5">{neg.map((x) => <li key={x.sku}>{skuLabel(d.skuMap, x.sku)}: الجاهز {x.ready} والمطلوب يخرج {x.need} (ناقص {x.need - x.ready})</li>)}</ul>
+            <div className="mt-2 flex flex-wrap gap-2"><Button size="sm" onClick={() => { onClose(); nav('/operations?op=SWP'); }}>تبديل مقاس</Button><Button size="sm" onClick={() => { onClose(); nav('/operations?op=CNT'); }}>جرد</Button></div>
+            <p className="mt-2 text-xs">بعد ما تصلّح الرصيد ارفع نفس الملف تاني.</p></Alert>}
+          <Button variant="primary" disabled={!scan.matched.length || neg.length > 0 || !(account ?? emp).trim() || closed || busy} onClick={async () => {
             setBusy(true); if (!account) localStorage.setItem('femini-last-emp', emp.trim());
             const r = await act(() => repo.shipOrders({ refs: scan.matched, employee: (account ?? emp).trim(), source: manualRefs ? 'تسجيل يدوي' : fname, file: manualRefs ? null : original, date: day }), (x) => `تم شحن ${x.shipped} أوردر وخصمها من المخزون${x.negative.length ? `. تنبيه: ${x.negative.length} صنف برصيد سالب` : ''}`);
             setBusy(false); if (r) onClose();
@@ -209,5 +207,36 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
       )}
       <p className="text-xs text-muted">يُحفظ الملف الأصلي مع البيانات المستخرجة منه. <Link className="text-accent" to="/files">الملفات</Link></p>
     </Sheet>
+  );
+}
+
+/** an unlinked pickup line as Vendoor wrote it: code · size · colour × qty */
+const lineText = (u: unknown) => (Array.isArray(u) ? (u.length === 4 ? `${u[0]} · ${u[1]} · ${u[2]} × ${u[3]}` : String(u[0])) : String(u));
+
+/**
+ * The pickup lines that are not in the catalog, each once, with a button that opens the catalog already filled in
+ * (a new model, or the missing colour x size of an existing one) under the pickup's own naming. Saving the catalog
+ * links every waiting order by itself.
+ */
+export function LinkLines({ d, lines }: { d: Derived; lines: unknown[] }) {
+  const [link, setLink] = useState<{ model: string | null; code: string; color: string; size: string } | null>(null);
+  // the pickup writes the model as "BR2", "FC-BR2" or "Women A6": the catalog's own code, when it has one
+  const toLink = (u: unknown[]) => { const code = String(u[0]).trim(); const bare = normalizeModelCode(code.replace(/^(FC-|Women\s+)/i, '')); const model = [code, bare].find((x) => d.modelMap.has(x)) ?? null; return { model, code: bare, size: String(u[1]).trim(), color: String(u[2]).trim() }; };
+  const seen = new Map<string, { u: unknown; l: ReturnType<typeof toLink> | null; n: number }>();
+  for (const u of lines) {
+    const l = Array.isArray(u) && u.length === 4 ? toLink(u) : null; const k = l ? `${l.model ?? l.code}|${l.color}|${l.size}` : lineText(u);
+    const e = seen.get(k); if (e) e.n += Array.isArray(u) ? Number(u[3]) || 1 : 1; else seen.set(k, { u, l, n: Array.isArray(u) ? Number(u[3]) || 1 : 1 });
+  }
+  return (
+    <>
+      <ul className="mt-2 grid gap-1.5 text-xs">{[...seen.values()].map(({ u, l, n }, i) => (
+        <li key={i} className="flex flex-wrap items-center gap-2"><span className="font-mono">{l ? `${l.code} · ${l.color} · ${l.size}` : lineText(u)}</span><span className="text-muted">× {n}</span>
+          {l && <Button size="sm" onClick={() => setLink(l)}>{l.model ? `ضيف ${l.color} ${l.size} لـ ${l.model}` : `ضيف الموديل ${l.code} للكتالوج`}</Button>}</li>))}</ul>
+      <p className="mt-1 text-xs">الزرار بيفتح الكتالوج بالكود واللون والمقاس زي ما في البيك أب، وبعد الحفظ الأوردرات بتتربط لوحدها.</p>
+      {link && (link.model
+        // saving the catalog links every waiting order by itself
+        ? <EditCatalogSheet d={d} initial={link.model} addVariant={{ color: link.color, size: link.size }} onClose={() => setLink(null)} />
+        : <NewModelSheet d={d} prefill={link} onCreated={() => {}} onClose={() => setLink(null)} />)}
+    </>
   );
 }

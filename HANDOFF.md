@@ -126,6 +126,9 @@ there. `php-app/tests/` has the PHP test scripts (run on a server with PHP).
 | Model order in pickers | `hooks/data.tsx` `orderModels` / `d.modelOrder` |
 | Hold settle | `components/Holds.tsx`, `domain/holds.ts` |
 | Users / new account | `components/ServerAccount.tsx` `UsersCard` → `/api/users` |
+| «تقفيل يوم المخزن» (orders by the day they left, money from any settlement day) | `domain/warehouseDay.ts`, `components/WarehouseDay.tsx`, Insights tab `whday` |
+| Linking unlinked pickup lines (order card and scan upload) | `components/OrderSheets.tsx` `LinkLines` |
+| Scan upload blocked when stock would go negative (buttons to size swap / count) | `components/OrderSheets.tsx` `UploadSheet` (`neg`) |
 
 ## 6. Open items
 - «شيل المخزون اللون» (item 3 of an earlier list) is waiting for the owner to explain it.

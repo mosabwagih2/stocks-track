@@ -1,6 +1,6 @@
 import { addDays } from '@/femini/domain/dates';
 import { useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Empty, Pill, Seg, TableWrap, th, td } from '@/femini/components/ui';
@@ -20,16 +20,19 @@ import type { Derived } from '@/femini/hooks/data';
 import { FinancialReport, financialSheets } from '@/femini/components/FinancialReport';
 import { CollectionsView } from '@/femini/components/Collections';
 import { Deferred } from '@/femini/components/Deferred';
+import { WarehouseDayView } from '@/femini/components/WarehouseDay';
+import { warehouseDays } from '@/femini/domain/warehouseDay';
 import { CancelSheet, OrderSheet } from '@/femini/components/OrderSheets';
 
 const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : 'موديلات أخرى');
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
 const topN = (o: Record<string, number>, n: number) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
 
-type Sec = 'summary' | 'demand' | 'risk' | 'team' | 'collect' | 'finance';
+type Sec = 'summary' | 'demand' | 'risk' | 'team' | 'collect' | 'whday' | 'finance';
 const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'summary', label: 'الملخص', icon: Sparkles },
   { id: 'collect', label: 'التحصيل', icon: Wallet },
+  { id: 'whday', label: 'تقفيل يوم المخزن', icon: CalendarCheck },
   { id: 'finance', label: 'القيمة المالية', icon: FileSpreadsheet },
   { id: 'risk', label: 'المخاطر', icon: AlertTriangle },
   { id: 'demand', label: 'الطلب', icon: Flame },
@@ -103,7 +106,7 @@ export default function Insights() {
         <div>الفترة: {periodLabel}</div><div>الفلاتر: {filters}</div><div>تاريخ التصدير: {d.today}</div>
       </div>
 
-      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-6 grid grid-cols-6 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:overflow-x-auto max-sm:grid-cols-none max-sm:grid-flow-col max-sm:auto-cols-[minmax(128px,1fr)]">
+      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-6 grid grid-cols-7 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:overflow-x-auto max-sm:grid-cols-none max-sm:grid-flow-col max-sm:auto-cols-[minmax(128px,1fr)]">
         {SECTIONS.map(({ id, label, icon: Icon }) => (
           <Button key={id} variant={sec === id ? 'primary' : 'ghost'} onClick={() => go(id)} aria-pressed={sec === id}
             className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
@@ -119,6 +122,7 @@ export default function Insights() {
       {sec === 'risk' && <Risk d={d} st={st} alerts={alerts} />}
       {sec === 'team' && <Team d={d} />}
       {sec === 'collect' && range && <CollectionsView d={d} from={range.from} to={range.to} />}
+      {sec === 'whday' && range && <WarehouseDayView d={d} from={range.from} to={range.to} />}
       {sec === 'finance' && <FinancialReport s={d.snap} />}
     </>
   );
@@ -353,6 +357,14 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
   if (sec === 'summary' || sec === 'risk') {
     sheets.push({ name: 'التنبيهات', rows: [['المستوى', 'التنبيه', 'التفاصيل'], ...alerts.map((a) => [a.level === 'crit' ? 'عاجل' : a.level === 'warn' ? 'انتبه' : 'للعلم', a.title, a.body])] });
     sheets.push({ name: 'المتوقف', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'قطع', 'الناقص'], ...d.open.filter((o) => d.blocked.has(o.ref)).map((o) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', o.lines.length, (d.blocked.get(o.ref) ?? []).map((x) => `${skuLabel(d.skuMap, x.sku)} ×${x.short}`).join('، ')])] });
+  }
+  if (sec === 'whday') {
+    // every order on the day it left the warehouse, whatever day its money came on
+    const days = warehouseDays(d.snap, cur.from, cur.to);
+    sheets.push({ name: 'تقفيل الأيام', rows: [['يوم الخروج', 'أوردرات', 'قطع', 'اتحصّل', 'رجع', 'لسه', 'المتوقع للي لسه', 'المبيعات', 'مصاريف الشحن', 'الصافي', 'مستحق فيميني', 'اتحصّل في تسويات', 'الحالة'],
+      ...days.map((x) => [x.day, x.orders, x.pieces, x.collected, x.returned, x.pending, x.pendingValue, x.sales, x.fees, x.cod, x.due, x.paidOn.map((p) => `${p.date} (${p.n})`).join('، '), x.pending ? `لسه ${x.pending}` : 'اتقفل'])] });
+    sheets.push({ name: 'أوردرات الأيام', rows: [['يوم الخروج', 'البوليصة', 'رقم الأوردر', 'قطع', 'الحالة', 'تاريخ التحصيل', 'المبلغ', 'الصافي', 'مستحق فيميني', 'التسوية'],
+      ...days.flatMap((x) => x.list.map((w) => [x.day, w.ref, w.waybill, w.pieces, w.state === 'collected' ? 'اتحصّل' : w.state === 'returned' ? 'رجع' : 'لسه', w.on, w.state === 'collected' ? w.sales : w.expected, w.cod, w.due, w.stl.join('، ')]))] });
   }
   if (sec === 'summary' || sec === 'collect') {
     // the settlement sheets of the period, and what is shipped and not collected yet
