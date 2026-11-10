@@ -10,7 +10,7 @@ import { cn, fmt, pct } from '@/femini/cn';
 import type { Derived } from '@/femini/hooks/data';
 import type { Loc } from '@/femini/domain/types';
 
-export const C = { accent: 'var(--chart-primary)', ready: 'var(--chart-secondary)', dirty: 'var(--dirty)', factory: 'var(--factory)', scrap: 'var(--scrap)', lost: 'var(--lostc)', muted: 'var(--chart-previous)', femini: 'var(--chart-femini)', vendoor: 'var(--chart-vendoor)', shipping: 'var(--chart-shipping)', grid: 'var(--chart-grid)', text: 'var(--muted)' };
+export const C = { accent: 'var(--chart-primary)', ready: 'var(--chart-secondary)', dirty: 'var(--dirty)', factory: 'var(--factory)', scrap: 'var(--scrap)', lost: 'var(--lostc)', muted: 'var(--chart-previous)', femini: 'var(--chart-femini)', grid: 'var(--chart-grid)', text: 'var(--muted)' };
 export const LOC_FILL: Record<Loc,string> = { READY:C.ready, DIRTY:C.dirty, FACTORY:C.factory, SCRAP:C.scrap, LOST:C.lost };
 const axis = { tick: { fill:C.text, fontSize:11 }, tickLine:false, axisLine:false, tickMargin:12 };
 const numberTick = (n:number) => n >= 1000 ? `${Number((n/1000).toFixed(1))}k` : String(n);

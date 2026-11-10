@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectByDay, stockByDay } from './trends';
+import { collectByDay, collectTrend, stockByDay } from './trends';
 import type { Move, Order, Sku } from './types';
 import type { Settlement } from './settle';
 
@@ -25,5 +25,21 @@ describe('collections by day', () => {
     const r = collectByDay({ orders: [o('x1', '2026-11-01T10:00:00Z'), o('x2', '2026-11-01T11:00:00Z'), o('x3', '2026-11-02T10:00:00Z')],
       settles: [st('S0', '2026-10-30', 100, []), st('S1', '2026-11-02', 300, [['x1', 'collect', '2026-11-02'], ['x2', 'return', '2026-11-01']])] }, '2026-11-01', '2026-11-02');
     expect(r.map((x) => [x.day, x.shipped, x.collected, x.returned, x.due, x.paidSoFar])).toEqual([['2026-11-01', 2, 0, 1, 0, 100], ['2026-11-02', 1, 1, 0, 300, 400]]);
+  });
+});
+
+describe('collections graph', () => {
+  const st = (id: string, date: string, due: number, collect: number) => ({ id, date, totals: { sales: 0, cod: 0, shipping: 0, due, vendoor: 0 }, rows: Array.from({ length: collect }, (_, i) => ({ ref: `${id}-${i}`, type: 'collect', date, cod: 0, supply: 0 })) }) as unknown as Settlement;
+  const settles = [st('A', '2026-11-01', 100, 2), st('B', '2026-11-03', 300, 3), st('C', '2026-11-08', 200, 1)];
+  it('this period against the one before it, with the average of the days that had money', () => {
+    const r = collectTrend({ orders: [], settles }, '2026-11-09', 7, 'due');   // 3 Nov .. 9 Nov against 27 Oct .. 2 Nov
+    expect([r.cur, r.prev, r.avg]).toEqual([500, 100, 250]);   // 300 + 200 over the 2 days that had money
+    expect(r.rows).toHaveLength(7); expect(r.rows[0]).toMatchObject({ day: '2026-11-03', due: 300, avg: 250 });
+    const o = collectTrend({ orders: [], settles }, '2026-11-09', 7, 'collected');
+    expect([o.cur, o.prev, o.avg]).toEqual([4, 2, 2]);
+  });
+  it('nothing in the earlier period gives a zero to compare with, never a crash', () => {
+    const r = collectTrend({ orders: [], settles: [] }, '2026-11-09', 14, 'due');
+    expect([r.cur, r.prev, r.avg, r.rows.length]).toEqual([0, 0, 0, 14]);
   });
 });

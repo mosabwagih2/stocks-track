@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react';
-import { Download, Trash2, Upload } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Download, Trash2, Upload } from 'lucide-react';
 import type { Derived } from '@/femini/hooks/data';
 import { useAct } from '@/femini/hooks/data';
 import { isAdmin, repo } from '@/femini/data';
 import { parseSettlement, previewSettlement, type Settlement } from '@/femini/domain/settle';
 import { cairoDay } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
-import { fmt } from '@/femini/cn';
-import { Alert, Button, Card, Empty, Field, Kpi, Sheet, TableWrap, th, td } from './ui';
+import { cn, fmt } from '@/femini/cn';
+import { Alert, Button, Card, Empty, Field, Kpi, Seg, Sheet, TableWrap, th, td } from './ui';
 import { C, TrendArea } from './charts';
-import { collectByDay } from '@/femini/domain/trends';
+import { collectByDay, collectTrend, type CollectMetric } from '@/femini/domain/trends';
+import { change } from '@/femini/insights-tools';
 
 const money = (n: number) => fmt(n);   // amounts in EGP (the labels say so)
 
@@ -47,13 +48,6 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
           <tr><td className={td}>منهم في السيستم</td><td className={td + ' font-mono'}>{pv.inSystem}</td></tr>
           <tr><td className={td}>منهم مش في السيستم</td><td className={td + ' font-mono'}>{pv.unknown.length}</td></tr>
         </tbody></table></TableWrap>
-        <TableWrap><table className="text-sm"><thead><tr><th className={th}>الفلوس</th><th className={th}>جنيه</th></tr></thead><tbody>
-          <tr><td className={td}>إجمالي المبيعات (اللي دفعه العملاء)</td><td className={td + ' font-mono'}>{money(parsed.totals.sales)}</td></tr>
-          <tr><td className={td}>مستحق شركة الشحن (مصاريف الشحن)</td><td className={td + ' font-mono'}>{money(parsed.totals.shipping)}</td></tr>
-          <tr><td className={td}>الصافي بعد الشحن</td><td className={td + ' font-mono'}>{money(parsed.totals.cod)}</td></tr>
-          <tr><td className={td}>مستحق فيندور</td><td className={td + ' font-mono'}>{money(parsed.totals.vendoor)}</td></tr>
-          <tr><td className={td}><b>مستحق فيميني</b></td><td className={td + ' font-mono font-semibold'}>{money(parsed.totals.due)}</td></tr>
-        </tbody></table></TableWrap>
         {parsed.dateNote && <Alert tone="warn">{parsed.dateNote}</Alert>}
         {pv.allDup && <Alert tone="crit">الشيت ده اترفع قبل كده؛ مش هيتسجل تاني.</Alert>}
         {!pv.allDup && pv.dup > 0 && <Alert tone="warn">{pv.dup} سطر متسجّل قبل كده في شيت تاني.</Alert>}
@@ -89,21 +83,20 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         <p className="text-sm text-muted">"مشحون" = خرج بالسكان. "تم التحصيل" = فلوسه وصلت حسب شيت التسوية.</p>
         <Button variant="primary" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button>
       </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Kpi label="مستحق فيميني في الفترة (جنيه)" value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
-        <Kpi label="المبيعات في الفترة (جنيه)" value={money(sum(inRange, 'sales'))} sub={`شركة الشحن ${money(sum(inRange, 'shipping'))} · فيندور ${money(sum(inRange, 'vendoor'))}`} />
         <Kpi label="أوردرات اتحصّلت" value={fmt(paid.length)} sub={`من ${fmt(shipped.length)} مشحون`} tone="good" />
         <Kpi label="مشحون ولسه ما اتحصّلش" value={fmt(waiting.length)} sub={`متوقع ${money(waiting.reduce((a, x) => a + (x.o.total || 0), 0))} جنيه`} tone={waiting.length ? 'warn' : undefined} />
       </div>
       <CollectTrend d={d} from={from} to={to} />
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>
         {!settles.length ? <Empty>لسه ما اترفعش شيت تسوية.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'المبيعات', 'شركة الشحن', 'فيندور', 'فيميني', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'مستحق فيميني', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{settles.map((s) => (
               <tr key={s.id}>
                 <td className={td + ' font-mono'} title={s.source}>{s.date}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' font-mono'}>{s.rows.length}</td>
                 <td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'collect').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'return').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'partial').length}</td>
-                <td className={td + ' font-mono'}>{fmt(s.totals.sales)}</td><td className={td + ' font-mono'}>{fmt(s.totals.shipping)}</td><td className={td + ' font-mono'}>{fmt(s.totals.vendoor)}</td><td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td}>{s.by}</td>
+                <td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td}>{s.by}</td>
                 <td className={td}><div className="flex gap-1">
                   {fileOf(s.id) && <Button size="sm" onClick={() => download(s.id)} aria-label={`تنزيل ${s.id}`}><Download className="size-4" /></Button>}
                   {admin && (del === s.id
@@ -127,8 +120,8 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
   );
 }
 
-/** Collections over the chosen period: orders that left vs got paid vs came back, the money of each settlement day,
- * and Fémini's due adding up. */
+/** Collections over the chosen period: orders that left vs got paid vs came back, and Fémini's due per settlement day
+ * (the only amount shown: the sheet's «المبلغ المستحق Femini»). */
 function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string }) {
   const rows = useMemo(() => {
     // the average of the days a settlement came on (days with no settlement would pull it down)
@@ -141,11 +134,33 @@ function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string })
     <Card title="المشحون والمحصّل" hint="أوردرات · المحصّل بتاريخ التحصيل في الشيت">
       <TrendArea bars data={rows} series={[{ key: 'shipped', name: 'اتشحن', color: C.accent }, { key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} />
     </Card>
-    <Card title="فلوس التسويات" hint="جنيه · بتاريخ التسوية">
-      <TrendArea bars money data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.femini }, { key: 'vendoor', name: 'مستحق فيندور', color: C.vendoor }, { key: 'shipping', name: 'شركة الشحن', color: C.shipping }]} />
-    </Card>
-    <Card title="مستحق فيميني يوم بيوم" hint="جنيه · كل يوم لوحده بتاريخ التسوية" className="lg:col-span-2">
-      <TrendArea money height={220} data={rows} series={[{ key: 'due', name: 'مستحق فيميني', color: C.femini }, { key: 'avg', name: 'متوسط يوم التسوية', color: C.muted, dash: true, total: 'last' }]} />
-    </Card>
+    <CollectFlow d={d} />
   </div>;
+}
+
+const DAYS: [string, string][] = [['7', '7 يوم'], ['14', '14 يوم'], ['30', '30 يوم']];
+
+/** «حركة التحصيل»: the last 7 / 14 / 30 days up to today, with how it moved against the same number of days before. */
+function CollectFlow({ d }: { d: Derived }) {
+  const [days, setDays] = useState('14'); const [metric, setMetric] = useState<CollectMetric>('due');
+  const n = Number(days); const money = metric === 'due';
+  const t = useMemo(() => collectTrend(d.snap, d.today, n, metric), [d, n, metric]);
+  const pct = change(t.cur, t.prev);
+  return (
+    <Card title="حركة التحصيل" hint={money ? 'جنيه · مستحق فيميني بتاريخ التسوية' : 'أوردرات · بتاريخ التحصيل في الشيت'}
+      action={<span className="flex flex-wrap items-center gap-2 print:hidden">
+        <Seg<CollectMetric> label="المقياس" value={metric} onChange={setMetric} options={[['due', 'جنيه'], ['collected', 'أوردرات']]} />
+        <Seg<string> label="الفترة" value={days} onChange={setDays} options={DAYS} />
+      </span>}>
+      <p className="mb-1 flex flex-wrap items-center gap-x-2 text-sm" aria-live="polite">
+        {pct === null
+          ? <span className="text-muted">{t.cur ? 'مفيش تحصيل في الفترة اللي قبلها للمقارنة' : 'مفيش تحصيل في الفترة دي'}</span>
+          : <>{pct === 0
+              ? <span className="font-semibold text-muted">تقريبًا زي</span>
+              : <span className={cn('inline-flex items-center gap-1 font-semibold', pct > 0 ? 'text-good' : 'text-crit')}>{pct > 0 ? <ArrowUpRight className="size-4" /> : <ArrowDownRight className="size-4" />}<span className="num">{Math.abs(pct)}%</span>{pct > 0 ? 'طلع' : 'نزل'} عن</span>}
+            <span className="text-muted">الـ {n} يوم اللي قبلهم (<span className="num">{fmt(t.prev)}</span>{money ? ' جنيه' : ' أوردر'})</span></>}
+      </p>
+      <TrendArea money={money} height={240} data={t.rows} series={[{ key: metric, name: money ? 'مستحق فيميني' : 'اتحصّل', color: money ? C.femini : C.ready }, { key: 'avg', name: 'متوسط يوم التحصيل', color: C.muted, dash: true, total: 'last' }]} />
+    </Card>
+  );
 }

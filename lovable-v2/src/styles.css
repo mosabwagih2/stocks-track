@@ -217,9 +217,9 @@
 }
 
 /* Analytical surfaces: distinct series, restrained grids, readable focus states. */
-/* the money split of a settlement: Fémini teal blue, Vendoor orange, the courier red (lighter in dark mode) */
-:root { --chart-femini: #1f6e8c; --chart-vendoor: #f2a541; --chart-shipping: #d1495b; }
-.dark { --chart-femini: #4aa3c4; --chart-vendoor: #f5b766; --chart-shipping: #e2707f; }
+/* Fémini's due on the collections charts: teal blue (lighter in dark mode) */
+:root { --chart-femini: #1f6e8c; }
+.dark { --chart-femini: #4aa3c4; }
 :root { --chart-primary: oklch(0.57 0.18 290); --chart-secondary: oklch(0.57 0.12 180); --chart-grid: oklch(0.92 0.009 280); --chart-track: oklch(0.96 0.007 280); --chart-previous: oklch(0.64 0.025 270); --chart-tooltip-shadow: 0 8px 28px oklch(0.25 0.025 280 / 0.12); }
 .dark { --chart-primary: oklch(0.76 0.14 290); --chart-secondary: oklch(0.76 0.12 180); --chart-grid: oklch(0.3 0.015 280); --chart-track: oklch(0.25 0.015 280); --chart-previous: oklch(0.65 0.025 270); --chart-tooltip-shadow: 0 8px 28px oklch(0 0 0 / 0.3); }
 .chart-tooltip { box-shadow: var(--chart-tooltip-shadow); }

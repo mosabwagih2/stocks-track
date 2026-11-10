@@ -57,3 +57,18 @@ export function collectByDay(s: Pick<Snapshot, 'orders' | 'settles'>, from: stri
   for (let k = from; k <= to; k = addDays(k, 1)) { const r = by[k] ?? row(); run += r.due; out.push({ day: k, ...r, paidSoFar: run }); }
   return out;
 }
+
+/**
+ * The collections graph: the last `days` days up to today of ONE measure, against the same number of days right before
+ * them, so the page can say whether it went up or down. `due` is Fémini's money by settlement day, `collected` is orders
+ * by their collect date. `avg` is the average of the days that had any (a day with nothing would pull it down).
+ */
+export type CollectMetric = 'due' | 'collected';
+export function collectTrend(s: Pick<Snapshot, 'orders' | 'settles'>, today: string, days: number, metric: CollectMetric) {
+  const from = addDays(today, -(days - 1));
+  const rows = collectByDay(s, from, today); const before = collectByDay(s, addDays(from, -days), addDays(from, -1));
+  const sum = (r: CollectDay[]) => r.reduce((a, x) => a + x[metric], 0);
+  const cur = sum(rows); const active = rows.filter((x) => x[metric] > 0).length;
+  const avg = Math.round(cur / Math.max(1, active));
+  return { rows: rows.map((x) => ({ ...x, avg })), cur, prev: sum(before), avg };
+}

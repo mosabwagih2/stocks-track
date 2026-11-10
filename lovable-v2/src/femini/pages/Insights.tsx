@@ -376,10 +376,9 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
     // the settlement sheets of the period, and what is shipped and not collected yet
     const inRange = (d.snap.settles ?? []).filter((s) => s.date >= cur.from && s.date <= cur.to).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
     const n = (s: { rows: { type: string }[] }, t: string) => s.rows.filter((r) => r.type === t).length;
-    const tot = (k: 'sales' | 'shipping' | 'cod' | 'vendoor' | 'due') => inRange.reduce((a, s) => a + s.totals[k], 0);
-    sheets.push({ name: 'التسويات', rows: [['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'المبيعات', 'مستحق شركة الشحن', 'الصافي', 'مستحق فيندور', 'مستحق فيميني', 'رفعه'],
-      ...inRange.map((s) => [s.date, s.id, s.rows.length, n(s, 'collect'), n(s, 'return'), n(s, 'partial'), s.totals.sales, s.totals.shipping, s.totals.cod, s.totals.vendoor, s.totals.due, s.by]),
-      ['الإجمالي', `${inRange.length} تسوية`, inRange.reduce((a, s) => a + s.rows.length, 0), '', '', '', tot('sales'), tot('shipping'), tot('cod'), tot('vendoor'), tot('due'), '']] });
+    sheets.push({ name: 'التسويات', rows: [['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'مستحق فيميني', 'رفعه'],
+      ...inRange.map((s) => [s.date, s.id, s.rows.length, n(s, 'collect'), n(s, 'return'), n(s, 'partial'), s.totals.due, s.by]),
+      ['الإجمالي', `${inRange.length} تسوية`, inRange.reduce((a, s) => a + s.rows.length, 0), '', '', '', inRange.reduce((a, s) => a + s.totals.due, 0), '']] });
     const waiting = d.snap.orders.filter((o) => o.status === 'shipped' && !o.returned && !d.collected.has(o.ref) && !d.settleReturned.has(o.ref))
       .map((o) => ({ o, day: o.shippedAt ? cairoDay(o.shippedAt) : '' })).sort((a, b) => a.day.localeCompare(b.day));
     sheets.push({ name: 'لسه ما اتحصلش', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'المبلغ', 'قطع'], ...waiting.map(({ o, day }) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', day, o.total || 0, o.lines.length])] });
