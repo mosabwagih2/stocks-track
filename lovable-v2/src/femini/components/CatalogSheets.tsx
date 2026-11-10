@@ -18,9 +18,9 @@ const addTo = (a: string[], v: string) => (a.includes(v) ? a : [...a, v]);
 const toggle = (a: string[], v: string) => (a.includes(v) ? a.filter((x) => x !== v) : [...a, v]);
 
 /** + New model */
-export function NewModelSheet({ d, onClose, onCreated, prefill }: { d: Derived; onClose: () => void; onCreated: (code: string) => void; prefill?: { code: string; color?: string; size?: string; colors?: string[]; sizes?: string[] } }) {
+export function NewModelSheet({ d, onClose, onCreated, prefill }: { d: Derived; onClose: () => void; onCreated: (code: string) => void; prefill?: { code: string; name?: string; color?: string; size?: string; colors?: string[]; sizes?: string[] } }) {
   const act = useAct();
-  const [code, setCode] = useState(prefill?.code ?? ''); const [name, setName] = useState(''); const [min, setMin] = useState('');
+  const [code, setCode] = useState(prefill?.code ?? ''); const [name, setName] = useState(prefill?.name ?? ''); const [min, setMin] = useState('');
   const [tried, setTried] = useState(false); const [saving, setSaving] = useState(false); const [saveError, setSaveError] = useState('');
   const known = useMemo(() => [...new Set(d.snap.colors.map((c) => c.ar).concat(d.snap.skus.map((s) => s.color)))], [d]);
   const pc = prefill?.colors ?? (prefill?.color ? [prefill.color] : []); const ps = prefill?.sizes ?? (prefill?.size ? [prefill.size] : []);   // what the pickup used for this model

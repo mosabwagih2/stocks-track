@@ -44,3 +44,23 @@ export function parsePickupRows(rows: unknown[][], skus: Sku[], existing: Set<st
   }
   return { orders, duplicates, unknownModels: [...unknown] };
 }
+
+/**
+ * The product name Vendoor writes between the brackets of each item, per model code (the code as written, e.g.
+ * "FC-PAN6-Bundle"): the first one seen. It is only used to fill in the name of a new catalog model; the lines themselves
+ * keep their shape.
+ */
+export function pickupNames(rows: unknown[][]): Record<string, string> {
+  const head = (rows[0] ?? []).map((x) => String(x).trim());
+  const items = head.indexOf(COLS.items);
+  const names: Record<string, string> = {};
+  if (items < 0) return names;
+  for (const r of rows.slice(1)) {
+    for (const it of String(r[items] ?? '').split(', ')) {
+      const m = LINE_RE.exec(it.trim()); if (!m) continue;
+      const code = m[1].trim(); const name = m[2].trim();
+      if (code && name && !(code in names)) names[code] = name;
+    }
+  }
+  return names;
+}
