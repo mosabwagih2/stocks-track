@@ -30,6 +30,19 @@ async function check(srv: ReturnType<typeof createFakeServer>, r: ReturnType<typ
 }
 
 describe('server edition', () => {
+  it('a model kept by the exact pickup code (FC-PAN6-Bundle) goes through the server rules and reloads identically', async () => {
+    const srv = createFakeServer(boot(), ADMIN); setActor(ADMIN.name);
+    const r = createMemoryRepo(createServerBackend(srv.bootNow(), srv.transport));
+    await r.snapshot(); await check(srv, r);
+    await r.catalogNewModel({ code: 'FC-PAN6-Bundle', exact: true, name: 'بانتي', colors: ['احمر'], sizes: ['L'], minAlert: 0 }); await check(srv, r);
+    const sku = (await r.snapshot()).skus.find((k) => k.model === 'FC-PAN6-Bundle')!.id;
+    expect(sku).toMatch(/^FC-PAN6-Bundle-.+-L$/);
+    await r.postOp({ type: 'RCV', date: T, hdr: { ref: 'E1', declared: 5 }, lines: [{ sku, q: 5 }], photo: photo() }); await check(srv, r);
+    const fresh = toLovable(mirrorFromBoot(srv.bootNow()));
+    expect(fresh.cat.skus.some((k) => k.id === sku && k.model === 'FC-PAN6-Bundle')).toBe(true);   // the catalog came back from the server with the exact code
+    expect((await r.snapshot()).balances[sku]?.READY).toBe(5);
+  });
+
   it('a page that boots with the wrong epoch after a restore reloads once, then stops and shows the error (no endless reload)', async () => {
     const srv = createFakeServer(boot(), ADMIN); setActor(ADMIN.name);
     srv.restore(srv.bootNow().state as unknown as Record<string, unknown>);

@@ -9,13 +9,28 @@ const LINE_RE = /^(.*?) \( (.*?) \)-([^-]*)-(.*)-(\d+)$/;
 
 /** Vendoor product code -> catalog variant. Vendoor writes the model as "BR2", "FC-BR2" or "Women A6"; the prefix is dropped
  * only when what is left is a model of the catalog, so nothing is ever guessed. */
+const alnum = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/** The catalog model a pickup code stands for, or null. The code as written, without its prefix, upper-cased, or reduced to
+ * letters and digits; and last the same code written with other dashes, spaces or case ("FC-PAN6-Bundle" for a model coded
+ * "PAN6 Bundle"), but only when exactly ONE model fits: two that fit are never guessed between. */
+export function resolveModel(models: Iterable<string>, code: string, alias: Record<string, string> = {}): string | null {
+  const set = models instanceof Set ? models : new Set(models);
+  const c = String(code).trim(); if (alias[c]) return alias[c];
+  const bare = c.replace(/^(FC-|Women\s+)/i, '');
+  const exact = [c, bare, bare.toUpperCase(), alnum(bare)].find((m) => set.has(m));
+  if (exact) return exact;
+  const key = alnum(bare); if (!key) return null;
+  const hits = [...set].filter((m) => alnum(m) === key);
+  return hits.length === 1 ? hits[0] : null;
+}
+
 export function itemMapper(skus: Sku[], alias: Record<string, string> = {}) {
   const models = new Set(skus.map((s) => s.model));
   const idx = new Map(skus.map((s) => [`${s.model}|${s.color}|${s.size}`, s.id]));
+  const seen = new Map<string, string | null>();   // a sheet repeats the same few codes thousands of times
   const toModel = (code: string): string | null => {
-    const c = String(code).trim(); if (alias[c]) return alias[c];
-    const bare = c.replace(/^(FC-|Women\s+)/i, '');
-    return [c, bare, bare.toUpperCase(), bare.toUpperCase().replace(/[^A-Z0-9]/g, '')].find((m) => models.has(m)) ?? null;
+    const k = String(code); if (!seen.has(k)) seen.set(k, resolveModel(models, k, alias)); return seen.get(k) ?? null;
   };
   return (code: string, size: string, color: string) => { const model = toModel(code); return { model, id: model ? idx.get(`${model}|${String(color).trim()}|${String(size).trim()}`) : undefined }; };
 }
@@ -43,24 +58,4 @@ export function parsePickupRows(rows: unknown[][], skus: Sku[], existing: Set<st
     orders.push(o);
   }
   return { orders, duplicates, unknownModels: [...unknown] };
-}
-
-/**
- * The product name Vendoor writes between the brackets of each item, per model code (the code as written, e.g.
- * "FC-PAN6-Bundle"): the first one seen. It is only used to fill in the name of a new catalog model; the lines themselves
- * keep their shape.
- */
-export function pickupNames(rows: unknown[][]): Record<string, string> {
-  const head = (rows[0] ?? []).map((x) => String(x).trim());
-  const items = head.indexOf(COLS.items);
-  const names: Record<string, string> = {};
-  if (items < 0) return names;
-  for (const r of rows.slice(1)) {
-    for (const it of String(r[items] ?? '').split(', ')) {
-      const m = LINE_RE.exec(it.trim()); if (!m) continue;
-      const code = m[1].trim(); const name = m[2].trim();
-      if (code && name && !(code in names)) names[code] = name;
-    }
-  }
-  return names;
 }

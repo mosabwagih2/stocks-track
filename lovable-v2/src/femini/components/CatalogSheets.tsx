@@ -8,7 +8,7 @@ import { repo } from '@/femini/data';
 import { totalOwned } from '@/femini/domain/ledger';
 import { cn, fmt } from '@/femini/cn';
 import { friendlyError } from '@/femini/data/errors';
-import { normalizeModelCode, validateNewModel } from './catalog-validation';
+import { normalizeModelCode, validateNewModel, modelCodeOf } from './catalog-validation';
 import { rememberSwatch, swatchOf } from './swatch';
 
 const Dotc = ({ c }: { c: string }) => <i className="inline-block size-3 rounded-full border border-line2 align-[-1px]" style={{ background: swatchOf(c) }} />;
@@ -18,9 +18,9 @@ const addTo = (a: string[], v: string) => (a.includes(v) ? a : [...a, v]);
 const toggle = (a: string[], v: string) => (a.includes(v) ? a.filter((x) => x !== v) : [...a, v]);
 
 /** + New model */
-export function NewModelSheet({ d, onClose, onCreated, prefill }: { d: Derived; onClose: () => void; onCreated: (code: string) => void; prefill?: { code: string; name?: string; color?: string; size?: string; colors?: string[]; sizes?: string[] } }) {
+export function NewModelSheet({ d, onClose, onCreated, prefill }: { d: Derived; onClose: () => void; onCreated: (code: string) => void; prefill?: { code: string; /** keep the code exactly as the pickup writes it */ exact?: boolean; color?: string; size?: string; colors?: string[]; sizes?: string[] } }) {
   const act = useAct();
-  const [code, setCode] = useState(prefill?.code ?? ''); const [name, setName] = useState(prefill?.name ?? ''); const [min, setMin] = useState('');
+  const [code, setCode] = useState(prefill?.code ?? ''); const [name, setName] = useState(''); const [min, setMin] = useState('');
   const [tried, setTried] = useState(false); const [saving, setSaving] = useState(false); const [saveError, setSaveError] = useState('');
   const known = useMemo(() => [...new Set(d.snap.colors.map((c) => c.ar).concat(d.snap.skus.map((s) => s.color)))], [d]);
   const pc = prefill?.colors ?? (prefill?.color ? [prefill.color] : []); const ps = prefill?.sizes ?? (prefill?.size ? [prefill.size] : []);   // what the pickup used for this model
@@ -28,9 +28,11 @@ export function NewModelSheet({ d, onClose, onCreated, prefill }: { d: Derived; 
   const [extraC, setExtraC] = useState<string[]>(pc.filter((c) => !known.includes(c))); const [extraS, setExtraS] = useState<string[]>(ps.filter((z) => !d.snap.sizes.includes(z))); const [nc, setNc] = useState(''); const [ns, setNs] = useState('');
   const allC = [...known, ...extraC.filter((c) => !known.includes(c))]; const allS = [...d.snap.sizes, ...extraS.filter((z) => !d.snap.sizes.includes(z))];
   const [nh, setNh] = useState('#7c5cff');
-  const codeU = normalizeModelCode(code); const exists = d.modelMap.has(codeU) || d.snap.archivedSkus.some((s) => s.model === codeU);
+  const exact = !!prefill?.exact;
+  const codeU = modelCodeOf(code, exact);
+  const exists = exact ? [...d.snap.models.map((m) => m.code), ...d.snap.archivedSkus.map((s) => s.model)].some((c) => c.toUpperCase() === codeU.toUpperCase()) : d.modelMap.has(codeU) || d.snap.archivedSkus.some((s) => s.model === codeU);
   const n = colors.length * sizes.length;
-  const errors = validateNewModel({ code, name, min, colors, sizes }, exists);
+  const errors = validateNewModel({ code, name, min, colors, sizes }, exists, exact);
   const close = () => { if (!saving) onClose(); };
   const save = async () => {
     setTried(true); setSaveError('');
@@ -38,7 +40,7 @@ export function NewModelSheet({ d, onClose, onCreated, prefill }: { d: Derived; 
     setSaving(true);
     try {
       const r = await act(async () => {
-        try { return await repo.catalogNewModel({ code: codeU, name: name.trim(), colors, sizes, minAlert: Number(min) || 0 }); }
+        try { return await repo.catalogNewModel({ code: codeU, name: name.trim(), colors, sizes, minAlert: Number(min) || 0, exact }); }
         catch (e) { setSaveError(friendlyError(e)); throw e; }
       }, (x) => `تمت إضافة الموديل ${x.model} بنجاح (${x.skus} صنف)`);
       if (r) { onCreated(r.model); onClose(); }
@@ -50,7 +52,7 @@ export function NewModelSheet({ d, onClose, onCreated, prefill }: { d: Derived; 
       <div className="flex items-center gap-2"><Button className="h-11 flex-1" variant="primary" disabled={saving} onClick={save}>{saving ? <LoaderCircle className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? 'جارٍ الحفظ…' : 'حفظ الموديل'}</Button><Button className="h-11" disabled={saving} onClick={close}><X className="size-4" />إلغاء</Button></div>
     </div>}>
       <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card">
-        <div className="grid size-16 shrink-0 place-items-center rounded-xl bg-accent-soft font-mono font-semibold text-accent">{codeU || <Plus className="size-6" />}</div>
+        <div dir="ltr" className="grid h-16 min-w-16 max-w-40 shrink-0 place-items-center break-all rounded-xl bg-accent-soft px-2 text-center font-mono text-sm font-semibold text-accent">{codeU || <Plus className="size-6" />}</div>
         <div className="min-w-0 flex-1"><h3 className="break-words font-display font-semibold">{name.trim() || 'موديل جديد'}</h3><p className="mt-1 text-xs text-muted">{colors.length} ألوان · {sizes.length} مقاسات · {n} صنف</p></div><Pill>رصيد صفر</Pill>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

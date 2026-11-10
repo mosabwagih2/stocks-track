@@ -11,7 +11,7 @@ import { ArchivedList, EditCatalogSheet, NewModelSheet } from '@/femini/componen
 import { Progressive } from '@/femini/components/Deferred';
 import { Heatmap } from '@/femini/components/charts';
 import { Spinner } from '@/femini/components/Spinner';
-import { LOCS, LOC_AR, LOC_COLOR, LOC_HINT } from '@/femini/domain/constants';
+import { LOCS, LOC_AR, LOC_COLOR, LOC_HINT, lineBase } from '@/femini/domain/constants';
 import { locTotal, qty, totalOwned } from '@/femini/domain/ledger';
 import { cellInfo } from '@/femini/domain/stock';
 import { NEXT } from '@/femini/domain/flow';
@@ -24,7 +24,7 @@ import type { Loc, Sku } from '@/femini/domain/types';
 
 const Swatch = ({ c }: { c: string }) => <i className="inline-block size-3 rounded-full border border-line2 align-[-1px]" style={{ background: swatchOf(c) }} />;
 const OTHER = 'موديلات أخرى';
-const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : OTHER);
+const lineOf = (m: string) => { const b = lineBase(m); return /^PAN/.test(b) ? 'بانتي' : /^BR/.test(b) ? 'برا' : /^SH/.test(b) ? 'شورت' : OTHER; };
 const LINES = ['بانتي', 'برا', 'شورت'];
 
 /** Cell color = signal. READY: red critical, amber low, green healthy, blue surplus, gray empty. Other states: the state's own color. */

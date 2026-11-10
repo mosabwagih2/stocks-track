@@ -5,7 +5,7 @@ import { balancesFromMoves, qty, totalOwned } from '@/femini/domain/ledger';
 import { consumption } from '@/femini/domain/supplies';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
 import { itemMapper } from '@/femini/domain/pickup';
-import { BACKDATE_DAYS } from '@/femini/domain/constants';
+import { BACKDATE_DAYS, skuPrefix } from '@/femini/domain/constants';
 import { buildOp } from '@/femini/domain/ops';
 import { buildHoldOut, buildHoldSettle, HOLD_REASON_AR, outstanding, type Hold } from '@/femini/domain/holds';
 import type { Settlement } from '@/femini/domain/settle';
@@ -368,16 +368,19 @@ export function createMemoryRepo(backend?: Backend): Repo {
       S.images[code] = file ? await blobToDataUrl(await squareImage(file)) : null; save();
     },
     // ---------- catalog ----------
-    async catalogNewModel({ code, name, colors: c0, sizes: z0, minAlert }) {
-      const c = code.toUpperCase().replace(/[^A-Z0-9]/g, ''); // pa-3 / pa 3 / PA3 are one code
+    async catalogNewModel({ code, name, colors: c0, sizes: z0, minAlert, exact }) {
+      // typed by hand: pa-3 / pa 3 / PA3 are one code. From a pickup the code stays exactly as Vendoor writes it (FC-PAN6-Bundle).
+      const c = exact ? code.trim() : code.toUpperCase().replace(/[^A-Z0-9]/g, '');
       // a colour or size picked twice is one variant, never two with the same code
       const colors = [...new Set(c0.map((x) => x.trim()).filter(Boolean))]; const sizes = [...new Set(z0.map((x) => x.trim()).filter(Boolean))];
-      if (!/^[A-Z][A-Z0-9]{0,9}$/.test(c)) fail('كود الموديل حروف إنجليزية وأرقام، ويبدأ بحرف (مثل PAN6)');
-      if (baseModels.concat(S.cat.models).some((m) => m.code === c)) fail('كود الموديل موجود بالفعل');
+      if (!(exact ? /^[A-Za-z][A-Za-z0-9_-]{0,23}$/ : /^[A-Z][A-Z0-9]{0,9}$/).test(c)) fail(exact ? 'كود الموديل يبدأ بحرف إنجليزي وبعده حروف أو أرقام أو - أو _ ولحد 24 حرف' : 'كود الموديل حروف إنجليزية وأرقام، ويبدأ بحرف (مثل PAN6)');
+      if (baseModels.concat(S.cat.models).some((m) => (exact ? m.code.toUpperCase() === c.toUpperCase() : m.code === c))) fail('كود الموديل موجود بالفعل');
       if (!name.trim()) fail('أدخل نوع الموديل'); if (!colors.length || !sizes.length) fail('اختر لونًا ومقاسًا على الأقل');
       for (const z of sizes) if (![...seed.sizes, ...S.cat.sizes].includes(z)) S.cat.sizes.push(z);
+      const ids = colors.flatMap((col) => sizes.map((z) => ({ col, z, id: `${c}-${colorCode(col)}-${z}` })));
+      if (ids.some((x) => x.id.length > 40)) fail('الكود طويل: اسم الصنف بيعدّي 40 حرف. اختصر الكود');   // the server keeps item codes to 40 characters
       S.cat.models.push({ code: c, name: name.trim() }); let n = 0;
-      for (const col of colors) for (const z of sizes) { S.cat.skus.push({ id: `${c}-${colorCode(col)}-${z}`, model: c, color: col, size: z, minAlert }); n++; }
+      for (const x of ids) { S.cat.skus.push({ id: x.id, model: c, color: x.col, size: x.z, minAlert }); n++; }
       relink(); save(); return { model: c, skus: n };
     },
     async catalogEditModel({ code, name, add, remove }) {
@@ -386,7 +389,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       for (const x of add) {
         if (![...seed.sizes, ...S.cat.sizes].includes(x.size)) S.cat.sizes.push(x.size);
         const ex = allSkus().find((k) => k.model === code && k.color === x.color && k.size === x.size);
-        if (ex) { if (S.cat.archived[ex.id]) { delete S.cat.archived[ex.id]; a++; } } else { S.cat.skus.push({ id: `${code}-${colorCode(x.color)}-${x.size}`, model: code, color: x.color, size: x.size, minAlert: 0 }); a++; }
+        if (ex) { if (S.cat.archived[ex.id]) { delete S.cat.archived[ex.id]; a++; } } else { const id = `${skuPrefix(code)}-${colorCode(x.color)}-${x.size}`; if (id.length > 40) fail('الكود طويل: اسم الصنف بيعدّي 40 حرف'); S.cat.skus.push({ id, model: code, color: x.color, size: x.size, minAlert: 0 }); a++; }
       }
       for (const id of remove) { const b = blockers(id); if (b) fail(`لا يمكن إزالته: ${b}`); S.cat.archived[id] = { by: actor(), at: new Date().toISOString() }; r++; }
       relink(); save(); return { added: a, removed: r };

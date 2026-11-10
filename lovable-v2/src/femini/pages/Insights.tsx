@@ -1,4 +1,5 @@
 import { addDays, dayDiff } from '@/femini/domain/dates';
+import { lineBase } from '@/femini/domain/constants';
 import { useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
@@ -26,7 +27,7 @@ import { lateDays, lateLevel, warehouseDays } from '@/femini/domain/warehouseDay
 import { LateDot } from '@/femini/components/LateDot';
 import { CancelSheet, OrderSheet } from '@/femini/components/OrderSheets';
 
-const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : 'موديلات أخرى');
+const lineOf = (m: string) => { const b = lineBase(m); return /^PAN/.test(b) ? 'بانتي' : /^BR/.test(b) ? 'برا' : /^SH/.test(b) ? 'شورت' : 'موديلات أخرى'; };
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
 const topN = (o: Record<string, number>, n: number) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
 

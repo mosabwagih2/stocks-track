@@ -29,7 +29,7 @@ export interface Repo {
   photoUrl(path: string): Promise<string | null>;
   // ---- product images, catalog ----
   setModelImage(code: string, file: File | null): Promise<void>;
-  catalogNewModel(i: { code: string; name: string; colors: string[]; sizes: string[]; minAlert: number }): Promise<{ model: string; skus: number }>;
+  catalogNewModel(i: { code: string; name: string; colors: string[]; sizes: string[]; minAlert: number; /** keep the code exactly as written (from a pickup) */ exact?: boolean }): Promise<{ model: string; skus: number }>;
   catalogEditModel(i: { code: string; name: string; add: { color: string; size: string }[]; remove: string[] }): Promise<{ added: number; removed: number }>;
   catalogRemoveModel(code: string): Promise<number>;
   catalogRestore(i: { model: string; sku?: string }): Promise<number>;

@@ -1,4 +1,5 @@
 import { collectedOf } from '@/femini/domain/settle';
+import { lineBase } from '@/femini/domain/constants';
 import { serverEdition } from '@/femini/data';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -107,7 +108,7 @@ function stockOf(skus: { id: string; model: string }[], balances: Balances) {
 }
 
 /** The product line of a model code: its letters before the number ("PAN6" → PAN, "BR12" → BR, "A1" → A). */
-export const lineCode = (m: string) => /^[A-Z]+/.exec(m)?.[0] ?? m;
+export const lineCode = (m: string) => /^[A-Z]+/.exec(lineBase(m))?.[0] ?? m;
 
 /** Models grouped by line, the most pulled line first; inside a line the most pulled first, then stock, then the number. */
 export function orderModels(codes: string[], pull: Record<string, number>, stock: Record<string, number>) {

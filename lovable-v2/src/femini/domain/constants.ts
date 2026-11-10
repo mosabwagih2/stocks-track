@@ -22,3 +22,8 @@ export const channelName = (id: string) => CHANNELS.find((c) => c.id === id)?.na
 export const TYPE_AR: Record<string, string> = {
   OPN: 'رصيد افتتاحي', RCV: 'استلام توريد', SCN: 'شحن أوردرات', MOV: 'تغيير حالة', CXL: 'إلغاء أوردر', RTN: 'مرتجعات العملاء', SRT: 'مرتجع المحل', SHP: 'توريد للمحل', CNT: 'جرد', CLN: 'تصنيف حالة', FSD: 'إرسال للمصنع', FRC: 'استلام من المصنع', LOS: 'معالجة المفقود', SWP: 'تبديل مقاس', HLD: 'هولد',
 };
+/** The letters that say which production line a model belongs to (PAN, BR, SH): a pickup's own code may start with "FC-". */
+export const lineBase = (m: string) => m.toUpperCase().replace(/^FC-/, '');
+/** The item-code prefix of a model: its code with anything the server does not allow in an item code (a space, in the old
+ * model «PAN6 Bundle») turned into "_": «PAN6 Bundle» sizes are PAN6_Bundle-X1-FREE, PAN6_Bundle-X1-L. */
+export const skuPrefix = (model: string) => model.replace(/[^A-Za-z0-9_.-]/g, '_');

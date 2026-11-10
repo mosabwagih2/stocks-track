@@ -8,7 +8,7 @@ import { useAct } from '@/femini/hooks/data';
 import { repo } from '@/femini/data';
 import { findByCode, need, skuLabel } from '@/femini/domain/orders';
 import { matchScans, parseCsv, parseScan, type ScanMatch, type ScanRow } from '@/femini/domain/scan';
-import { parsePickupRows, pickupNames, type ParsedOrder } from '@/femini/domain/pickup';
+import { parsePickupRows, resolveModel, type ParsedOrder } from '@/femini/domain/pickup';
 import { qty } from '@/femini/domain/ledger';
 import { BACKDATE_DAYS, CHANNELS, channelName } from '@/femini/domain/constants';
 import { fmt } from '@/femini/cn';
@@ -16,7 +16,7 @@ import { addDays, cairoDay, timeCairo } from '@/femini/domain/dates';
 import { useAccountName } from '@/femini/data/account';
 import { Link, useNavigate } from '@/femini/router';
 import { EditCatalogSheet, NewModelSheet } from './CatalogSheets';
-import { normalizeModelCode } from './catalog-validation';
+import { EXACT_CODE, normalizeModelCode } from './catalog-validation';
 
 export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; orderRef: string; onClose: () => void; onCancel: (code: string) => void }) {
   const act = useAct();
@@ -205,7 +205,7 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
           <div className="grid grid-cols-3 gap-3"><Kpi label="أوردر جديد" value={pickup.orders.length} sub={`${fmt(pickup.orders.reduce((a, o) => a + o.lines.length, 0))} قطعة`} tone="good" /><Kpi label="مكرر (موجود)" value={pickup.duplicates.length} tone={pickup.duplicates.length ? 'warn' : undefined} /><Kpi label="أوردرات فيها أصناف غير مرتبطة" value={pickup.orders.filter((o) => o.unmapped.length).length} sub={`${new Set(pickup.orders.flatMap((o) => o.unmapped).map(lineText)).size} صنف مختلف`} tone={pickup.orders.some((o) => o.unmapped.length) ? 'crit' : 'good'} /></div>
           {pickup.orders.some((o) => o.unmapped.length) && <Alert tone="warn">
             <b>فيه أصناف في البيك أب مش مربوطة بالكتالوج.</b> اربطها من هنا قبل الاستيراد، وبعد الحفظ البيك أب بيتطابق من تاني لوحده. ولو استوردت من غير ربط، الأوردرات دي بتتعلّم «كود غير مربوط» وبتتربط لما تضيف الصنف.
-            <LinkLines d={d} lines={pickup.orders.flatMap((o) => o.unmapped)} names={pickupNames(pickupRows ?? [])} />
+            <LinkLines d={d} lines={pickup.orders.flatMap((o) => o.unmapped)} />
           </Alert>}
           <Alert>البيك أب لا يخصم من المخزون، ويُحتسب طلبًا فقط إلى أن تُشحن الأوردرات. لا تُحفظ بيانات العملاء.</Alert>
           <Button variant="primary" disabled={!pickup.orders.length || closed || busy} onClick={async () => {
@@ -229,17 +229,17 @@ const lineText = (u: unknown) => (Array.isArray(u) ? (u.length === 4 ? `${u[0]} 
  * the type, check the colours, save); a model that exists gets the missing colour x size ticked. Saving links every waiting
  * order by itself.
  */
-export function LinkLines({ d, lines, names }: { d: Derived; lines: unknown[]; /** the pickup's product name per code, to fill in a new model's name */ names?: Record<string, string> }) {
-  type Link = { model: string; add: { color: string; size: string }[] } | { model: null; code: string; name: string; colors: string[]; sizes: string[] };
+export function LinkLines({ d, lines }: { d: Derived; lines: unknown[] }) {
+  type Link = { model: string; add: { color: string; size: string }[] } | { model: null; code: string; exact: boolean; colors: string[]; sizes: string[] };
   const [link, setLink] = useState<Link | null>(null);
   // the pickup writes the model as "BR2", "FC-BR2" or "Women A6": the catalog's own code, when it has one
-  const toLink = (u: unknown[]) => { const code = String(u[0]).trim(); const bare = normalizeModelCode(code.replace(/^(FC-|Women\s+)/i, '')); const model = [code, bare].find((x) => d.modelMap.has(x)) ?? null; return { model, code: bare, size: String(u[1]).trim(), color: String(u[2]).trim() }; };
-  const by = new Map<string, { model: string | null; code: string; raw: string; n: number; variants: Map<string, { color: string; size: string }> }>();
+  const toLink = (u: unknown[]) => { const code = String(u[0]).trim(); const bare = normalizeModelCode(code.replace(/^(FC-|Women\s+)/i, '')); const model = resolveModel(d.modelMap.keys(), code); return { model, code: bare, size: String(u[1]).trim(), color: String(u[2]).trim() }; };
+  const by = new Map<string, { model: string | null; code: string; n: number; variants: Map<string, { color: string; size: string }> }>();
   const loose = new Map<string, number>();   // lines the parser could not even read
   for (const u of lines) {
     if (!(Array.isArray(u) && u.length === 4)) { const t = lineText(u); loose.set(t, (loose.get(t) ?? 0) + 1); continue; }
-    const l = toLink(u); const k = l.model ?? l.code;
-    const g = by.get(k) ?? { model: l.model, code: l.code, raw: String(u[0]).trim(), n: 0, variants: new Map() };
+    const l = toLink(u); const raw = String(u[0]).trim(); const k = l.model ?? raw;
+    const g = by.get(k) ?? { model: l.model, code: l.model ?? raw, n: 0, variants: new Map() };
     g.n += Number(u[3]) || 1; g.variants.set(`${l.color}|${l.size}`, { color: l.color, size: l.size }); by.set(k, g);
   }
   return (
@@ -250,10 +250,10 @@ export function LinkLines({ d, lines, names }: { d: Derived; lines: unknown[]; /
           return (
             <li key={g.model ?? g.code} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-surface px-3 py-2.5">
               <span className="min-w-0 flex-1">
-                <b className="font-mono">{g.code}</b>{names?.[g.raw] && <span className="ms-1.5 font-medium">{names[g.raw]}</span>} <span className="text-xs text-muted">{g.model ? `موجود في الكتالوج وناقصه ${vs.length} لون/مقاس` : 'مش في الكتالوج'}</span>
+                <b className="font-mono">{g.code}</b> <span className="text-xs text-muted">{g.model ? `موجود في الكتالوج وناقصه ${vs.length} لون/مقاس` : 'مش في الكتالوج'}</span>
                 <span className="block text-xs text-muted">{colors.join('، ')} · {sizes.join('، ')} · {g.n} قطعة</span>
               </span>
-              <Button size="sm" variant="primary" onClick={() => setLink(g.model ? { model: g.model, add: vs } : { model: null, code: g.code, name: names?.[g.raw] ?? '', colors, sizes })}>ربط الصنف</Button>
+              <Button size="sm" variant="primary" onClick={() => setLink(g.model ? { model: g.model, add: vs } : EXACT_CODE.test(g.code) ? { model: null, code: g.code, exact: true, colors, sizes } : { model: null, code: normalizeModelCode(g.code), exact: false, colors, sizes })}>ربط الصنف</Button>
             </li>
           );
         })}
@@ -263,7 +263,7 @@ export function LinkLines({ d, lines, names }: { d: Derived; lines: unknown[]; /
       {link && ('add' in link
         // saving the catalog links every waiting order by itself
         ? <EditCatalogSheet d={d} initial={link.model} addVariants={link.add} onClose={() => setLink(null)} />
-        : <NewModelSheet d={d} prefill={{ code: link.code, name: link.name, colors: link.colors, sizes: link.sizes }} onCreated={() => {}} onClose={() => setLink(null)} />)}
+        : <NewModelSheet d={d} prefill={{ code: link.code, exact: link.exact, colors: link.colors, sizes: link.sizes }} onCreated={() => {}} onClose={() => setLink(null)} />)}
     </>
   );
 }
