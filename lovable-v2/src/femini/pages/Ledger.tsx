@@ -11,17 +11,19 @@ import { LOC_AR, TYPE_AR } from '@/femini/domain/constants';
 import { skuLabel } from '@/femini/domain/orders';
 import { dayLabel } from '@/femini/domain/dates';
 import { EventTable, docEvents, type DocEvent } from '@/femini/components/MoveRows';
+import { DateFilter } from '@/femini/components/PeriodPicker';
+import type { Range } from '@/femini/domain/range';
 
 export default function Ledger() {
   const { d, isLoading, error } = useDerived();
-  const act = useAct(); const [tab, setTab] = useState<'events' | 'sku' | 'archive'>('events'); const [person, setPerson] = useState(''); const [date, setDate] = useState(''); const [event, setEvent] = useState<Move[] | null>(null);
+  const act = useAct(); const [tab, setTab] = useState<'events' | 'sku' | 'archive'>('events'); const [person, setPerson] = useState(''); const [range, setRange] = useState<Range | null>(null); const [event, setEvent] = useState<Move[] | null>(null);
   const [restore, setRestore] = useState<{ label: string; run: () => Promise<unknown> } | null>(null);
   const [q, setQ] = useState(''); const dq = useDeferredValue(q); const [type, setType] = useState('');
   const rows = useMemo(() => {
     if (!d) return [];
     const w = dq.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return d.snap.moves.filter((m) => (!type || m.type === type) && (!person || m.by === person) && (!date || m.date === date) && w.every((x) => `${m.sku} ${skuLabel(d.skuMap, m.sku)} ${m.doc}`.toLowerCase().includes(x)));
-  }, [d, dq, type, person, date]);
+    return d.snap.moves.filter((m) => (!type || m.type === type) && (!person || m.by === person) && (!range || (m.date >= range.from && m.date <= range.to)) && w.every((x) => `${m.sku} ${skuLabel(d.skuMap, m.sku)} ${m.doc}`.toLowerCase().includes(x)));
+  }, [d, dq, type, person, range]);
   const byDay = useMemo(() => { const m = new Map<string, DocEvent[]>(); for (const e of docEvents(rows)) (m.get(e.date) ?? m.set(e.date, []).get(e.date)!).push(e); return [...m].sort((a, b) => (a[0] < b[0] ? 1 : -1)); }, [rows]);
   // READY of each sku right after each move, in one pass over the ledger (it was recomputed from the whole ledger per row)
   const readyAfter = useMemo(() => {
@@ -29,7 +31,7 @@ export default function Ledger() {
     for (const m of [...d.snap.moves].sort((a, b) => a.id - b.id)) { run[m.sku] = (run[m.sku] ?? 0) + (m.to === 'READY' ? m.qty : 0) - (m.from === 'READY' ? m.qty : 0); out.set(m.id, run[m.sku]); }
     return out;
   }, [d, tab]);
-  const supplyRows = useMemo(() => (d ? d.snap.supplyLog.filter((e) => (!date || e.date === date) && (!person || e.by === person)).slice().reverse() : []), [d, date, person]);
+  const supplyRows = useMemo(() => (d ? d.snap.supplyLog.filter((e) => (!range || (e.date >= range.from && e.date <= range.to)) && (!person || e.by === person)).slice().reverse() : []), [d, range, person]);
   /** who archived it (from the account name), and when */
   const who = (by?: string, at?: string) => (by ? `أرشفه ${by}${at ? ` · ${at.slice(0, 10)}` : ''}` : 'أرشفه: مش متسجّل (قبل التحديث)');
   if (error) return <ErrorBox error={error} />;
@@ -50,7 +52,7 @@ export default function Ledger() {
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالصنف أو المستند" className="min-w-52 max-w-xs flex-1" aria-label="بحث" />
         <select value={type} onChange={(e) => setType(e.target.value)} aria-label="النوع"><option value="">كل الأنواع</option>{types.map((t) => <option key={t} value={t}>{TYPE_AR[t] ?? t}</option>)}</select>
         <select aria-label="الشخص" value={person} onChange={(e)=>setPerson(e.target.value)}><option value="">كل الأشخاص</option>{[...new Set(d.snap.moves.map((m)=>m.by))].map((p)=><option key={p}>{p}</option>)}</select>
-        <input type="date" aria-label="اليوم" value={date} onChange={(e)=>setDate(e.target.value)} />
+        <DateFilter value={range} today={d.today} onChange={setRange} />
       </div>
       {tab === 'events' ? <div className="grid gap-5">
         {/* one clean row per operation: time · operation · code · by · from → to · pieces (same layout as the variant history) */}

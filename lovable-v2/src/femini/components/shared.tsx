@@ -8,15 +8,15 @@ import { useEffect, useState } from 'react';
 import { repo } from '@/femini/data';
 
 export function OrderPill({ o, d }: { o: Order; d: Derived }) {
-  if (o.status === 'cancelled') return <Pill tone="lost" title={o.cancel ? `أُلغي ${cairoDay(o.cancel.at)} بواسطة ${o.cancel.by}` : ''}>ملغي</Pill>;
+  if (o.status === 'cancelled') return <Pill tone="neutral" title={o.cancel ? `أُلغي ${cairoDay(o.cancel.at)} بواسطة ${o.cancel.by}` : ''}>ملغي</Pill>;
   // shipped = left with the scan; collected = the money came (the channel's settlement sheet)
   const paid = o.status === 'shipped' ? d.collected.get(o.ref) : undefined;
   if (paid) return <Pill tone="good" title={`${paid.stl} · ${paid.date}`}>تم التحصيل ✓</Pill>;
   if (o.status === 'shipped') return <Pill tone="info" title={o.shippedAt ? `${o.shippedBy} · ${timeCairo(o.shippedAt)}` : ''}>مشحون · {o.shippedBy}</Pill>;
-  if (o.unmapped.length) return <Pill tone="warn">كود غير مربوط</Pill>;
+  if (o.unmapped.length) return <Pill tone="crit">كود غير مربوط</Pill>;
   const b = d.blocked.get(o.ref);
   if (b) return <Pill tone="crit" title={b.map((x) => `${skuLabel(d.skuMap, x.sku)} ناقص ${x.short}`).join('\n')}>متوقف · ناقص {skuLabel(d.skuMap, b[0].sku, false)}{b.length > 1 ? ` +${b.length - 1}` : ''}</Pill>;
-  return <Pill tone="info">بانتظار الشحن</Pill>;
+  return <Pill tone="warn">بانتظار الشحن</Pill>;
 }
 
 export function StockByState({ d }: { d: Derived }) { return <StateDonut d={d} />; }

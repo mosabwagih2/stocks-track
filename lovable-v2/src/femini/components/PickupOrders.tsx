@@ -6,7 +6,7 @@ import { fmt } from '@/femini/cn';
 import { Chip, Empty, Kpi, Sheet, TableWrap, th, td } from './ui';
 import { OrderPill } from './shared';
 
-type F = 'all' | 'wait' | 'blocked' | 'done' | 'paid' | 'returned' | 'cx' | 'bad';
+type F = 'all' | 'wait' | 'blocked' | 'done' | 'paid' | 'returned' | 'cx' | 'bad' | 'shipped' | 'open';   // shipped / open are the cards' own views
 const FILTERS: [F, string][] = [['all', 'الكل'], ['wait', 'بانتظار الشحن'], ['blocked', 'متوقف'], ['done', 'مشحون'], ['paid', 'تم التحصيل'], ['returned', 'مرتجع'], ['cx', 'ملغي'], ['bad', 'كود غير مربوط']];
 
 /** One pickup's orders: search a waybill, filter by state, open an order. */
@@ -18,6 +18,8 @@ export function PickupOrders({ d, pickupId, onClose, onOrder }: { d: Derived; pi
     if (x === 'cx') return o.status === 'cancelled';
     if (o.status === 'cancelled') return false;
     if (x === 'all') return true;
+    if (x === 'shipped') return o.status === 'shipped';
+    if (x === 'open') return o.status === 'open';
     if (x === 'wait') return o.status === 'open' && !d.blocked.has(o.ref);
     if (x === 'blocked') return o.status === 'open' && d.blocked.has(o.ref);
     if (x === 'done') return o.status === 'shipped' && !o.returned && !d.collected.has(o.ref);
@@ -34,12 +36,13 @@ export function PickupOrders({ d, pickupId, onClose, onOrder }: { d: Derived; pi
     <Sheet title={`${p.label} · ${p.date}`} onClose={onClose} wide>
       <p className="text-sm text-muted">{channelName(p.channel)} · {p.source}</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="أوردرات" value={live.length} sub={`${fmt(live.reduce((a, o) => a + o.lines.length, 0))} قطعة`} />
-        <Kpi label="مشحون" value={live.filter((o) => o.status === 'shipped').length} tone="good" />
-        <Kpi label="لسه" value={count('wait') + count('blocked')} tone={count('blocked') ? 'crit' : undefined} sub={count('blocked') ? `${count('blocked')} متوقف` : undefined} />
-        <Kpi label="مرتجع / ملغي" value={`${count('returned')} / ${count('cx')}`} />
+        <Kpi label="أوردرات" value={live.length} sub={`${fmt(live.reduce((a, o) => a + o.lines.length, 0))} قطعة`} onClick={() => setF('all')} />
+        <Kpi label="مشحون" value={live.filter((o) => o.status === 'shipped').length} tone="good" onClick={() => setF('shipped')} />
+        <Kpi label="لسه" value={count('wait') + count('blocked')} tone={count('blocked') ? 'crit' : undefined} sub={count('blocked') ? `${count('blocked')} متوقف` : undefined} onClick={() => setF('open')} />
+        <Kpi label="مرتجع / ملغي" value={`${count('returned')} / ${count('cx')}`} onClick={() => setF(count('returned') ? 'returned' : 'cx')} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {(f === 'shipped' || f === 'open') && <Chip pressed onClick={() => setF('all')}>{f === 'shipped' ? 'كل المشحون' : 'كل اللي لسه'} <span className="font-mono text-xs opacity-75">{count(f)}</span> ✕</Chip>}
         {FILTERS.filter(([x]) => x === 'all' || count(x) > 0).map(([x, l]) => <Chip key={x} pressed={f === x} onClick={() => setF(x)}>{l} <span className="font-mono text-xs opacity-75">{count(x)}</span></Chip>)}
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالبوليصة أو رقم الأوردر" className="min-w-48 flex-1" aria-label="بحث في البيك أب" autoFocus />
       </div>

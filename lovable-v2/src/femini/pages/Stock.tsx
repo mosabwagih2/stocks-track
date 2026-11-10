@@ -47,8 +47,8 @@ function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc
   const by = new Map(skus.map((s) => [`${s.color}|${s.size}`, s]));
   return (
     <div className="overflow-x-auto rounded-xl border border-line p-2">
-      <table className="border-separate border-spacing-1 w-auto">
-        <thead><tr><th />{sizes.map((z) => <th key={z} className="px-1.5 py-1 text-center text-xs font-semibold text-muted">{z}</th>)}<th className="px-1.5 text-xs text-muted">إجمالي</th></tr></thead>
+      <table className="w-full min-w-[30rem] table-fixed border-separate border-spacing-1.5">
+        <thead><tr><th className="w-24 sm:w-32" />{sizes.map((z) => <th key={z} className="px-1.5 py-1 text-center text-xs font-semibold text-muted">{z}</th>)}<th className="w-20 px-1.5 text-xs text-muted">إجمالي</th></tr></thead>
         <tbody>
           {colors.map((c) => {
             let row = 0;
@@ -63,7 +63,7 @@ function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc
                     <td key={z}>
                       <button type="button" onClick={() => onCell(s)} aria-label={`${skuLabel(d.skuMap, s.id)}: ${v}`}
                         title={`${LOCS.filter((l) => qty(d.snap.balances, s.id, l)).map((l) => `${LOC_AR[l]} ${qty(d.snap.balances, s.id, l)}`).join(' · ') || 'لا يوجد رصيد'}${info.demand ? `\nطلب مفتوح ${info.demand}` : ''}`}
-                        className={cn('relative grid h-11 min-w-14 place-items-center rounded-[10px] border border-transparent font-mono text-[15px] font-medium hover:border-accent',
+                        className={cn('relative grid h-12 w-full min-w-0 place-items-center rounded-[10px] border border-transparent font-mono text-[15px] font-medium hover:border-accent',
                           tone)}>
                         {v}
                         {loc === 'READY' && info.demand > 0 && <small className="absolute inset-x-0 bottom-0.5 text-center font-sans text-[9.5px] leading-none opacity-80">طلب {info.demand}</small>}

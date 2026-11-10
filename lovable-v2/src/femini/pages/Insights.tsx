@@ -26,6 +26,9 @@ import { PeriodPicker } from '@/femini/components/PeriodPicker';
 import { lateDays, lateLevel, warehouseDays } from '@/femini/domain/warehouseDay';
 import { LateDot } from '@/femini/components/LateDot';
 import { CancelSheet, OrderSheet } from '@/femini/components/OrderSheets';
+import { ItemsDetail, OrdersDetail } from '@/femini/components/DetailSheets';
+import { STAGNANT_DAYS, stagnantSkus } from '@/femini/domain/stagnant';
+import type { Order } from '@/femini/domain/types';
 
 const lineOf = (m: string) => { const b = lineBase(m); return /^PAN/.test(b) ? 'بانتي' : /^BR/.test(b) ? 'برا' : /^SH/.test(b) ? 'شورت' : 'موديلات أخرى'; };
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
@@ -55,7 +58,7 @@ function useStats(d: Derived | null, range: Range | null) {
     let cum = 0, n80 = 0; for (const [, v] of sorted) { cum += v; n80++; if (cum / (total || 1) >= 0.8) break; }
     const byLine: Record<string, number> = {}; for (const [m, v] of sorted) byLine[lineOf(m)] = (byLine[lineOf(m)] ?? 0) + v;
     const neg = d.snap.skus.filter((s) => qty(d.snap.balances, s.id, 'READY') < 0);
-    const dead = d.snap.skus.filter((s) => qty(d.snap.balances, s.id, 'READY') > 0 && !d.velocity[s.id]);
+    const dead = stagnantSkus(d.snap.skus, d.snap.balances, d.snap.orders, d.pickupDate, d.today);   // ready stock not requested for 14+ days
     const stuckPcs = d.open.filter((o) => d.blocked.has(o.ref)).reduce((a, o) => a + o.lines.length, 0);
     // most requested variants with how long the ready stock lasts
     const skuPull: Record<string, number> = {}; for (const o of live) for (const s of o.lines) skuPull[s] = (skuPull[s] ?? 0) + 1;
@@ -129,7 +132,7 @@ export default function Insights() {
       {sec === 'summary' && <Summary d={d} st={st} cmp={cmp} period={days} label={rangeLabel} go={go} />}
       {sec === 'demand' && <Demand d={d} st={st} />}
       {sec === 'risk' && <Risk d={d} st={st} alerts={alerts} />}
-      {sec === 'team' && <Team d={d} />}
+      {sec === 'team' && <Team d={d} st={st} />}
       {sec === 'collect' && range && <CollectionsView d={d} from={range.from} to={range.to} />}
       {sec === 'whday' && range && <WarehouseDayView d={d} from={range.from} to={range.to} />}
       {sec === 'finance' && <FinancialReport s={d.snap} />}
@@ -154,16 +157,52 @@ function Delta({ cur, prev, upIsGood = true, suffix = '' }: { cur: number; prev:
   );
 }
 
-function Stat({ icon: Icon, label, value, sub, tone = 'accent', children }: { icon: typeof BarChart3; label: string; value: ReactNode; sub?: ReactNode; tone?: 'accent' | 'good' | 'warn' | 'crit'; children?: ReactNode }) {
+function Stat({ icon: Icon, label, value, sub, tone = 'accent', children, onClick }: { icon: typeof BarChart3; label: string; value: ReactNode; sub?: ReactNode; tone?: 'accent' | 'good' | 'warn' | 'crit'; children?: ReactNode; /** opens the detail behind the number */ onClick?: () => void }) {
   const t = { accent: 'bg-accent-soft text-accent', good: 'bg-good-bg text-good', warn: 'bg-warn-bg text-warn', crit: 'bg-crit-bg text-crit' }[tone];
-  return (
-    <div className="fade-up relative grid content-start rounded-2xl border border-line bg-surface p-4 shadow-card">
+  const cls = 'fade-up relative grid content-start rounded-2xl border border-line bg-surface p-4 shadow-card';
+  const body = (
+    <>
       <div className="flex items-center gap-2.5"><span className={cn('grid size-9 place-items-center rounded-xl', t)}><Icon className="size-[18px]" /></span><span className="text-[13px] font-medium text-muted">{label}</span></div>
       <b className="num mt-3 text-[30px] leading-none font-semibold tracking-tight">{value}</b>
       {sub && <span className="mt-1.5 text-xs text-muted">{sub}</span>}
       {children}
-    </div>
+    </>
   );
+  return onClick ? <button type="button" onClick={onClick} className={cls + ' w-full cursor-pointer text-start transition hover:-translate-y-0.5 hover:border-accent/50'}>{body}</button> : <div className={cls}>{body}</div>;
+}
+
+type Kind = 'rate' | 'pieces' | 'shipped' | 'cancelled' | 'blocked' | 'old' | 'neg' | 'dead' | 'team';
+/** The detail behind a card of the analytics: the orders or the items the number is made of. */
+function InsightSheet({ d, st, kind, range, onClose }: { d: Derived; st: Stats; kind: Kind; range: Range | null; onClose: () => void }) {
+  const pd = (o: Order) => d.pickupDate.get(o.pickupId) ?? '';
+  const dateCol = { head: 'تاريخ البيك أب', cell: (o: Order) => <span className="num">{pd(o) || '—'}</span> };
+  const shipCol = { head: 'اتشحن', cell: (o: Order) => <span className="num">{o.shippedAt ? `${cairoDay(o.shippedAt)} · ${timeCairo(o.shippedAt)}` : '—'}</span> };
+  const label = range ? `${range.from} → ${range.to}` : '';
+  if (kind === 'rate') return <OrdersDetail d={d} title="نسبة الشحن" hint={`أوردرات الفترة ${label}: اتشحن منها ${fmt(st.shipped.length)} من ${fmt(st.live.length)}.`} orders={st.live} onClose={onClose}
+    chips={[{ id: 'shipped', label: 'مشحون', test: (o) => o.status === 'shipped' }, { id: 'wait', label: 'لسه', test: (o) => o.status !== 'shipped' }]} cols={[dateCol, shipCol]} />;
+  if (kind === 'pieces') return <OrdersDetail d={d} title="القطع المطلوبة" hint={`${fmt(st.pieces)} قطعة في ${fmt(st.live.length)} أوردر · ${label}`} orders={st.live} startTab="items" onClose={onClose} cols={[dateCol]} />;
+  if (kind === 'shipped') return <OrdersDetail d={d} title="القطع المشحونة" hint={`${fmt(st.shipped.reduce((a, o) => a + o.lines.length, 0))} قطعة في ${fmt(st.shipped.length)} أوردر · ${label}`} orders={st.shipped} startTab="items" onClose={onClose} cols={[dateCol, shipCol]} />;
+  if (kind === 'cancelled') {
+    const inRange = d.snap.orders.filter((o) => o.status === 'cancelled' && (!range || (pd(o) >= range.from && pd(o) <= range.to)));
+    return <OrdersDetail d={d} title="الأوردرات الملغاة" hint={`أوردرات ألغيت في الفترة ${label}، بسبب وتاريخ كل إلغاء.`} orders={inRange} onClose={onClose}
+      cols={[dateCol, { head: 'السبب', cell: (o) => <span className="text-xs">{o.cancel?.reason || '—'}</span> }, { head: 'ألغاه', cell: (o) => <span className="text-xs">{o.cancel ? `${o.cancel.by} · ${cairoDay(o.cancel.at)}` : '—'}</span> }]} />;
+  }
+  if (kind === 'blocked') {
+    const bl = d.open.filter((o) => d.blocked.has(o.ref));
+    return <OrdersDetail d={d} title="متوقف بسبب المخزون الآن" hint="الأوردرات اللي ناقص فيها صنف، والصنف الناقص جنب كل واحد." orders={bl} onClose={onClose}
+      cols={[dateCol, { head: 'الناقص', cell: (o) => <span className="text-xs text-crit">{(d.blocked.get(o.ref) ?? []).map((x) => `${skuLabel(d.skuMap, x.sku)} (${x.short})`).join('، ')}</span> }]} />;
+  }
+  if (kind === 'old') return <OrdersDetail d={d} title="من أيام سابقة" hint="أوردرات اتطلبت قبل النهارده ولسه ما اتشحنتش، الأقدم أول." orders={d.open.filter((o) => pd(o) < d.today).sort((a, b) => pd(a).localeCompare(pd(b)))} onClose={onClose}
+    cols={[dateCol, { head: 'عمره', cell: (o) => <span className="num">{dayDiff(pd(o), d.today)} يوم</span> }]} />;
+  if (kind === 'neg') return <ItemsDetail d={d} title="الرصيد السالب" hint="أصناف شُحن منها أكتر من الرصيد. محتاجة جرد." head={['الجاهز', 'مطلوب مفتوح']} empty="مفيش رصيد سالب."
+    rows={st.neg.map((s) => ({ sku: s.id, cells: [<b key="r" className="text-crit">{fmt(qty(d.snap.balances, s.id, 'READY'))}</b>, fmt(d.demand[s.id] ?? 0)] }))} onClose={onClose} />;
+  if (kind === 'dead') return <ItemsDetail d={d} title="الأصناف الراكدة" hint={`رصيد جاهز لم يُطلب من ${STAGNANT_DAYS} يوم أو أكتر (بتاريخ البيك أب)، الأكبر رصيدًا أول.`} head={['جاهز', 'آخر طلب', 'من كام يوم']} empty="مفيش أصناف راكدة."
+    rows={st.dead.map((x) => ({ sku: x.sku, cells: [fmt(x.ready), x.last || 'لم يُطلب أبدًا', x.idle === null ? '—' : `${x.idle} يوم`] }))} onClose={onClose} />;
+  // team: every shipped order with who scanned it
+  const shipped = d.snap.orders.filter((o) => o.status === 'shipped' && o.shippedBy).sort((a, b) => (b.shippedAt ?? '').localeCompare(a.shippedAt ?? ''));
+  const who = [...new Set(shipped.map((o) => o.shippedBy as string))];
+  return <OrdersDetail d={d} title="الأوردرات المشحونة" hint="كل الأوردرات اللي خرجت بالسكان، والموظف اللي سجّلها." orders={shipped} onClose={onClose}
+    chips={who.map((w) => ({ id: w, label: w, test: (o: Order) => o.shippedBy === w }))} cols={[{ head: 'الموظف', cell: (o) => o.shippedBy }, shipCol]} />;
 }
 
 function Ring({ value }: { value: number }) {
@@ -175,7 +214,7 @@ function Ring({ value }: { value: number }) {
 }
 
 function Summary({ d, st, cmp, period, label, go }: { d: Derived; st: Stats; cmp: Cmp; period: number; label: string; go: (s: Sec) => void }) {
-  const [metric, setMetric] = useState<'pcs' | 'req' | 'ship'>('pcs');
+  const [metric, setMetric] = useState<'pcs' | 'req' | 'ship'>('req'); const [kind, setKind] = useState<Kind | null>(null);
   const { cur, prev } = cmp; const rate = cur.rate;
   const series = cmp.curDays.map((r, i) => ({ day: r.day, cur: r[metric], prev: cmp.prevDays[i]?.[metric] ?? 0 }));
   const decisions: { tone: 'crit' | 'warn' | 'good' | 'accent'; icon: typeof BarChart3; title: string; body: string; to: Sec; cta: string }[] = [];
@@ -186,15 +225,16 @@ function Summary({ d, st, cmp, period, label, go }: { d: Derived; st: Stats; cmp
   const toneCls = { crit: 'border-crit-line bg-crit-bg text-crit', warn: 'border-warn-line bg-warn-bg text-warn', good: 'border-good-line bg-good-bg text-good', accent: 'border-line bg-accent-soft text-accent' };
   return (
     <div className="grid gap-4">
+      {kind && <InsightSheet d={d} st={st} kind={kind} range={{ from: cmp.cur.from, to: cmp.cur.to }} onClose={() => setKind(null)} />}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={Truck} label="نسبة الشحن" value={`${rate}%`} sub={`${fmt(cur.shipped)} شحنة من ${fmt(cur.orders)} أوردر`} tone="good"><div className="absolute top-4 left-4 max-sm:hidden"><Ring value={rate} /></div><div className="mt-2"><Delta cur={cur.rate} prev={prev.rate} suffix="%" /></div></Stat>
-        <Stat icon={BarChart3} label="القطع المطلوبة" value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر · ${label}`}><div className="mt-2"><Delta cur={cur.pieces} prev={prev.pieces} /></div><Sparkline data={cmp.curDays.map((r) => r.pcs)} labels={cmp.curDays.map((r) => r.day)} /></Stat>
-        <Stat icon={Truck} label="القطع المشحونة" value={fmt(cur.shippedPcs)} sub={`${fmt(cur.shipped)} أوردر`} tone="good"><div className="mt-2"><Delta cur={cur.shippedPcs} prev={prev.shippedPcs} /></div><Sparkline data={cmp.curDays.map((r) => r.shipPcs)} labels={cmp.curDays.map((r) => r.day)} color={C.ready} /></Stat>
-        <Stat icon={PackageX} label="ملغاة" value={fmt(cur.cancelled)} sub="أوردرات ألغيت في الفترة" tone={cur.cancelled ? 'warn' : 'good'}><div className="mt-2"><Delta cur={cur.cancelled} prev={prev.cancelled} upIsGood={false} /></div></Stat>
+        <Stat icon={Truck} label="نسبة الشحن" onClick={() => setKind('rate')} value={`${rate}%`} sub={`${fmt(cur.shipped)} شحنة من ${fmt(cur.orders)} أوردر`} tone="good"><div className="absolute top-4 left-4 max-sm:hidden"><Ring value={rate} /></div><div className="mt-2"><Delta cur={cur.rate} prev={prev.rate} suffix="%" /></div></Stat>
+        <Stat icon={BarChart3} label="القطع المطلوبة" onClick={() => setKind('pieces')} value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر · ${label}`}><div className="mt-2"><Delta cur={cur.pieces} prev={prev.pieces} /></div><Sparkline data={cmp.curDays.map((r) => r.pcs)} labels={cmp.curDays.map((r) => r.day)} /></Stat>
+        <Stat icon={Truck} label="القطع المشحونة" onClick={() => setKind('shipped')} value={fmt(cur.shippedPcs)} sub={`${fmt(cur.shipped)} أوردر`} tone="good"><div className="mt-2"><Delta cur={cur.shippedPcs} prev={prev.shippedPcs} /></div><Sparkline data={cmp.curDays.map((r) => r.shipPcs)} labels={cmp.curDays.map((r) => r.day)} color={C.ready} /></Stat>
+        <Stat icon={PackageX} label="ملغاة" onClick={() => setKind('cancelled')} value={fmt(cur.cancelled)} sub="أوردرات ألغيت في الفترة" tone={cur.cancelled ? 'warn' : 'good'}><div className="mt-2"><Delta cur={cur.cancelled} prev={prev.cancelled} upIsGood={false} /></div></Stat>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Stat icon={PackageX} label="متوقف بسبب المخزون الآن" value={fmt(d.blocked.size)} sub={`${fmt(st.stuckPcs)} قطعة`} tone={d.blocked.size ? 'crit' : 'good'} />
-        <Stat icon={Gauge} label="أصناف راكدة" value={fmt(st.dead.length)} sub="رصيد جاهز بلا طلب" tone={st.dead.length ? 'warn' : 'good'} />
+        <Stat icon={PackageX} label="متوقف بسبب المخزون الآن" onClick={() => setKind('blocked')} value={fmt(d.blocked.size)} sub={`${fmt(st.stuckPcs)} قطعة`} tone={d.blocked.size ? 'crit' : 'good'} />
+        <Stat icon={Gauge} label="أصناف راكدة" onClick={() => setKind('dead')} value={fmt(st.dead.length)} sub={`رصيد جاهز لم يُطلب من ${STAGNANT_DAYS} يوم أو أكتر`} tone={st.dead.length ? 'warn' : 'good'} />
       </div>
 
       <div>
@@ -213,7 +253,7 @@ function Summary({ d, st, cmp, period, label, go }: { d: Derived; st: Stats; cmp
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Deferred minHeight={400}>
-        <Card title="الفترة الحالية مقابل السابقة" hint={`${period} يوم مقابل ${period} يوم`} action={<span className="print:hidden"><Seg value={metric} onChange={setMetric} options={[['pcs', 'قطع مطلوبة'], ['req', 'أوردرات'], ['ship', 'مشحون']]} /></span>}>
+        <Card title="الفترة الحالية مقابل السابقة" hint={`${period} يوم مقابل ${period} يوم`} action={<span className="print:hidden"><Seg value={metric} onChange={setMetric} options={[['req', 'أوردرات'], ['pcs', 'قطع مطلوبة'], ['ship', 'مشحون']]} /></span>}>
           <CompareArea data={series} />
           <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-primary" />الفترة الحالية ({cmp.cur.from} → {cmp.cur.to})</span><span><i className="me-1.5 inline-block h-0.5 w-4 border-t-2 border-dashed border-chart-previous align-middle" /> الفترة السابقة ({cmp.prev.from} → {cmp.prev.to})</span></div>
         </Card>
@@ -268,7 +308,7 @@ function Demand({ d, st }: { d: Derived; st: Stats }) {
 }
 
 function Risk({ d, st, alerts }: { d: Derived; st: Stats; alerts: RiskAlert[] }) {
-  const [openRef, setOpenRef] = useState<string | null>(null); const [cancelRef, setCancelRef] = useState<string | null>(null);
+  const [openRef, setOpenRef] = useState<string | null>(null); const [cancelRef, setCancelRef] = useState<string | null>(null); const [kind, setKind] = useState<Kind | null>(null);
   const bl = d.open.filter((o) => d.blocked.has(o.ref)); const old = d.open.filter((o) => (d.pickupDate.get(o.pickupId) ?? d.today) < d.today).length;
   const bv: Record<string, { n: number; q: number }> = {}; for (const o of bl) for (const x of d.blocked.get(o.ref) ?? []) { const e = (bv[x.sku] ??= { n: 0, q: 0 }); e.n++; e.q += x.short; }
   const ks = Object.entries(bv).sort((a, b) => b[1].n - a[1].n).slice(0, 10);
@@ -277,12 +317,13 @@ function Risk({ d, st, alerts }: { d: Derived; st: Stats; alerts: RiskAlert[] })
   const tones = [C.scrap, C.scrap, C.dirty, C.ready, C.factory, C.muted];
   return (
     <div className="grid gap-4">
+      {kind && <InsightSheet d={d} st={st} kind={kind} range={null} onClose={() => setKind(null)} />}
       <AlertsPanel alerts={alerts} />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={PackageX} label="أوردرات متوقفة" value={bl.length} sub={`${fmt(st.stuckPcs)} قطعة`} tone={bl.length ? 'crit' : 'good'} />
-        <Stat icon={Truck} label="من أيام سابقة" value={old} sub="لم تُشحن بعد" tone={old ? 'warn' : 'good'} />
-        <Stat icon={AlertTriangle} label="رصيد سالب" value={st.neg.length} sub="يحتاج جرد" tone={st.neg.length ? 'crit' : 'good'} />
-        <Stat icon={Gauge} label="أصناف راكدة" value={st.dead.length} sub="رصيد بلا طلب" tone={st.dead.length ? 'warn' : 'good'} />
+        <Stat icon={PackageX} label="أوردرات متوقفة" onClick={() => setKind('blocked')} value={bl.length} sub={`${fmt(st.stuckPcs)} قطعة`} tone={bl.length ? 'crit' : 'good'} />
+        <Stat icon={Truck} label="من أيام سابقة" onClick={() => setKind('old')} value={old} sub="لم تُشحن بعد" tone={old ? 'warn' : 'good'} />
+        <Stat icon={AlertTriangle} label="رصيد سالب" onClick={() => setKind('neg')} value={st.neg.length} sub="يحتاج جرد" tone={st.neg.length ? 'crit' : 'good'} />
+        <Stat icon={Gauge} label="أصناف راكدة" onClick={() => setKind('dead')} value={st.dead.length} sub={`لم يُطلب من ${STAGNANT_DAYS} يوم أو أكتر`} tone={st.dead.length ? 'warn' : 'good'} />
       </div>
       <Deferred minHeight={300}>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -296,13 +337,14 @@ function Risk({ d, st, alerts }: { d: Derived; st: Stats; alerts: RiskAlert[] })
       {openRef && <OrderSheet d={d} orderRef={openRef} onClose={() => setOpenRef(null)} onCancel={(c) => { setOpenRef(null); setCancelRef(c); }} />}
       {cancelRef && <CancelSheet d={d} initial={cancelRef} onClose={() => setCancelRef(null)} />}
       <Deferred minHeight={260}>
-      <Card title="أكبر الأصناف الراكدة" hint="رصيد جاهز بلا طلب">{st.dead.length ? <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th></tr></thead><tbody>{[...st.dead].sort((a, b) => qty(d.snap.balances, b.id, 'READY') - qty(d.snap.balances, a.id, 'READY')).slice(0, 10).map((s) => <tr key={s.id}><td className={td}>{skuLabel(d.skuMap, s.id)}</td><td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, s.id, 'READY'))}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا يوجد.</Empty>}</Card>
+      <Card title="أكبر الأصناف الراكدة" hint={`رصيد جاهز لم يُطلب من ${STAGNANT_DAYS} يوم أو أكتر`}>{st.dead.length ? <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th><th className={th}>آخر طلب</th></tr></thead><tbody>{st.dead.slice(0, 10).map((s) => <tr key={s.sku}><td className={td}>{skuLabel(d.skuMap, s.sku)}</td><td className={td + ' font-mono'}>{fmt(s.ready)}</td><td className={td + ' font-mono text-muted'}>{s.last || 'لم يُطلب'}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا يوجد.</Empty>}</Card>
       </Deferred>
     </div>
   );
 }
 
-function Team({ d }: { d: Derived }) {
+function Team({ d, st }: { d: Derived; st: Stats }) {
+  const [kind, setKind] = useState<Kind | null>(null);
   const e: Record<string, { o: number; p: number; days: Set<string> }> = {}; const pivot: Record<string, Record<string, number>> = {}; let last = '';
   for (const o of d.snap.orders) if (o.status === 'shipped' && o.shippedBy && o.shippedAt) { const x = (e[o.shippedBy] ??= { o: 0, p: 0, days: new Set() }); x.o++; x.p += o.lines.length; const day = o.shippedAt.slice(0, 10); x.days.add(day); (pivot[day] ??= {})[o.shippedBy] = (pivot[day][o.shippedBy] ?? 0) + 1; last = o.shippedAt > last ? o.shippedAt : last; }
   const ks = Object.keys(e).sort((a, b) => e[b].o - e[a].o); const tot = ks.reduce((a, k) => a + e[k].o, 0);
@@ -310,7 +352,8 @@ function Team({ d }: { d: Derived }) {
   const days = Object.keys(pivot).sort().slice(-10).reverse();
   return (
     <div className="grid gap-4">
-      <div className="grid grid-cols-3 gap-3"><Stat icon={Users} label="موظفون" value={ks.length} /><Stat icon={Truck} label="أوردرات مشحونة" value={fmt(tot)} tone="good" /><Stat icon={Gauge} label="آخر تسجيل" value={timeCairo(last)} /></div>
+      {kind && <InsightSheet d={d} st={st} kind={kind} range={null} onClose={() => setKind(null)} />}
+      <div className="grid grid-cols-3 gap-3"><Stat icon={Users} label="موظفون" value={ks.length} onClick={() => setKind('team')} /><Stat icon={Truck} label="أوردرات مشحونة" value={fmt(tot)} tone="good" onClick={() => setKind('team')} /><Stat icon={Gauge} label="آخر تسجيل" value={timeCairo(last)} /></div>
       <Deferred minHeight={300}>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="الأوردرات حسب الموظف"><HBars rows={ks.map((k) => ({ label: k, value: e[k].o }))} color={C.ready} unit="أوردر" /></Card>

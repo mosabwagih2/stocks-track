@@ -9,12 +9,23 @@ import { Thumb } from '@/femini/components/Thumb';
 import { Spinner } from '@/femini/components/Spinner';
 import { CancelSheet, OrderSheet, UploadSheet } from '@/femini/components/OrderSheets';
 import { PickupOrders } from '@/femini/components/PickupOrders';
+import { ItemsDetail, OrdersDetail, SkuOrders } from '@/femini/components/DetailSheets';
 import { SettleUpload } from '@/femini/components/Collections';
 import { channelName } from '@/femini/domain/constants';
 import { fmt } from '@/femini/cn';
 import { qty } from '@/femini/domain/ledger';
 import { skuLabel } from '@/femini/domain/orders';
+import { cairoDay, dayDiff } from '@/femini/domain/dates';
+import type { Order } from '@/femini/domain/types';
+import type { Derived } from '@/femini/hooks/data';
 
+/** under the status: when the money came, or for how many days it has been out and not collected */
+function statusDate(o: Order, d: Derived) {
+  const c = d.collected.get(o.ref);
+  if (c) return <div className="num mt-1 text-[11px] text-muted">اتحصّل {c.date}</div>;
+  if (o.status === 'shipped' && !o.returned && o.shippedAt) { const n = dayDiff(cairoDay(o.shippedAt), d.today); return <div className="num mt-1 text-[11px] text-muted">اتشحن من {n} يوم</div>; }
+  return null;
+}
 type Filter = 'all' | 'wait' | 'blocked' | 'done' | 'cx' | 'bad' | 'returned' | 'paid';
 const PAGE = 60;
 
@@ -28,6 +39,7 @@ export default function Orders() {
   const [pkSheet, setPkSheet] = useState<string | null>(null); const [settle, setSettle] = useState(false);   // a pickup's orders; an order opened from it returns to it
   const [orderRef, setOrderRef] = useState<string | null>(null); const [upload, setUpload] = useState<'scan' | 'pickup' | null>(null);
   const [manual, setManual] = useState<string[] | null>(null); const [cancel, setCancel] = useState<string | null>(null);
+  const [card, setCard] = useState<'items' | 'pieces' | 'short' | null>(null); const [skuOrd, setSkuOrd] = useState<string | null>(null);   // a prep-list card, and the orders of one item
 
   const counts = useMemo(() => {
     if (!d) return null;
@@ -94,7 +106,11 @@ export default function Orders() {
       ) : tab === 'pick' ? (
         !pick.length ? <Card><Empty>لا توجد أوردرات مفتوحة. تم شحن كل ما طُلب.</Empty></Card> : (
           <>
-            <div className="mb-3 grid grid-cols-3 gap-3"><Kpi label="أصناف مطلوبة" value={pick.length} /><Kpi label="قطع مطلوبة (لم تُشحن)" value={fmt(pick.reduce((a, x) => a + x.need, 0))} /><Kpi label="أصناف ناقصة" value={pick.filter((x) => x.ready < x.need).length} tone={pick.some((x) => x.ready < x.need) ? 'crit' : 'good'} /></div>
+            <div className="mb-3 grid grid-cols-3 gap-3">
+              <Kpi label="أصناف مطلوبة" value={pick.length} sub="اضغط للتفاصيل" onClick={() => setCard('items')} />
+              <Kpi label="قطع مطلوبة (لم تُشحن)" value={fmt(pick.reduce((a, x) => a + x.need, 0))} sub={`${fmt(d.open.length)} أوردر`} onClick={() => setCard('pieces')} />
+              <Kpi label="أصناف ناقصة" value={pick.filter((x) => x.ready < x.need).length} sub={pick.some((x) => x.ready < x.need) ? 'ومعاها الأوردرات المتوقفة' : undefined} tone={pick.some((x) => x.ready < x.need) ? 'crit' : 'good'} onClick={() => setCard('short')} />
+            </div>
             <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>مطلوب</th><th className={th}>جاهز</th><th className={th}>الفرق</th></tr></thead>
               <tbody>{pick.map((x) => <tr key={x.sku}><td className={td}><Thumb model={d.modelMap.get(d.skuMap.get(x.sku)?.model ?? '')} size={36} className="me-1.5" />{skuLabel(d.skuMap, x.sku)}</td><td className={td + ' font-mono'}>{x.need}</td><td className={td + ' font-mono'}>{fmt(x.ready)}</td><td className={td}>{x.ready >= x.need ? <span className="font-mono text-muted">{fmt(x.ready - x.need)} متبقي</span> : <Pill tone="crit">ناقص {x.need - Math.max(0, x.ready)}</Pill>}</td></tr>)}</tbody></table></TableWrap>
           </>
@@ -116,10 +132,10 @@ export default function Orders() {
             <table className="text-sm"><thead><tr><th className={th + ' w-9'} /><th className={th}>البوليصة</th><th className={th}>تاريخ البيك أب</th><th className={th}>تاريخ التحصيل</th><th className={th}>النوع</th><th className={th}>المحافظة</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
               <tbody>
                 {list.slice(0, n).map((o) => (
-                  <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${o.status === 'open' && d.blocked.has(o.ref) ? 'bg-crit-bg/60' : o.status === 'shipped' ? 'bg-good-bg/50' : o.status === 'cancelled' ? 'opacity-70' : ''}`} onClick={() => setOrderRef(o.ref)}>
+                  <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${o.status === 'open' && d.blocked.has(o.ref) ? 'bg-crit-bg/60' : o.status === 'shipped' ? (d.collected.has(o.ref) ? 'bg-good-bg/50' : 'bg-info-bg/40') : o.status === 'cancelled' ? 'opacity-70' : ''}`} onClick={() => setOrderRef(o.ref)}>
                     <td className={td} onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.ref)} disabled={o.status !== 'open' || o.unmapped.length > 0} title={o.unmapped.length ? 'فيه أصناف مش متعرّفة؛ صحّحها الأول' : undefined} onChange={() => toggle(o.ref)} aria-label="تحديد" /></td>
                     <td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted whitespace-nowrap'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono whitespace-nowrap'} title={d.collected.get(o.ref) ? `التسوية ${d.collected.get(o.ref)!.stl}` : undefined}>{d.collected.get(o.ref)?.date ?? <span className="text-muted">—</span>}</td>
-                    <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{o.returned ? <Pill tone="warn">مرتجع · {o.returned.doc}</Pill> : <OrderPill o={o} d={d} />}{o.status==='open' && d.blocked.has(o.ref) && <p className="mt-1 text-xs text-crit">ناقص {d.blocked.get(o.ref)?.map((x)=>`${skuLabel(d.skuMap,x.sku)} (${x.short})`).join('، ')}</p>}</td>
+                    <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{o.returned ? <Pill tone="lost">مرتجع · {o.returned.doc}</Pill> : <OrderPill o={o} d={d} />}{statusDate(o, d)}{o.status==='open' && d.blocked.has(o.ref) && <p className="mt-1 text-xs text-crit">ناقص {d.blocked.get(o.ref)?.map((x)=>`${skuLabel(d.skuMap,x.sku)} (${x.short})`).join('، ')}</p>}</td>
                   </tr>
                 ))}
                 {!list.length && <tr><td colSpan={8}><Empty>لا توجد أوردرات مطابقة للفلتر.</Empty></td></tr>}
@@ -129,6 +145,14 @@ export default function Orders() {
           {list.length > n && <div className="mt-3 text-center"><Button onClick={() => setN((x) => x + PAGE)}>عرض المزيد ({fmt(list.length - n)} متبقي)</Button></div>}
         </>
       )}
+      {card === 'items' && <ItemsDetail d={d} title="الأصناف المطلوبة" hint="كل الأصناف في الأوردرات المفتوحة. اضغط على صنف يفتح أوردراته." head={['مطلوب', 'جاهز', 'الفرق']}
+        rows={pick.slice().sort((x, y) => y.need - x.need).map((x) => ({ sku: x.sku, cells: [fmt(x.need), fmt(x.ready), x.ready >= x.need ? `متبقي ${fmt(x.ready - x.need)}` : <b key="s" className="text-crit">ناقص {fmt(x.need - x.ready)}</b>] }))} onItem={setSkuOrd} onClose={() => setCard(null)} />}
+      {card === 'short' && <ItemsDetail d={d} title="الأصناف الناقصة" hint="الجاهز أقل من المطلوب: دي اللي بتوقّف أوردرات. اضغط على صنف يفتح الأوردرات المتوقفة بسببه." head={['مطلوب', 'جاهز', 'ناقص']} empty="مفيش أصناف ناقصة."
+        rows={pick.filter((x) => x.ready < x.need).sort((x, y) => (y.need - y.ready) - (x.need - x.ready)).map((x) => ({ sku: x.sku, cells: [fmt(x.need), fmt(x.ready), <b key="s" className="text-crit">{fmt(x.need - x.ready)}</b>] }))} onItem={setSkuOrd} onClose={() => setCard(null)} />}
+      {card === 'pieces' && <OrdersDetail d={d} title="القطع المطلوبة (لم تُشحن)" hint="كل الأوردرات المفتوحة: المتوقفة والمستنية الشحن." orders={d.open} startTab="items" onClose={() => setCard(null)}
+        chips={[{ id: 'wait', label: 'بانتظار الشحن', test: (o) => !d.blocked.has(o.ref) }, { id: 'blocked', label: 'متوقف', test: (o) => d.blocked.has(o.ref) }]}
+        cols={[{ head: 'تاريخ البيك أب', cell: (o) => <span className="num">{d.pickupDate.get(o.pickupId) ?? '—'}</span> }]} />}
+      {skuOrd && <SkuOrders d={d} sku={skuOrd} onClose={() => setSkuOrd(null)} />}
       {settle && <SettleUpload d={d} onClose={() => setSettle(false)} />}
       {pkSheet && !orderRef && <PickupOrders d={d} pickupId={pkSheet} onClose={() => setPkSheet(null)} onOrder={setOrderRef} />}
       {orderRef && <OrderSheet d={d} orderRef={orderRef} onClose={() => setOrderRef(null)} onCancel={(c) => { setOrderRef(null); setPkSheet(null); setCancel(c); }} />}

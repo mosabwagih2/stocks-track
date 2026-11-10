@@ -104,8 +104,9 @@ export default function Today() {
       return c.level === 'warn' && (d.velocityOK || (d.pull[s.model] ?? 0) > 0 || c.demand > 0);
     });
     const supLow = d.snap.supplies.filter((s) => !s.archived && supplyStatus(s, supplyBalance(d.snap.supplyLog, s.id), dailyUse(d.snap.supplyLog, s.id, d.today)) !== 'good');
-    const team: Record<string, { o: number; p: number; a: string; b: string }> = {};
-    for (const o of done) if (o.shippedBy) { const e = (team[o.shippedBy] ??= { o: 0, p: 0, a: o.shippedAt!, b: o.shippedAt! }); e.o++; e.p += o.lines.length; if (o.shippedAt! < e.a) e.a = o.shippedAt!; if (o.shippedAt! > e.b) e.b = o.shippedAt!; }
+    // the employee is the name in the scan file; the account that uploaded the file is a different thing, kept apart
+    const team: Record<string, { o: number; p: number; a: string; b: string; up: Set<string> }> = {}; const docBy = new Map(d.snap.docs.map((x) => [x.no, x.by]));
+    for (const o of done) if (o.shippedBy) { const e = (team[o.shippedBy] ??= { o: 0, p: 0, a: o.shippedAt!, b: o.shippedAt!, up: new Set<string>() }); e.o++; e.p += o.lines.length; const by = o.shipDoc ? docBy.get(o.shipDoc) : undefined; if (by) e.up.add(by); if (o.shippedAt! < e.a) e.a = o.shippedAt!; if (o.shippedAt! > e.b) e.b = o.shippedAt!; }
     return { ids, orders, done, open, blk, wait, pcs, older, oldDay, olderBy, olderDays, olderBlk, neg, low, supLow, team, pickups: d.snap.pickups.filter((p) => p.date === selected) };
   }, [d, selected]);
 
@@ -202,9 +203,9 @@ export default function Today() {
             <Card title="فريق اليوم">
               {!team.length ? <Empty>لم يُسجَّل أي شحن اليوم بعد.</Empty> : (
                 <TableWrap><table className="text-sm"><thead><tr><th className={th}>الموظف</th><th className={th}>أوردرات</th><th className={th}>قطع</th><th className={th}>من - إلى</th></tr></thead>
-                  <tbody>{team.map(([k, e]) => <tr key={k}><td className={td}>{k}</td><td className={td + ' font-mono'}>{e.o}</td><td className={td + ' font-mono'}>{e.p}</td><td className={td + ' font-mono'}>{timeCairo(e.a)} - {timeCairo(e.b)}</td></tr>)}</tbody></table></TableWrap>
+                  <tbody>{team.map(([k, e]) => <tr key={k}><td className={td}>{k}{[...e.up].filter((u) => u !== k).length > 0 && <span className="block text-[11px] font-normal text-muted">رفع الملف: {[...e.up].filter((u) => u !== k).join('، ')}</span>}</td><td className={td + ' font-mono'}>{e.o}</td><td className={td + ' font-mono'}>{e.p}</td><td className={td + ' font-mono'}>{timeCairo(e.a)} - {timeCairo(e.b)}</td></tr>)}</tbody></table></TableWrap>
               )}
-              {team.length > 0 && <p className="mt-2 text-xs text-muted">الوقت هو وقت تسجيل الملف وليس وقت التغليف.</p>}
+              {team.length > 0 && <p className="mt-2 text-xs text-muted">الوقت هو وقت تسجيل الملف وليس وقت التغليف. الاسم هو الموظف المكتوب في ملف السكان، واللي رفع الملف مكتوب تحته.</p>}
             </Card>
           </div>
         </div>

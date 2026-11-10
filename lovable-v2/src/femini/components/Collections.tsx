@@ -11,6 +11,8 @@ import { Alert, Button, Card, Empty, Field, Kpi, Seg, Sheet, TableWrap, th, td }
 import { C, TrendArea } from './charts';
 import { collectByDay, collectTrend, type CollectMetric } from '@/femini/domain/trends';
 import { change } from '@/femini/insights-tools';
+import { OrdersDetail } from './DetailSheets';
+import type { Order } from '@/femini/domain/types';
 
 const money = (n: number) => fmt(n);   // amounts in EGP (the labels say so)
 
@@ -62,7 +64,7 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
 /** Analytics › collections: what the settlements brought in, and what was shipped but not collected yet. */
 export function CollectionsView({ d, from, to }: { d: Derived; from: string; to: string }) {
   const act = useAct(); const admin = isAdmin();
-  const [up, setUp] = useState(false); const [del, setDel] = useState<string | null>(null);
+  const [up, setUp] = useState(false); const [del, setDel] = useState<string | null>(null); const [card, setCard] = useState<'due' | 'paid' | 'wait' | null>(null);
   const settles = (d.snap.settles ?? []).slice().sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   const inRange = settles.filter((s) => s.date >= from && s.date <= to);
   const sum = (list: Settlement[], k: keyof Settlement['totals']) => list.reduce((a, s) => a + s.totals[k], 0);
@@ -84,9 +86,9 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         <Button variant="primary" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Kpi label="التوريد في الفترة (جنيه)" value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
-        <Kpi label="أوردرات اتحصّلت" value={fmt(paid.length)} sub={`من ${fmt(shipped.length)} مشحون`} tone="good" />
-        <Kpi label="مشحون ولسه ما اتحصّلش" value={fmt(waiting.length)} sub={`متوقع ${money(waiting.reduce((a, x) => a + (x.o.total || 0), 0))} جنيه`} tone={waiting.length ? 'warn' : undefined} />
+        <Kpi label="التوريد في الفترة (جنيه)" onClick={() => setCard('due')} value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
+        <Kpi label="أوردرات اتحصّلت" onClick={() => setCard('paid')} value={fmt(paid.length)} sub={`من ${fmt(shipped.length)} مشحون`} tone="good" />
+        <Kpi label="مشحون ولسه ما اتحصّلش" onClick={() => setCard('wait')} value={fmt(waiting.length)} sub={`متوقع ${money(waiting.reduce((a, x) => a + (x.o.total || 0), 0))} جنيه`} tone={waiting.length ? 'warn' : undefined} />
       </div>
       <CollectTrend d={d} from={from} to={to} />
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>
@@ -115,6 +117,16 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         )}
         {waiting.length > 100 && <p className="mt-2 text-xs text-muted">أول 100 من {fmt(waiting.length)}.</p>}
       </Card>
+      {card && (() => {
+        const collected = (o: Order) => d.collected.get(o.ref);
+        const cols = [{ head: 'تاريخ التحصيل', cell: (o: Order) => <span className="num">{collected(o)?.date ?? '—'}</span> }, { head: 'التوريد', cell: (o: Order) => <b className="num">{money(collected(o)?.due ?? 0)}</b> }, { head: 'التسوية', cell: (o: Order) => <span className="num text-muted">{collected(o)?.stl ?? '—'}</span> }];
+        if (card === 'wait') return <OrdersDetail d={d} title="مشحون ولسه ما اتحصّلش" hint="الأقدم الأول." orders={waiting.map((x) => x.o)} onClose={() => setCard(null)}
+          cols={[{ head: 'اتشحن من', cell: (o) => { const w = waiting.find((x) => x.o.ref === o.ref); return <span className="num">{w ? age(w.day) : 0} يوم</span>; } }, { head: 'المبلغ', cell: (o) => <span className="num">{fmt(o.total || 0)}</span> }]} />;
+        if (card === 'paid') return <OrdersDetail d={d} title="أوردرات اتحصّلت" hint="كل اللي فلوسه وصلت حسب شيتات التسوية." orders={paid.slice().sort((a, b) => (collected(b)?.date ?? '').localeCompare(collected(a)?.date ?? ''))} cols={cols} onClose={() => setCard(null)} />;
+        const inPeriod = d.snap.orders.filter((o) => { const c = collected(o); return !!c && c.date >= from && c.date <= to; }).sort((a, b) => (collected(b)?.date ?? '').localeCompare(collected(a)?.date ?? ''));
+        const listed = inPeriod.reduce((a, o) => a + (collected(o)?.due ?? 0), 0); const all = sum(inRange, 'due');
+        return <OrdersDetail d={d} title="التوريد في الفترة" hint={`الأوردرات اللي اتحصّلت من ${from} لـ ${to}، بتاريخ تحصيلها: ${money(listed)} من ${money(all)} جنيه${Math.round(listed) !== Math.round(all) ? '. الباقي من أوردرات مش في السيستم أو تسويات ما اتربطتش بأوردر.' : '.'}`} orders={inPeriod} cols={cols} onClose={() => setCard(null)} />;
+      })()}
       {up && <SettleUpload d={d} onClose={() => setUp(false)} />}
     </div>
   );
