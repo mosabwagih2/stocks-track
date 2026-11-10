@@ -37,7 +37,7 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Kpi label="تاريخ التسوية" value={<span className="text-lg">{parsed.date}</span>} sub={parsed.title} />
           <Kpi label="إجمالي الأوردرات" value={pv.rows} sub="في الشيت" />
-          <Kpi label="مستحق فيميني (جنيه)" value={money(parsed.totals.due)} tone="good" />
+          <Kpi label="التوريد (جنيه)" value={money(parsed.totals.due)} tone="good" />
         </div>
         <TableWrap><table className="text-sm"><thead><tr><th className={th}>الأوردرات</th><th className={th}>العدد</th></tr></thead><tbody>
           <tr><td className={td}><b>إجمالي الأوردرات</b></td><td className={td + ' font-mono font-semibold'}>{pv.rows}</td></tr>
@@ -84,14 +84,14 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         <Button variant="primary" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Kpi label="مستحق فيميني في الفترة (جنيه)" value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
+        <Kpi label="التوريد في الفترة (جنيه)" value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
         <Kpi label="أوردرات اتحصّلت" value={fmt(paid.length)} sub={`من ${fmt(shipped.length)} مشحون`} tone="good" />
         <Kpi label="مشحون ولسه ما اتحصّلش" value={fmt(waiting.length)} sub={`متوقع ${money(waiting.reduce((a, x) => a + (x.o.total || 0), 0))} جنيه`} tone={waiting.length ? 'warn' : undefined} />
       </div>
       <CollectTrend d={d} from={from} to={to} />
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>
         {!settles.length ? <Empty>لسه ما اترفعش شيت تسوية.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'مستحق فيميني', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'التوريد', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{settles.map((s) => (
               <tr key={s.id}>
                 <td className={td + ' font-mono'} title={s.source}>{s.date}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' font-mono'}>{s.rows.length}</td>
@@ -147,7 +147,7 @@ function CollectFlow({ d }: { d: Derived }) {
   const t = useMemo(() => collectTrend(d.snap, d.today, n, metric), [d, n, metric]);
   const pct = change(t.cur, t.prev);
   return (
-    <Card title="حركة التحصيل" hint={money ? 'جنيه · مستحق فيميني بتاريخ التسوية' : 'أوردرات · بتاريخ التحصيل في الشيت'}
+    <Card title="حركة التحصيل" hint={money ? 'جنيه · التوريد بتاريخ التسوية' : 'أوردرات · بتاريخ التحصيل في الشيت'}
       action={<span className="flex flex-wrap items-center gap-2 print:hidden">
         <Seg<CollectMetric> label="المقياس" value={metric} onChange={setMetric} options={[['due', 'جنيه'], ['collected', 'أوردرات']]} />
         <Seg<string> label="الفترة" value={days} onChange={setDays} options={DAYS} />
@@ -160,7 +160,7 @@ function CollectFlow({ d }: { d: Derived }) {
               : <span className={cn('inline-flex items-center gap-1 font-semibold', pct > 0 ? 'text-good' : 'text-crit')}>{pct > 0 ? <ArrowUpRight className="size-4" /> : <ArrowDownRight className="size-4" />}<span className="num">{Math.abs(pct)}%</span>{pct > 0 ? 'طلع' : 'نزل'} عن</span>}
             <span className="text-muted">الـ {n} يوم اللي قبلهم (<span className="num">{fmt(t.prev)}</span>{money ? ' جنيه' : ' أوردر'})</span></>}
       </p>
-      <TrendArea money={money} height={240} data={t.rows} series={[{ key: metric, name: money ? 'مستحق فيميني' : 'اتحصّل', color: money ? C.femini : C.ready }, { key: 'avg', name: 'متوسط يوم التحصيل', color: C.muted, dash: true, total: 'last' }]} />
+      <TrendArea money={money} height={240} data={t.rows} series={[{ key: metric, name: money ? 'التوريد' : 'اتحصّل', color: money ? C.femini : C.ready }, { key: 'avg', name: 'متوسط يوم التحصيل', color: C.muted, dash: true, total: 'last' }]} />
     </Card>
   );
 }

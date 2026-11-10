@@ -1,11 +1,13 @@
 import logo from '@/femini/assets/femini-logo.png';
 import { Notifications } from '@/femini/components/Notifications';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { whenIdle } from '@/femini/components/Deferred';
 import { BarChart3, Boxes, ClipboardList, FileText, Package, ReceiptText, Settings as Cog, LayoutGrid, Menu, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { qty } from '@/femini/domain/ledger';
+import { lateDays } from '@/femini/domain/warehouseDay';
+import { LateDot } from '@/femini/components/LateDot';
 import { dayLabel } from '@/femini/domain/dates';
 import { startAccount } from '@/femini/data/account';
 
@@ -60,6 +62,7 @@ export default function Shell({ children }: { children: ReactNode }) {
     document.documentElement.classList.remove('dark');
     try { localStorage.removeItem('femini-theme'); } catch { /* private mode */ }
   }, []);
+  const late = useMemo(() => (d ? lateDays(d.snap, d.today) : null), [d]);   // days that stayed open too long: a dot on التحليلات
   const badge: Record<string, number> = {};
   if (d) {
     badge['/orders'] = d.blocked.size;
@@ -82,6 +85,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             className="group relative flex flex-row items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rail-mute transition hover:bg-lav hover:text-on-rail data-[status=active]:bg-accent-soft data-[status=active]:text-accent">
             <Icon className="size-[18px] shrink-0" strokeWidth={1.8} />
             <span className={mini ? 'md:sr-only' : ''}>{label}</span>
+            {to === '/insights' && late ? <LateDot level={late.level} late={late.late} className={`ms-auto ${mini ? 'md:absolute md:end-2 md:top-1.5' : ''}`} /> : null}
             {badge[to] ? <span className={`ms-auto rounded-full bg-scrap px-1.5 py-0.5 font-mono text-[10px] leading-none font-semibold text-on-accent ${mini ? 'md:absolute md:end-1 md:top-0.5' : ''}`}>{badge[to]}</span> : null}
           </Link>
         ))}

@@ -1,4 +1,4 @@
-import { addDays } from '@/femini/domain/dates';
+import { addDays, dayDiff } from '@/femini/domain/dates';
 import { useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
@@ -22,7 +22,8 @@ import { CollectionsView } from '@/femini/components/Collections';
 import { Deferred } from '@/femini/components/Deferred';
 import { WarehouseDayView } from '@/femini/components/WarehouseDay';
 import { PeriodPicker } from '@/femini/components/PeriodPicker';
-import { warehouseDays } from '@/femini/domain/warehouseDay';
+import { lateDays, lateLevel, warehouseDays } from '@/femini/domain/warehouseDay';
+import { LateDot } from '@/femini/components/LateDot';
 import { CancelSheet, OrderSheet } from '@/femini/components/OrderSheets';
 
 const lineOf = (m: string) => (/^PAN/.test(m) ? 'بانتي' : /^BR/.test(m) ? 'برا' : /^SH/.test(m) ? 'شورت' : 'موديلات أخرى');
@@ -88,6 +89,7 @@ export default function Insights() {
   const st = useStats(d, range);
   const cmp = useMemo(() => (d && range ? comparePeriods(d, range) : null), [d, range]);
   const alerts = useMemo(() => (d && cmp ? riskAlerts(d, cmp) : []), [d, cmp]);
+  const late = useMemo(() => (d ? lateDays(d.snap, d.today) : null), [d]);   // open warehouse days that have waited too long
   const toast = useToast();
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d || !st || !cmp) return <Spinner />;
@@ -118,7 +120,7 @@ export default function Insights() {
             className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
             <Icon className="size-[18px] shrink-0" />
             {/* the count sits right next to its own label, so it cannot be read as the neighbour's */}
-            <span className="inline-flex min-w-0 items-center gap-1.5"><span className="truncate">{label}</span>{counts[id] ? <span aria-label={`${counts[id]} عاجل`} className={cn('grid min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] leading-5', sec === id ? 'bg-on-accent/25' : 'bg-crit text-on-accent')}>{counts[id]}</span> : null}</span>
+            <span className="inline-flex min-w-0 items-center gap-1.5"><span className="truncate">{label}</span>{counts[id] ? <span aria-label={`${counts[id]} عاجل`} className={cn('grid min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] leading-5', sec === id ? 'bg-on-accent/25' : 'bg-crit text-on-accent')}>{counts[id]}</span> : null}{id === 'whday' && late ? <LateDot level={late.level} late={late.late} /> : null}</span>
           </Button>
         ))}
       </nav>
@@ -367,16 +369,21 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
   if (sec === 'whday') {
     // every order on the day it left the warehouse, whatever day its money came on
     const days = warehouseDays(d.snap, cur.from, cur.to);
-    sheets.push({ name: 'تقفيل الأيام', rows: [['يوم الخروج', 'أوردرات', 'قطع', 'اتحصّل', 'رجع', 'لسه', 'المتوقع للي لسه', 'المبيعات', 'مصاريف الشحن', 'الصافي', 'مستحق فيميني', 'اتحصّل في تسويات', 'الحالة'],
-      ...days.map((x) => [x.day, x.orders, x.pieces, x.collected, x.returned, x.pending, x.pendingValue, x.sales, x.fees, x.cod, x.due, x.paidOn.map((p) => `${p.date} (${p.n})`).join('، '), x.pending ? `لسه ${x.pending}` : 'اتقفل'])] });
-    sheets.push({ name: 'أوردرات الأيام', rows: [['يوم الخروج', 'البوليصة', 'رقم الأوردر', 'قطع', 'الحالة', 'تاريخ التحصيل', 'المبلغ', 'الصافي', 'مستحق فيميني', 'التسوية'],
-      ...days.flatMap((x) => x.list.map((w) => [x.day, w.ref, w.waybill, w.pieces, w.state === 'collected' ? 'اتحصّل' : w.state === 'returned' ? 'رجع' : 'لسه', w.on, w.state === 'collected' ? w.sales : w.expected, w.cod, w.due, w.stl.join('، ')]))] });
+    const open = days.filter((x) => x.pending > 0).sort((a, b) => a.day.localeCompare(b.day));
+    const closed = days.filter((x) => !x.pending).sort((a, b) => b.closedOn.localeCompare(a.closedOn) || b.day.localeCompare(a.day));
+    const collectedAt = (x: (typeof days)[number]) => x.paidOn.map((p) => `${p.date} (${p.n})`).join('، ');
+    const head = ['يوم الخروج', 'أوردرات', 'قطع', 'اتحصّل', 'التوريد', 'رجع', 'قيمة اللي رجع', 'لسه', 'قيمة اللي لسه', 'اتحصّل في تسويات'];
+    const cells = (x: (typeof days)[number]) => [x.day, x.orders, x.pieces, x.collected, x.due, x.returned, x.returnedValue, x.pending, x.pendingValue, collectedAt(x)];
+    sheets.push({ name: 'أيام لسه مفتوحة', rows: [[...head, 'عدّى كام يوم', 'متأخر'], ...open.map((x) => { const age = dayDiff(x.day, d.today); return [...cells(x), age, lateLevel(age) === 2 ? 'متأخر جدًا (10+)' : lateLevel(age) === 1 ? 'متأخر (7+)' : '']; })] });
+    sheets.push({ name: 'أيام اتقفلت', rows: [[...head, 'اتقفل يوم', 'بعد كام يوم'], ...closed.map((x) => [...cells(x), x.closedOn, Math.max(0, dayDiff(x.day, x.closedOn))])] });
+    sheets.push({ name: 'أوردرات الأيام', rows: [['يوم الخروج', 'البوليصة', 'رقم الأوردر', 'قطع', 'الحالة', 'اتقفل يوم', 'التوريد', 'قيمة الأوردر', 'التسوية'],
+      ...days.flatMap((x) => x.list.map((w) => [x.day, w.ref, w.waybill, w.pieces, w.state === 'collected' ? 'اتحصّل' : w.state === 'returned' ? 'رجع' : 'لسه', w.closedOn, w.due, w.expected, w.stl.join('، ')]))] });
   }
   if (sec === 'summary' || sec === 'collect') {
     // the settlement sheets of the period, and what is shipped and not collected yet
     const inRange = (d.snap.settles ?? []).filter((s) => s.date >= cur.from && s.date <= cur.to).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
     const n = (s: { rows: { type: string }[] }, t: string) => s.rows.filter((r) => r.type === t).length;
-    sheets.push({ name: 'التسويات', rows: [['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'مستحق فيميني', 'رفعه'],
+    sheets.push({ name: 'التسويات', rows: [['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'التوريد', 'رفعه'],
       ...inRange.map((s) => [s.date, s.id, s.rows.length, n(s, 'collect'), n(s, 'return'), n(s, 'partial'), s.totals.due, s.by]),
       ['الإجمالي', `${inRange.length} تسوية`, inRange.reduce((a, s) => a + s.rows.length, 0), '', '', '', inRange.reduce((a, s) => a + s.totals.due, 0), '']] });
     const waiting = d.snap.orders.filter((o) => o.status === 'shipped' && !o.returned && !d.collected.has(o.ref) && !d.settleReturned.has(o.ref))
