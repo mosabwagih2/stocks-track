@@ -63,7 +63,7 @@ function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc
                     <td key={z}>
                       <button type="button" onClick={() => onCell(s)} aria-label={`${skuLabel(d.skuMap, s.id)}: ${v}`}
                         title={`${LOCS.filter((l) => qty(d.snap.balances, s.id, l)).map((l) => `${LOC_AR[l]} ${qty(d.snap.balances, s.id, l)}`).join(' · ') || 'لا يوجد رصيد'}${info.demand ? `\nطلب مفتوح ${info.demand}` : ''}`}
-                        className={cn('relative grid h-11 min-w-[4.5rem] place-items-center rounded-[10px] border border-transparent font-mono text-[15px] font-medium hover:border-accent',
+                        className={cn('relative grid h-11 min-w-14 place-items-center rounded-[10px] border border-transparent font-mono text-[15px] font-medium hover:border-accent',
                           tone)}>
                         {v}
                         {loc === 'READY' && info.demand > 0 && <small className="absolute inset-x-0 bottom-0.5 text-center font-sans text-[9.5px] leading-none opacity-80">طلب {info.demand}</small>}

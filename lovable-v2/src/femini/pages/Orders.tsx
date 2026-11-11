@@ -81,8 +81,8 @@ export default function Orders() {
       <PageHead title="الأوردرات" sub="البيك أب = الطلب. الشحن (بالسكان) = ما خرج فعلًا. الفرق بينهما هو الأوردرات المتوقفة.">
         <Button variant="danger" onClick={() => setCancel('')}><XCircle className="size-4" /> إلغاء أوردر</Button>
         <Button onClick={() => setSettle(true)}><Upload className="size-4" /> رفع شيت التحصيل</Button>
-        <Button onClick={() => setUpload('pickup')}><Upload className="size-4" /> رفع بيك أب</Button>
-        <Button variant="primary" onClick={() => setUpload('scan')}><Upload className="size-4" /> رفع ملف الإسكان</Button>
+        <Button variant="primary" onClick={() => setUpload('pickup')}><Upload className="size-4" /> رفع بيك أب</Button>
+        <Button onClick={() => setUpload('scan')}><Upload className="size-4" /> رفع ملف الإسكان</Button>
       </PageHead>
       <Tabs value={tab} onChange={setTab} tabs={[['list', 'الأوردرات'], ['pk', `بيك أب (${d.snap.pickups.length})`], ['pick', 'قائمة التجهيز']]} />
       {tab === 'pk' ? (
