@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import * as XLSX from 'xlsx';
-import { collectedOf, dayOf, parseSettlement, previewSettlement, type Settlement } from './settle';
+import { collectedOf, dayOf, parseSettlement, previewSettlement, supplyOnly, type Settlement } from './settle';
 import type { Order } from './types';
 
 const H = ['', '', '', '', '', '', 'Company name', 'Serial', 'Order delivery status', 'Statusnote', 'Notes', 'Order date', 'Fullname', 'Code', 'Total amount', 'Phone', 'Address', 'Type', 'Total fees', 'Cod', 'Collect date', 'Return date', '', 'عدد القطع في الاوردر', 'إجمالي التوريد في الأوردر'];
@@ -19,13 +19,20 @@ const sheet = [
 const order = (ref: string, status: Order['status']): Order => ({ ref, waybill: '9' + ref, type: 'new', gov: '', total: 0, lines: ['X'], unmapped: [], pickupId: 'P1', status });
 
 describe('settlement sheet', () => {
-  it('reads rows, types, dates, amounts and the totals block', () => {
+  it("reads rows, types, dates and Fémini's share only (no sales, shipping fees, net or Vendoor share)", () => {
     const p = parseSettlement(sheet);
     expect(p.date).toBe('2026-11-04');
-    expect(p.rows.map((r) => [r.ref, r.type, r.cod, r.supply, r.pieces, r.date])).toEqual([
-      ['aa1', 'collect', 435, 120, 2, '2026-11-04'], ['bb2', 'collect', 435, 150, 3, '2026-11-03'], ['cc3', 'return', 0, 0, null, '2026-11-04'], ['dd4', 'partial', 0, 0, null, '2026-11-04'], ['bb2', 'adjust', 0, -30, -1, '2026-11-04']]);
-    expect(p.totals).toEqual({ sales: 1000, cod: 870, shipping: 130, due: 870, vendoor: 600 });
+    expect(p.rows.map((r) => [r.ref, r.type, r.supply, r.pieces, r.date])).toEqual([
+      ['aa1', 'collect', 120, 2, '2026-11-04'], ['bb2', 'collect', 150, 3, '2026-11-03'], ['cc3', 'return', 0, null, '2026-11-04'], ['dd4', 'partial', 0, null, '2026-11-04'], ['bb2', 'adjust', -30, -1, '2026-11-04']]);
+    expect(p.totals).toEqual({ due: 870 });
+    for (const row of p.rows) expect(Object.keys(row).sort()).toEqual(['date', 'note', 'pieces', 'ref', 'serial', 'status', 'supply', 'type']);
     expect(dayOf('4-11-2026')).toBe('2026-11-04');
+  });
+  it("a sheet stored before this rule is shown with Fémini's share only", () => {
+    const old = { id: 'STL-1', date: '2026-11-04', title: '', source: '', at: '', by: 'M', totals: { sales: 1000, cod: 870, shipping: 130, due: 870, vendoor: 600 }, rows: [{ ref: 'a', serial: '', type: 'collect', status: 3, total: 500, fees: 65, cod: 435, supply: 120, pieces: 2, date: '2026-11-04', note: '' }] } as unknown as Settlement;
+    const s = supplyOnly(old);
+    expect(s.totals).toEqual({ due: 870 });
+    expect(s.rows[0]).toEqual({ ref: 'a', serial: '', type: 'collect', status: 3, supply: 120, pieces: 2, date: '2026-11-04', note: '' });
   });
   it('collected vs returned per order; a sheet uploaded twice is recognised', () => {
     const p = parseSettlement(sheet); const s: Settlement = { ...p, id: 'STL-0001', source: 'x.xlsx', at: '', by: 'M' };
@@ -49,14 +56,15 @@ describe('settlement sheet', () => {
 const dir = process.env.FEMINI_SETTLE_DIR;
 const sheets = dir && fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /تسوية.*\.xlsx$/.test(f) && !f.startsWith('~$')) : [];
 // what each real sheet says about itself (its totals block and its file name)
-const EXPECT: Record<string, { date: string; rows: number; collect: number; ret: number; partial: number; adjust: number; sales: number; cod: number; due: number; vendoor: number }> = {
+const EXPECT: Record<string, { date: string; rows: number; collect: number; ret: number; partial: number; adjust: number; due: number }> = {
   // named 31-11 (no such day); the sheet itself says "توريد يوم 31 أكتوبر"
-  '31-11-2026': { date: '2026-10-31', rows: 55, collect: 39, ret: 14, partial: 2, adjust: 0, sales: 53014, cod: 50274, due: 34170, vendoor: 16104 },
-  '01-11-2026': { date: '2026-11-01', rows: 68, collect: 51, ret: 14, partial: 3, adjust: 0, sales: 63913, cod: 60253, due: 41150, vendoor: 19103 },
-  '02-11-2026': { date: '2026-11-02', rows: 74, collect: 58, ret: 10, partial: 5, adjust: 1, sales: 86270, cod: 81400, due: 48590, vendoor: 32810 },
-  '03-11-2026': { date: '2026-11-03', rows: 90, collect: 76, ret: 12, partial: 2, adjust: 0, sales: 90819, cod: 85489, due: 49510, vendoor: 35979 },
-  '04-11-2026': { date: '2026-11-04', rows: 92, collect: 71, ret: 14, partial: 6, adjust: 1, sales: 79168, cod: 72993, due: 42765, vendoor: 30228 },
-  '05-11-2026': { date: '2026-11-05', rows: 90, collect: 65, ret: 22, partial: 2, adjust: 1, sales: 70903, cod: 65468, due: 38870, vendoor: 26598 },
+  '31-11-2026': { date: '2026-10-31', rows: 55, collect: 39, ret: 14, partial: 2, adjust: 0, due: 34170 },
+  '01-11-2026': { date: '2026-11-01', rows: 68, collect: 51, ret: 14, partial: 3, adjust: 0, due: 41150 },
+  '02-11-2026': { date: '2026-11-02', rows: 74, collect: 58, ret: 10, partial: 5, adjust: 1, due: 48590 },
+  '03-11-2026': { date: '2026-11-03', rows: 90, collect: 76, ret: 12, partial: 2, adjust: 0, due: 49510 },
+  '04-11-2026': { date: '2026-11-04', rows: 92, collect: 71, ret: 14, partial: 6, adjust: 1, due: 42765 },
+  '05-11-2026': { date: '2026-11-05', rows: 90, collect: 65, ret: 22, partial: 2, adjust: 1, due: 38870 },
+  '07-11-2026': { date: '2026-11-07', rows: 88, collect: 68, ret: 14, partial: 6, adjust: 0, due: 44480 },
 };
 describe.skipIf(!sheets.length)('the real settlement sheets', () => {
   for (const f of sheets) it(f, () => {
@@ -64,9 +72,8 @@ describe.skipIf(!sheets.length)('the real settlement sheets', () => {
     const p = parseSettlement(XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' }), f);
     const e = EXPECT[Object.keys(EXPECT).find((k) => f.includes(k))!];
     const n = (t: string) => p.rows.filter((r) => r.type === t).length;
-    expect({ date: p.date, rows: p.rows.length, collect: n('collect'), ret: n('return'), partial: n('partial'), adjust: n('adjust'), sales: p.totals.sales, cod: p.totals.cod, due: p.totals.due, vendoor: p.totals.vendoor }).toEqual(e);
-    expect(p.totals.shipping).toBe(e.sales - e.cod);                 // the shipping company's due = sales − net
-    expect(p.totals.due + p.totals.vendoor).toBe(p.totals.cod);       // net = Fémini + Vendoor
+    expect({ date: p.date, rows: p.rows.length, collect: n('collect'), ret: n('return'), partial: n('partial'), adjust: n('adjust'), due: p.totals.due }).toEqual(e);
+    expect(Object.keys(p.totals)).toEqual(['due']);                  // nothing but Fémini's share is kept
     expect(p.rows.reduce((a, r) => a + r.supply, 0)).toBe(e.due);     // Fémini's due = its share of every order
     expect(!!p.dateNote).toBe(f.includes('31-11'));                 // the wrong name is pointed out
     expect(f).toContain(`( ${e.due.toLocaleString("en-US")} )`);   // the number in the file name

@@ -416,12 +416,12 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
     const open = days.filter((x) => x.pending > 0).sort((a, b) => a.day.localeCompare(b.day));
     const closed = days.filter((x) => !x.pending).sort((a, b) => b.closedOn.localeCompare(a.closedOn) || b.day.localeCompare(a.day));
     const collectedAt = (x: (typeof days)[number]) => x.paidOn.map((p) => `${p.date} (${p.n})`).join('، ');
-    const head = ['يوم الخروج', 'أوردرات', 'قطع', 'اتحصّل', 'التوريد', 'رجع', 'قيمة اللي رجع', 'لسه', 'قيمة اللي لسه', 'اتحصّل في تسويات'];
-    const cells = (x: (typeof days)[number]) => [x.day, x.orders, x.pieces, x.collected, x.due, x.returned, x.returnedValue, x.pending, x.pendingValue, collectedAt(x)];
+    const head = ['يوم الخروج', 'أوردرات', 'قطع', 'اتحصّل', 'التوريد', 'رجع', 'قطع رجعت', 'لسه', 'قطع لسه', 'اتحصّل في تسويات'];
+    const cells = (x: (typeof days)[number]) => [x.day, x.orders, x.pieces, x.collected, x.due, x.returned, x.returnedPieces, x.pending, x.pendingPieces, collectedAt(x)];
     sheets.push({ name: 'أيام لسه مفتوحة', rows: [[...head, 'عدّى كام يوم', 'متأخر'], ...open.map((x) => { const age = dayDiff(x.day, d.today); return [...cells(x), age, lateLevel(age) === 2 ? 'متأخر جدًا (10+)' : lateLevel(age) === 1 ? 'متأخر (7+)' : '']; })] });
     sheets.push({ name: 'أيام اتقفلت', rows: [[...head, 'اتقفل يوم', 'بعد كام يوم'], ...closed.map((x) => [...cells(x), x.closedOn, Math.max(0, dayDiff(x.day, x.closedOn))])] });
-    sheets.push({ name: 'أوردرات الأيام', rows: [['يوم الخروج', 'البوليصة', 'رقم الأوردر', 'قطع', 'الحالة', 'اتقفل يوم', 'التوريد', 'قيمة الأوردر', 'التسوية'],
-      ...days.flatMap((x) => x.list.map((w) => [x.day, w.ref, w.waybill, w.pieces, w.state === 'collected' ? 'اتحصّل' : w.state === 'returned' ? 'رجع' : 'لسه', w.closedOn, w.due, w.expected, w.stl.join('، ')]))] });
+    sheets.push({ name: 'أوردرات الأيام', rows: [['يوم الخروج', 'البوليصة', 'رقم الأوردر', 'قطع', 'الحالة', 'اتقفل يوم', 'التوريد', 'التسوية'],
+      ...days.flatMap((x) => x.list.map((w) => [x.day, w.ref, w.waybill, w.pieces, w.state === 'collected' ? 'اتحصّل' : w.state === 'returned' ? 'رجع' : 'لسه', w.closedOn, w.due, w.stl.join('، ')]))] });
   }
   if (sec === 'summary' || sec === 'collect') {
     // the settlement sheets of the period, and what is shipped and not collected yet
@@ -432,7 +432,7 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
       ['الإجمالي', `${inRange.length} تسوية`, inRange.reduce((a, s) => a + s.rows.length, 0), '', '', '', inRange.reduce((a, s) => a + s.totals.due, 0), '']] });
     const waiting = d.snap.orders.filter((o) => o.status === 'shipped' && !o.returned && !d.collected.has(o.ref) && !d.settleReturned.has(o.ref))
       .map((o) => ({ o, day: o.shippedAt ? cairoDay(o.shippedAt) : '' })).sort((a, b) => a.day.localeCompare(b.day));
-    sheets.push({ name: 'لسه ما اتحصلش', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'المبلغ', 'قطع'], ...waiting.map(({ o, day }) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', day, o.total || 0, o.lines.length])] });
+    sheets.push({ name: 'لسه ما اتحصلش', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'قطع'], ...waiting.map(({ o, day }) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', day, o.lines.length])] });
   }
   if (sec === 'team') {
     const e: Record<string, { o: number; p: number }> = {};

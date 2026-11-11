@@ -7,7 +7,7 @@ import type { Settlement } from './settle';
  * came on. A day is closed when every order that left on it is collected or came back. Pure.
  *
  * Per order, the settlement rows of the same waybill are added up (a correction row adds to its order):
- *  - collected: it has a collect row (delivered and paid). Money: total (customer paid), fees, cod (net), supply (Fémini).
+ *  - collected: it has a collect row (delivered and paid). Money: only التوريد (Fémini's share, «supply»).
  *  - returned: a return / partial row and no collect row, or a customer-return document (RTN) in the warehouse.
  *  - pending: neither yet.
  *
@@ -19,28 +19,29 @@ export const LATE_CRIT = 10;
 /** 0 fine, 1 late (7+ days open), 2 very late (10+) */
 export const lateLevel = (age: number): 0 | 1 | 2 => (age >= LATE_CRIT ? 2 : age >= LATE_WARN ? 1 : 0);
 export type WhState = 'collected' | 'returned' | 'pending';
-export interface WhOrder { ref: string; /** the day it left the warehouse */ day: string; waybill: string; pieces: number; expected: number; state: WhState; sales: number; fees: number; cod: number; due: number; stl: string[]; on: string; /** the day it closed (collected / came back), '' while pending */ closedOn: string }
+export interface WhOrder { ref: string; /** the day it left the warehouse */ day: string; waybill: string; pieces: number; state: WhState; /** التوريد */ due: number; stl: string[]; on: string; /** the day it closed (collected / came back), '' while pending */ closedOn: string }
 export interface WhDay {
-  day: string; orders: number; pieces: number; expected: number;
-  collected: number; returned: number; pending: number; pendingValue: number;
-  /** pieces in each state, and what the returned orders were worth (their order total) */
-  collectedPieces: number; returnedPieces: number; pendingPieces: number; returnedValue: number;
+  day: string; orders: number; pieces: number;
+  collected: number; returned: number; pending: number;
+  /** pieces in each state */
+  collectedPieces: number; returnedPieces: number; pendingPieces: number;
   /** the last day anything on this day was collected or came back, once nothing is pending; '' while open */
   closedOn: string;
-  sales: number; fees: number; cod: number; due: number;
+  /** التوريد of the collected orders */
+  due: number;
   /** which settlement days paid this day's orders, and how many each */
   paidOn: { date: string; n: number }[];
   list: WhOrder[];
 }
 
 export function orderMoney(settles: Settlement[]) {
-  const by = new Map<string, { collect: boolean; ret: boolean; total: number; fees: number; cod: number; due: number; stl: Set<string>; on: string; retOn: string }>();
+  const by = new Map<string, { collect: boolean; ret: boolean; due: number; stl: Set<string>; on: string; retOn: string }>();
   for (const s of [...settles].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) {
     for (const r of s.rows) {
-      const e = by.get(r.ref) ?? { collect: false, ret: false, total: 0, fees: 0, cod: 0, due: 0, stl: new Set<string>(), on: '', retOn: '' };
+      const e = by.get(r.ref) ?? { collect: false, ret: false, due: 0, stl: new Set<string>(), on: '', retOn: '' };
       if (r.type === 'collect') { e.collect = true; if (!e.on) e.on = r.date || s.date; }
       if (r.type === 'return' || r.type === 'partial') { e.ret = true; if (!e.retOn) e.retOn = r.date || s.date; }
-      if (r.type === 'collect' || r.type === 'adjust') { e.total += r.total || 0; e.fees += r.fees || 0; e.cod += r.cod || 0; e.due += r.supply || 0; }
+      if (r.type === 'collect' || r.type === 'adjust') e.due += r.supply || 0;
       e.stl.add(s.id); by.set(r.ref, e);
     }
   }
@@ -57,13 +58,11 @@ export function warehouseDays(s: Pick<Snapshot, 'orders' | 'settles'>, from: str
     const m = money.get(o.ref);
     const state: WhState = m?.collect ? 'collected' : m?.ret || o.returned ? 'returned' : 'pending';
     const closedOn = state === 'collected' ? m!.on : state === 'returned' ? (m?.retOn || (o.returned?.at ? cairoDay(o.returned.at) : '')) : '';
-    const w: WhOrder = { ref: o.ref, day, closedOn, waybill: o.waybill, pieces: o.lines.length, expected: o.total || 0, state, sales: m?.total ?? 0, fees: m?.fees ?? 0, cod: m?.cod ?? 0, due: m?.due ?? 0, stl: m ? [...m.stl] : [], on: m?.on ?? '' };
-    const d = days.get(day) ?? { day, orders: 0, pieces: 0, expected: 0, collected: 0, returned: 0, pending: 0, pendingValue: 0, collectedPieces: 0, returnedPieces: 0, pendingPieces: 0, returnedValue: 0, closedOn: '', sales: 0, fees: 0, cod: 0, due: 0, paidOn: [], list: [] };
-    d.orders++; d.pieces += w.pieces; d.expected += w.expected; d[state]++;
-    if (state === 'pending') { d.pendingValue += w.expected; d.pendingPieces += w.pieces; }
-    else if (state === 'returned') { d.returnedValue += w.expected; d.returnedPieces += w.pieces; }
-    else d.collectedPieces += w.pieces;
-    d.sales += w.sales; d.fees += w.fees; d.cod += w.cod; d.due += w.due; d.list.push(w);
+    const w: WhOrder = { ref: o.ref, day, closedOn, waybill: o.waybill, pieces: o.lines.length, state, due: m?.due ?? 0, stl: m ? [...m.stl] : [], on: m?.on ?? '' };
+    const d = days.get(day) ?? { day, orders: 0, pieces: 0, collected: 0, returned: 0, pending: 0, collectedPieces: 0, returnedPieces: 0, pendingPieces: 0, closedOn: '', due: 0, paidOn: [], list: [] };
+    d.orders++; d.pieces += w.pieces; d[state]++;
+    if (state === 'pending') d.pendingPieces += w.pieces; else if (state === 'returned') d.returnedPieces += w.pieces; else d.collectedPieces += w.pieces;
+    d.due += w.due; d.list.push(w);
     days.set(day, d);
   }
   for (const d of days.values()) {

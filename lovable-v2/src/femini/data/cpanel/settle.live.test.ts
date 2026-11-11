@@ -28,7 +28,8 @@ describe.skipIf(!boot || !file || !fs.existsSync(file!))('settlement sheet on th
     // a fresh page load shows it, and the orders it collected
     const fresh = toLovable(mirrorFromBoot(srv.bootNow()));
     expect(fresh.settles).toHaveLength(1);
-    expect(fresh.settles![0].totals).toEqual({ sales: 79168, cod: 72993, shipping: 6175, due: 42765, vendoor: 30228 });
+    expect(fresh.settles![0].totals).toEqual({ due: 42765 });   // only Fémini's share is stored
+    expect(Object.keys(fresh.settles![0].rows[0]).sort()).toEqual(['date', 'note', 'pieces', 'ref', 'serial', 'status', 'supply', 'type']);
     const { collected } = collectedOf(fresh.settles!);
     const shippedPaid = fresh.orders.filter((o) => o.status === 'shipped' && collected.has(o.ref));
     expect(shippedPaid.length).toBe(65);   // 65 collected orders are in the system (6 are from before it; re9000's row is an adjustment)

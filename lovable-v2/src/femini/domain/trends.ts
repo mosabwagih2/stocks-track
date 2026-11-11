@@ -36,16 +36,16 @@ export function stockByDay(s: Pick<Snapshot, 'moves' | 'skus' | 'archivedSkus' |
  * Collections per day: from the settlement sheets (money by the sheet's date, orders by their own collect / return
  * date) against what left with the scan (orders shipped that day). `paidSoFar` is the running total of Fémini's due.
  */
-export interface CollectDay { day: string; shipped: number; collected: number; returned: number; sales: number; shipping: number; vendoor: number; due: number; paidSoFar: number }
+export interface CollectDay { day: string; shipped: number; collected: number; returned: number; /** التوريد */ due: number; paidSoFar: number }
 export function collectByDay(s: Pick<Snapshot, 'orders' | 'settles'>, from: string, to: string): CollectDay[] {
-  const row = (): Omit<CollectDay, 'day' | 'paidSoFar'> => ({ shipped: 0, collected: 0, returned: 0, sales: 0, shipping: 0, vendoor: 0, due: 0 });
+  const row = (): Omit<CollectDay, 'day' | 'paidSoFar'> => ({ shipped: 0, collected: 0, returned: 0, due: 0 });
   const by: Record<string, ReturnType<typeof row>> = {}; const at = (k: string) => (k >= from && k <= to ? (by[k] ??= row()) : null);
   for (const o of s.orders) if (o.status === 'shipped' && o.shippedAt) { const r = at(cairoDay(o.shippedAt)); if (r) r.shipped++; }
   const settles = s.settles ?? []; let before = 0;
   for (const x of settles) {
     if (x.date < from) before += x.totals.due;
     const r = at(x.date); if (!r) continue;
-    r.sales += x.totals.sales; r.shipping += x.totals.shipping; r.vendoor += x.totals.vendoor; r.due += x.totals.due;
+    r.due += x.totals.due;
   }
   const { collected, returned } = collectedOf(settles);
   for (const c of collected.values()) { const r = c.date ? at(c.date) : null; if (r) r.collected++; }

@@ -12,7 +12,8 @@ describe('warehouse day close', () => {
     const settles = [st('S1', '2026-11-06', [['a1', 'collect', 500, 300]]), st('S2', '2026-11-08', [['a2', 'collect', 400, 250], ['a3', 'return', 0, 0], ['a1', 'adjust', 0, -20]])];
     const [d6, d5] = warehouseDays({ orders, settles }, '2026-11-01', '2026-11-09');
     expect(d6.day).toBe('2026-11-06'); expect(d6.pending).toBe(1);
-    expect(d5).toMatchObject({ day: '2026-11-05', orders: 4, pieces: 8, collected: 2, returned: 1, pending: 1, pendingValue: 500, sales: 900, due: 530 });
+    expect(d5).toMatchObject({ day: '2026-11-05', orders: 4, pieces: 8, collected: 2, returned: 1, pending: 1, pendingPieces: 2, due: 530 });
+    expect(d5).not.toHaveProperty('sales'); expect(d5.list[0]).not.toHaveProperty('expected');   // only التوريد, never the order value
     expect(d5.paidOn).toEqual([{ date: '2026-11-06', n: 1 }, { date: '2026-11-08', n: 1 }]);
     expect(d5.list[0]).toMatchObject({ ref: 'a4', state: 'pending' });   // what is still out comes first
   });
@@ -21,9 +22,9 @@ describe('warehouse day close', () => {
     const settles = [st('S1', '2026-11-03', [['a1', 'collect', 500, 300], ['b1', 'collect', 500, 300]]), st('S2', '2026-11-05', [['a2', 'return', 0, 0, '2026-11-04']])];
     const [d2, d1] = warehouseDays({ orders, settles }, '2026-11-01', '2026-11-09');
     // 1 Nov: collected a1 (3 Nov), a2 came back (4 Nov), a3 came back by a customer-return document (7 Nov): closed on the 7th
-    expect(d1).toMatchObject({ day: '2026-11-01', pending: 0, collected: 1, returned: 2, closedOn: '2026-11-07', collectedPieces: 2, returnedPieces: 4, returnedValue: 1000, pendingPieces: 0 });
+    expect(d1).toMatchObject({ day: '2026-11-01', pending: 0, collected: 1, returned: 2, closedOn: '2026-11-07', collectedPieces: 2, returnedPieces: 4, pendingPieces: 0 });
     // 2 Nov: b2 is still out
-    expect(d2).toMatchObject({ day: '2026-11-02', pending: 1, closedOn: '', pendingPieces: 2, pendingValue: 500, collected: 1 });
+    expect(d2).toMatchObject({ day: '2026-11-02', pending: 1, closedOn: '', pendingPieces: 2, collected: 1 });
   });
   it('how late the open days are: 7+ days late, 10+ very late, closed days never count', () => {
     expect([0, 6, 7, 9, 10, 30].map(lateLevel)).toEqual([0, 0, 1, 1, 2, 2]);

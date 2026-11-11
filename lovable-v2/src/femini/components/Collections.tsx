@@ -88,7 +88,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Kpi label="التوريد في الفترة (جنيه)" onClick={() => setCard('due')} value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
         <Kpi label="أوردرات اتحصّلت" onClick={() => setCard('paid')} value={fmt(paid.length)} sub={`من ${fmt(shipped.length)} مشحون`} tone="good" />
-        <Kpi label="مشحون ولسه ما اتحصّلش" onClick={() => setCard('wait')} value={fmt(waiting.length)} sub={`متوقع ${money(waiting.reduce((a, x) => a + (x.o.total || 0), 0))} جنيه`} tone={waiting.length ? 'warn' : undefined} />
+        <Kpi label="مشحون ولسه ما اتحصّلش" onClick={() => setCard('wait')} value={fmt(waiting.length)} sub={`${fmt(waiting.reduce((a, x) => a + x.o.lines.length, 0))} قطعة`} tone={waiting.length ? 'warn' : undefined} />
       </div>
       <CollectTrend d={d} from={from} to={to} />
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>

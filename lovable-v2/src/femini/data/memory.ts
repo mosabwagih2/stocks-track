@@ -8,7 +8,7 @@ import { itemMapper } from '@/femini/domain/pickup';
 import { BACKDATE_DAYS, skuPrefix } from '@/femini/domain/constants';
 import { buildOp } from '@/femini/domain/ops';
 import { buildHoldOut, buildHoldSettle, HOLD_REASON_AR, outstanding, type Hold } from '@/femini/domain/holds';
-import type { Settlement } from '@/femini/domain/settle';
+import { rowKey, supplyOnly, type Settlement } from '@/femini/domain/settle';
 import { addDays, cairoDay, cairoToday } from '@/femini/domain/dates';
 import { clearPhotos, getPhoto, putPhoto, shrinkImage } from './photos';
 import { blobToDataUrl, squareImage } from './image';
@@ -178,7 +178,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const colors = [...seed.colors, ...S.cat.colors];
       // copies, so React Query's structural sharing can see in-place edits of the demo state
       const c = structuredClone({ drafts: S.drafts ?? [], shops: S.shops ?? [], pickups: S.pickups, orders: S.orders, supplies: S.supplies, supplyLog: S.log, docs: S.docs, moves: S.moves.slice().reverse() });
-      return { today: cairoToday(), models, archivedModels, skus, archivedSkus, archivedSkuBy, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), settles: structuredClone(S.settles ?? []), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}), ...(backend ? { lock: S.lock ?? '' } : {}) };
+      return { today: cairoToday(), models, archivedModels, skus, archivedSkus, archivedSkuBy, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), settles: (S.settles ?? []).map((x) => supplyOnly(structuredClone(x))), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}), ...(backend ? { lock: S.lock ?? '' } : {}) };
     },
     async importPickup(i) {
       inWindow(i.date); unlocked(i.date);
@@ -477,11 +477,12 @@ export function createMemoryRepo(backend?: Backend): Repo {
     async importSettlement({ settle, source, file }) {
       guard();
       if (!settle.rows.length) fail('الشيت مفيهوش أوردرات.');
-      const seen = new Set((S.settles ?? []).flatMap((s) => s.rows.map((r) => `${r.ref}|${r.type}|${r.cod}|${r.supply}`)));
-      const same = (S.settles ?? []).find((s) => s.rows.length === settle.rows.length && settle.rows.every((r) => seen.has(`${r.ref}|${r.type}|${r.cod}|${r.supply}`)));
+      const seen = new Set((S.settles ?? []).flatMap((s) => s.rows.map(rowKey)));
+      const same = (S.settles ?? []).find((s) => s.rows.length === settle.rows.length && settle.rows.every((r) => seen.has(rowKey(r))));
       if (same) fail(`الشيت ده اترفع قبل كده (${same.id} بتاريخ ${same.date}).`);
       const id = docNo('STL'); S.settles ??= [];
-      S.settles.push({ ...structuredClone(settle), id, source, at: new Date().toISOString(), by: actor() });
+      // only Fémini's share is kept (التوريد); the sheet's other amounts never reach the server
+      S.settles.push(supplyOnly({ ...structuredClone(settle), id, source, at: new Date().toISOString(), by: actor() }));
       await original(id, 'settle', file); save();
       return { id, collected: settle.rows.filter((r) => r.type === 'collect').length, returned: settle.rows.filter((r) => r.type === 'return').length, due: settle.totals.due };
     },
