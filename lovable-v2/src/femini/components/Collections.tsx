@@ -110,10 +110,10 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
       </Card>
       <Card title="مشحون ولسه ما اتحصّلش" hint="الأقدم الأول">
         {!waiting.length ? <Empty>كل المشحون اتحصّل.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'من كام يوم', 'المبلغ', 'قطع'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'من كام يوم', 'قطع'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{waiting.slice(0, 100).map(({ o, day }) => (
               <tr key={o.ref}><td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{o.waybill}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{day}</td>
-                <td className={td + ' font-mono'}>{age(day)}</td><td className={td + ' font-mono'}>{fmt(o.total || 0)}</td><td className={td + ' font-mono'}>{o.lines.length}</td></tr>))}</tbody></table></TableWrap>
+                <td className={td + ' font-mono'}>{age(day)}</td><td className={td + ' font-mono'}>{o.lines.length}</td></tr>))}</tbody></table></TableWrap>
         )}
         {waiting.length > 100 && <p className="mt-2 text-xs text-muted">أول 100 من {fmt(waiting.length)}.</p>}
       </Card>
@@ -121,7 +121,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         const collected = (o: Order) => d.collected.get(o.ref);
         const cols = [{ head: 'تاريخ التحصيل', cell: (o: Order) => <span className="num">{collected(o)?.date ?? '—'}</span> }, { head: 'التوريد', cell: (o: Order) => <b className="num">{money(collected(o)?.due ?? 0)}</b> }, { head: 'التسوية', cell: (o: Order) => <span className="num text-muted">{collected(o)?.stl ?? '—'}</span> }];
         if (card === 'wait') return <OrdersDetail d={d} title="مشحون ولسه ما اتحصّلش" hint="الأقدم الأول." orders={waiting.map((x) => x.o)} onClose={() => setCard(null)}
-          cols={[{ head: 'اتشحن من', cell: (o) => { const w = waiting.find((x) => x.o.ref === o.ref); return <span className="num">{w ? age(w.day) : 0} يوم</span>; } }, { head: 'المبلغ', cell: (o) => <span className="num">{fmt(o.total || 0)}</span> }]} />;
+          cols={[{ head: 'اتشحن من', cell: (o) => { const w = waiting.find((x) => x.o.ref === o.ref); return <span className="num">{w ? age(w.day) : 0} يوم</span>; } }]} />;
         if (card === 'paid') return <OrdersDetail d={d} title="أوردرات اتحصّلت" hint="كل اللي فلوسه وصلت حسب شيتات التسوية." orders={paid.slice().sort((a, b) => (collected(b)?.date ?? '').localeCompare(collected(a)?.date ?? ''))} cols={cols} onClose={() => setCard(null)} />;
         const inPeriod = d.snap.orders.filter((o) => { const c = collected(o); return !!c && c.date >= from && c.date <= to; }).sort((a, b) => (collected(b)?.date ?? '').localeCompare(collected(a)?.date ?? ''));
         const listed = inPeriod.reduce((a, o) => a + (collected(o)?.due ?? 0), 0); const all = sum(inRange, 'due');
