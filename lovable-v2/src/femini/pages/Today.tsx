@@ -141,8 +141,8 @@ export default function Today() {
         </div>
         {historical && <p className="mb-3 text-xs text-muted">{dayLabel(selected)} · {tooOld ? 'قراءة فقط' : 'تقدر ترفع بيك أب أو ملف إسكان على اليوم ده لو كنت نسيته'}</p>}
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Button className="h-11 w-full" disabled={tooOld} variant="primary" onClick={() => setUpload('scan')}><Upload className="size-4 shrink-0" />رفع ملف الإسكان</Button>
           <Button className="h-11 w-full" disabled={tooOld} onClick={() => setUpload('pickup')}><Upload className="size-4 shrink-0" />رفع بيك أب</Button>
+          <Button className="h-11 w-full" disabled={tooOld} variant="primary" onClick={() => setUpload('scan')}><Upload className="size-4 shrink-0" />رفع ملف الإسكان</Button>
           <Button className="h-11 w-full" disabled={historical} onClick={()=>nav('/operations?op=RCV')}><ArrowDownToLine className="size-4 shrink-0" />استلام توريد</Button>
           <Button className="h-11 w-full" disabled={historical} onClick={()=>nav('/operations?op=CLN')}><Shuffle className="size-4 shrink-0" />تصنيف الهالك</Button>
         </div>
