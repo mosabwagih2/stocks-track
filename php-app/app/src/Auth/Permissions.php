@@ -9,7 +9,7 @@ final class Permissions
     /** key => Arabic label */
     public const ALL = [
         'money' => 'يشوف الفلوس والتكلفة',
-        'scan' => 'شحن بالسكان',
+        'scan' => 'شحن بالإسكان',
         'returns' => 'استلام المرتجع',
         'receive' => 'استلام من المصنع',
         'internal' => 'هالك / غسيل / مفقود',

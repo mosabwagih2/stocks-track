@@ -38,7 +38,7 @@ const page = (path: string, C: ComponentType, title: string) => createRoute({
 });
 const routeTree = root.addChildren([
   page('/', Today, 'اليوم'), page('/stock', Stock, 'المخزون'), page('/orders', Orders, 'الأوردرات'), page('/operations', Operations, 'العمليات'),
-  page('/ledger', Ledger, 'الدفتر'), page('/insights', Insights, 'التحليلات'), page('/files', Files, 'الملفات'), page('/settings', Settings, 'الإعدادات'),
+  page('/ledger', Ledger, 'السجل'), page('/insights', Insights, 'التحليلات'), page('/files', Files, 'الملفات'), page('/settings', Settings, 'الإعدادات'),
   createRoute({ getParentRoute: () => root, path: '/supplies', beforeLoad: () => { throw redirect({ to: '/stock', search: { view: 'supplies' } as never }); } }),
 ]);
 const router = createRouter({ routeTree, scrollRestoration: true, defaultPreloadStaleTime: 0 });

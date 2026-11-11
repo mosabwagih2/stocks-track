@@ -81,7 +81,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Fémini Stock · نظام المخزن" },
-      { name: "description", content: "نظام تتبع مخزون فيميني: دفتر حركات، أوردرات، مستلزمات وتحليلات." },
+      { name: "description", content: "نظام تتبع مخزون فيميني: سجل حركات، أوردرات، مستلزمات وتحليلات." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

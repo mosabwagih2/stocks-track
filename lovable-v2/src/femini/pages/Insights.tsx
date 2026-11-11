@@ -105,7 +105,7 @@ export default function Insights() {
     .then(() => toast('تم تصدير ملف Excel'), () => toast('تعذّر التصدير', { tone: 'err' }));
   return (
     <>
-      <PageHead title="التحليلات" sub="قرارات مبنية على الطلب الفعلي ودفتر الحركات — في مكان واحد.">
+      <PageHead title="التحليلات" sub="قرارات مبنية على الطلب الفعلي وسجل الحركات — في مكان واحد.">
         {!d.velocityOK && <Pill tone="warn">بيانات {d.days} يوم فقط · السرعة تقديرية</Pill>}
         <div className="flex flex-wrap items-center gap-2 print:hidden">
           {sec !== 'finance' && range && <PeriodPicker value={range} today={d.today} onChange={setRange} />}
@@ -118,13 +118,13 @@ export default function Insights() {
         <div>الفترة: {periodLabel}</div><div>الفلاتر: {filters}</div><div>تاريخ التصدير: {d.today}</div>
       </div>
 
-      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-6 grid grid-cols-7 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:overflow-x-auto max-sm:grid-cols-none max-sm:grid-flow-col max-sm:auto-cols-[minmax(128px,1fr)]">
+      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-6 grid grid-cols-7 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:static max-sm:grid-cols-4">
         {SECTIONS.map(({ id, label, icon: Icon }) => (
           <Button key={id} variant={sec === id ? 'primary' : 'ghost'} onClick={() => go(id)} aria-pressed={sec === id}
-            className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
+            className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition max-sm:flex-col max-sm:gap-1 max-sm:px-1 max-sm:py-2 max-sm:text-[11px] max-sm:leading-tight', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
             <Icon className="size-[18px] shrink-0" />
             {/* the count sits right next to its own label, so it cannot be read as the neighbour's */}
-            <span className="inline-flex min-w-0 items-center gap-1.5"><span className="truncate">{label}</span>{counts[id] ? <span aria-label={`${counts[id]} عاجل`} className={cn('grid min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] leading-5', sec === id ? 'bg-on-accent/25' : 'bg-crit text-on-accent')}>{counts[id]}</span> : null}{id === 'whday' && late ? <LateDot level={late.level} late={late.late} /> : null}</span>
+            <span className="inline-flex min-w-0 items-center gap-1.5"><span className="truncate max-sm:whitespace-normal max-sm:text-center">{label}</span>{counts[id] ? <span aria-label={`${counts[id]} عاجل`} className={cn('grid min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] leading-5', sec === id ? 'bg-on-accent/25' : 'bg-crit text-on-accent')}>{counts[id]}</span> : null}{id === 'whday' && late ? <LateDot level={late.level} late={late.late} /> : null}</span>
           </Button>
         ))}
       </nav>
@@ -201,7 +201,7 @@ function InsightSheet({ d, st, kind, range, onClose }: { d: Derived; st: Stats; 
   // team: every shipped order with who scanned it
   const shipped = d.snap.orders.filter((o) => o.status === 'shipped' && o.shippedBy).sort((a, b) => (b.shippedAt ?? '').localeCompare(a.shippedAt ?? ''));
   const who = [...new Set(shipped.map((o) => o.shippedBy as string))];
-  return <OrdersDetail d={d} title="الأوردرات المشحونة" hint="كل الأوردرات اللي خرجت بالسكان، والموظف اللي سجّلها." orders={shipped} onClose={onClose}
+  return <OrdersDetail d={d} title="الأوردرات المشحونة" hint="كل الأوردرات اللي خرجت بالإسكان، والموظف اللي سجّلها." orders={shipped} onClose={onClose}
     chips={who.map((w) => ({ id: w, label: w, test: (o: Order) => o.shippedBy === w }))} cols={[{ head: 'الموظف', cell: (o) => o.shippedBy }, shipCol]} />;
 }
 
@@ -363,7 +363,7 @@ function Team({ d, st }: { d: Derived; st: Stats }) {
       <Deferred minHeight={260}>
       <Card title="كل يوم" hint="عدد الأوردرات المسجّلة"><TableWrap><table className="text-sm"><thead><tr><th className={th}>اليوم</th>{ks.map((k) => <th key={k} className={th}>{k}</th>)}</tr></thead><tbody>{days.map((x) => <tr key={x}><td className={td + ' font-mono'}>{x}</td>{ks.map((k) => <td key={k} className={td + ' font-mono'}>{pivot[x][k] ?? <span className="text-muted">·</span>}</td>)}</tr>)}</tbody></table></TableWrap></Card>
       </Deferred>
-      <p className="text-xs text-muted">وقت السكان هو وقت رفع الملف وليس وقت التغليف، فلا تقيّم به السرعة.</p>
+      <p className="text-xs text-muted">وقت الإسكان هو وقت رفع الملف وليس وقت التغليف، فلا تقيّم به السرعة.</p>
     </div>
   );
 }

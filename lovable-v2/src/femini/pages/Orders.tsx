@@ -21,10 +21,14 @@ import type { Derived } from '@/femini/hooks/data';
 
 /** under the status: when the money came, or for how many days it has been out and not collected */
 function statusDate(o: Order, d: Derived) {
-  const c = d.collected.get(o.ref);
-  if (c) return <div className="num mt-1 text-[11px] text-muted">اتحصّل {c.date}</div>;
-  if (o.status === 'shipped' && !o.returned && o.shippedAt) { const n = dayDiff(cairoDay(o.shippedAt), d.today); return <div className="num mt-1 text-[11px] text-muted">اتشحن من {n} يوم</div>; }
+  if (o.status === 'shipped' && !o.returned && !d.collected.has(o.ref) && o.shippedAt) { const n = dayDiff(cairoDay(o.shippedAt), d.today); return <div className="num mt-1 text-[11px] text-muted">اتشحن من {n} يوم</div>; }
   return null;
+}
+/** the row's tint by state */
+const rowTint = (o: Order, d: Derived) => o.status === 'open' && d.blocked.has(o.ref) ? 'bg-crit-bg/60' : o.status === 'shipped' ? (d.collected.has(o.ref) ? 'bg-good-bg/50' : 'bg-info-bg/40') : o.status === 'cancelled' ? 'opacity-70' : '';
+/** the state: one pill (the collection date has its own place), the days out, what is short */
+function StateCell({ o, d }: { o: Order; d: Derived }) {
+  return <>{o.returned ? <Pill tone="lost">مرتجع · {o.returned.doc}</Pill> : <OrderPill o={o} d={d} />}{statusDate(o, d)}{o.status === 'open' && d.blocked.has(o.ref) && <p className="mt-1 text-xs text-crit">ناقص {d.blocked.get(o.ref)?.map((x) => `${skuLabel(d.skuMap, x.sku)} (${x.short})`).join('، ')}</p>}</>;
 }
 type Filter = 'all' | 'wait' | 'blocked' | 'done' | 'cx' | 'bad' | 'returned' | 'paid';
 const PAGE = 60;
@@ -78,7 +82,7 @@ export default function Orders() {
 
   return (
     <>
-      <PageHead title="الأوردرات" sub="البيك أب = الطلب. الشحن (بالسكان) = ما خرج فعلًا. الفرق بينهما هو الأوردرات المتوقفة.">
+      <PageHead title="الأوردرات" sub="البيك أب = الطلب. الشحن (بالإسكان) = ما خرج فعلًا. الفرق بينهما هو الأوردرات المتوقفة.">
         <Button variant="danger" onClick={() => setCancel('')}><XCircle className="size-4" /> إلغاء أوردر</Button>
         <Button onClick={() => setSettle(true)}><Upload className="size-4" /> رفع شيت التحصيل</Button>
         <Button variant="primary" onClick={() => setUpload('pickup')}><Upload className="size-4" /> رفع بيك أب</Button>
@@ -128,20 +132,35 @@ export default function Orders() {
             <Alert className="mb-3 flex flex-wrap items-center justify-between gap-2"><span>تم تحديد <b>{selOpen.length}</b> أوردر</span>
               <span className="flex gap-2"><Button size="sm" onClick={() => setSel(new Set())}>إلغاء الاختيار</Button><Button size="sm" variant="primary" onClick={() => setManual(selOpen)}>سجّلها كأوردرات شُحنت</Button></span></Alert>
           )}
-          <TableWrap>
+          {/* phone: one card per order, the state always in view; a table would cut it off */}
+          <ul className="grid gap-2 sm:hidden">
+            {list.slice(0, n).map((o) => (
+              <li key={o.ref} onClick={() => setOrderRef(o.ref)} className={`cursor-pointer rounded-xl border border-line p-3 ${rowTint(o, d)}`}>
+                <div className="flex items-center gap-2">
+                  <span onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.ref)} disabled={o.status !== 'open' || o.unmapped.length > 0} onChange={() => toggle(o.ref)} aria-label="تحديد" /></span>
+                  <b className="font-mono">{o.ref}</b>{o.type === 'exchange' && <Pill tone="lost">استبدال</Pill>}
+                  <span className="ms-auto text-sm text-muted">{o.gov} · <span className="num font-semibold text-ink">{o.lines.length}</span> قطعة</span>
+                </div>
+                <div className="mt-2"><StateCell o={o} d={d} /></div>
+                <div className="num mt-2 flex flex-wrap gap-x-4 text-xs text-muted"><span>بيك أب {d.pickupDate.get(o.pickupId) ?? '—'}</span>{d.collected.get(o.ref) && <span>تحصيل {d.collected.get(o.ref)!.date}</span>}</div>
+              </li>
+            ))}
+            {!list.length && <li><Empty>لا توجد أوردرات مطابقة للفلتر.</Empty></li>}
+          </ul>
+          <div className="max-sm:hidden"><TableWrap>
             <table className="text-sm"><thead><tr><th className={th + ' w-9'} /><th className={th}>البوليصة</th><th className={th}>تاريخ البيك أب</th><th className={th}>تاريخ التحصيل</th><th className={th}>النوع</th><th className={th}>المحافظة</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
               <tbody>
                 {list.slice(0, n).map((o) => (
-                  <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${o.status === 'open' && d.blocked.has(o.ref) ? 'bg-crit-bg/60' : o.status === 'shipped' ? (d.collected.has(o.ref) ? 'bg-good-bg/50' : 'bg-info-bg/40') : o.status === 'cancelled' ? 'opacity-70' : ''}`} onClick={() => setOrderRef(o.ref)}>
+                  <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${rowTint(o, d)}`} onClick={() => setOrderRef(o.ref)}>
                     <td className={td} onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.ref)} disabled={o.status !== 'open' || o.unmapped.length > 0} title={o.unmapped.length ? 'فيه أصناف مش متعرّفة؛ صحّحها الأول' : undefined} onChange={() => toggle(o.ref)} aria-label="تحديد" /></td>
                     <td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted whitespace-nowrap'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono whitespace-nowrap'} title={d.collected.get(o.ref) ? `التسوية ${d.collected.get(o.ref)!.stl}` : undefined}>{d.collected.get(o.ref)?.date ?? <span className="text-muted">—</span>}</td>
-                    <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{o.returned ? <Pill tone="lost">مرتجع · {o.returned.doc}</Pill> : <OrderPill o={o} d={d} />}{statusDate(o, d)}{o.status==='open' && d.blocked.has(o.ref) && <p className="mt-1 text-xs text-crit">ناقص {d.blocked.get(o.ref)?.map((x)=>`${skuLabel(d.skuMap,x.sku)} (${x.short})`).join('، ')}</p>}</td>
+                    <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}><StateCell o={o} d={d} /></td>
                   </tr>
                 ))}
                 {!list.length && <tr><td colSpan={8}><Empty>لا توجد أوردرات مطابقة للفلتر.</Empty></td></tr>}
               </tbody>
             </table>
-          </TableWrap>
+          </TableWrap></div>
           {list.length > n && <div className="mt-3 text-center"><Button onClick={() => setN((x) => x + PAGE)}>عرض المزيد ({fmt(list.length - n)} متبقي)</Button></div>}
         </>
       )}

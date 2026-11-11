@@ -61,7 +61,7 @@ function Launcher({ d, onPick, onDraft, onHold }: { d: Derived; onPick: (t: OpTy
             {g === 'out' && (
               <button onClick={() => nav('/orders')} className="group flex items-start gap-3 rounded-2xl border border-dashed border-line2 bg-surface p-4 text-start transition hover:border-accent/50">
                 <span className={cn('grid size-11 shrink-0 place-items-center rounded-xl', GROUP_TONE.out)}><ScanLine className="size-5" /></span>
-                <span className="min-w-0 flex-1"><b className="block">أوردرات اتشحنت</b><span className="text-sm text-muted">الخروج الفعلي من ملف السكان — من صفحة الأوردرات</span>{hint.SCN && <span className="mt-1.5 block text-xs font-semibold text-warn">{hint.SCN}</span>}</span>
+                <span className="min-w-0 flex-1"><b className="block">أوردرات اتشحنت</b><span className="text-sm text-muted">الخروج الفعلي من ملف الإسكان — من صفحة الأوردرات</span>{hint.SCN && <span className="mt-1.5 block text-xs font-semibold text-warn">{hint.SCN}</span>}</span>
               </button>)}
             {OPS.filter((o) => o.grp === g).map((o) => { const I = ICON[o.type]; return (
               <button key={o.type} onClick={() => onPick(o.type)} className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-md">
@@ -414,7 +414,7 @@ export default function Operations() {
   const pendingShop = d.snap.docs.filter((x) => x.type === 'SHP' && x.status === 'done' && !x.hdr.delivered).length;
   return (
     <>
-      <PageHead title="العمليات" sub="قلب التشغيل: كل حركة بتغيّر المخزون بتتسجل هنا بفحوص قبل التأكيد. الشحن بالسكان من صفحة الأوردرات." />
+      <PageHead title="العمليات" sub="قلب التشغيل: كل حركة بتغيّر المخزون بتتسجل هنا بفحوص قبل التأكيد. الشحن بالإسكان من صفحة الأوردرات." />
       <Tabs value={tab} onChange={(t) => go({ tab: t === 'new' ? null : t, op: null, draft: null, new: null })} tabs={[['new', 'عملية جديدة'], ['docs', `آخر العمليات (${d.snap.docs.length})`], ['shops', `توريدات المحل${pendingShop ? ` · ${pendingShop}` : ''}`], ['holds', `هولد${openHolds ? ` · ${openHolds}` : ''}`]]} />
       {tab === 'new' && (op && OPS.some((o) => o.type === op)
         ? <OpForm key={`${op}-${draftId ?? ''}`} d={d} type={op} draft={draft} onBack={() => go({ op: null, draft: null })} onDone={(no) => go({ op: null, draft: null, ...(op === 'SHP' ? { tab: 'shops', doc: no } : {}) })} onOpen={(no) => go({ doc: no })} />

@@ -178,7 +178,7 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
         <>
           {account
             ? <Field label="الموظف (من الحساب المسجّل)"><input value={account} readOnly className="bg-lav" /></Field>
-            : <Field label="اسم الموظف (الذي سجّل السكان)"><input list="emps" value={emp} onChange={(e) => setEmp(e.target.value)} placeholder="مثال: عبدالله" /><span className="text-xs text-muted">سجّل دخول من الإعدادات عشان الاسم يتاخد من حسابك.</span></Field>}
+            : <Field label="اسم الموظف (الذي سجّل الإسكان)"><input list="emps" value={emp} onChange={(e) => setEmp(e.target.value)} placeholder="مثال: عبدالله" /><span className="text-xs text-muted">سجّل دخول من الإعدادات عشان الاسم يتاخد من حسابك.</span></Field>}
           <datalist id="emps">{[...new Set(d.snap.orders.map((o) => o.shippedBy).filter(Boolean) as string[])].map((e) => <option key={e} value={e} />)}</datalist>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Kpi label="سكان في الملف" value={scan.scans} /><Kpi label="أوردر جديد" value={scan.matched.length} sub={`${fmt(pcs(scan.matched))} قطعة ستُخصم`} tone="good" />

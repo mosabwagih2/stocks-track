@@ -117,7 +117,7 @@ export default function Today() {
   if (x.neg.length) actions.push({ tone: 'crit', title: `رصيد سالب في ${x.neg.length} صنف`, desc: 'تم شحن كمية أكبر من الرصيد. أجرِ جردًا لهذه الأصناف وصحّح الرصيد.', go: () => nav('/stock'), btn: 'فتح المخزون' });
   if (d.blocked.size) actions.push({ tone: 'crit', title: `${d.blocked.size} أوردر متوقف بسبب الرصيد`, desc: 'نقص قطعة واحدة في الأوردر يوقفه بالكامل. راجع الأصناف الأكثر تسببًا في التوقف.', go: () => nav('/orders?f=blocked'), btn: 'عرض الأوردرات' });
   const waiting = d.open.length - d.blocked.size;
-  if (waiting > 0) actions.push({ tone: 'warn', title: `${waiting} أوردر لم يُشحن بعد`, desc: 'وردت في البيك أب وتنتظر التسجيل بالسكان. لم يُخصم الرصيد بعد.', go: () => nav('/orders?f=wait'), btn: 'عرض الأوردرات المنتظرة' });
+  if (waiting > 0) actions.push({ tone: 'warn', title: `${waiting} أوردر لم يُشحن بعد`, desc: 'وردت في البيك أب وتنتظر التسجيل بالإسكان. لم يُخصم الرصيد بعد.', go: () => nav('/orders?f=wait'), btn: 'عرض الأوردرات المنتظرة' });
   if (x.low.length) actions.push({ tone: 'warn', title: `${x.low.length} صنف على وشك النفاد`, desc: d.velocityOK ? 'أقل من تغطية 14 يومًا' : 'أقل من الحد الأدنى المسجّل (لا يتوفر تاريخ كافٍ بعد).', go: () => nav('/stock'), btn: 'فتح المخزون' });
   const dirty = locTotal(d.snap.balances, 'DIRTY'); if (dirty > 0) actions.push({ tone: 'info', title: `${fmt(dirty)} قطعة ${LOC_AR.DIRTY}`, desc: 'أرسلها إلى المصنع للغسيل المجاني.', go: () => nav('/operations'), btn: 'العمليات' });
   const lost = locTotal(d.snap.balances, 'LOST'); if (lost > 0) actions.push({ tone: 'warn', title: `${fmt(lost)} قطعة مفقودة بانتظار التسوية`, desc: 'هل تم العثور عليها أم يُشطب الرصيد؟', go: () => nav('/operations'), btn: 'العمليات' });
@@ -150,7 +150,7 @@ export default function Today() {
       <div className="grid gap-4">
         {backupDue(d.snap.lastBackup) && <Alert tone="warn" className="flex flex-wrap items-center justify-between gap-2"><span>{d.snap.lastBackup ? 'مرّ أكثر من أسبوع على آخر نسخة احتياطية؛ حان وقت نسخة حديثة.' : 'لم تؤخذ نسخة احتياطية بعد؛ احمِ شغلك بنسخة الآن.'}</span><Button size="sm" onClick={()=>nav('/settings')}>النسخ الاحتياطي</Button></Alert>}
         {dayClosed(d.snap,selected) && <Alert>اليوم مقفول؛ لا يمكن تسجيل عمليات بتاريخ هذا اليوم قبل فتحه من التقرير.</Alert>}
-        <Card title="تدفق اليوم" hint="البيك أب هو الطلب. الخصم من المخزون يتم عند الشحن بالسكان فقط.">
+        <Card title="تدفق اليوم" hint="البيك أب هو الطلب. الخصم من المخزون يتم عند الشحن بالإسكان فقط.">
           {/* always there, also on a new day with no pickup yet: what is still waiting from earlier days */}
           <div className={cn('grid gap-3', total ? 'mb-4 grid-cols-2 md:grid-cols-5' : 'mb-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-5')}>
             <Kpi label="متأخر من أيام سابقة" value={fmt(x.older.length)} sub={x.older.length ? `${fmt(x.pcs(x.older))} قطعة · من ${x.oldDay}${x.olderBlk.length ? ` · ${x.olderBlk.length} متوقف` : ''}` : 'مفيش حاجة متأخرة'} tone={x.olderBlk.length ? 'crit' : x.older.length ? 'warn' : 'good'} onClick={x.older.length ? () => setFlow('older') : undefined}>{x.olderDays.length > 1 && <Sparkline data={x.olderDays.map((k) => x.olderBy[k])} labels={x.olderDays} color={C.scrap} />}</Kpi>
@@ -185,7 +185,7 @@ export default function Today() {
           </Deferred>
           </div>
           <Deferred minHeight={300}>
-          <Card title="المخزون حسب الحالة" hint="من دفتر الحركات"><StateDonut d={d} compact /></Card>
+          <Card title="المخزون حسب الحالة" hint="من سجل الحركات"><StateDonut d={d} compact /></Card>
           </Deferred>
         </div>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
@@ -205,7 +205,7 @@ export default function Today() {
                 <TableWrap><table className="text-sm"><thead><tr><th className={th}>الموظف</th><th className={th}>أوردرات</th><th className={th}>قطع</th><th className={th}>من - إلى</th></tr></thead>
                   <tbody>{team.map(([k, e]) => <tr key={k}><td className={td}>{k}{[...e.up].filter((u) => u !== k).length > 0 && <span className="block text-[11px] font-normal text-muted">رفع الملف: {[...e.up].filter((u) => u !== k).join('، ')}</span>}</td><td className={td + ' font-mono'}>{e.o}</td><td className={td + ' font-mono'}>{e.p}</td><td className={td + ' font-mono'}>{timeCairo(e.a)} - {timeCairo(e.b)}</td></tr>)}</tbody></table></TableWrap>
               )}
-              {team.length > 0 && <p className="mt-2 text-xs text-muted">الوقت هو وقت تسجيل الملف وليس وقت التغليف. الاسم هو الموظف المكتوب في ملف السكان، واللي رفع الملف مكتوب تحته.</p>}
+              {team.length > 0 && <p className="mt-2 text-xs text-muted">الوقت هو وقت تسجيل الملف وليس وقت التغليف. الاسم هو الموظف المكتوب في ملف الإسكان، واللي رفع الملف مكتوب تحته.</p>}
             </Card>
           </div>
         </div>

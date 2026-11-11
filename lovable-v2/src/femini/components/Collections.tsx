@@ -32,7 +32,7 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
   const pv = useMemo(() => (parsed ? previewSettlement(parsed, d.snap.orders, new Set<string>(), d.snap.settles ?? []) : null), [parsed, d]);
   return (
     <Sheet title="رفع شيت التحصيل (التسوية)" onClose={onClose} wide>
-      <p className="text-sm text-muted">الشيت اللي بيوصل من شركة الشحن: كل أوردر اتحصّل (العميل دفع) أو رجع. "مشحون" يعني خرج بالسكان، و"تم التحصيل" يعني فلوسه وصلت، ودي بتيجي من الشيت ده.</p>
+      <p className="text-sm text-muted">الشيت اللي بيوصل من شركة الشحن: كل أوردر اتحصّل (العميل دفع) أو رجع. "مشحون" يعني خرج بالإسكان، و"تم التحصيل" يعني فلوسه وصلت، ودي بتيجي من الشيت ده.</p>
       <Field label="ملف التسوية (Excel)"><input type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f) void read(f); }} /></Field>
       {err && <Alert tone="crit">{err}</Alert>}
       {parsed && pv && <>
@@ -82,7 +82,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">"مشحون" = خرج بالسكان. "تم التحصيل" = فلوسه وصلت حسب شيت التسوية.</p>
+        <p className="text-sm text-muted">"مشحون" = خرج بالإسكان. "تم التحصيل" = فلوسه وصلت حسب شيت التسوية.</p>
         <Button variant="primary" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">

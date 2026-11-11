@@ -93,7 +93,7 @@ export function Chip({ pressed, onClick, children }: { pressed?: boolean; onClic
 
 export function Tabs<T extends string>({ value, onChange, tabs, className }: { value: T; onChange: (v: T) => void; tabs: [T, string][]; className?: string }) {
   return (
-    <div role="tablist" className={cn('flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-line bg-lav p-1', className ?? 'mb-5')}>
+    <div role="tablist" className={cn('flex w-fit max-w-full flex-wrap items-center gap-0.5 overflow-x-auto rounded-xl border border-line bg-lav p-1', className ?? 'mb-5')}>
       {tabs.map(([v, l]) => (
         <button key={v} role="tab" aria-selected={value === v} type="button" onClick={() => onChange(v)}
           className={cn('rounded-lg px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition', value === v ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink')}>{l}</button>

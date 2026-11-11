@@ -10,7 +10,7 @@ import { RestoreCard } from './RestoreCard';
 /** Server edition: the signed-in account, sign out, own password, and (with the "users" permission) users and roles.
  * Everything goes through the server API; the server checks every permission again. */
 export const PERMS: [string, string][] = [
-  ['money', 'يشوف الفلوس والتكلفة'], ['scan', 'شحن بالسكان'], ['returns', 'استلام المرتجع'], ['receive', 'استلام من المصنع'],
+  ['money', 'يشوف الفلوس والتكلفة'], ['scan', 'شحن بالإسكان'], ['returns', 'استلام المرتجع'], ['receive', 'استلام من المصنع'],
   ['internal', 'هالك / غسيل / مفقود / هولد'], ['ship', 'توريد للمحل'], ['count', 'الجرد'], ['pickup', 'رفع بيك أب'], ['cancel', 'إلغاء أوردر'],
   ['catalog', 'تعديل الأصناف والموديلات'], ['supplies', 'المستلزمات'], ['close', 'قفل اليوم وفتحه'], ['settings', 'الإعدادات'], ['users', 'المستخدمين والصلاحيات'],
 ];

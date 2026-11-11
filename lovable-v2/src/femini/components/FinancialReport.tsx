@@ -39,7 +39,7 @@ function StockTrend({ s }: { s: Snapshot }) {
       {anyCost ? <TrendArea money data={rows} series={[{ key: 'value', name: 'قيمة القابل للبيع', color: C.accent, total: 'last' }, { key: 'readyValue', name: 'منها الجاهز', color: C.ready, total: 'last' }]} />
         : <p className="grid h-[260px] place-items-center text-center text-sm text-muted">مفيش موديل متسجّل له تكلفة لسه. سجّلها من الإعدادات ← «تكلفة القطعة وسعر البيع»، والقيمة هتظهر هنا يوم بيوم.</p>}
     </Card>
-    <Card title="القطع حسب الحالة" hint="رصيد آخر كل يوم من دفتر الحركات">
+    <Card title="القطع حسب الحالة" hint="رصيد آخر كل يوم من سجل الحركات">
       <TrendArea data={rows} series={[{ key: 'ready', name: 'جاهز للبيع', color: C.ready, total: 'last' }, { key: 'clean', name: 'نظافة وعند المصنع', color: C.dirty, total: 'last' }, { key: 'scrap', name: 'هالك', color: C.scrap, total: 'last', dash: true }, { key: 'lost', name: 'مفقود', color: C.lost, total: 'last', dash: true }]} />
     </Card>
   </div>;
