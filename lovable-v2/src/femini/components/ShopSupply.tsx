@@ -141,7 +141,7 @@ function ShopMix({ d, from, to }: { d: Derived; from: string; to: string }) {
   const models = Object.keys(cell).sort((a, b) => (outBy[b] ?? 0) - (outBy[a] ?? 0)).slice(0, 14); const sizes = d.snap.sizes.filter((z) => models.some((x) => cell[x][z]));
   return (
     <div className="grid gap-4">
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card title={lineView === 'out' ? 'التوريد حسب خط الإنتاج' : 'المرتجع حسب خط الإنتاج'} hint="قطع في الفترة" action={<Seg value={lineView} onChange={setLineView} options={[['out', 'توريد'], ['back', 'مرتجع']]} />}>
           {lineRows.length ? <ShareRows rows={lineRows} unit="قطعة" /> : <Empty>مفيش {lineView === 'out' ? 'توريد' : 'مرتجع'} في الفترة دي.</Empty>}
         </Card>
@@ -149,7 +149,7 @@ function ShopMix({ d, from, to }: { d: Derived; from: string; to: string }) {
           {backRows.length ? <ShareRows rows={backRows} unit="قطعة" /> : <Empty>مفيش مرتجع في الفترة دي.</Empty>}
         </Card>
       </div>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card title="باريتو: الموديلات الأكثر توريدًا" hint="قطع اتورّدت للمحل">{Object.keys(outBy).length ? <Pareto pull={outBy} /> : <Empty>مفيش توريد في الفترة دي.</Empty>}</Card>
         <Card title="الأصناف الأكثر توريدًا" hint="مع المرتجع منها واللي جاهز دلوقتي في المخزن">
           <TableWrap><table className="text-sm"><thead><tr>{['', 'الصنف', 'اتورّد', 'مرتجع', 'نسبة المرتجع', 'جاهز دلوقتي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
