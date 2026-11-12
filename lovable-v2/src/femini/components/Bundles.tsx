@@ -1,19 +1,19 @@
-import { useMemo, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
-import { Card, Empty, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from '@/femini/components/ui';
+import { useMemo, useRef, useState } from 'react';
+import { Camera, ExternalLink, Package, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Button, Card, Chip, Empty, Field, Kpi, Pill, Sheet, TableWrap, th, td } from '@/femini/components/ui';
+import { useImageUrl } from '@/femini/components/Thumb';
 import { BUNDLES } from '@/femini/data/bundles.generated';
-import { bundleBySize, bundleLine, bundleModels, bundleTotal, normColor, type Bundle, type Stockroom } from '@/femini/domain/bundles';
+import { repo } from '@/femini/data';
+import { bundleBySize, bundleLine, bundleModels, bundleTotal, normColor, type Bundle, type BundleComp, type Stockroom } from '@/femini/domain/bundles';
 import { qty } from '@/femini/domain/ledger';
 import { cn, fmt } from '@/femini/cn';
-import type { Derived } from '@/femini/hooks/data';
+import { useAct, type Derived } from '@/femini/hooks/data';
 
 /** a count of orders: red none, amber a few, green enough */
 const tone = (n: number) => (n <= 0 ? 'bg-crit-bg text-crit' : n <= 3 ? 'bg-warn-bg text-warn' : 'bg-good-bg text-ink');
 
-type Basis = 'ready' | 'net';
-
-/** the stock as the bundles see it: (model, color, size) → the pieces ready, less the open orders' when asked */
-function useRoom(d: Derived, basis: Basis): Stockroom {
+/** the stock as the bundles see it: (model, color, size) → the pieces ready to sell */
+function useRoom(d: Derived): Stockroom {
   return useMemo(() => {
     const by = new Map<string, string>(); const colors = new Map<string, string[]>();
     for (const s of d.snap.skus) {
@@ -22,78 +22,112 @@ function useRoom(d: Derived, basis: Basis): Stockroom {
     }
     return {
       colorsOf: (m) => colors.get(m) ?? [],
-      have: (m, c, z) => { const id = by.get(`${m}|${normColor(c)}|${z}`); if (!id) return null; const r = qty(d.snap.balances, id, 'READY'); return basis === 'net' ? r - (d.demand[id] ?? 0) : r; },
+      have: (m, c, z) => { const id = by.get(`${m}|${normColor(c)}|${z}`); return id ? qty(d.snap.balances, id, 'READY') : null; },
     };
-  }, [d, basis]);
+  }, [d]);
 }
 
-/** the bundles of the store, each with the orders the stock can fill: the scarcest piece decides */
+/** the store's bundles, with the ones made here: one made here with a store bundle's id replaces it */
+function useBundles(d: Derived): Bundle[] {
+  return useMemo(() => {
+    const mine = new Map(d.snap.bundles.map((b) => [b.id, b]));
+    return [...BUNDLES.map((b) => mine.get(b.id) ?? b), ...d.snap.bundles.filter((b) => !BUNDLES.some((x) => x.id === b.id))];
+  }, [d.snap.bundles]);
+}
+
+/** a bundle's picture: the one set here, else the store's, else a tile */
+function BundlePic({ d, b, size }: { d: Derived; b: Bundle; size: number }) {
+  const own = useImageUrl(d.snap.bundleImages[b.id]);
+  const file = b.img ?? BUNDLES.find((x) => x.id === b.id)?.img;
+  const url = own ?? (file ? `${import.meta.env.BASE_URL}bundles/${file}` : null);
+  const st = { width: size, height: size };
+  return url
+    ? <img src={url} alt="" loading="lazy" style={st} className="shrink-0 rounded-xl border border-line bg-surface object-cover" />
+    : <span style={st} className="grid shrink-0 place-items-center rounded-xl border border-line bg-lav text-accent"><Package className="size-1/3" /></span>;
+}
+
+/** the bundles, each with the orders the stock can fill: the scarcest piece decides */
 export function BundlesView({ d, q }: { d: Derived; q: string }) {
-  const [basis, setBasis] = useState<Basis>('ready'); const [open, setOpen] = useState<Bundle | null>(null);
-  const room = useRoom(d, basis);
-  const rows = useMemo(() => BUNDLES.map((b) => { const by = b.unknown ? [] : bundleBySize(b, room); return { b, by, total: bundleTotal(by) }; }), [room]);
+  const [open, setOpen] = useState<Bundle | null>(null); const [edit, setEdit] = useState<Bundle | 'new' | null>(null);
+  const room = useRoom(d); const all = useBundles(d);
+  const rows = useMemo(() => all.map((b) => { const by = b.unknown ? [] : bundleBySize(b, room); return { b, by, total: bundleTotal(by) }; }), [all, room]);
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const shown = rows.filter(({ b }) => !words.length || words.every((w) => `${b.title} ${bundleModels(b).join(' ')}`.toLowerCase().includes(w))).sort((a, c) => (a.b.unknown ? 1 : 0) - (c.b.unknown ? 1 : 0) || c.total - a.total);
   const known = rows.filter((r) => !r.b.unknown);
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="باندلز في الموقع" value={fmt(BUNDLES.length)} sub={`${fmt(BUNDLES.filter((b) => b.available).length)} متاح للبيع`} />
+        <Kpi label="باندلز" value={fmt(all.length)} sub={`${fmt(d.snap.bundles.filter((b) => b.custom).length)} اتعملت هنا`} />
         <Kpi label="تقدر تطلّع منها" value={fmt(known.filter((r) => r.total > 0).length)} sub="باندل فيه مخزون يكفي أوردر" tone="good" />
         <Kpi label="خلصت" value={fmt(known.filter((r) => r.total === 0).length)} sub="ولا أوردر يتطلّع منها" tone={known.some((r) => r.total === 0) ? 'crit' : undefined} />
-        <Kpi label="تركيبتها مش واضحة" value={fmt(BUNDLES.filter((b) => b.unknown).length)} sub="مش محسوبة" tone={BUNDLES.some((b) => b.unknown) ? 'warn' : undefined} />
+        <Kpi label="تركيبتها مش واضحة" value={fmt(all.filter((b) => b.unknown).length)} sub="مش محسوبة" tone={all.some((b) => b.unknown) ? 'warn' : undefined} />
       </div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <Seg label="حساب الأوردرات" value={basis} onChange={setBasis} options={[['ready', 'من الجاهز'], ['net', 'بعد الطلب المفتوح']]} />
-        <p className="text-xs text-muted">الرقم لكل باندل لوحده؛ القطع مشتركة بين الباندلز، فمتجمعش الأرقام.</p>
+        <p className="text-xs text-muted">الأرقام من الجاهز للبيع، لكل باندل لوحده؛ القطع مشتركة بين الباندلز، فمتجمعش الأرقام.</p>
+        <Button variant="primary" onClick={() => setEdit('new')}><Plus className="size-4" />باندل جديد</Button>
       </div>
       {!shown.length ? <Empty>مفيش باندل مطابق للبحث.</Empty> : (
         <div className="grid gap-3 md:grid-cols-2">
           {shown.map(({ b, by, total }) => (
             <button key={b.id} type="button" onClick={() => setOpen(b)} className="rounded-2xl border border-line bg-surface p-4 text-start shadow-card transition hover:border-accent focus-visible:ring-2 focus-visible:ring-accent">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+              <div className="flex items-start gap-3">
+                <BundlePic d={d} b={b} size={64} />
+                <div className="min-w-0 flex-1">
                   <b className="block break-words text-sm leading-snug">{b.title}</b>
-                  <span className="num mt-1 block text-xs text-muted">{fmt(b.price)} جنيه{b.was > b.price ? <> · بدل <s>{fmt(b.was)}</s></> : null}{!b.available && ' · غير متاح في الموقع'}</span>
+                  {b.unknown ? <span className="mt-1 block text-xs text-muted">{b.unknown}</span> : <span className="num mt-1 block break-words text-xs text-muted" dir="ltr">{bundleLine(b.variants[0])}{b.variants.length > 1 ? ` · ${b.variants.length} تركيبة ألوان` : ''}</span>}
+                  <span className="mt-1 flex flex-wrap gap-1">{b.custom && <Pill>اتعمل هنا</Pill>}{b.available === false && <Pill>غير متاح في الموقع</Pill>}</span>
                 </div>
                 {b.unknown ? <Pill tone="warn">مش محسوب</Pill> : <div className={cn('shrink-0 rounded-xl px-3 py-1.5 text-center', tone(total))}><div className="num text-xl font-semibold leading-none">{fmt(total)}</div><div className="mt-0.5 text-[10px]">أوردر</div></div>}
               </div>
-              {b.unknown ? <p className="mt-2 text-xs text-muted">{b.unknown}</p> : <>
-                <p className="num mt-2 break-words text-xs text-muted" dir="ltr">{bundleLine(b.variants[0])}{b.variants.length > 1 ? ` · ${b.variants.length} تركيبة ألوان` : ''}</p>
-                <div className="mt-3 flex flex-wrap gap-1.5" aria-label="الأوردرات لكل مقاس">
-                  {by.map((r) => <span key={r.size} className={cn('num rounded-lg px-2 py-1 text-xs', tone(r.max))}><b className="font-semibold">{r.size}</b> {fmt(r.max)}</span>)}
+              {!b.unknown && (
+                <div className="mt-3 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${by.length}, minmax(0, 1fr))` }} aria-label="الأوردرات لكل مقاس">
+                  {by.map((r) => <div key={r.size} className="grid justify-items-center gap-1 text-center"><span className="text-[11px] font-semibold text-muted">{r.size}</span><span className={cn('num w-full rounded-lg py-1 text-sm', tone(r.max))}>{fmt(r.max)}</span></div>)}
                 </div>
-              </>}
+              )}
             </button>
           ))}
         </div>
       )}
-      {open && <BundleSheet d={d} b={open} room={room} basis={basis} onClose={() => setOpen(null)} />}
+      {open && <BundleSheet d={d} b={open} room={room} onClose={() => setOpen(null)} onEdit={() => { setEdit(open); setOpen(null); }} />}
+      {edit && <BundleEditor d={d} initial={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
     </>
   );
 }
 
-function BundleSheet({ b, room, basis, onClose }: { d: Derived; b: Bundle; room: Stockroom; basis: Basis; onClose: () => void }) {
+function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; room: Stockroom; onClose: () => void; onEdit: () => void }) {
+  const act = useAct(); const file = useRef<HTMLInputElement>(null);
   const by = useMemo(() => (b.unknown ? [] : bundleBySize(b, room)), [b, room]);
   const [vi, setVi] = useState(0); const [size, setSize] = useState(() => by.find((r) => r.max > 0)?.size ?? b.sizes[0] ?? '');
   const sel = by.find((r) => r.size === size)?.variants[vi] ?? by[0]?.variants[0];
+  const mine = d.snap.bundles.some((x) => x.id === b.id);
   return (
     <Sheet wide title={b.title} onClose={onClose}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Pill tone={b.available ? 'good' : 'neutral'}>{b.available ? 'متاح في الموقع' : 'غير متاح في الموقع'}</Pill>
-        <span className="num text-sm">{fmt(b.price)} جنيه{b.was > b.price ? <> · بدل <s className="text-muted">{fmt(b.was)}</s></> : null}</span>
-        <a className="ms-auto inline-flex items-center gap-1 text-sm text-accent underline-offset-2 hover:underline" href={b.url} target="_blank" rel="noreferrer noopener">صفحة الباندل <ExternalLink className="size-3.5" /></a>
+      <div className="flex flex-wrap items-start gap-3">
+        <BundlePic d={d} b={b} size={160} />
+        <div className="grid min-w-0 flex-1 gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {b.custom ? <Pill>اتعمل هنا</Pill> : <Pill tone={b.available ? 'good' : 'neutral'}>{b.available ? 'متاح في الموقع' : 'غير متاح في الموقع'}</Pill>}
+            {b.url && <a className="inline-flex items-center gap-1 text-sm text-accent underline-offset-2 hover:underline" href={b.url} target="_blank" rel="noreferrer noopener">صفحة الباندل <ExternalLink className="size-3.5" /></a>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) await act(() => repo.setModelImage(`bundle:${b.id}`, f), 'تم حفظ الصورة'); }} />
+            <Button onClick={() => file.current?.click()}><Camera className="size-4" />{d.snap.bundleImages[b.id] ? 'تغيير الصورة' : 'رفع صورة'}</Button>
+            {d.snap.bundleImages[b.id] && <Button onClick={() => act(() => repo.setModelImage(`bundle:${b.id}`, null), 'تمت إزالة الصورة')}><X className="size-4" />إزالة صورتي</Button>}
+            {(b.custom || b.unknown) && <Button onClick={onEdit}><Pencil className="size-4" />{b.unknown ? 'حدد التركيبة' : 'تعديل'}</Button>}
+            {mine && <Button variant="danger" onClick={async () => { if (window.confirm(b.custom && !BUNDLES.some((x) => x.id === b.id) ? 'تحذف الباندل ده؟' : 'تشيل تركيبتك وترجع للي في الموقع؟')) { await act(() => repo.bundleRemove(b.id), 'تم'); onClose(); } }}><Trash2 className="size-4" />{BUNDLES.some((x) => x.id === b.id) ? 'رجّع للموقع' : 'حذف'}</Button>}
+          </div>
+        </div>
       </div>
-      {b.unknown ? <Card><Empty>{b.unknown}<span className="block">لو بعتّلي تركيبته أحسبه.</span></Empty></Card> : <>
-        <Card title="تقدر تطلّع كام أوردر" hint={basis === 'net' ? 'من الجاهز بعد خصم الطلب المفتوح' : 'من الجاهز للبيع'}>
-          <TableWrap><table className="text-sm">
-            <thead><tr><th className={th}>{b.variants.length > 1 ? 'التركيبة' : ''}</th>{b.sizes.map((z) => <th key={z} className={th + ' text-center'}>{z}</th>)}</tr></thead>
+      {b.unknown ? <Card><Empty>{b.unknown}<span className="block">اضغط «حدد التركيبة» وسجّل اللي جواه.</span></Empty></Card> : <>
+        <Card title="تقدر تطلّع كام أوردر" hint="من الجاهز للبيع. اضغط على رقم تشوف اللي جوه الباندل في المقاس ده.">
+          <TableWrap><table className="w-full table-fixed text-sm">
+            <thead><tr><th className={th + ' w-28 sm:w-36'}>{b.variants.length > 1 ? 'التركيبة' : ''}</th>{b.sizes.map((z) => <th key={z} className={th + ' text-center'}>{z}</th>)}</tr></thead>
             <tbody>{b.variants.map((v, i) => (
               <tr key={i} className={cn(i === vi && b.variants.length > 1 && 'bg-lav')}>
-                <td className={td}>{b.variants.length > 1 ? <button type="button" className="text-start underline-offset-2 hover:underline" onClick={() => setVi(i)}>{v.label || `تركيبة ${i + 1}`}</button> : <span className="text-muted">كل الباندل</span>}</td>
-                {by.map((r) => <td key={r.size} className={td + ' text-center'}><button type="button" onClick={() => { setSize(r.size); setVi(i); }} className={cn('num min-w-10 rounded-lg px-2 py-1', tone(r.variants[i].max), r.size === size && i === vi && 'ring-2 ring-accent')}>{fmt(r.variants[i].max)}</button></td>)}
+                <td className={td}>{b.variants.length > 1 ? <button type="button" className="text-start text-xs underline-offset-2 hover:underline" onClick={() => setVi(i)}>{v.label || `تركيبة ${i + 1}`}</button> : <span className="text-muted">كل الباندل</span>}</td>
+                {by.map((r) => <td key={r.size} className={td + ' px-1 text-center'}><button type="button" onClick={() => { setSize(r.size); setVi(i); }} className={cn('num w-full rounded-lg py-1', tone(r.variants[i].max), r.size === size && i === vi && 'ring-2 ring-accent')}>{fmt(r.variants[i].max)}</button></td>)}
               </tr>))}
-              {b.variants.length > 1 && <tr><td className={td}><b>أحسن تركيبة</b></td>{by.map((r) => <td key={r.size} className={td + ' num text-center font-semibold'}>{fmt(r.max)}</td>)}</tr>}
+              {b.variants.length > 1 && <tr><td className={td}><b className="text-xs">أعلى رقم</b><span className="block text-[10px] text-muted">لو العميل اختار أحسن تركيبة في المقاس</span></td>{by.map((r) => <td key={r.size} className={td + ' num text-center font-semibold'}>{fmt(r.max)}</td>)}</tr>}
             </tbody></table></TableWrap>
           <p className="num mt-2 text-sm">المجموع على كل المقاسات: <b>{fmt(bundleTotal(by))}</b> أوردر</p>
         </Card>
@@ -101,15 +135,65 @@ function BundleSheet({ b, room, basis, onClose }: { d: Derived; b: Bundle; room:
           <TableWrap><table className="text-sm">
             <thead><tr><th className={th}>الموديل</th><th className={th}>في الأوردر</th><th className={th}>الألوان والرصيد (مقاس {size})</th><th className={th}>يكفي</th></tr></thead>
             <tbody>{sel.comps.map((c, i) => (
-              <tr key={i} className={c === sel.limiting && sel.max < 1e9 ? 'bg-warn-bg/40' : ''}>
+              <tr key={i} className={c === sel.limiting ? 'bg-warn-bg/40' : ''}>
                 <td className={td + ' font-mono font-semibold'}>{c.comp.model}</td>
                 <td className={td + ' num'}>{c.comp.qty} قطعة{c.comp.any ? ' (أي لون)' : ''}</td>
                 <td className={td}><div className="flex flex-wrap gap-1.5">{c.colors.map((col) => <span key={col} className={cn('num rounded-lg px-2 py-0.5 text-xs', tone(c.have[col]))}>{col} {fmt(c.have[col])}</span>)}{c.missing.length > 0 && <Pill tone="crit" title="مش موجود في الكتالوج">{c.missing.join('، ')} مش في المخزون</Pill>}</div></td>
                 <td className={td + ' num font-semibold'}>{fmt(c.max)}</td>
               </tr>))}</tbody></table></TableWrap>
-          {sel.limiting && sel.max < 1e9 && <p className="mt-2 text-sm text-muted">الأضعف: <b className="font-mono text-ink">{sel.limiting.comp.model}</b>{sel.max === 0 ? ' خلص أو ناقص ألوان' : ''}.</p>}
+          {sel.limiting && <p className="mt-2 text-sm text-muted">الأضعف: <b className="font-mono text-ink">{sel.limiting.comp.model}</b>{sel.max === 0 ? ' خلص أو ناقص ألوان' : ''}.</p>}
         </Card>}
       </>}
+    </Sheet>
+  );
+}
+
+type Row = { model: string; qty: number; mode: 'any' | 'all' | 'pick'; colors: string[] };
+const toRow = (c: BundleComp): Row => ({ model: c.model, qty: c.qty, mode: c.any ? 'any' : c.colors ? 'pick' : 'all', colors: c.colors ?? [] });
+
+/** a new bundle from any models, or the composition of one the store does not spell out */
+function BundleEditor({ d, initial, onClose }: { d: Derived; initial: Bundle | null; onClose: () => void }) {
+  const act = useAct();
+  const models = d.snap.models; const sizes = d.snap.sizes;
+  const colorsOf = (m: string) => [...new Set(d.snap.skus.filter((s) => s.model === m).map((s) => s.color))];
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [pick, setPick] = useState<string[]>(initial?.sizes ?? sizes.filter((z) => z !== 'FREE'));
+  const [rows, setRows] = useState<Row[]>(initial && initial.variants[0]?.comps.length ? initial.variants[0].comps.map(toRow) : [{ model: models[0]?.code ?? '', qty: 1, mode: 'any', colors: [] }]);
+  const set = (i: number, p: Partial<Row>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...p } : x)));
+  const bad = !title.trim() ? 'اكتب اسم الباندل' : !pick.length ? 'اختر مقاسًا واحدًا على الأقل' : rows.some((r) => !r.model || r.qty < 1) ? 'كل قطعة لها موديل وعدد' : rows.some((r) => r.mode === 'pick' && !r.colors.length) ? 'اختر لونًا واحدًا على الأقل أو غيّر الاختيار' : '';
+  const save = async () => {
+    const comps: BundleComp[] = rows.map((r) => (r.mode === 'any' ? { model: r.model, qty: r.qty, any: true } : r.mode === 'all' ? { model: r.model, qty: r.qty, colors: null } : { model: r.model, qty: r.qty, colors: r.colors }));
+    const b: Bundle = { ...(initial ?? {}), id: initial?.id ?? `c-${Date.now().toString(36)}`, title: title.trim(), type: 'custom', price: 0, was: 0, url: initial?.url ?? '', available: initial?.available ?? true, sizes: sizes.filter((z) => pick.includes(z)), variants: [{ label: '', comps }], custom: true, unknown: undefined };
+    delete b.unknown;
+    const ok = await act(() => repo.bundleSave(b), 'تم حفظ الباندل'); if (ok !== undefined) onClose();
+  };
+  return (
+    <Sheet title={initial ? (initial.unknown ? 'تركيبة الباندل' : 'تعديل الباندل') : 'باندل جديد'} onClose={onClose} footer={<div className="flex items-center gap-2"><Button variant="primary" disabled={!!bad} onClick={save}>حفظ الباندل</Button>{bad && <span className="text-xs text-muted">{bad}</span>}</div>}>
+      <Field label="اسم الباندل"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثلًا: باندل ٤ قطع برا + ٤ بانتي" /></Field>
+      <div>
+        <div className="mb-1.5 text-xs font-medium text-muted">المقاسات</div>
+        <div className="flex flex-wrap gap-1.5">{sizes.map((z) => <Chip key={z} pressed={pick.includes(z)} onClick={() => setPick((p) => (p.includes(z) ? p.filter((x) => x !== z) : [...p, z]))}>{z}</Chip>)}</div>
+      </div>
+      <div className="grid gap-3">
+        <div className="text-xs font-medium text-muted">اللي جوه الباندل</div>
+        {rows.map((r, i) => (
+          <div key={i} className="grid gap-2 rounded-xl border border-line p-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_5rem_auto] items-end gap-2">
+              <Field label="الموديل"><select value={r.model} onChange={(e) => set(i, { model: e.target.value, colors: [] })}>{models.map((m) => <option key={m.code} value={m.code}>{m.code} · {m.name}</option>)}</select></Field>
+              <Field label="كام قطعة"><input type="number" min={1} value={r.qty} onChange={(e) => set(i, { qty: Math.max(1, Math.floor(+e.target.value || 1)) })} /></Field>
+              <Button className="mb-0.5" aria-label="شيل القطعة دي" disabled={rows.length < 2} onClick={() => setRows((x) => x.filter((_, j) => j !== i))}><Trash2 className="size-4" /></Button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip pressed={r.mode === 'any'} onClick={() => set(i, { mode: 'any' })}>أي لون</Chip>
+              <Chip pressed={r.mode === 'all'} onClick={() => set(i, { mode: 'all' })}>لون من كل لون</Chip>
+              <Chip pressed={r.mode === 'pick'} onClick={() => set(i, { mode: 'pick' })}>ألوان محددة</Chip>
+            </div>
+            {r.mode === 'pick' && <div className="flex flex-wrap gap-1.5">{colorsOf(r.model).map((c) => <Chip key={c} pressed={r.colors.includes(c)} onClick={() => set(i, { colors: r.colors.includes(c) ? r.colors.filter((x) => x !== c) : [...r.colors, c] })}>{c}</Chip>)}</div>}
+          </div>
+        ))}
+        <Button onClick={() => setRows((r) => [...r, { model: models[0]?.code ?? '', qty: 1, mode: 'any', colors: [] }])}><Plus className="size-4" />قطعة من موديل تاني</Button>
+      </div>
+      <p className="text-xs text-muted">«أي لون»: أي قطع من الموديل. «لون من كل لون»: قطعة من كل لون في الموديل. «ألوان محددة»: قطعة من كل لون من اللي تختاره.</p>
     </Sheet>
   );
 }

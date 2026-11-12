@@ -221,6 +221,19 @@ describe('catalog changes never orphan stock', () => {
     const ids = (await snap(r)).skus.filter((k) => k.model === 'TST1').map((k) => k.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+  it('a bundle made here is kept, changed, and removed; a bad one is refused', async () => {
+    const r = createMemoryRepo(); const model = (await snap(r)).skus[0].model;
+    const mk = (over = {}) => ({ id: 'c-1', title: 'باندل تجربة', type: 'custom', price: 0, was: 0, url: '', available: true, sizes: ['M'], variants: [{ label: '', comps: [{ model, qty: 2, any: true }] }], ...over });
+    expect(await r.bundleSave(mk())).toBe('c-1');
+    expect((await snap(r)).bundles.map((b) => [b.id, b.title, b.custom])).toEqual([['c-1', 'باندل تجربة', true]]);
+    await r.bundleSave(mk({ title: 'اسم جديد' })); expect((await snap(r)).bundles).toHaveLength(1); expect((await snap(r)).bundles[0].title).toBe('اسم جديد');
+    await expect(r.bundleSave(mk({ id: 'c-2', title: ' ' }))).rejects.toThrow();
+    await expect(r.bundleSave(mk({ id: 'c-2', sizes: [] }))).rejects.toThrow();
+    await expect(r.bundleSave(mk({ id: 'c-2', variants: [{ label: '', comps: [{ model: 'NOPE', qty: 1, any: true }] }] }))).rejects.toThrow();
+    await expect(r.bundleSave(mk({ id: 'c-2', variants: [{ label: '', comps: [{ model, qty: 0, any: true }] }] }))).rejects.toThrow();
+    await r.setModelImage('bundle:c-1', null); await r.bundleRemove('c-1'); expect((await snap(r)).bundles).toHaveLength(0);
+    await expect(r.bundleRemove('c-1')).rejects.toThrow();
+  });
   it('a new model code that already exists is refused (control)', async () => {
     const r = createMemoryRepo(); const m = (await snap(r)).models[0].code;
     await expect(r.catalogNewModel({ code: m, name: 'x', colors: ['احمر'], sizes: ['M'], minAlert: 0 })).rejects.toThrow();

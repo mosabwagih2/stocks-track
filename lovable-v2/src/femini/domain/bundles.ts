@@ -16,6 +16,10 @@ export interface BundleVariant { label: string; comps: BundleComp[] }
 export interface Bundle {
   id: string; title: string; type: string; price: number; was: number; url: string; available: boolean;
   sizes: string[]; variants: BundleVariant[];
+  /** the store's picture, a file next to the app */
+  img?: string;
+  /** made here (not read from the store); one with a store bundle's id replaces it */
+  custom?: boolean;
   /** set when the store does not say what is inside; the bundle is listed but not counted */
   unknown?: string;
 }
