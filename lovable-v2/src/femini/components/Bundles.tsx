@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, ExternalLink, Package, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { Button, Card, Chip, Empty, Field, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from '@/femini/components/ui';
+import { Camera, ExternalLink, Package, Pencil, Plus, Scale, Trash2, X } from 'lucide-react';
+import { Alert, Button, Card, Chip, Empty, Field, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from '@/femini/components/ui';
 import { useImageUrl } from '@/femini/components/Thumb';
 import { BUNDLES } from '@/femini/data/bundles.generated';
 import { repo } from '@/femini/data';
 import { bundleBySize, bundleLine, bundleModels, bundleTotal, normColor, type Bundle, type BundleComp, type SizeResult, type Stockroom } from '@/femini/domain/bundles';
+import { balanced, plan, productsOf, sharing, supplyOf } from '@/femini/domain/bundlePlan';
 import { qty } from '@/femini/domain/ledger';
 import { cn, fmt } from '@/femini/cn';
 import { useAct, type Derived } from '@/femini/hooks/data';
@@ -82,7 +83,8 @@ function SizeTip({ tip }: { tip: { rect: DOMRect; r: SizeResult } | null }) {
 /** the bundles, each with the orders the stock can fill: the scarcest piece decides */
 export function BundlesView({ d, q }: { d: Derived; q: string }) {
   const [open, setOpen] = useState<Bundle | null>(null); const [edit, setEdit] = useState<Bundle | 'new' | null>(null); const [list, setList] = useState<ListKind | null>(null);
-  const room = useRoom(d); const all = useBundles(d); const tip = useTip(); const [order, setOrder] = useState<'most' | 'least'>('most');
+  const room = useRoom(d); const all = useBundles(d); const tip = useTip(); const [order, setOrder] = useState<'most' | 'least'>('most'); const [planner, setPlanner] = useState(false);
+  const share = useMemo(() => sharing(all, room, 'M'), [all, room]);
   const rows = useMemo(() => all.map((b) => { const by = b.unknown ? [] : bundleBySize(b, room); return { b, by, total: bundleTotal(by) }; }), [all, room]);
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const shown = rows.filter(({ b }) => !words.length || words.every((w) => `${b.title} ${bundleModels(b).join(' ')}`.toLowerCase().includes(w))).sort((a, c) => (a.b.unknown ? 1 : 0) - (c.b.unknown ? 1 : 0) || (order === 'most' ? c.total - a.total : a.total - c.total));
@@ -97,8 +99,9 @@ export function BundlesView({ d, q }: { d: Derived; q: string }) {
       </div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2"><Seg label="الترتيب" value={order} onChange={setOrder} options={[['most', 'الأكتر أوردرات أول'], ['least', 'الأقل أول (على وشك الخلاص)']]} /></div>
-        <Button variant="primary" onClick={() => setEdit('new')}><Plus className="size-4" />باندل جديد</Button>
+        <div className="flex flex-wrap gap-2"><Button onClick={() => setPlanner(true)}><Scale className="size-4" />وزّع المخزون على الباندلز</Button><Button variant="primary" onClick={() => setEdit('new')}><Plus className="size-4" />باندل جديد</Button></div>
       </div>
+      <Alert tone="warn" className="mb-3">رقم كل باندل = اللي تقدر تطلّعه منه <b>لو بعت الباندل ده لوحده</b>. الباندلز بتسحب من نفس القطع (مثلًا BR1 داخل في أكتر من باندل)، فالأرقام <b>مش بتتجمع</b>. لو هتبيع أكتر من باندل مع بعض استخدم «وزّع المخزون» تشوف الرقم الحقيقي.</Alert>
       <p className="mb-3 text-xs text-muted">الأرقام من الجاهز للبيع، لكل باندل لوحده؛ القطع مشتركة بين الباندلز، فمتجمعش الأرقام. وقّف على أي مقاس تشوف القطع المتوفرة بألوانها.</p>
       {!shown.length ? <Empty>مفيش باندل مطابق للبحث.</Empty> : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -109,9 +112,9 @@ export function BundlesView({ d, q }: { d: Derived; q: string }) {
                 <div className="min-w-0 flex-1">
                   <b className="block break-words text-sm leading-snug">{b.title}</b>
                   {b.unknown ? <span className="mt-1 block text-xs text-muted">{b.unknown}</span> : <span className="num mt-1 block break-words text-xs text-muted" dir="ltr">{bundleLine(b.variants[0])}{b.variants.length > 1 ? ` · ${b.variants.length} تركيبة ألوان` : ''}</span>}
-                  <span className="mt-1 flex flex-wrap gap-1">{b.custom && <Pill>اتعمل هنا</Pill>}{b.available === false && <Pill>غير متاح في الموقع</Pill>}</span>
+                  <span className="mt-1 flex flex-wrap gap-1">{(share.get(b.id)?.length ?? 0) > 0 && <Pill tone="warn" title={share.get(b.id)!.map((x) => x.title).join('\n')}>بيشارك قطعه مع {share.get(b.id)!.length} باندل</Pill>}{b.custom && <Pill>اتعمل هنا</Pill>}{b.available === false && <Pill>غير متاح في الموقع</Pill>}</span>
                 </div>
-                {b.unknown ? <Pill tone="warn">مش محسوب</Pill> : <div className={cn('shrink-0 rounded-xl px-3 py-1.5 text-center', tone(total))}><div className="num text-xl font-semibold leading-none">{fmt(total)}</div><div className="mt-0.5 text-[10px]">أوردر</div></div>}
+                {b.unknown ? <Pill tone="warn">مش محسوب</Pill> : <div className={cn('shrink-0 rounded-xl px-3 py-1.5 text-center', tone(total))}><div className="num text-xl font-semibold leading-none">{fmt(total)}</div><div className="mt-0.5 text-[10px] leading-tight">أوردر<br />لوحده</div></div>}
               </div>
               {!b.unknown && (
                 <div className="mt-3 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${by.length}, minmax(0, 1fr))` }} aria-label="الأوردرات لكل مقاس">
@@ -124,7 +127,8 @@ export function BundlesView({ d, q }: { d: Derived; q: string }) {
       )}
       {list && <BundleList d={d} kind={list} rows={rows} onOpen={setOpen} onClose={() => setList(null)} />}
       <SizeTip tip={tip.tip} />
-      {open && <BundleSheet d={d} b={open} room={room} onClose={() => setOpen(null)} onEdit={() => { setEdit(open); setOpen(null); }} />}
+      {planner && <BundlePlanner d={d} all={all} room={room} onClose={() => setPlanner(false)} />}
+      {open && <BundleSheet d={d} b={open} room={room} shared={share.get(open.id) ?? []} onClose={() => setOpen(null)} onEdit={() => { setEdit(open); setOpen(null); }} />}
       {edit && <BundleEditor d={d} initial={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
     </>
   );
@@ -168,7 +172,7 @@ function BundleList({ d, kind, rows, onOpen, onClose }: { d: Derived; kind: List
   );
 }
 
-function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; room: Stockroom; onClose: () => void; onEdit: () => void }) {
+function BundleSheet({ d, b, room, shared, onClose, onEdit }: { d: Derived; b: Bundle; room: Stockroom; shared: Bundle[]; onClose: () => void; onEdit: () => void }) {
   const act = useAct(); const file = useRef<HTMLInputElement>(null); const tip = useTip();
   const by = useMemo(() => (b.unknown ? [] : bundleBySize(b, room)), [b, room]);
   const first = by.find((r) => r.max > 0) ?? by[0];   // opens on the weakest combination of the first size that has orders
@@ -193,6 +197,7 @@ function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; r
           </div>
         </div>
       </div>
+      {shared.length > 0 && <Alert tone="warn">الأرقام دي لو بعت الباندل ده <b>لوحده</b>. بيسحب من نفس قطع {shared.length} باندل تانيين: {shared.slice(0, 5).map((x) => x.title).join('، ')}{shared.length > 5 ? ` و${shared.length - 5} غيرهم` : ''}. استخدم «وزّع المخزون» للرقم الحقيقي.</Alert>}
       {b.unknown ? <Card><Empty>{b.unknown}<span className="block">اضغط «حدد التركيبة» وسجّل اللي جواه.</span></Empty></Card> : <>
         <Card title="تقدر تطلّع كام أوردر" hint="من الجاهز للبيع. اضغط على رقم تشوف اللي جوه الباندل في المقاس ده.">
           <TableWrap><table className="w-full table-fixed text-sm">
@@ -204,7 +209,7 @@ function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; r
               </tr>))}
               {b.variants.length > 1 && <tr><td className={td}><b className="text-xs">اللي تضمنه</b><span className="block text-[10px] text-muted">أقل رقم بين التركيبات، لأن العميل يختار أي تركيبة</span></td>{by.map((r) => <td key={r.size} className={td + ' num text-center font-semibold'}>{fmt(r.max)}</td>)}</tr>}
             </tbody></table></TableWrap>
-          <p className="num mt-2 text-sm">المجموع على كل المقاسات: <b>{fmt(bundleTotal(by))}</b> أوردر</p>
+          <p className="num mt-2 text-sm">المجموع على كل المقاسات (لو بعته لوحده): <b>{fmt(bundleTotal(by))}</b> أوردر</p>
         </Card>
         {sel && <Card title={`اللي جوه الباندل · مقاس ${size}${b.variants.length > 1 ? ` · ${b.variants[vi]?.label}` : ''}`} hint="القطعة الأقل رصيدًا هي اللي بتحدد عدد الأوردرات.">
           <TableWrap><table className="text-sm">
@@ -220,6 +225,50 @@ function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; r
         </Card>}
       </>}
       <SizeTip tip={tip.tip} />
+    </Sheet>
+  );
+}
+
+/** shares the pieces of one size out between the bundles you pick: what each can really fill when they are sold together */
+function BundlePlanner({ d, all, room, onClose }: { d: Derived; all: Bundle[]; room: Stockroom; onClose: () => void }) {
+  const products = useMemo(() => productsOf(all), [all]);
+  const models = useMemo(() => [...new Set(all.flatMap((b) => bundleModels(b)))], [all]);
+  const sizes = useMemo(() => d.snap.sizes.filter((z) => z !== 'FREE' && all.some((b) => b.sizes.includes(z))), [d.snap.sizes, all]);
+  const [size, setSize] = useState(sizes[0] ?? 'M'); const [rows, setRows] = useState<{ key: string; n: number }[]>([]);
+  const supply = useMemo(() => supplyOf(room, size, models), [room, size, models]);
+  const res = useMemo(() => plan(products, rows, size, room, supply), [products, rows, size, room, supply]);
+  const byKey = new Map(products.map((p) => [p.key, p]));
+  const free = products.filter((p) => !rows.some((r) => r.key === p.key));
+  return (
+    <Sheet wide title="وزّع المخزون على الباندلز" onClose={onClose}>
+      <p className="text-sm text-muted">اختار المقاس، وضيف الباندلز اللي هتبيعها مع بعض، واكتب كام أوردر من كل واحد. كل صف بياخد قطعه من نفس المخزون، فبتشوف أقصى رقم ممكن لكل باندل مع الباقي.</p>
+      <div className="flex flex-wrap items-center gap-2"><span className="text-xs text-muted">المقاس</span><Seg label="المقاس" value={size} onChange={(z) => setSize(z)} options={sizes.map((z): [string, string] => [z, z])} /></div>
+      <div className="grid gap-2">
+        {rows.map((r, i) => {
+          const p = byKey.get(r.key); const x = res.rows[i]; if (!p || !x) return null;
+          return (
+            <div key={r.key} className={cn('grid gap-2 rounded-xl border p-3 sm:grid-cols-[minmax(0,1fr)_6rem_auto]', x.ok ? 'border-line' : 'border-crit-line bg-crit-bg/40')}>
+              <div className="min-w-0"><b className="block break-words text-sm leading-snug">{p.title}</b><span className="num text-xs text-muted" dir="ltr">{bundleLine(p.variant)}</span></div>
+              <input type="number" min={0} aria-label="عدد الأوردرات" value={r.n} onChange={(e) => setRows((l) => l.map((y, j) => (j === i ? { ...y, n: Math.max(0, Math.floor(+e.target.value || 0)) } : y)))} />
+              <div className="flex items-center gap-2"><span className={cn('num rounded-lg px-2 py-1 text-xs', tone(x.max))}>أقصى ممكن مع الباقي: {fmt(x.max)}</span><Button aria-label="شيل" onClick={() => setRows((l) => l.filter((_, j) => j !== i))}><Trash2 className="size-4" /></Button></div>
+              {!x.ok && <p className="text-xs text-crit sm:col-span-3">المخزون مش بيكفي {fmt(r.n)} أوردر من ده مع اللي فوقه. أقصى ممكن {fmt(x.max)}.</p>}
+            </div>
+          );
+        })}
+        {!rows.length && <Empty>لسه ما ضفتش باندلز. اختار من تحت.</Empty>}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <select aria-label="إضافة باندل" value="" onChange={(e) => { if (e.target.value) setRows((l) => [...l, { key: e.target.value, n: 0 }]); }} className="min-w-52 max-w-full flex-1">
+          <option value="">+ ضيف باندل</option>
+          {free.map((p) => <option key={p.key} value={p.key}>{p.title}</option>)}
+        </select>
+        <Button disabled={rows.length < 2} onClick={() => { const t = balanced(products, rows.map((r) => r.key), size, room, supply); setRows((l) => l.map((r) => ({ ...r, n: t }))); }}>وزّع بالتساوي</Button>
+        <Button disabled={!rows.length} onClick={() => setRows([])}>مسح</Button>
+      </div>
+      <Card title="الإجمالي">
+        <p className="num text-sm">مجموع الأوردرات في مقاس {size}: <b className="text-lg">{fmt(res.total)}</b>{rows.some((_, i) => !res.rows[i]?.ok) && <span className="text-crit"> (من غير الصفوف اللي المخزون مش بيكفيها)</span>}</p>
+        <p className="mt-1 text-xs text-muted">«وزّع بالتساوي» بيحط نفس العدد لكل الباندلز المختارة، وهو أكبر عدد بيكفيهم كلهم مع بعض.</p>
+      </Card>
     </Sheet>
   );
 }
