@@ -115,6 +115,8 @@ function Delta({ cur, prev, unit, upIsGood = true }: { cur: number; prev: number
   return <span className="flex items-center gap-1.5 text-[11px] text-muted"><span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono font-semibold', good === null ? 'bg-lav text-muted' : good ? 'bg-good-bg text-good' : 'bg-crit-bg text-crit')}><Icon className="size-3" />{c > 0 ? '+' : ''}{c}%</span>مقابل {fmt(prev)} {unit} قبلها</span>;
 }
 
+/** the 80/20 card and the variants card: one fixed height on a wide screen, the rest scrolls inside the card */
+const BOX = 'flex flex-col lg:h-[580px]';
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
 
 /**
@@ -150,15 +152,15 @@ function ShopMix({ d, from, to }: { d: Derived; from: string; to: string }) {
         </Card>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="باريتو: الموديلات الأكثر توريدًا" hint="قطع اتورّدت للمحل">{Object.keys(outBy).length ? <Pareto pull={outBy} /> : <Empty>مفيش توريد في الفترة دي.</Empty>}</Card>
-        <Card title="الأصناف الأكثر توريدًا" hint="مع المرتجع منها واللي جاهز دلوقتي في المخزن">
-          <TableWrap><table className="text-sm"><thead><tr>{['', 'الصنف', 'اتورّد', 'مرتجع', 'نسبة المرتجع', 'جاهز دلوقتي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+        <Card className={BOX} title="باريتو: الموديلات الأكثر توريدًا" hint="قطع اتورّدت للمحل"><div className="min-h-0 flex-1 overflow-auto">{Object.keys(outBy).length ? <Pareto pull={outBy} /> : <Empty>مفيش توريد في الفترة دي.</Empty>}</div></Card>
+        <Card className={BOX} title="الأصناف الأكثر توريدًا" hint="مع المرتجع منها واللي جاهز دلوقتي في المخزن">
+          <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-line bg-surface max-lg:max-h-[480px]"><table className="text-sm"><thead><tr>{['', 'الصنف', 'اتورّد', 'مرتجع', 'نسبة المرتجع', 'جاهز دلوقتي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{top.map((x, i) => { const rate = Math.round((x.back / x.out) * 100); return (
               <tr key={x.sku} className="hover:bg-lav"><td className={td + ' w-10 font-mono text-muted'}>{i + 1}</td>
                 <td className={td}><span className="flex items-center gap-2"><Thumb model={x.k ? d.modelMap.get(x.k.model) : undefined} size={32} />{skuLabel(d.skuMap, x.sku)}</span></td>
                 <td className={td + ' font-mono font-semibold'}>{fmt(x.out)}</td><td className={td + ' font-mono'}>{x.back ? fmt(x.back) : '—'}</td>
                 <td className={td}>{x.back ? <Pill tone={rate >= 30 ? 'crit' : rate >= 10 ? 'warn' : 'good'}>{rate}%</Pill> : <span className="text-muted">—</span>}</td>
-                <td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, x.sku, 'READY'))}</td></tr>); })}</tbody></table></TableWrap>
+                <td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, x.sku, 'READY'))}</td></tr>); })}</tbody></table></div>
         </Card>
       </div>
       {models.length > 0 && <Card title="خريطة التوريد: الموديل × المقاس" hint="قطع اتورّدت · قف على أي مربع تشوف ألوانه"><Heatmap models={models} sizes={sizes} value={(x, z) => cell[x][z] ?? 0} total={(x) => outBy[x] ?? 0} breakdown={(x, z) => Object.entries(byColor[`${x}|${z}`] ?? {}).sort((a, b) => b[1] - a[1]).map(([label, n]) => ({ label, n }))} /></Card>}
