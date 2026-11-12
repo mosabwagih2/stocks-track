@@ -41,6 +41,13 @@ function cellTone(loc: Loc, v: number, info: ReturnType<typeof cellInfo>): strin
 }
 const Key = ({ cls, children }: { cls: string; children: string }) => <span className="inline-flex items-center gap-1.5"><i className={`inline-block size-3.5 rounded border ${cls}`} />{children}</span>;
 
+/** a small line in a matrix cell: the number at the right edge, its word at the left edge (so every cell lines up); a text with no number stays centered */
+function CellLine({ num, word, text }: { num?: string; word?: string; text?: string }) {
+  if (num == null) { const m = /^(~?\+?\d+)\s+(.+)$/.exec(text ?? ''); if (m) { num = m[1]; word = m[2]; } }
+  if (num == null) return <small className="whitespace-nowrap text-center font-sans text-[10px] leading-none opacity-80">{text}</small>;
+  return <small className="flex w-full items-baseline justify-between gap-1 whitespace-nowrap font-sans text-[10px] leading-none opacity-80"><span className="num">{num}</span><span>{word}</span></small>;
+}
+
 function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc; onCell: (s: Sku) => void }) {
   const skus = d.snap.skus.filter((s) => s.model === model);
   const colors = [...new Set(skus.map((s) => s.color))]; const sizes = d.snap.sizes.filter((z) => skus.some((s) => s.size === z));
@@ -63,12 +70,12 @@ function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc
                     <td key={z}>
                       <button type="button" onClick={() => onCell(s)} aria-label={`${skuLabel(d.skuMap, s.id)}: ${v}`}
                         title={`${cover ? `يكفي ${cover.replace('~', 'تقريبًا ')} (سحب ${info.velocity.toFixed(1)} قطعة في اليوم)\n` : ''}${LOCS.filter((l) => qty(d.snap.balances, s.id, l)).map((l) => `${LOC_AR[l]} ${qty(d.snap.balances, s.id, l)}`).join(' · ') || 'لا يوجد رصيد'}${info.demand ? `\nطلب مفتوح ${info.demand}` : ''}`}
-                        className={cn('relative flex min-w-16 flex-col items-center justify-center rounded-[10px]', loc === 'READY' ? 'h-16 gap-0.5' : 'h-11', ' border border-transparent font-mono text-[15px] font-medium hover:border-accent',
+                        className={cn('relative flex min-w-16 flex-col items-center justify-center rounded-[10px]', loc === 'READY' ? 'h-16 gap-0.5 px-2' : 'h-11', ' border border-transparent font-mono text-[15px] font-medium hover:border-accent',
                           tone)}>
                         {/* the number first, then the open demand, then how many days it lasts */}
                         <span className="leading-none">{v}</span>
-                        {loc === 'READY' && info.demand > 0 && <small className="whitespace-nowrap font-sans text-[10px] leading-none opacity-80">طلب {info.demand}</small>}
-                        {loc === 'READY' && <small className="whitespace-nowrap font-sans text-[10px] leading-none opacity-80">{cover || 'بدون سحب'}</small>}
+                        {loc === 'READY' && info.demand > 0 && <CellLine num={String(info.demand)} word="طلب" />}
+                        {loc === 'READY' && <CellLine text={cover || 'بدون سحب'} />}
                         {loc === 'READY' && qty(d.snap.balances, s.id, 'DIRTY') > 0 && <i className="absolute end-1 top-1 size-1.5 rounded-full bg-dirty" />}
                       </button>
                     </td>

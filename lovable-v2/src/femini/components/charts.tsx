@@ -33,7 +33,7 @@ function useHover() {
 export function Readout({ title, items }: { title: ReactNode; items: { name: string; value: number; color: string }[] }) {
   const [main, ...rest] = items;
   return (
-    <div className="mb-3 flex min-h-12 flex-wrap items-end justify-between gap-x-6 gap-y-2" aria-live="polite">
+    <div className="mb-3 flex min-h-12 flex-wrap items-end justify-start gap-x-4 gap-y-2" aria-live="polite">
       <div className="grid min-w-0 gap-0.5">
         <span className="text-[11px] font-medium text-muted">{title}</span>
         {main && <span className="flex items-baseline gap-2"><b className="num text-2xl leading-none font-semibold tracking-tight text-ink">{fmt(main.value)}</b><span className="inline-flex items-center gap-1.5 text-xs text-muted"><i className="inline-block size-2 rounded-full" style={{ background: main.color }} />{main.name}</span></span>}

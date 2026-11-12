@@ -14,6 +14,7 @@ import { cn, fmt } from '@/femini/cn';
 import { Alert, Card, Empty, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from './ui';
 import { C, Heatmap, LOC_FILL, Pareto, ShareRows, TrendArea } from './charts';
 import { DocDetails } from './DocDetails';
+import { ItemCard, ItemsDetail } from './DetailSheets';
 import { Progressive } from './Deferred';
 import type { ExportSheet } from '@/femini/insights-tools';
 
@@ -30,7 +31,7 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
   // the same number of days right before, for the change on the cards (as on the summary)
   const n = dayDiff(from, to) + 1; const pFrom = addDays(from, -n), pTo = addDays(from, -1);
   const p = useMemo(() => shopFlow(d.snap, pFrom, pTo), [d, pFrom, pTo]);
-  const [open, setOpen] = useState<string | null>(null); const [day, setDay] = useState<string | null>(null); const [f, setF] = useState<'all' | 'out' | 'back'>('all'); const [unit, setUnit] = useState<'value' | 'pieces'>('value');
+  const [open, setOpen] = useState<string | null>(null); const [day, setDay] = useState<string | null>(null); const [kpi, setKpi] = useState<'all' | 'out' | 'back' | null>(null); const [f, setF] = useState<'all' | 'out' | 'back'>('all'); const [unit, setUnit] = useState<'value' | 'pieces'>('value');
   const openDoc = open ? d.snap.docs.find((x) => x.no === open) : undefined;
   const list = r.docs.filter((x) => f === 'all' || x.kind === f);
   const noCost = r.out.noCost + r.back.noCost;
@@ -39,9 +40,9 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
   return (
     <div className="grid gap-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Kpi label="اتورّد للمحل" value={<Egp v={r.out.value} />} sub={`${fmt(r.out.n)} توريدة · ${fmt(r.out.pieces)} قطعة`} onClick={() => setF('out')}><Delta cur={r.out.pieces} prev={p.out.pieces} unit="قطعة" /></Kpi>
-        <Kpi label="مرتجع من المحل" value={<Egp v={r.back.value} />} sub={`${fmt(r.back.n)} مرتجع · ${fmt(r.back.pieces)} قطعة${r.out.pieces ? ` · ${Math.round((r.back.pieces / r.out.pieces) * 100)}% من المورّد` : ''}`} tone={r.back.pieces ? 'warn' : undefined} onClick={() => setF('back')}><Delta cur={r.back.pieces} prev={p.back.pieces} unit="قطعة" upIsGood={false} /></Kpi>
-        <Kpi label="صافي اللي راح" value={<Egp v={net} />} sub={`${fmt(r.out.pieces - r.back.pieces)} قطعة في الفترة`} tone="good" />
+        <Kpi label="اتورّد للمحل" value={<Egp v={r.out.value} />} sub={`${fmt(r.out.n)} توريدة · ${fmt(r.out.pieces)} قطعة`} onClick={() => setKpi('out')}><Delta cur={r.out.pieces} prev={p.out.pieces} unit="قطعة" /></Kpi>
+        <Kpi label="مرتجع من المحل" value={<Egp v={r.back.value} />} sub={`${fmt(r.back.n)} مرتجع · ${fmt(r.back.pieces)} قطعة${r.out.pieces ? ` · ${Math.round((r.back.pieces / r.out.pieces) * 100)}% من المورّد` : ''}`} tone={r.back.pieces ? 'warn' : undefined} onClick={() => setKpi('back')}><Delta cur={r.back.pieces} prev={p.back.pieces} unit="قطعة" upIsGood={false} /></Kpi>
+        <Kpi label="صافي اللي راح" value={<Egp v={net} />} sub={`${fmt(r.out.pieces - r.back.pieces)} قطعة في الفترة`} tone="good" onClick={() => setKpi('all')} />
       </div>
       {noCost > 0 && <Alert tone="warn">{fmt(noCost)} قطعة من موديلات مالهاش تكلفة متسجّلة: محسوبة في القطع، ومش في الفلوس. سجّل التكلفة من الإعدادات ← «تكلفة القطعة وسعر البيع».</Alert>}
 
@@ -51,7 +52,7 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
           : [{ key: 'out', name: 'توريد', color: C.accent }, { key: 'back', name: 'مرتجع', color: C.scrap }]} />
       </Card>
 
-      <Deferred minHeight={900}><ShopMix d={d} from={from} to={to} /></Deferred>
+      <Deferred minHeight={900}><ShopMix d={d} from={from} to={to} onDocs={r.docs} onDoc={setOpen} /></Deferred>
 
       <Card title={`التوريدات والمرتجعات (${fmt(list.length)})`} hint="الأحدث أول · اضغط على أي واحدة لتفاصيلها"
         action={<span className="print:hidden"><Seg value={f} onChange={setF} options={[['all', 'الكل'], ['out', `توريد ${r.out.n}`], ['back', `مرتجع ${r.back.n}`]]} /></span>}>
@@ -67,7 +68,11 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
           <tbody>{shops.map(([s, v]) => <tr key={s}><td className={td}>{s}</td><td className={td + ' num'}>{fmt(v.out)}</td><td className={td + ' num'}>{fmt(v.back)}</td><td className={td + ' num font-semibold'}>{fmt(v.out - v.back)}</td><td className={td + ' num'}>{money(v.outValue - v.backValue)}</td></tr>)}</tbody></table></TableWrap>
       </Card>}
 
-      {day && !openDoc && <Sheet title={`توريد ومرتجع يوم ${day}`} onClose={() => setDay(null)} wide>
+      {kpi && !openDoc && <Sheet title={kpi === 'out' ? 'التوريدات في الفترة' : kpi === 'back' ? 'المرتجعات في الفترة' : 'التوريد والمرتجع في الفترة'} onClose={() => setKpi(null)} wide>
+        <p className="text-sm text-muted">اضغط على أي واحدة لتفاصيلها.</p>
+        <div className="grid gap-3 sm:grid-cols-2">{r.docs.filter((x) => kpi === 'all' || x.kind === kpi).map((x) => <DocCard key={x.doc.no} x={x} onOpen={() => setOpen(x.doc.no)} />)}</div>
+      </Sheet>}
+      {day && !openDoc &&<Sheet title={`توريد ومرتجع يوم ${day}`} onClose={() => setDay(null)} wide>
         <p className="text-sm text-muted">اضغط على أي واحدة لتفاصيلها.</p>
         <div className="grid gap-3 sm:grid-cols-2">{r.docs.filter((x) => x.doc.date === day).map((x) => <DocCard key={x.doc.no} x={x} onOpen={() => setOpen(x.doc.no)} />)}</div>
       </Sheet>}
@@ -115,17 +120,19 @@ function Delta({ cur, prev, unit, upIsGood = true }: { cur: number; prev: number
   return <span className="flex items-center gap-1.5 text-[11px] text-muted"><span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono font-semibold', good === null ? 'bg-lav text-muted' : good ? 'bg-good-bg text-good' : 'bg-crit-bg text-crit')}><Icon className="size-3" />{c > 0 ? '+' : ''}{c}%</span>مقابل {fmt(prev)} {unit} قبلها</span>;
 }
 
-/** the 80/20 card and the variants card: one fixed height on a wide screen, the rest scrolls inside the card */
-const BOX = 'flex flex-col lg:h-[580px]';
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
 
 /**
  * What the shop takes, the summary's views applied to the shop: by production line, the state the returns came back
  * in, the 80/20 models, the variants with their return rate and what is ready now, and the model × size map.
  */
-function ShopMix({ d, from, to }: { d: Derived; from: string; to: string }) {
+function byModelBack(rows: { k?: { model: string }; back: number }[]) { const o: Record<string, number> = {}; for (const x of rows) if (x.k && x.back) o[x.k.model] = (o[x.k.model] ?? 0) + x.back; return o; }
+
+function ShopMix({ d, from, to, onDocs, onDoc }: { d: Derived; from: string; to: string; onDocs: ShopDoc[]; onDoc: (no: string) => void }) {
   const mix = useMemo(() => shopMix(d.snap, from, to), [d, from, to]);
   const [lineView, setLineView] = useState<'out' | 'back'>('out');
+  // what a click opens: a group of items (a model, or a model's size), a production line, a state the returns came back in, one item
+  const [grp, setGrp] = useState<{ title: string; skus: string[] } | null>(null); const [line, setLine] = useState<string | null>(null); const [backLoc, setBackLoc] = useState<string | null>(null); const [item, setItem] = useState<string | null>(null);
   const rows = [...mix.bySku].map(([sku, e]) => ({ sku, k: d.skuMap.get(sku), ...e }));
   const outBy: Record<string, number> = {}; const lineBy = { out: {} as Record<string, number>, back: {} as Record<string, number> };
   const cell: Record<string, Record<string, number>> = {}; const byColor: Record<string, Record<string, number>> = {};
@@ -139,31 +146,47 @@ function ShopMix({ d, from, to }: { d: Derived; from: string; to: string }) {
   const lineRows = Object.entries(lineBy[lineView]).sort((a, b) => b[1] - a[1]).map(([l, v]) => ({ label: l, value: v, color: LINE_COLOR[l] ?? C.dirty }));
   const backRows = Object.entries(mix.backTo).sort((a, b) => b[1] - a[1]).map(([loc, v]) => ({ label: LOC_AR[loc] ?? loc, value: v, color: LOC_FILL[loc as keyof typeof LOC_FILL] ?? C.muted }));
   const totOut = rows.reduce((a, x) => a + x.out, 0); const totBack = rows.reduce((a, x) => a + x.back, 0);
-  const top = rows.filter((x) => x.out > 0).sort((a, b) => b.out - a.out || b.back - a.back).slice(0, 12);
+  const top = rows.filter((x) => x.out > 0).sort((a, b) => b.out - a.out || b.back - a.back).slice(0, 40);
+  const openModel = (m: string, size?: string) => setGrp({ title: `${m} · ${d.modelMap.get(m)?.name ?? ''}${size ? ` · ${size}` : ''}`, skus: d.snap.skus.filter((k) => k.model === m && (!size || k.size === size) && mix.bySku.has(k.id)).map((k) => k.id) });
+  const itemRows = (skus: string[]) => skus.map((s) => ({ sku: s, e: mix.bySku.get(s) ?? { out: 0, back: 0 } })).sort((a, b) => b.e.out - a.e.out || b.e.back - a.e.back).map(({ sku, e }) => ({ sku, cells: [fmt(e.out), e.back ? fmt(e.back) : '—', e.out && e.back ? `${Math.round((e.back / e.out) * 100)}%` : '—', fmt(qty(d.snap.balances, sku, 'READY'))] }));
+  const lineModels = line ? Object.keys(outBy).concat(Object.keys(byModelBack(rows))).filter((m, i, a) => a.indexOf(m) === i && lineOf(m) === line) : [];
+  const backDocs = backLoc ? onDocs.filter((x) => x.kind === 'back' && (x.states[backLoc] ?? 0) > 0) : [];
   const models = Object.keys(cell).sort((a, b) => (outBy[b] ?? 0) - (outBy[a] ?? 0)).slice(0, 14); const sizes = d.snap.sizes.filter((z) => models.some((x) => cell[x][z]));
   return (
     <div className="grid gap-4">
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title={lineView === 'out' ? 'التوريد حسب خط الإنتاج' : 'المرتجع حسب خط الإنتاج'} hint="قطع في الفترة" action={<Seg value={lineView} onChange={setLineView} options={[['out', 'توريد'], ['back', 'مرتجع']]} />}>
-          {lineRows.length ? <ShareRows rows={lineRows} unit="قطعة" /> : <Empty>مفيش {lineView === 'out' ? 'توريد' : 'مرتجع'} في الفترة دي.</Empty>}
+          {lineRows.length ? <ShareRows rows={lineRows} unit="قطعة" onPick={setLine} /> : <Empty>مفيش {lineView === 'out' ? 'توريد' : 'مرتجع'} في الفترة دي.</Empty>}
         </Card>
         <Card title="المرتجع رجع في حالة إيه" hint={totOut ? `نسبة المرتجع ${Math.round((totBack / totOut) * 100)}% من المورّد في الفترة` : ''}>
-          {backRows.length ? <ShareRows rows={backRows} unit="قطعة" /> : <Empty>مفيش مرتجع في الفترة دي.</Empty>}
+          {backRows.length ? <ShareRows rows={backRows} unit="قطعة" onPick={(l) => setBackLoc(Object.keys(mix.backTo).find((k) => (LOC_AR[k] ?? k) === l) ?? null)} /> : <Empty>مفيش مرتجع في الفترة دي.</Empty>}
         </Card>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className={BOX} title="باريتو: الموديلات الأكثر توريدًا" hint="قطع اتورّدت للمحل"><div className="min-h-0 flex-1 overflow-auto">{Object.keys(outBy).length ? <Pareto pull={outBy} /> : <Empty>مفيش توريد في الفترة دي.</Empty>}</div></Card>
-        <Card className={BOX} title="الأصناف الأكثر توريدًا" hint="مع المرتجع منها واللي جاهز دلوقتي في المخزن">
-          <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-line bg-surface max-lg:max-h-[480px]"><table className="text-sm"><thead><tr>{['', 'الصنف', 'اتورّد', 'مرتجع', 'نسبة المرتجع', 'جاهز دلوقتي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+        <Card title="باريتو: الموديلات الأكثر توريدًا" hint="قطع اتورّدت للمحل · اضغط على موديل لتفاصيله">{Object.keys(outBy).length ? <Pareto pull={outBy} onPick={(m) => openModel(m)} maxRows={5} /> : <Empty>مفيش توريد في الفترة دي.</Empty>}</Card>
+        <Card title="الأصناف الأكثر توريدًا" hint="مع المرتجع منها واللي جاهز دلوقتي في المخزن · اضغط على صنف لتفاصيله">
+          <div className="overflow-auto rounded-xl border border-line bg-surface" style={{ maxHeight: '23rem' }}><table className="text-sm"><thead><tr>{['', 'الصنف', 'اتورّد', 'مرتجع', 'نسبة المرتجع', 'جاهز دلوقتي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{top.map((x, i) => { const rate = Math.round((x.back / x.out) * 100); return (
-              <tr key={x.sku} className="hover:bg-lav"><td className={td + ' w-10 font-mono text-muted'}>{i + 1}</td>
+              <tr key={x.sku} className="cursor-pointer hover:bg-lav" onClick={() => setItem(x.sku)}><td className={td + ' w-10 font-mono text-muted'}>{i + 1}</td>
                 <td className={td}><span className="flex items-center gap-2"><Thumb model={x.k ? d.modelMap.get(x.k.model) : undefined} size={32} />{skuLabel(d.skuMap, x.sku)}</span></td>
                 <td className={td + ' font-mono font-semibold'}>{fmt(x.out)}</td><td className={td + ' font-mono'}>{x.back ? fmt(x.back) : '—'}</td>
                 <td className={td}>{x.back ? <Pill tone={rate >= 30 ? 'crit' : rate >= 10 ? 'warn' : 'good'}>{rate}%</Pill> : <span className="text-muted">—</span>}</td>
                 <td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, x.sku, 'READY'))}</td></tr>); })}</tbody></table></div>
         </Card>
       </div>
-      {models.length > 0 && <Card title="خريطة التوريد: الموديل × المقاس" hint="قطع اتورّدت · قف على أي مربع تشوف ألوانه"><Heatmap models={models} sizes={sizes} value={(x, z) => cell[x][z] ?? 0} total={(x) => outBy[x] ?? 0} breakdown={(x, z) => Object.entries(byColor[`${x}|${z}`] ?? {}).sort((a, b) => b[1] - a[1]).map(([label, n]) => ({ label, n }))} /></Card>}
+      {line && <Sheet title={`${line} · التوريد حسب الموديل`} onClose={() => setLine(null)}>
+        <p className="text-sm text-muted">اضغط على موديل تشوف أصنافه.</p>
+        <TableWrap><table className="text-sm"><thead><tr>{['الموديل', 'اتورّد', 'مرتجع', 'نسبة المرتجع'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <tbody>{lineModels.map((m) => ({ m, out: outBy[m] ?? 0, back: byModelBack(rows)[m] ?? 0 })).sort((a, b) => b.out - a.out).map((x) => (
+            <tr key={x.m} className="cursor-pointer hover:bg-lav" onClick={() => openModel(x.m)}><td className={td + ' font-mono font-semibold'}>{x.m}</td><td className={td + ' font-mono'}>{fmt(x.out)}</td><td className={td + ' font-mono'}>{x.back ? fmt(x.back) : '—'}</td><td className={td + ' font-mono'}>{x.out && x.back ? `${Math.round((x.back / x.out) * 100)}%` : '—'}</td></tr>))}</tbody></table></TableWrap>
+      </Sheet>}
+      {backLoc && <Sheet title={`مرتجع رجع «${LOC_AR[backLoc] ?? backLoc}»`} onClose={() => setBackLoc(null)} wide>
+        <p className="text-sm text-muted">المرتجعات اللي رجع منها قطع في الحالة دي. اضغط على أي واحدة لتفاصيلها.</p>
+        <div className="grid gap-3 sm:grid-cols-2">{backDocs.map((x) => <DocCard key={x.doc.no} x={x} onOpen={() => onDoc(x.doc.no)} />)}</div>
+      </Sheet>}
+      {grp && <ItemsDetail d={d} title={grp.title} hint="الأصناف في الفترة: اتورّد ومرتجع والجاهز دلوقتي. اضغط على صنف لتفاصيله." head={['اتورّد', 'مرتجع', 'نسبة المرتجع', 'جاهز دلوقتي']} rows={itemRows(grp.skus)} onItem={setItem} onClose={() => setGrp(null)} />}
+      {item && <ItemCard d={d} sku={item} onClose={() => setItem(null)} />}
+      {models.length > 0 && <Card title="خريطة التوريد: الموديل × المقاس" hint="قطع اتورّدت · قف على أي مربع تشوف ألوانه · اضغط عليه لتفاصيله"><Heatmap models={models} sizes={sizes} onPick={(m, z) => openModel(m, z)} value={(x, z) => cell[x][z] ?? 0} total={(x) => outBy[x] ?? 0} breakdown={(x, z) => Object.entries(byColor[`${x}|${z}`] ?? {}).sort((a, b) => b[1] - a[1]).map(([label, n]) => ({ label, n }))} /></Card>}
     </div>
   );
 }

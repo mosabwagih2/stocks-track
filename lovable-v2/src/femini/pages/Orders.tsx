@@ -88,7 +88,7 @@ export default function Orders() {
         <Button variant="primary" onClick={() => setUpload('pickup')}><Upload className="size-4" /> رفع بيك أب</Button>
         <Button onClick={() => setUpload('scan')}><Upload className="size-4" /> رفع ملف الإسكان</Button>
       </PageHead>
-      <Tabs value={tab} onChange={setTab} tabs={[['list', 'الأوردرات'], ['pk', `بيك أب (${d.snap.pickups.length})`], ['pick', 'قائمة التجهيز']]} />
+      <Tabs value={tab} onChange={setTab} tabs={[['pk', `بيك أب (${d.snap.pickups.length})`], ['list', 'الأوردرات'], ['pick', 'قائمة التجهيز']]} />
       {tab === 'pk' ? (
         !d.snap.pickups.length ? <Card><Empty>لا يوجد بيك أب بعد. ارفع ملف البيك أب.</Empty></Card> : <>
           <p className="mb-3 text-sm text-muted">اضغط على أي بيك أب يفتح أوردراته.</p>
