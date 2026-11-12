@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "bundles": "node scripts/bundles.mjs",
     "test:watch": "vitest"
   },
   "overrides": {

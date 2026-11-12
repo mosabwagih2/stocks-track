@@ -9,6 +9,7 @@ import { ErrorBox } from '@/femini/components/shared';
 import { ModelImageSheet, Thumb } from '@/femini/components/Thumb';
 import { ArchivedList, EditCatalogSheet, NewModelSheet } from '@/femini/components/CatalogSheets';
 import { Progressive } from '@/femini/components/Deferred';
+import { BundlesView } from '@/femini/components/Bundles';
 import { Heatmap } from '@/femini/components/charts';
 import { Spinner } from '@/femini/components/Spinner';
 import { LOCS, LOC_AR, LOC_COLOR, LOC_HINT, lineBase } from '@/femini/domain/constants';
@@ -187,7 +188,9 @@ export default function Stock() {
               <option value="all">كل الموديلات الأخرى ({otherCodes.length})</option>
               {otherCodes.map((c) => <option key={c} value={c}>{mName(c)}</option>)}
             </select>
+            <Chip pressed={line === 'bundles'} onClick={() => setLine('bundles')}>باندلز</Chip>
           </div>
+          {line === 'bundles' ? <BundlesView d={d} q={q} /> : <>
           <div className="grid gap-4"><Progressive items={shown} chunk={4} render={(c) => <Card key={c}>{head(c)}<Matrix d={d} model={c} loc={loc} onCell={setSku} /></Card>} /></div>
           {!shown.length && <Empty>لا توجد موديلات مطابقة للحالة والبحث.</Empty>}
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted" aria-label="دليل الألوان">
@@ -198,6 +201,7 @@ export default function Stock() {
               <Key cls={{ DIRTY: 'bg-warn-bg border-warn-line', FACTORY: 'bg-info-bg border-info-line', SCRAP: 'bg-crit-bg border-crit-line', LOST: 'bg-lost-bg border-lost-bg' }[loc as 'DIRTY']}>{LOC_AR[loc]}</Key><Key cls="bg-grid border-line">صفر</Key>
             </>)}
           </div>
+          </>}
         </>
       )}
       </>}
