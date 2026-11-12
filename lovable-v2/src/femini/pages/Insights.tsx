@@ -1,5 +1,5 @@
 import { addDays, dayDiff } from '@/femini/domain/dates';
-import { lineBase } from '@/femini/domain/constants';
+import { lineOf } from '@/femini/domain/lines';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, PackageX, Sparkles, Store, Truck, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
@@ -31,7 +31,7 @@ import { ItemsDetail, OrdersDetail } from '@/femini/components/DetailSheets';
 import { STAGNANT_DAYS, stagnantSkus } from '@/femini/domain/stagnant';
 import type { Order } from '@/femini/domain/types';
 
-const lineOf = (m: string) => { const b = lineBase(m); return /^PAN/.test(b) ? 'بانتي' : /^BR/.test(b) ? 'برا' : /^SH/.test(b) ? 'شورت' : 'موديلات أخرى'; };
+
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
 const topN = (o: Record<string, number>, n: number) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
 

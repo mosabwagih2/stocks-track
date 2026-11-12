@@ -61,3 +61,21 @@ export function shopFlow(s: S & Pick<Snapshot, 'moves' | 'docs'>, from: string, 
   const sum = (k: 'out' | 'back') => docs.filter((x) => x.kind === k).reduce((a, x) => ({ n: a.n + 1, pieces: a.pieces + x.pieces, value: a.value + x.value, noCost: a.noCost + x.noCost }), { n: 0, pieces: 0, value: 0, noCost: 0 });
   return { docs, days, out: sum('out'), back: sum('back'), atShop, shops };
 }
+
+/**
+ * What the shop took, item by item, in the dates (the same documents as shopFlow: by the document's date, reversed
+ * ones left out): pieces out and back per variant, and the state the returns came back in.
+ */
+export function shopMix(s: Pick<Snapshot, 'moves' | 'docs'>, from: string, to: string) {
+  const docMap = new Map(s.docs.map((x) => [x.no, x]));
+  const bySku = new Map<string, { out: number; back: number }>(); const backTo: Record<string, number> = {};
+  for (const m of s.moves) {
+    const out = m.from === 'READY' && m.to === 'EXT_SHOP'; const back = m.from === 'EXT_SHOP';
+    if (!out && !back) continue;
+    const doc = docMap.get(m.doc); if (!doc || doc.status === 'reversed' || doc.date < from || doc.date > to) continue;
+    const e = bySku.get(m.sku) ?? { out: 0, back: 0 };
+    if (out) e.out += m.qty; else { e.back += m.qty; backTo[m.to] = (backTo[m.to] ?? 0) + m.qty; }
+    bySku.set(m.sku, e);
+  }
+  return { bySku, backTo };
+}

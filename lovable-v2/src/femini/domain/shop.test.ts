@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { lostSettlement, shopFlow } from './shop';
+import { lostSettlement, shopFlow, shopMix } from './shop';
+import { lineOf } from './lines';
 import { buildOp } from './ops';
 import type { Doc, Move, Sku } from './types';
 
@@ -39,5 +40,18 @@ describe('shop supply', () => {
     expect(r.days.find((x) => x.day === '2026-11-02')).toMatchObject({ out: 14, outValue: 500, back: 0 });
     expect(r.atShop.pieces).toBe(2 + 14 + 6 - 4);   // all time, the reversed supply not included
     expect(r.days).toHaveLength(7);
+  });
+});
+
+describe('shop mix', () => {
+  it('per variant out and back in the dates, the return states, reversed and out-of-range documents left out', () => {
+    const docs = [doc('SHP-1', 'SHP', '2026-11-02'), doc('SRT-1', 'SRT', '2026-11-05'), doc('SHP-2', 'SHP', '2026-11-05', '', 'reversed'), doc('SHP-0', 'SHP', '2026-10-01')];
+    const moves = [mv('2026-11-02', 'a', 10, 'READY', 'EXT_SHOP', 'SHP-1'), mv('2026-11-02', 'b', 4, 'READY', 'EXT_SHOP', 'SHP-1'), mv('2026-11-05', 'a', 3, 'EXT_SHOP', 'READY', 'SRT-1'), mv('2026-11-05', 'a', 1, 'EXT_SHOP', 'SCRAP', 'SRT-1'), mv('2026-11-05', 'a', 50, 'READY', 'EXT_SHOP', 'SHP-2'), mv('2026-10-01', 'b', 9, 'READY', 'EXT_SHOP', 'SHP-0')];
+    const r = shopMix({ moves, docs }, '2026-11-01', '2026-11-07');
+    expect(Object.fromEntries(r.bySku)).toEqual({ a: { out: 10, back: 4 }, b: { out: 4, back: 0 } });
+    expect(r.backTo).toEqual({ READY: 3, SCRAP: 1 });
+  });
+  it('the line of a model comes from its code', () => {
+    expect(['PAN3', 'BR2', 'SH1', 'D3', 'PAN6 Bundle'].map(lineOf)).toEqual(['بانتي', 'برا', 'شورت', 'موديلات أخرى', 'بانتي']);
   });
 });

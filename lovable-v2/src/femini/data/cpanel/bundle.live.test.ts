@@ -40,5 +40,5 @@ describe.skipIf(!has)('PAN6 Bundle on the live data', () => {
     const fresh = toLovable(mirrorFromBoot(srv.bootNow()));
     expect(fresh.cat.skus.some((k) => k.id === l.id && k.model === 'PAN6 Bundle')).toBe(true);
     expect(s2.skus.filter((k) => k.model === 'PAN6 Bundle')).toHaveLength(2);   // still one model, with FREE and L
-  });
+  }, 30_000);   // runs on the whole live copy: slow when every test file runs at once
 });
