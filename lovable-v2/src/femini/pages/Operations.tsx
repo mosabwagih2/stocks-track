@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, X } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, X, Upload } from 'lucide-react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Chip, Empty, Field, Pill, Seg, Sheet, Tabs, TableWrap, th, td } from '@/femini/components/ui';
@@ -12,6 +12,7 @@ import { findByCode, skuLabel } from '@/femini/domain/orders';
 import { addDays } from '@/femini/domain/dates';
 import { buildOp, effects, expectedReturn, GROUP_AR, OPS, type OpGroup, type OpHdr, type OpLine, type OpType } from '@/femini/domain/ops';
 import { LostOrders } from '@/femini/components/LostOrders';
+import { returnCodesFromSheet } from '@/femini/domain/returnsSheet';
 import { deliveryNoteExcel, downloadDeliveryNote, printDeliveryNote } from '@/femini/components/DeliveryNote';
 import { Holds } from '@/femini/components/Holds';
 import { CountReport } from '@/femini/components/CountReport';
@@ -172,8 +173,10 @@ function SwapLines({ d, lines, set }: { d: Derived; lines: OpLine[]; set: SetLin
 function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void; lines: OpLine[]; set: SetLines }) {
   const [code, setCode] = useState(''); const [msg, setMsg] = useState<{ tone: 'crit' | 'good'; t: string } | null>(null);
   const refs = hdr.refs ?? [];
-  const lookup = () => {
-    const codes = code.split(/[\s,،]+/).filter(Boolean); const added: string[] = []; const bad: string[] = [];
+  const lookup = () => addCodes(code.split(/[\s,،]+/).filter(Boolean));
+  // codes typed / pasted, or the orders found in an uploaded returns sheet: each one checked the same way
+  const addCodes = (codes: string[], from?: string) => {
+    const added: string[] = []; const bad: string[] = [];
     const newRefs = [...refs]; let newLines = lines;
     for (const c of codes) {
       const o = findByCode(d.snap.orders, c);
@@ -188,7 +191,18 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       }
     }
     setHdr({ ...hdr, refs: newRefs, counted: false }); set(() => newLines); setCode('');
-    setMsg(bad.length ? { tone: 'crit', t: bad.join(' · ') } : added.length ? { tone: 'good', t: `اتضاف ${added.length} أوردر` } : null);
+    const head = from ? `${from}: ` : '';
+    setMsg(bad.length ? { tone: 'crit', t: `${head}${added.length ? `اتضاف ${added.length} أوردر · ` : ''}${bad.join(' · ')}` } : added.length ? { tone: 'good', t: `${head}اتضاف ${added.length} أوردر` } : from ? { tone: 'crit', t: `${head}كل الأوردرات اللي فيه متضافة قبل كده.` } : null);
+  };
+  const fileRef = useRef<HTMLInputElement>(null);
+  const readSheet = async (f: File) => {
+    try {
+      const X = await import('xlsx'); const wb = X.read(await f.arrayBuffer(), { type: 'array', cellDates: false });
+      const aoa = wb.SheetNames.flatMap((n) => X.utils.sheet_to_json<unknown[]>(wb.Sheets[n], { header: 1, raw: true, defval: '' }));
+      const { refs: found } = returnCodesFromSheet(aoa, d.snap.orders);
+      if (!found.length) { setMsg({ tone: 'crit', t: `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
+      addCodes(found, `${f.name} (${found.length} أوردر في الشيت)`);
+    } catch (e) { setMsg({ tone: 'crit', t: `${f.name}: الملف ده مش بيتقري (${(e as Error).message})` }); }
   };
   const removeRef = (ref: string) => {
     const o = d.orderMap.get(ref); if (!o) return;
@@ -200,7 +214,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
     <div className="grid gap-3">
       <div className="grid gap-2 rounded-xl border border-line bg-lav p-3">
         <Field label="البوليصة أو رقم الأوردر (تقدر تلصق أكتر من واحد)">
-          <div className="flex gap-2"><input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && lookup()} placeholder="امسح أو اكتب البوليصة" className="flex-1" /><Button variant="primary" onClick={lookup} disabled={!code.trim()}><Search className="size-4" /> لاقي الأوردر</Button></div>
+          <div className="flex gap-2"><input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && lookup()} placeholder="امسح أو اكتب البوليصة" className="flex-1" /><Button variant="primary" onClick={lookup} disabled={!code.trim()}><Search className="size-4" /> لاقي الأوردر</Button><Button onClick={() => fileRef.current?.click()} title="Excel أو CSV فيه البوليصة أو رقم الأوردر في أي عمود"><Upload className="size-4" /> رفع إكسل مرتجعات</Button><input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void readSheet(f); }} /></div>
         </Field>
         {msg && <p className={cn('text-xs', msg.tone === 'crit' ? 'text-crit' : 'text-good')}>{msg.t}</p>}
         {refs.length > 0 && <div className="flex flex-wrap gap-1.5">{refs.map((r) => { const o = d.orderMap.get(r); return <span key={r} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-1 text-xs"><b className="font-mono">{r}</b>{o && <span className="text-muted">· {o.gov} · {o.lines.length} قطعة</span>}<button aria-label="شيل" onClick={() => removeRef(r)}><X className="size-3" /></button></span>; })}</div>}
