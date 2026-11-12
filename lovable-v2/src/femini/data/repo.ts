@@ -29,9 +29,6 @@ export interface Repo {
   photoUrl(path: string): Promise<string | null>;
   // ---- product images, catalog ----
   setModelImage(code: string, file: File | null): Promise<void>;
-  /** a bundle made here, or a store bundle's composition set by hand (same id): returns its id */
-  bundleSave(b: import('@/femini/domain/bundles').Bundle): Promise<string>;
-  bundleRemove(id: string): Promise<void>;
   catalogNewModel(i: { code: string; name: string; colors: string[]; sizes: string[]; minAlert: number; /** keep the code exactly as written (from a pickup) */ exact?: boolean }): Promise<{ model: string; skus: number }>;
   catalogEditModel(i: { code: string; name: string; add: { color: string; size: string }[]; remove: string[] }): Promise<{ added: number; removed: number }>;
   catalogRemoveModel(code: string): Promise<number>;

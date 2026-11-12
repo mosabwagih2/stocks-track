@@ -79,9 +79,6 @@ export interface Snapshot {
   archivedDrafts: OpDraft[];
   holds: import('./holds').Hold[];
   settles: import('./settle').Settlement[];
-  /** bundles made here (or the composition set for a store bundle), and the pictures set for bundles (key: the bundle's id) */
-  bundles: import('./bundles').Bundle[];
-  bundleImages: Record<string, string | null>;
   closes: DayClose[];
   autoClose: boolean;
   lastBackup: string | null;

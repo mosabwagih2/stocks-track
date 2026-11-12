@@ -203,7 +203,6 @@ export function catL(c: Row | undefined): Cat {
     skus: (x.skus ?? []).map((k: Row): Sku => ({ id: String(k.id), model: String(k.m), color: String(k.c), size: String(k.s), minAlert: Number(k.min) || 0 })),
     models: (x.models ?? []).map((m: Row) => ({ code: String(m.code), name: String(m.name ?? m.code) })),
     archived: { ...(x.arch ?? {}) }, names: { ...(x.names ?? {}) }, colors: (x.colors ?? []).map((k: Row) => ({ code: String(k.code), ar: String(k.ar) })), sizes: [...(x.sizes ?? [])],
-    ...(x.bundles?.length ? { bundles: structuredClone(x.bundles) } : {}),
   };
 }
 export function catV(c: Cat, orig: Row | undefined): Row {
@@ -214,7 +213,6 @@ export function catV(c: Cat, orig: Row | undefined): Row {
   if (!L || !same(L.names, c.names)) row.names = { ...c.names };
   if (!L || !same(L.colors, c.colors)) row.colors = c.colors.map((k) => ({ code: k.code, ar: k.ar }));
   if (!L || !same(L.sizes, c.sizes)) row.sizes = [...c.sizes];
-  if (!same(L?.bundles ?? [], c.bundles ?? [])) row.bundles = structuredClone(c.bundles ?? []);
   return row;
 }
 

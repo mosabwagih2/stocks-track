@@ -6,7 +6,6 @@ import { consumption } from '@/femini/domain/supplies';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
 import { itemMapper } from '@/femini/domain/pickup';
 import { BACKDATE_DAYS, skuPrefix } from '@/femini/domain/constants';
-import type { Bundle } from '@/femini/domain/bundles';
 import { buildOp } from '@/femini/domain/ops';
 import { buildHoldOut, buildHoldSettle, HOLD_REASON_AR, outstanding, type Hold } from '@/femini/domain/holds';
 import { rowKey, supplyOnly, type Settlement } from '@/femini/domain/settle';
@@ -19,7 +18,7 @@ import type { Backend } from './cpanel/backend';
 import type { OriginalFile, DayClose } from '@/femini/domain/types';
 import { dayReport } from '@/femini/domain/reports';
 
-interface Catalog { skus: Sku[]; models: Model[]; archived: Record<string, true | { by: string; at: string }>; names: Record<string, string>; colors: { code: string; ar: string }[]; sizes: string[]; bundles?: Bundle[] }
+interface Catalog { skus: Sku[]; models: Model[]; archived: Record<string, true | { by: string; at: string }>; names: Record<string, string>; colors: { code: string; ar: string }[]; sizes: string[]}
 export interface State {
   v: 2; mid: number; sid: number; moves: Move[]; pickups: Pickup[]; orders: Order[]; supplies: Supply[]; log: SupplyEntry[]; docs: Doc[]; seq: Record<string, number>; costs?: Record<string,{cost:number;price:number}>;
   images: Record<string, string | null>; cat: Catalog; drafts?: OpDraft[]; shops?: string[]; files?: OriginalFile[]; archivedPickups?: { pickup: Pickup; orders: Order[]; by?: string; at?: string }[]; archivedDrafts?: OpDraft[]; closes?: DayClose[]; autoClose?: boolean; lastBackup?: string; holds?: Hold[]; settles?: Settlement[];
@@ -179,7 +178,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const colors = [...seed.colors, ...S.cat.colors];
       // copies, so React Query's structural sharing can see in-place edits of the demo state
       const c = structuredClone({ drafts: S.drafts ?? [], shops: S.shops ?? [], pickups: S.pickups, orders: S.orders, supplies: S.supplies, supplyLog: S.log, docs: S.docs, moves: S.moves.slice().reverse() });
-      return { today: cairoToday(), models, archivedModels, skus, archivedSkus, archivedSkuBy, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), settles: (S.settles ?? []).map((x) => supplyOnly(structuredClone(x))), bundles: structuredClone(S.cat.bundles ?? []), bundleImages: Object.fromEntries(Object.entries(S.images).filter(([k]) => k.startsWith('bundle:')).map(([k, v]) => [k.slice(7), v])), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}), ...(backend ? { lock: S.lock ?? '' } : {}) };
+      return { today: cairoToday(), models, archivedModels, skus, archivedSkus, archivedSkuBy, balances: bal(), ...c, colors, sizes, files: structuredClone(S.files ?? []), archivedPickups: structuredClone(S.archivedPickups ?? []), archivedDrafts: structuredClone(S.archivedDrafts ?? []), holds: structuredClone(S.holds ?? []), settles: (S.settles ?? []).map((x) => supplyOnly(structuredClone(x))), closes: structuredClone(S.closes ?? []), autoClose: S.autoClose ?? true, lastBackup: S.lastBackup ?? null, costs: structuredClone(S.costs??{}), ...(backend ? { lock: S.lock ?? '' } : {}) };
     },
     async importPickup(i) {
       inWindow(i.date); unlocked(i.date);
@@ -539,21 +538,6 @@ export function createMemoryRepo(backend?: Backend): Repo {
       guard(); const at = new Date().toISOString(); for (const c of S.closes ?? []) if (c.date === date && c.status === 'closed') { c.status = 'reopened'; c.reopenedAt = at; } save(); },
     async setAutoClose(on) { guard(); S.autoClose = on; save(); },
     async setModelCosts(model,cost,price) { guard();if(!baseModels.concat(S.cat.models).some((m)=>m.code===model))fail('موديل غير معروف');if(!Number.isFinite(cost)||!Number.isFinite(price)||cost<0||price<0)fail('التكلفة والسعر يجب أن يكونا رقمين غير سالبين');S.costs??={};S.costs[model]={cost,price};save(); },
-    // ---------- bundles ----------
-    async bundleSave(b) {
-      guard();
-      const title = b.title.trim(); if (!title) fail('اكتب اسم الباندل');
-      if (!b.sizes.length) fail('اختر مقاسًا واحدًا على الأقل');
-      if (!b.variants.length || b.variants.some((v) => !v.comps.length)) fail('أضف قطعة واحدة على الأقل للباندل');
-      for (const v of b.variants) for (const c of v.comps) { if (!Number.isInteger(c.qty) || c.qty < 1) fail('عدد القطع لازم يكون رقم صحيح 1 أو أكتر'); if (!allSkus().some((k) => k.model === c.model)) fail(`الموديل ${c.model} مش في المخزون`); }
-      const list = (S.cat.bundles ??= []); const row = { ...structuredClone(b), title, custom: true as const };
-      const i = list.findIndex((x) => x.id === b.id); if (i >= 0) list[i] = row; else list.push(row);
-      save(); return row.id;
-    },
-    async bundleRemove(id) {
-      guard(); const list = S.cat.bundles ?? []; const i = list.findIndex((x) => x.id === id); if (i < 0) fail('الباندل مش موجود');
-      list.splice(i, 1); delete S.images[`bundle:${id}`]; save();
-    },
     async resetDemo() { fail('استبدال البيانات التجريبية متوقف لحماية شغلك؛ استخدم النسخ الاحتياطي.'); },
   };
   // One action at a time. Actions await photo storage half way; if a second action ran meanwhile and failed, its rollback replaced
