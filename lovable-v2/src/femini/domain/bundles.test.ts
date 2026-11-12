@@ -45,9 +45,9 @@ describe('a bundle by size', () => {
     expect(by.map((x) => [x.size, x.max])).toEqual([['S', 3], ['M', 0]]);
     expect(bundleTotal(by)).toBe(3); expect(by[0].best?.limiting?.comp.model).toBe('PAN3');
   });
-  it('several color combinations: the best one counts', () => {
+  it('several color combinations: the weakest one counts, the customer may pick any'  , () => {
     const two: Bundle = { ...b, variants: [{ label: 'a', comps: [{ model: 'BR2', qty: 1, colors: ['اسود'] }] }, { label: 'b', comps: [{ model: 'BR2', qty: 1, colors: ['ابيض'] }] }] };
-    expect(bundleBySize(two, r)[0].max).toBe(9);
+    expect(bundleBySize(two, r)[0].max).toBe(4);   // black 4, white 9
   });
 });
 

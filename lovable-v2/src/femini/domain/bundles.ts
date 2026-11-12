@@ -63,12 +63,14 @@ export function variantCapacity(v: BundleVariant, size: string, room: Stockroom)
   return { variant: v, max: limiting ? limiting.max : 0, comps, limiting };
 }
 
+/** `best`: the combination that decides the number (the weakest one) */
 export interface SizeResult { size: string; max: number; best: VariantResult | null; variants: VariantResult[] }
-/** per size: the orders the stock can fill (a bundle with several color combinations: the best combination) */
+/** per size: the orders the stock can fill. A bundle sold in several color combinations: the customer may pick any, so only what
+ *  the weakest combination can fill is certain. */
 export function bundleBySize(b: Bundle, room: Stockroom): SizeResult[] {
   return b.sizes.map((size) => {
     const variants = b.variants.map((v) => variantCapacity(v, size, room));
-    const best = variants.reduce<VariantResult | null>((m, v) => (!m || v.max > m.max ? v : m), null);
+    const best = variants.reduce<VariantResult | null>((m, v) => (!m || v.max < m.max ? v : m), null);
     return { size, max: best?.max ?? 0, best, variants };
   });
 }

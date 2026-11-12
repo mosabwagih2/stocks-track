@@ -136,7 +136,8 @@ function BundleList({ d, kind, rows, onOpen, onClose }: { d: Derived; kind: List
 function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; room: Stockroom; onClose: () => void; onEdit: () => void }) {
   const act = useAct(); const file = useRef<HTMLInputElement>(null);
   const by = useMemo(() => (b.unknown ? [] : bundleBySize(b, room)), [b, room]);
-  const [vi, setVi] = useState(0); const [size, setSize] = useState(() => by.find((r) => r.max > 0)?.size ?? b.sizes[0] ?? '');
+  const first = by.find((r) => r.max > 0) ?? by[0];   // opens on the weakest combination of the first size that has orders
+  const [vi, setVi] = useState(() => Math.max(0, first?.best ? first.variants.indexOf(first.best) : 0)); const [size, setSize] = useState(() => first?.size ?? b.sizes[0] ?? '');
   const sel = by.find((r) => r.size === size)?.variants[vi] ?? by[0]?.variants[0];
   const mine = d.snap.bundles.some((x) => x.id === b.id);
   return (
@@ -166,7 +167,7 @@ function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; r
                 <td className={td}>{b.variants.length > 1 ? <button type="button" className="text-start text-xs underline-offset-2 hover:underline" onClick={() => setVi(i)}>{v.label || `تركيبة ${i + 1}`}</button> : <span className="text-muted">كل الباندل</span>}</td>
                 {by.map((r) => <td key={r.size} className={td + ' px-1 text-center'}><button type="button" onClick={() => { setSize(r.size); setVi(i); }} className={cn('num w-full rounded-lg py-1', tone(r.variants[i].max), r.size === size && i === vi && 'ring-2 ring-accent')}>{fmt(r.variants[i].max)}</button></td>)}
               </tr>))}
-              {b.variants.length > 1 && <tr><td className={td}><b className="text-xs">أعلى رقم</b><span className="block text-[10px] text-muted">لو العميل اختار أحسن تركيبة في المقاس</span></td>{by.map((r) => <td key={r.size} className={td + ' num text-center font-semibold'}>{fmt(r.max)}</td>)}</tr>}
+              {b.variants.length > 1 && <tr><td className={td}><b className="text-xs">اللي تضمنه</b><span className="block text-[10px] text-muted">أقل رقم بين التركيبات، لأن العميل يختار أي تركيبة</span></td>{by.map((r) => <td key={r.size} className={td + ' num text-center font-semibold'}>{fmt(r.max)}</td>)}</tr>}
             </tbody></table></TableWrap>
           <p className="num mt-2 text-sm">المجموع على كل المقاسات: <b>{fmt(bundleTotal(by))}</b> أوردر</p>
         </Card>
