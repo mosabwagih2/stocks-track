@@ -4,12 +4,12 @@ import type { Derived } from '@/femini/hooks/data';
 import { useAct } from '@/femini/hooks/data';
 import { isAdmin, repo } from '@/femini/data';
 import { parseSettlement, previewSettlement, type Settlement } from '@/femini/domain/settle';
-import { cairoDay } from '@/femini/domain/dates';
+import { cairoDay, dayDiff } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { cn, fmt } from '@/femini/cn';
 import { Alert, Button, Card, Empty, Field, Kpi, Seg, Sheet, TableWrap, th, td } from './ui';
 import { C, StackedBars, TrendArea } from './charts';
-import { closedBySheet, collectByDay, collectTrend, type CollectMetric } from '@/femini/domain/trends';
+import { closedBySheet, collectByDay, collectTrendRange, type CollectMetric } from '@/femini/domain/trends';
 import { change } from '@/femini/insights-tools';
 import { OrdersDetail } from './DetailSheets';
 import type { Order } from '@/femini/domain/types';
@@ -150,7 +150,7 @@ function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string })
           line over the bars (it counts other orders, by ship day, and drawn on top it read as part of the same bar) */}
       <StackedBars data={rows} totalName="اتقفل" onPick={setPick} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} also={[{ key: 'shipped', name: 'اتشحن', color: C.accent }]} />
     </Card>
-    <CollectFlow d={d} />
+    <CollectFlow d={d} from={from} to={to} />
   </div>;
 }
 
@@ -170,19 +170,17 @@ function ClosedDaySheet({ d, day, onClose }: { d: Derived; day: string; onClose:
       { head: 'اتشحن', cell: (o) => <span className="num">{o.shippedAt ? cairoDay(o.shippedAt) : '—'}</span> }]} />;
 }
 
-const DAYS: [string, string][] = [['7', '7 يوم'], ['14', '14 يوم'], ['30', '30 يوم']];
 
-/** «حركة التحصيل»: the last 7 / 14 / 30 days up to today, with how it moved against the same number of days before. */
-function CollectFlow({ d }: { d: Derived }) {
-  const [days, setDays] = useState('14'); const [metric, setMetric] = useState<CollectMetric>('due');
-  const n = Number(days); const money = metric === 'due';
-  const t = useMemo(() => collectTrend(d.snap, d.today, n, metric), [d, n, metric]);
+/** «حركة التحصيل»: the page's dates, with how it moved against the same number of days right before them. */
+function CollectFlow({ d, from, to }: { d: Derived; from: string; to: string }) {
+  const [metric, setMetric] = useState<CollectMetric>('due');
+  const n = dayDiff(from, to) + 1; const money = metric === 'due';
+  const t = useMemo(() => collectTrendRange(d.snap, from, to, metric), [d, from, to, metric]);
   const pct = change(t.cur, t.prev);
   return (
     <Card title="حركة التحصيل" hint={money ? 'جنيه · التوريد بتاريخ التسوية' : 'أوردرات · بتاريخ التحصيل في الشيت'}
       action={<span className="flex flex-wrap items-center gap-2 print:hidden">
         <Seg<CollectMetric> label="المقياس" value={metric} onChange={setMetric} options={[['due', 'جنيه'], ['collected', 'أوردرات']]} />
-        <Seg<string> label="الفترة" value={days} onChange={setDays} options={DAYS} />
       </span>}>
       <p className="mb-1 flex flex-wrap items-center gap-x-2 text-sm" aria-live="polite">
         {pct === null

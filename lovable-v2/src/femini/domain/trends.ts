@@ -1,5 +1,5 @@
 import type { Snapshot } from './types';
-import { addDays, cairoDay } from './dates';
+import { addDays, cairoDay, dayDiff } from './dates';
 import { collectedOf, type Settlement } from './settle';
 
 /**
@@ -73,8 +73,12 @@ export function collectByDay(s: Pick<Snapshot, 'orders' | 'settles'>, from: stri
  */
 export type CollectMetric = 'due' | 'collected';
 export function collectTrend(s: Pick<Snapshot, 'orders' | 'settles'>, today: string, days: number, metric: CollectMetric) {
-  const from = addDays(today, -(days - 1));
-  const rows = collectByDay(s, from, today); const before = collectByDay(s, addDays(from, -days), addDays(from, -1));
+  return collectTrendRange(s, addDays(today, -(days - 1)), today, metric);
+}
+/** The same for any dates: `from`..`to` against the same number of days right before `from`. */
+export function collectTrendRange(s: Pick<Snapshot, 'orders' | 'settles'>, from: string, to: string, metric: CollectMetric) {
+  const days = dayDiff(from, to) + 1;
+  const rows = collectByDay(s, from, to); const before = collectByDay(s, addDays(from, -days), addDays(from, -1));
   const sum = (r: CollectDay[]) => r.reduce((a, x) => a + x[metric], 0);
   const cur = sum(rows); const active = rows.filter((x) => x[metric] > 0).length;
   const avg = Math.round(cur / Math.max(1, active));

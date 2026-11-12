@@ -57,7 +57,7 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
       <p className="text-sm text-muted">كل أوردر محسوب على اليوم اللي خرج فيه من المخزن (يوم الإسكان)، مهما كان يوم التسوية اللي جت فيها فلوسه. اليوم بيفضل في «الأيام اللي لسه مفتوحة» لحد ما كل أوردراته تتحصّل أو ترجع، وبعدين بينزل لوحده في «الأيام اللي اتقفلت».</p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="خرج من المخزن" value={fmt(sum('orders'))} sub={`${days.length} يوم · ${fmt(sum('pieces'))} قطعة`} onClick={() => show('all')} />
-        <Kpi label="اتحصّل · التوريد" value={<span dir="rtl" className="inline-flex items-baseline gap-1.5"><span className="num">{money(sum('due'))}</span><span className="font-sans text-sm font-medium text-muted">جنيه</span></span>} sub={`${fmt(sum('collected'))} أوردر (${pct(sum('collected'), sum('orders'))}%) · ${fmt(sum('collectedPieces'))} قطعة`} tone="good" onClick={() => show('collected')} />
+        <Kpi label="اتحصّل" value={<span dir="rtl" className="inline-flex items-baseline gap-1.5"><span className="num">{money(sum('due'))}</span><span className="font-sans text-sm font-medium text-muted">جنيه</span></span>} sub={`${fmt(sum('collected'))} أوردر (${pct(sum('collected'), sum('orders'))}%) · ${fmt(sum('collectedPieces'))} قطعة`} tone="good" onClick={() => show('collected')} />
         <Kpi label="رجع" value={fmt(sum('returned'))} sub={`${pct(sum('returned'), sum('orders'))}% · ${fmt(sum('returnedPieces'))} قطعة`} onClick={() => show('returned')} />
         <Kpi label="لسه ما اتقفلش" value={fmt(sum('pending'))} sub={`${pct(sum('pending'), sum('orders'))}% · ${fmt(sum('pendingPieces'))} قطعة`} tone={sum('pending') ? 'warn' : 'good'} onClick={() => show('pending')} />
       </div>
@@ -128,7 +128,7 @@ function StateCard({ state, x, on, onClick }: { state: WhState; x: WhDay; on: bo
         // the money first (التوريد), then how many orders and pieces it came from
         ? <>
             <span className="flex items-baseline gap-1.5"><b className={cn('num text-[28px] leading-none font-semibold', tone)}>{money(x.due)}</b><span className="text-sm font-medium text-muted">جنيه</span></span>
-            <span className="text-xs text-muted">التوريد · <b className="num text-ink">{fmt(n)}</b> أوردر · <span className="num">{fmt(pieces)}</span> قطعة</span>
+            <span className="text-xs text-muted"><b className="num text-ink">{fmt(n)}</b> أوردر · <span className="num">{fmt(pieces)}</span> قطعة</span>
           </>
         : <>
             <b className={cn('num text-[28px] leading-none font-semibold', tone)}>{fmt(n)}</b>

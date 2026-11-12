@@ -135,7 +135,7 @@ export default function Insights() {
   if (isLoading || !d || !st || !cmp) return <Spinner />;
   const counts: Partial<Record<Sec, number>> = { summary: alerts.filter((a) => a.level === 'crit').length };
   const secLabel = SECTIONS.find((x) => x.id === sec)?.label ?? 'الملخص';
-  const periodLabel = sec === 'finance' ? `الأرصدة الحالية حتى ${d.today} · التكلفة المسجلة حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`;
+  const periodLabel = sec === 'finance' ? `الرسوم من ${cmp.cur.from} لـ ${cmp.cur.to} · جدول القيمة بالأرصدة الحالية حتى ${d.today} والتكلفة المسجلة حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`;
   const filters = 'بدون فلاتر إضافية';
   const doExcel = () => exportExcel({ section: secLabel, period: periodLabel, filters, date: d.today }, buildSheets(sec, d, st, cmp, alerts))
     .then(() => toast('تم تصدير ملف Excel'), () => toast('تعذّر التصدير', { tone: 'err' }));
@@ -144,7 +144,6 @@ export default function Insights() {
       <PageHead title="التحليلات" sub="قرارات مبنية على الطلب الفعلي وسجل الحركات — في مكان واحد.">
         {!d.velocityOK && <Pill tone="warn">بيانات {d.days} يوم فقط · السرعة تقديرية</Pill>}
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          {sec !== 'finance' && range && <PeriodPicker value={range} today={d.today} onChange={setRange} />}
           <Button onClick={doExcel}><FileSpreadsheet className="size-4" /> Excel</Button>
           <Button onClick={() => window.print()}><FileDown className="size-4" /> PDF</Button>
         </div>
@@ -154,7 +153,9 @@ export default function Insights() {
         <div>الفترة: {periodLabel}</div><div>الفلاتر: {filters}</div><div>تاريخ التصدير: {d.today}</div>
       </div>
 
-      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-4 grid grid-cols-4 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:static max-sm:grid-cols-4">
+      {/* the tabs and the dates stay in front while scrolling; the dates drive every section of the page */}
+      <div className="print:hidden sticky top-[57px] z-10 -mx-1 mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur">
+      <nav aria-label="أقسام التحليلات" className="grid min-w-0 flex-[1_1_28rem] grid-cols-4 gap-1">
         {SECTIONS.map(({ id, label, icon: Icon }) => (
           <Button key={id} variant={sec === id ? 'primary' : 'ghost'} onClick={() => go(id)} aria-pressed={sec === id}
             className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition max-sm:flex-col max-sm:gap-1 max-sm:px-1 max-sm:py-2 max-sm:text-[11px] max-sm:leading-tight', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
@@ -164,6 +165,8 @@ export default function Insights() {
           </Button>
         ))}
       </nav>
+      {range && <div className="ms-auto flex shrink-0 items-center max-sm:w-full max-sm:justify-center"><PeriodPicker value={range} today={d.today} onChange={setRange} /></div>}
+      </div>
 
       {sec === 'summary' && (
         <div className="grid gap-8">
@@ -178,18 +181,20 @@ export default function Insights() {
           <Block id="risk" n={3} title="المخاطر" hint="تنبيهات، أوردرات متوقفة، رصيد سالب وراكد"><Deferred minHeight={520}><Risk d={d} st={st} alerts={alerts} /></Deferred></Block>
           <TrendMix d={d} st={st} cmp={cmp} period={days} />
           <Block id="demand" n={6} title="الطلب" hint={rangeLabel}><Deferred minHeight={600}><Demand d={d} st={st} /></Deferred></Block>
-          <Block id="team" n={7} title="الفريق" hint="الشحن المسجّل لكل موظف"><Deferred minHeight={420}><Team d={d} st={st} /></Deferred></Block>
+          <Block id="team" n={7} title="الفريق" hint="الشحن المسجّل لكل موظف"><Deferred minHeight={420}><Team d={d} st={st} range={range} /></Deferred></Block>
         </div>
       )}
       {sheet && <InsightSheet d={d} st={st} kind={sheet} range={null} onClose={() => setParam('sheet', null)} />}
       {sec === 'collect' && range && <CollectionsView d={d} from={range.from} to={range.to} />}
       {sec === 'whday' && range && <WarehouseDayView d={d} from={range.from} to={range.to} />}
-      {sec === 'finance' && <FinancialReport s={d.snap} />}
+      {sec === 'finance' && range && <FinancialReport s={d.snap} from={range.from} to={range.to} />}
     </>
   );
 }
 
 type Stats = NonNullable<ReturnType<typeof useStats>>;
+/** no range = everything */
+const inRange = (r: Range | null, day: string) => !r || (day >= r.from && day <= r.to);
 
 type Cmp = ReturnType<typeof comparePeriods>;
 
@@ -261,9 +266,9 @@ function InsightSheet({ d, st, kind, range, onClose }: { d: Derived; st: Stats; 
       rows={xs.map((x) => ({ sku: x.s.id, cells: [fmt(x.r), (Math.round(x.v * 10) / 10).toString(), <Pill key="c" tone={x.c < 1 ? 'crit' : 'warn'}>{x.c < 1 ? 'أقل من يوم' : `${Math.floor(x.c)} يوم`}</Pill>] }))} onClose={onClose} />;
   }
   // team: every shipped order with who scanned it
-  const shipped = d.snap.orders.filter((o) => o.status === 'shipped' && o.shippedBy).sort((a, b) => (b.shippedAt ?? '').localeCompare(a.shippedAt ?? ''));
+  const shipped = d.snap.orders.filter((o) => o.status === 'shipped' && o.shippedBy && inRange(range, o.shippedAt ? cairoDay(o.shippedAt) : '')).sort((a, b) => (b.shippedAt ?? '').localeCompare(a.shippedAt ?? ''));
   const who = [...new Set(shipped.map((o) => o.shippedBy as string))];
-  return <OrdersDetail d={d} title="الأوردرات المشحونة" hint="كل الأوردرات اللي خرجت بالإسكان، والموظف اللي سجّلها." orders={shipped} onClose={onClose}
+  return <OrdersDetail d={d} title="الأوردرات المشحونة" hint={`الأوردرات اللي خرجت بالإسكان${range ? ` من ${range.from} لـ ${range.to}` : ''}، والموظف اللي سجّلها.`} orders={shipped} onClose={onClose}
     chips={who.map((w) => ({ id: w, label: w, test: (o: Order) => o.shippedBy === w }))} cols={[{ head: 'الموظف', cell: (o) => o.shippedBy }, shipCol]} />;
 }
 
@@ -421,16 +426,17 @@ function Risk({ d, st, alerts }: { d: Derived; st: Stats; alerts: RiskAlert[] })
   );
 }
 
-function Team({ d, st }: { d: Derived; st: Stats }) {
+function Team({ d, st, range }: { d: Derived; st: Stats; range: Range | null }) {
   const [kind, setKind] = useState<Kind | null>(null);
   const e: Record<string, { o: number; p: number; days: Set<string> }> = {}; const pivot: Record<string, Record<string, number>> = {}; let last = '';
-  for (const o of d.snap.orders) if (o.status === 'shipped' && o.shippedBy && o.shippedAt) { const x = (e[o.shippedBy] ??= { o: 0, p: 0, days: new Set() }); x.o++; x.p += o.lines.length; const day = o.shippedAt.slice(0, 10); x.days.add(day); (pivot[day] ??= {})[o.shippedBy] = (pivot[day][o.shippedBy] ?? 0) + 1; last = o.shippedAt > last ? o.shippedAt : last; }
+  // shipping recorded inside the chosen dates (by the Cairo day of the scan)
+  for (const o of d.snap.orders) if (o.status === 'shipped' && o.shippedBy && o.shippedAt && inRange(range, cairoDay(o.shippedAt))) { const x = (e[o.shippedBy] ??= { o: 0, p: 0, days: new Set() }); x.o++; x.p += o.lines.length; const day = cairoDay(o.shippedAt); x.days.add(day); (pivot[day] ??= {})[o.shippedBy] = (pivot[day][o.shippedBy] ?? 0) + 1; last = o.shippedAt > last ? o.shippedAt : last; }
   const ks = Object.keys(e).sort((a, b) => e[b].o - e[a].o); const tot = ks.reduce((a, k) => a + e[k].o, 0);
-  if (!ks.length) return <Card><Empty>لا توجد أوردرات مشحونة بعد. بعد أول ملف سكان تظهر هنا إحصائيات الموظفين.</Empty></Card>;
+  if (!ks.length) return <Card><Empty>مفيش أوردرات اتشحنت في الفترة دي.</Empty></Card>;
   const days = Object.keys(pivot).sort().slice(-10).reverse();
   return (
     <div className="grid gap-4">
-      {kind && <InsightSheet d={d} st={st} kind={kind} range={null} onClose={() => setKind(null)} />}
+      {kind && <InsightSheet d={d} st={st} kind={kind} range={range} onClose={() => setKind(null)} />}
       <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2"><Stat icon={Users} label="موظفون" value={ks.length} onClick={() => setKind('team')} /><Stat icon={Truck} label="أوردرات مشحونة" value={fmt(tot)} tone="good" onClick={() => setKind('team')} /><Stat icon={Gauge} label="آخر تسجيل" value={timeCairo(last)} /></div>
       <Deferred minHeight={300}>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -514,7 +520,7 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
   }
   if (sec === 'summary') {
     const e: Record<string, { o: number; p: number }> = {};
-    for (const o of d.snap.orders) if (o.status === 'shipped' && o.shippedBy) { const x = (e[o.shippedBy] ??= { o: 0, p: 0 }); x.o++; x.p += o.lines.length; }
+    for (const o of d.snap.orders) if (o.status === 'shipped' && o.shippedBy && o.shippedAt && inRange({ from: cur.from, to: cur.to }, cairoDay(o.shippedAt))) { const x = (e[o.shippedBy] ??= { o: 0, p: 0 }); x.o++; x.p += o.lines.length; }
     sheets.push({ name: 'الفريق', rows: [['الموظف', 'أوردرات', 'قطع'], ...Object.entries(e).sort((a, b) => b[1].o - a[1].o).map(([k, v]) => [k, v.o, v.p])] });
   }
   return sheets;

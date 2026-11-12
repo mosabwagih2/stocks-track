@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closedBySheet, collectByDay, collectTrend, stockByDay } from './trends';
+import { closedBySheet, collectByDay, collectTrend, collectTrendRange, stockByDay } from './trends';
 import type { Move, Order, Sku } from './types';
 import type { Settlement } from './settle';
 
@@ -51,6 +51,11 @@ describe('collections graph', () => {
     expect(r.rows).toHaveLength(7); expect(r.rows[0]).toMatchObject({ day: '2026-11-03', due: 300, avg: 250 });
     const o = collectTrend({ orders: [], settles }, '2026-11-09', 7, 'collected');
     expect([o.cur, o.prev, o.avg]).toEqual([4, 2, 2]);
+  });
+  it('any dates: the chosen days against the same number of days right before them', () => {
+    const r = collectTrendRange({ orders: [], settles }, '2026-11-03', '2026-11-08', 'due');   // 6 days, against 28 Oct .. 2 Nov
+    expect([r.cur, r.prev, r.rows.length]).toEqual([500, 100, 6]);
+    expect(collectTrendRange({ orders: [], settles }, '2026-11-03', '2026-11-09', 'due')).toEqual(collectTrend({ orders: [], settles }, '2026-11-09', 7, 'due'));
   });
   it('nothing in the earlier period gives a zero to compare with, never a crash', () => {
     const r = collectTrend({ orders: [], settles: [] }, '2026-11-09', 14, 'due');
