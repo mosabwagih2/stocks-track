@@ -56,14 +56,16 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
   // the same upload as on التحصيل (the same sheet, the same import): a settlement can be uploaded from either page
   const [up, setUp] = useState(false);
   const upload = <>
-    <div className="flex justify-end print:hidden"><Button variant="primary" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-sm text-muted">كل أوردر على يوم خروجه من المخزن. اليوم بيتقفل لما كل أوردراته تتحصّل أو تبقى مرتجع.</p>
+      <Button variant="primary" className="print:hidden" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button>
+    </div>
     {up && <SettleUpload d={d} onClose={() => setUp(false)} />}
   </>;
   if (!days.length) return <div className="grid gap-4">{upload}<Card><Empty>مفيش أوردرات خرجت من المخزن في الفترة دي.</Empty></Card></div>;
   return (
     <div className="grid gap-4">
       {upload}
-      <p className="text-sm text-muted">كل أوردر محسوب على اليوم اللي خرج فيه من المخزن (يوم الإسكان)، مهما كان يوم التسوية اللي جت فيها فلوسه. اليوم بيفضل في «الأيام اللي لسه مفتوحة» لحد ما كل أوردراته تتحصّل أو ترجع، وبعدين بينزل لوحده في «الأيام اللي اتقفلت».</p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="خرج من المخزن" value={fmt(sum('orders'))} sub={`${days.length} يوم · ${fmt(sum('pieces'))} قطعة`} onClick={() => show('all')} />
         <Kpi label="اتحصّل" value={<span dir="rtl" className="inline-flex items-baseline gap-1.5"><span className="num">{money(sum('due'))}</span><span className="font-sans text-sm font-medium text-muted">جنيه</span></span>} sub={`${fmt(sum('collected'))} أوردر (${pct(sum('collected'), sum('orders'))}%) · ${fmt(sum('collectedPieces'))} قطعة`} tone="good" onClick={() => show('collected')} />
