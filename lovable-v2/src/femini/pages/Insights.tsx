@@ -130,6 +130,7 @@ export default function Insights() {
   const alerts = useMemo(() => (d && cmp ? riskAlerts(d, cmp) : []), [d, cmp]);
   const late = useMemo(() => (d ? lateDays(d.snap, d.today) : null), [d]);   // open warehouse days that have waited too long
   const toast = useToast();
+  const sheetP = sp.get('sheet') as Kind | null; const sheet = sheetP && SHEETS.includes(sheetP) ? sheetP : null;
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d || !st || !cmp) return <Spinner />;
   const counts: Partial<Record<Sec, number>> = { summary: alerts.filter((a) => a.level === 'crit').length };
@@ -180,6 +181,7 @@ export default function Insights() {
           <Block id="team" n={7} title="الفريق" hint="الشحن المسجّل لكل موظف"><Deferred minHeight={420}><Team d={d} st={st} /></Deferred></Block>
         </div>
       )}
+      {sheet && <InsightSheet d={d} st={st} kind={sheet} range={null} onClose={() => setParam('sheet', null)} />}
       {sec === 'collect' && range && <CollectionsView d={d} from={range.from} to={range.to} />}
       {sec === 'whday' && range && <WarehouseDayView d={d} from={range.from} to={range.to} />}
       {sec === 'finance' && <FinancialReport s={d.snap} />}
@@ -219,7 +221,9 @@ function Stat({ icon: Icon, label, value, sub, tone = 'accent', children, onClic
   return onClick ? <button type="button" onClick={onClick} className={cls + ' w-full cursor-pointer text-start transition hover:border-accent/50 hover:shadow-md'}>{body}</button> : <div className={cls}>{body}</div>;
 }
 
-type Kind = 'rate' | 'pieces' | 'shipped' | 'cancelled' | 'blocked' | 'old' | 'neg' | 'dead' | 'team';
+type Kind = 'rate' | 'pieces' | 'shipped' | 'cancelled' | 'blocked' | 'old' | 'neg' | 'dead' | 'out' | 'low' | 'team';
+/** the item lists an alert opens straight from its address (?sheet=…), from this page or from the bell */
+const SHEETS: Kind[] = ['out', 'low', 'neg', 'dead'];
 /** The detail behind a card of the analytics: the orders or the items the number is made of. */
 function InsightSheet({ d, st, kind, range, onClose }: { d: Derived; st: Stats; kind: Kind; range: Range | null; onClose: () => void }) {
   const pd = (o: Order) => d.pickupDate.get(o.pickupId) ?? '';
@@ -246,6 +250,16 @@ function InsightSheet({ d, st, kind, range, onClose }: { d: Derived; st: Stats; 
     rows={st.neg.map((s) => ({ sku: s.id, cells: [<b key="r" className="text-crit">{fmt(qty(d.snap.balances, s.id, 'READY'))}</b>, fmt(d.demand[s.id] ?? 0)] }))} onClose={onClose} />;
   if (kind === 'dead') return <ItemsDetail d={d} title="الأصناف الراكدة" hint={`رصيد جاهز لم يُطلب من ${STAGNANT_DAYS} يوم أو أكتر (بتاريخ البيك أب)، الأكبر رصيدًا أول.`} head={['جاهز', 'آخر طلب', 'من كام يوم']} empty="مفيش أصناف راكدة."
     rows={st.dead.map((x) => ({ sku: x.sku, cells: [fmt(x.ready), x.last || 'لم يُطلب أبدًا', x.idle === null ? '—' : `${x.idle} يوم`] }))} onClose={onClose} />;
+  if (kind === 'out') {
+    const xs = d.snap.skus.filter((s) => qty(d.snap.balances, s.id, 'READY') <= 0 && (d.demand[s.id] ?? 0) > 0).sort((a, b) => (d.demand[b.id] ?? 0) - (d.demand[a.id] ?? 0));
+    return <ItemsDetail d={d} title="أصناف نفدت وعليها طلب مفتوح" hint="مفيش منها جاهز، وفي أوردرات مستنياها. الأكتر طلبًا أول." head={['الجاهز', 'مطلوب مفتوح']} empty="مفيش أصناف نفدت وعليها طلب."
+      rows={xs.map((s) => ({ sku: s.id, cells: [<b key="r" className="text-crit">{fmt(qty(d.snap.balances, s.id, 'READY'))}</b>, fmt(d.demand[s.id] ?? 0)] }))} onClose={onClose} />;
+  }
+  if (kind === 'low') {
+    const xs = d.snap.skus.map((s) => { const r = qty(d.snap.balances, s.id, 'READY'); const v = d.velocity[s.id] ?? 0; return { s, r, v, c: v > 0 ? r / v : Infinity }; }).filter((x) => x.r > 0 && x.v > 0 && x.c < 3).sort((a, b) => a.c - b.c);
+    return <ItemsDetail d={d} title="أصناف تكفي أقل من 3 أيام" hint={`بسرعة السحب الحالية${d.velocityOK ? '' : ' (تقديرية)'}، الأقل أول.`} head={['الجاهز', 'سحب في اليوم', 'يكفي']} empty="مفيش أصناف قربت تخلص."
+      rows={xs.map((x) => ({ sku: x.s.id, cells: [fmt(x.r), (Math.round(x.v * 10) / 10).toString(), <Pill key="c" tone={x.c < 1 ? 'crit' : 'warn'}>{x.c < 1 ? 'أقل من يوم' : `${Math.floor(x.c)} يوم`}</Pill>] }))} onClose={onClose} />;
+  }
   // team: every shipped order with who scanned it
   const shipped = d.snap.orders.filter((o) => o.status === 'shipped' && o.shippedBy).sort((a, b) => (b.shippedAt ?? '').localeCompare(a.shippedAt ?? ''));
   const who = [...new Set(shipped.map((o) => o.shippedBy as string))];

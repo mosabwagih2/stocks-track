@@ -219,11 +219,13 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
   );
 }
 
-function CountSheet({ d, hdr, setHdr }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void }) {
-  const models = d.modelOrder;
-  const [model, setModel] = useState(models[0] ?? ''); const [q, setQ] = useState('');
+/** `focus`: items an alert asked to count; they get their own entry in the model list, chosen first */
+const FOCUS = '__alert';
+function CountSheet({ d, hdr, setHdr, focus }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void; focus?: string[] }) {
+  const models = d.modelOrder; const fset = useMemo(() => new Set(focus ?? []), [focus]);
+  const [model, setModel] = useState(fset.size ? FOCUS : models[0] ?? ''); const [q, setQ] = useState('');
   const state = hdr.state ?? 'READY'; const cnt = hdr.cnt ?? {}; const snap = hdr.snap ?? {};
-  const skus = d.snap.skus.filter((s) => s.model === model && (!q || `${s.color} ${s.size}`.includes(q)));
+  const skus = d.snap.skus.filter((s) => (model === FOCUS ? fset.has(s.id) : s.model === model) && (!q || `${s.color} ${s.size}`.includes(q)));
   const setCnt = (sku: string, v: string) => {
     const c = { ...cnt }; const s = { ...snap };
     if (v === '') delete c[sku]; else { c[sku] = Math.max(0, Math.floor(+v || 0)); if (!(sku in s)) s[sku] = qty(d.snap.balances, sku, state); }
@@ -234,13 +236,13 @@ function CountSheet({ d, hdr, setHdr }: { d: Derived; hdr: OpHdr; setHdr: (h: Op
     <div className="grid gap-3">
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="الحالة اللي بتعدّها"><select value={state} disabled={counted > 0} onChange={(e) => setHdr({ ...hdr, state: e.target.value as Loc, cnt: {}, snap: {}, reveal: false })}>{LOCS.map((l) => <option key={l} value={l}>{LOC_AR[l]}</option>)}</select></Field>
-        <Field label="الموديل"><select value={model} onChange={(e) => setModel(e.target.value)}>{models.map((m) => <option key={m} value={m}>{m} · {d.modelMap.get(m)?.name}</option>)}</select></Field>
+        <Field label="الموديل"><select value={model} onChange={(e) => setModel(e.target.value)}>{fset.size > 0 && <option value={FOCUS}>أصناف التنبيه ({fset.size})</option>}{models.map((m) => <option key={m} value={m}>{m} · {d.modelMap.get(m)?.name}</option>)}</select></Field>
         <Field label="بحث باللون أو المقاس"><input value={q} onChange={(e) => setQ(e.target.value)} /></Field>
       </div>
       <Alert tone="info">العدّ أعمى: الرصيد اللي على السيستم مش بيظهر لحد ما تكشف الفروق. اتعدّ {fmt(counted)} صنف.</Alert>
       <TableWrap className="max-h-[480px]"><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>العدد الفعلي</th>{hdr.reveal && <><th className={th}>على السيستم</th><th className={th}>الفرق</th></>}</tr></thead>
         <tbody>{skus.map((s) => { const has = s.id in cnt; const now = qty(d.snap.balances, s.id, state); const diff = has ? cnt[s.id] - now : 0; return (
-          <tr key={s.id} className={has ? 'bg-accent/5' : ''}><td className={td}>{s.color} · {s.size}</td>
+          <tr key={s.id} className={has ? 'bg-accent/5' : ''}><td className={td}>{model === FOCUS ? <span className="font-mono">{s.model} · </span> : null}{s.color} · {s.size}</td>
             <td className={td}><input type="number" min={0} value={has ? cnt[s.id] : ''} onChange={(e) => setCnt(s.id, e.target.value)} className="w-24" aria-label={`عدد ${s.color} ${s.size}`} /></td>
             {hdr.reveal && <><td className={td + ' font-mono'}>{fmt(now)}</td><td className={td}>{!has ? '—' : diff === 0 ? <Pill tone="good">مطابق</Pill> : diff < 0 ? <Pill tone="crit">عجز {-diff}</Pill> : <Pill tone="warn">زيادة {diff}</Pill>}</td></>}
           </tr>); })}</tbody></table></TableWrap>
@@ -251,10 +253,21 @@ function CountSheet({ d, hdr, setHdr }: { d: Derived; hdr: OpHdr; setHdr: (h: Op
 }
 
 /* ------------------------------------------------------------------ operation form */
-function OpForm({ d, type, draft, onDone, onBack, onOpen }: { d: Derived; type: OpType; draft?: OpDraft | null; onDone: (doc: string) => void; onBack: () => void; onOpen: (no: string) => void }) {
+/**
+ * The lines an alert opens an operation with: every listed item with all its pieces in the state the operation takes
+ * them from (the lost pieces for LOS, the dirty ones for FSD). A count (CNT) gets no lines: the items are shown to be
+ * counted, and nothing is counted for the person.
+ */
+function prefillLines(d: Derived, type: OpType, skus: string[]): OpLine[] {
+  const loc: Loc | null = type === 'LOS' ? 'LOST' : type === 'FSD' ? 'DIRTY' : null;
+  if (!loc) return [];
+  return skus.map((sku) => ({ sku, q: qty(d.snap.balances, sku, loc), ...(type === 'LOS' ? { res: 'FOUND' as const } : {}) })).filter((l) => l.q > 0);
+}
+
+function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derived; type: OpType; draft?: OpDraft | null; /** items an alert sent, see prefillLines */ prefill?: string[]; onDone: (doc: string) => void; onBack: () => void; onOpen: (no: string) => void }) {
   const act = useAct(); const meta = OPS.find((o) => o.type === type)!; const I = ICON[type];
   const [hdr, setHdr] = useState<OpHdr>((draft?.hdr as OpHdr) ?? defaults(type));
-  const [lines, setLinesState] = useState<OpLine[]>((draft?.lines as unknown as OpLine[]) ?? []);
+  const [lines, setLinesState] = useState<OpLine[]>(() => (draft?.lines as unknown as OpLine[]) ?? (prefill?.length ? prefillLines(d, type, prefill) : []));
   const set: SetLines = (f) => setLinesState(f);
   const [date, setDate] = useState(draft?.date ?? d.today); const [photo, setPhoto] = useState<File | null>(null); const [busy, setBusy] = useState(false);
   const [draftId, setDraftId] = useState(draft?.id);
@@ -278,6 +291,7 @@ function OpForm({ d, type, draft, onDone, onBack, onOpen }: { d: Derived; type: 
         <div><b className="text-lg">{meta.ar}</b><p className="text-xs text-muted">{meta.desc}</p></div>
         {draftId && <Pill tone="warn">مسودة</Pill>}
       </div>
+      {!draft && prefill?.length ? <Alert tone="info">{type === 'CNT' ? `جاي من التنبيه: ${fmt(prefill.length)} صنف محتاج جرد، ظاهرين تحت في «أصناف التنبيه». اعدّهم واكشف الفروق قبل التأكيد.` : `جاي من التنبيه: اتملى ${fmt(lines.length)} صنف بكل قطعهم${type === 'LOS' ? '، والكل متعلّم «لقيناه». غيّر اللي اتشطب' : ''}. راجع الكميات قبل التأكيد.`}</Alert> : null}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid content-start gap-4">
           <Card title="البيانات"><div className="grid gap-3 sm:grid-cols-3">
@@ -302,7 +316,7 @@ function OpForm({ d, type, draft, onDone, onBack, onOpen }: { d: Derived; type: 
           </Card>}
           <Card title={type === 'RTN' ? 'المرتجعات بالبوليصة' : type === 'CNT' ? 'ورقة الجرد' : type === 'SWP' ? 'التبديلات' : 'الأصناف'}>
             {type === 'RTN' ? <ReturnLines d={d} hdr={hdr} setHdr={setHdr} lines={lines} set={set} />
-              : type === 'CNT' ? <CountSheet d={d} hdr={hdr} setHdr={setHdr} />
+              : type === 'CNT' ? <CountSheet d={d} hdr={hdr} setHdr={setHdr} focus={prefill} />
               : type === 'SWP' ? <SwapLines d={d} lines={lines} set={set} />
               : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : type === 'SRT' ? { to: 'READY' } : {}, from ? qty(d.snap.balances, s, from) : undefined))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}
           </Card>
@@ -404,11 +418,15 @@ export default function Operations() {
   const { d, isLoading, error } = useDerived();
   const [sp, setSp] = useSearchParams();
   const tab = (sp.get('tab') ?? 'new') as 'new' | 'docs' | 'shops' | 'holds';
-  const op = sp.get('op') as OpType | null; const draftId = sp.get('draft'); const open = sp.get('doc');
-  const go = (p: Record<string, string | null>) => { const n = new URLSearchParams(sp); for (const k in p) { const v = p[k]; if (v == null) n.delete(k); else n.set(k, v); } setSp(n); };
+  const op = sp.get('op') as OpType | null; const draftId = sp.get('draft'); const open = sp.get('doc'); const skusP = sp.get('skus') ?? '';
+  // leaving the form (or picking another operation) drops the items an alert sent with it
+  const go = (p: Record<string, string | null>) => { const n = new URLSearchParams(sp); if ('op' in p) n.delete('skus'); for (const k in p) { const v = p[k]; if (v == null) n.delete(k); else n.set(k, v); } setSp(n); };
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
   const draft = draftId ? (d.snap.drafts ?? []).find((x) => x.id === draftId) ?? null : null;
+  // only items that exist (an old or hand-made address can hold anything)
+  const known = new Set([...d.snap.skus, ...(d.snap.archivedSkus ?? [])].map((s) => s.id));
+  const prefill = skusP ? [...new Set(skusP.split(','))].filter((s) => known.has(s)) : [];
   const openDoc = open ? d.snap.docs.find((x) => x.no === open) : undefined;
   const openHolds = (d.snap.holds ?? []).filter((h) => h.status === 'open').length;
   const pendingShop = d.snap.docs.filter((x) => x.type === 'SHP' && x.status === 'done' && !x.hdr.delivered).length;
@@ -417,7 +435,7 @@ export default function Operations() {
       <PageHead title="العمليات" sub="قلب التشغيل: كل حركة بتغيّر المخزون بتتسجل هنا بفحوص قبل التأكيد. الشحن بالإسكان من صفحة الأوردرات." />
       <Tabs value={tab} onChange={(t) => go({ tab: t === 'new' ? null : t, op: null, draft: null, new: null })} tabs={[['new', 'عملية جديدة'], ['docs', `آخر العمليات (${d.snap.docs.length})`], ['shops', `توريدات المحل${pendingShop ? ` · ${pendingShop}` : ''}`], ['holds', `هولد${openHolds ? ` · ${openHolds}` : ''}`]]} />
       {tab === 'new' && (op && OPS.some((o) => o.type === op)
-        ? <OpForm key={`${op}-${draftId ?? ''}`} d={d} type={op} draft={draft} onBack={() => go({ op: null, draft: null })} onDone={(no) => go({ op: null, draft: null, ...(op === 'SHP' ? { tab: 'shops', doc: no } : {}) })} onOpen={(no) => go({ doc: no })} />
+        ? <OpForm key={`${op}-${draftId ?? ''}-${skusP}`} d={d} type={op} draft={draft} prefill={prefill} onBack={() => go({ op: null, draft: null })} onDone={(no) => go({ op: null, draft: null, ...(op === 'SHP' ? { tab: 'shops', doc: no } : {}) })} onOpen={(no) => go({ doc: no })} />
         : <Launcher d={d} onPick={(t) => go({ op: t, draft: null })} onDraft={(x) => go({ op: x.type, draft: x.id })} onHold={() => go({ tab: 'holds', new: 'yes' })} />)}
       {tab === 'docs' && <Docs d={d} onOpen={(no) => go({ doc: no })} />}
       {tab === 'holds' && <Holds d={d} openNew={sp.get('new') === 'yes'} onOpenNew={(v) => go({ new: v ? 'yes' : null })} />}
