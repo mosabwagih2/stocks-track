@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import { Card } from './ui';
 import { C, TrendArea } from './charts';
 import { stockByDay } from '@/femini/domain/trends';
+import { lostSettlement } from '@/femini/domain/shop';
 
 const money = (n: number) => new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 2 }).format(n);
 export function financialSheets(s: Snapshot): ExportSheet[] {
@@ -19,11 +20,25 @@ export function FinancialReport({ s, from, to }: { s: Snapshot; from: string; to
   const r = financialReport(s); const nav = useNavigate();
   return <div className="grid gap-5">
     <StockTrend s={s} from={from} to={to} />
+    <LostMoney s={s} from={from} to={to} />
     <div><h2 className="text-lg font-semibold">قيمة المخزون</h2><p className="mt-1 text-sm text-muted">الرصيد الحالي × تكلفة القطعة المسجلة حاليًا · جنيه مصري</p></div>
     <Alert tone={r.missing.length || r.unknown.length || r.negative.length ? 'warn' : 'info'}>القيم تخص الموديلات ذات التكلفة المسجلة فقط؛ الهالك والمفقود منفصلان عن المخزون القابل للاسترداد. {r.missing.length > 0 && `تكلفة ${r.missing.length} موديل غير مكتملة.`} {r.negative.length > 0 && `${r.negative.length} صنف برصيد سالب يحتاج مراجعة قبل اعتماد التقرير.`} {r.unknown.length > 0 && `${r.unknown.length} صنف غير معروف وغير مشمول بالتقييم.`}</Alert>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[['جاهز للبيع', r.ready], ['نظافة وعند المصنع', { units: r.dirty.units + r.factory.units, known: r.dirty.known + r.factory.known, missing: r.dirty.missing + r.factory.missing }], ['هالك بالتكلفة', r.scrap], ['مفقود بالتكلفة', r.lost]].map(([label, value]) => { if (typeof value === 'string' || typeof label !== 'string') return null; return <Kpi key={label} label={label} value={`${money(value.known)} ج.م`} sub={`${fmt(value.units)} قطعة · ${value.missing ? 'تقييم جزئي' : 'بالتكلفة المسجلة'}`} />; })}</div>
     <TableWrap><table className="text-sm"><thead><tr>{['الموديل', 'تكلفة القطعة', 'قيمة الجاهز', 'قيمة الهالك', 'قيمة المفقود'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{r.rows.map((x) => <tr key={x.code}><td className={td}><b>{x.code}</b><span className="block text-xs text-muted">{x.name}</span></td><td className={td}>{x.cost === null ? <span className="text-warn">غير مسجلة</span> : money(x.cost)}</td>{(['READY', 'SCRAP', 'LOST'] as const).map((loc) => <td key={loc} className={td}>{x.cost === null ? '—' : money(x.units[loc] * x.cost)}<span className="block text-xs text-muted">{fmt(x.units[loc])} قطعة</span></td>)}</tr>)}</tbody></table></TableWrap>
     <section className="border-t border-line pt-4"><h3 className="font-semibold">ما ينقص لاعتماد الأرقام</h3><p className="mt-2 text-sm text-muted">الأرباح غير محسوبة: تحصيلات البيع الفعلية، التكلفة التاريخية، الشحن والعمولات والخصومات والضرائب غير متوفرة. المستلزمات غير مشمولة لعدم تسجيل تكلفتها.</p>{r.missing.length > 0 && <p className="my-2 text-sm text-warn">تكلفة ناقصة: {r.missing.map((x) => x.code).join('، ')}</p>}<Button className="mt-3 print:hidden" onClick={() => nav('/settings')}>استكمال تكلفة الموديلات</Button></section>
+  </div>;
+}
+/** Lost pieces decided in the dates: settled (paid for, counted in money at cost) and lost for good. */
+function LostMoney({ s, from, to }: { s: Snapshot; from: string; to: string }) {
+  const r = useMemo(() => lostSettlement(s, from, to), [s, from, to]);
+  const egp = (v: number) => <span dir="rtl" className="inline-flex items-baseline gap-1.5"><span className="num">{money(Math.round(v))}</span><span className="font-sans text-sm font-medium text-muted">جنيه</span></span>;
+  const note = (n: number) => (n ? ` · ${fmt(n)} قطعة من غير تكلفة` : '');
+  return <div className="grid gap-2">
+    <h3 className="font-semibold">تسوية المفقود في الفترة</h3>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Kpi label="تمت تسويته (اتعوّض)" value={egp(r.comp.value)} sub={`${fmt(r.comp.pieces)} قطعة بالتكلفة${note(r.comp.noCost)}`} tone="good" />
+      <Kpi label="مفقود نهائي" value={egp(r.off.value)} sub={`${fmt(r.off.pieces)} قطعة خسارة بالتكلفة${note(r.off.noCost)}`} tone={r.off.pieces ? 'crit' : undefined} />
+    </div>
   </div>;
 }
 /** The stock's value and pieces at the end of each day (ledger replayed), over the page's dates (never before the first move). */

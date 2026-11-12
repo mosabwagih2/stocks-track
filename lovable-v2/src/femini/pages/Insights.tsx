@@ -1,7 +1,7 @@
 import { addDays, dayDiff } from '@/femini/domain/dates';
 import { lineBase } from '@/femini/domain/constants';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Store, Truck, Users, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Empty, Pill, Seg, TableWrap, th, td } from '@/femini/components/ui';
@@ -22,6 +22,7 @@ import { FinancialReport, financialSheets } from '@/femini/components/FinancialR
 import { CollectionsView } from '@/femini/components/Collections';
 import { Deferred } from '@/femini/components/Deferred';
 import { WarehouseDayView } from '@/femini/components/WarehouseDay';
+import { ShopSupplyView, shopSheets } from '@/femini/components/ShopSupply';
 import { PeriodPicker } from '@/femini/components/PeriodPicker';
 import { lateDays, lateLevel, warehouseDays } from '@/femini/domain/warehouseDay';
 import { LateDot } from '@/femini/components/LateDot';
@@ -34,11 +35,12 @@ const lineOf = (m: string) => { const b = lineBase(m); return /^PAN/.test(b) ? '
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
 const topN = (o: Record<string, number>, n: number) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
 
-type Sec = 'summary' | 'collect' | 'whday' | 'finance';
+type Sec = 'summary' | 'collect' | 'whday' | 'shop' | 'finance';
 const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'summary', label: 'الملخص', icon: Sparkles },
   { id: 'collect', label: 'التحصيل', icon: Wallet },
   { id: 'whday', label: 'تقفيل اليوم', icon: CalendarCheck },
+  { id: 'shop', label: 'توريد المحل', icon: Store },
   { id: 'finance', label: 'قيمة المخزون', icon: FileSpreadsheet },
 ];
 /** The parts of the summary, in reading order. Risk, demand and team were tabs of their own: their old links open here. */
@@ -155,7 +157,7 @@ export default function Insights() {
 
       {/* the tabs and the dates stay in front while scrolling; the dates drive every section of the page */}
       <div className="print:hidden sticky top-[57px] z-10 -mx-1 mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur">
-      <nav aria-label="أقسام التحليلات" className="grid min-w-0 flex-[1_1_28rem] grid-cols-4 gap-1">
+      <nav aria-label="أقسام التحليلات" className="grid min-w-0 flex-[1_1_34rem] grid-cols-5 gap-1">
         {SECTIONS.map(({ id, label, icon: Icon }) => (
           <Button key={id} variant={sec === id ? 'primary' : 'ghost'} onClick={() => go(id)} aria-pressed={sec === id}
             className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition max-sm:flex-col max-sm:gap-1 max-sm:px-1 max-sm:py-2 max-sm:text-[11px] max-sm:leading-tight', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
@@ -187,6 +189,7 @@ export default function Insights() {
       {sheet && <InsightSheet d={d} st={st} kind={sheet} range={null} onClose={() => setParam('sheet', null)} />}
       {sec === 'collect' && range && <CollectionsView d={d} from={range.from} to={range.to} />}
       {sec === 'whday' && range && <WarehouseDayView d={d} from={range.from} to={range.to} />}
+      {sec === 'shop' && range && <ShopSupplyView d={d} from={range.from} to={range.to} />}
       {sec === 'finance' && range && <FinancialReport s={d.snap} from={range.from} to={range.to} />}
     </>
   );
@@ -475,6 +478,7 @@ function AlertsPanel({ alerts }: { alerts: RiskAlert[] }) {
 /** Sheets for the Excel export: the comparison is always included, plus the rows of the open section. */
 function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAlert[]): ExportSheet[] {
   if (sec === 'finance') return financialSheets(d.snap);
+  if (sec === 'shop') return shopSheets(d, cmp.cur.from, cmp.cur.to);
   const ch = (a: number, b: number) => { const c = change(a, b); return c === null ? '—' : `${c > 0 ? '+' : ''}${c}%`; };
   const { cur, prev } = cmp;
   const sheets: ExportSheet[] = [{ name: 'المقارنة', rows: [

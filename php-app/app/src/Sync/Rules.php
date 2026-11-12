@@ -14,7 +14,7 @@ use Femini\Http\HttpError;
 final class Rules
 {
     // EXT_HOLD: pieces out on a hold (photoshoot, sample, gift), until they come back or are written off
-    public const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF', 'EXT_HOLD'];
+    public const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF', 'EXT_HOLD', 'EXT_COMP'];
     // HLD: a hold (out / return / write-off), MOV: a direct state change
     public const MOVE_TYPES = ['RCV', 'RTN', 'SRT', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP', 'HLD', 'MOV'];
 
@@ -85,7 +85,8 @@ final class Rules
             'SCN', 'CXL' => $pair('READY', 'EXT_CH'),
             'FSD' => $pair('DIRTY', 'FACTORY') || $pair('SCRAP', 'EXT_FACTORY'),
             'FRC' => $pair('FACTORY', 'READY') || $pair('FACTORY', 'SCRAP'),
-            'LOS' => $pair('LOST', 'READY') || $pair('LOST', 'EXT_OFF'),
+            // a lost piece: found, settled (paid for), or lost for good
+            'LOS' => $pair('LOST', 'READY') || $pair('LOST', 'EXT_COMP') || $pair('LOST', 'EXT_OFF'),
             'SWP' => $pair('READY', 'EXT_ADJ'),
             'CLN', 'MOV' => $a !== $b && in_array($a, $inside, true) && in_array($b, $inside, true),
             'RTN' => $outsideAndInside('EXT_CH', ['READY', 'DIRTY', 'SCRAP', 'LOST'])

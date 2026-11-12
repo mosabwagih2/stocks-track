@@ -17,13 +17,13 @@ export const OPS: { type: OpType; ar: string; grp: OpGroup; desc: string }[] = [
   { type: 'FRC', ar: 'استلام من المصنع', grp: 'internal', desc: 'المغسول اللي رجع، وفيه المرفوض' },
   { type: 'SWP', ar: 'تبديل مقاس', grp: 'internal', desc: 'قطع بتتخصم من مقاس وتتضاف لمقاس تاني' },
   { type: 'CNT', ar: 'جرد', grp: 'control', desc: 'عدّ فعلي ومقارنة بالسيستم' },
-  { type: 'LOS', ar: 'معالجة المفقود', grp: 'control', desc: 'لقيناه ولا نشطبه' },
+  { type: 'LOS', ar: 'معالجة المفقود', grp: 'control', desc: 'لقيناه، اتعوّض، ولا مفقود نهائي' },
 ];
 export const GROUP_AR: Record<OpGroup, string> = { in: 'دخول', out: 'خروج', internal: 'داخلي', control: 'رقابة' };
 export const opName = (t: string) => OPS.find((o) => o.type === t)?.ar;
 
 /** one input line. Fields used depend on the type: q (qty), rej (FRC rejected), r/d/x/exp (RTN), res (LOS) */
-export interface OpLine { sku: string; q: number; rej?: number; r?: number; d?: number; x?: number; exp?: number; res?: 'FOUND' | 'OFF'; to?: string }
+export interface OpLine { sku: string; q: number; rej?: number; r?: number; d?: number; x?: number; exp?: number; res?: 'FOUND' | 'COMP' | 'OFF'; to?: string }
 export interface OpHdr {
   ref?: string; declared?: number | null; hasPhoto?: boolean; // RCV
   shop?: string; note?: string; // SHP, SRT
@@ -70,7 +70,8 @@ export function buildOp(type: OpType, hdr: OpHdr, lines: OpLine[], b: Balances, 
     L.forEach((l) => { add(l.sku, n(l.q), 'FACTORY', 'READY', 'رجع مغسول'); add(l.sku, n(l.rej), 'FACTORY', 'SCRAP', 'مرفوض بعد الغسيل'); });
     chk(L.length > 0, 'فيه أصناف مضافة');
   } else if (type === 'LOS') {
-    L.forEach((l) => (l.res === 'FOUND' ? add(l.sku, n(l.q), 'LOST', 'READY', 'لقيناه') : add(l.sku, n(l.q), 'LOST', 'EXT_OFF', 'تسوية: شطب المفقود')));
+    // found → back for sale · COMP → settled: paid for (counted in money at cost) · OFF → lost for good
+    L.forEach((l) => (l.res === 'FOUND' ? add(l.sku, n(l.q), 'LOST', 'READY', 'لقيناه') : l.res === 'COMP' ? add(l.sku, n(l.q), 'LOST', 'EXT_COMP', 'تسوية: اتعوّض') : add(l.sku, n(l.q), 'LOST', 'EXT_OFF', 'مفقود نهائي (شطب)')));
     chk(L.length > 0, 'فيه أصناف مضافة');
   } else if (type === 'SWP') {
     L.forEach((l) => { if (!l.to || l.to === l.sku) return; add(l.sku, n(l.q), 'READY', 'EXT_ADJ', `تبديل مقاس → ${name(l.to)}`); add(l.to, n(l.q), 'EXT_ADJ', 'READY', `تبديل مقاس ← ${name(l.sku)}`); });

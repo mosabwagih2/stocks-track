@@ -15,7 +15,7 @@ export interface LogEntry { at: string; by: string; kind: LogKind; label: string
 type Snap = Pick<Snapshot, 'moves' | 'supplyLog' | 'supplies' | 'orders' | 'archivedPickups' | 'files' | 'docs'>;
 
 /** short state names, as in the ledger */
-export const SHORT: Record<string, string> = { READY: 'جاهز', DIRTY: 'نظافة', FACTORY: 'المصنع', SCRAP: 'هالك', LOST: 'مفقود', EXT_OPEN: 'افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'جرد', EXT_OFF: 'شطب', EXT_HOLD: 'هولد' };
+export const SHORT: Record<string, string> = { READY: 'جاهز', DIRTY: 'نظافة', FACTORY: 'المصنع', SCRAP: 'هالك', LOST: 'مفقود', EXT_OPEN: 'افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'جرد', EXT_OFF: 'شطب', EXT_COMP: 'اتعوّض', EXT_HOLD: 'هولد' };
 const short = (l: string) => SHORT[l] ?? l;
 
 /**

@@ -5,7 +5,7 @@ export const LOCS: Loc[] = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST'];
 export const BACKDATE_DAYS = 7;
 export const LOC_AR: Record<string, string> = {
   READY: 'جاهز للبيع', DIRTY: 'هالك نظافة', FACTORY: 'عند المصنع', SCRAP: 'هالك نهائي', LOST: 'مفقود',
-  EXT_OPEN: 'رصيد افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'القناة / العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'تسوية جرد', EXT_OFF: 'شطب نهائي', EXT_HOLD: 'هولد (برا)',
+  EXT_OPEN: 'رصيد افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'القناة / العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'تسوية جرد', EXT_OFF: 'شطب نهائي', EXT_HOLD: 'هولد (برا)', EXT_COMP: 'اتعوّض (تمت تسويته)',
 };
 export const LOC_HINT: Record<Loc, string> = {
   READY: 'قابل للبيع', DIRTY: 'يُغسل ثم يعود', FACTORY: 'في الطريق من المصنع', SCRAP: 'لا يمكن إصلاحه', LOST: 'مفقود، بانتظار التسوية',

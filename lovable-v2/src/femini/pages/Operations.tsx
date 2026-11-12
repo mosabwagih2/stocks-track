@@ -117,7 +117,7 @@ function SimpleLines({ d, type, lines, set, from }: { d: Derived; type: OpType; 
           <td className={td}><Stepper v={l.q} on={(q) => upd(set, i, { q })} min={type === 'FRC' ? 0 : 1} max={from ? Math.max(type === 'FRC' ? 0 : 1, qty(d.snap.balances, l.sku, from) - (type === 'FRC' ? l.rej ?? 0 : 0)) : undefined} label="الكمية" /></td>
           {type === 'FRC' && <td className={td}><Stepper v={l.rej ?? 0} on={(rej) => upd(set, i, { rej })} label="مرفوض" /></td>}
           {type === 'SRT' && <td className={td}><Seg value={(l.to as Loc) ?? 'READY'} onChange={(to) => upd(set, i, { to })} options={[['READY', 'سليم'], ['DIRTY', 'نضافة'], ['SCRAP', 'هالك']]} /></td>}
-          {type === 'LOS' && <td className={td}><Seg value={l.res ?? 'FOUND'} onChange={(res) => upd(set, i, { res })} options={[['FOUND', 'لقيناه'], ['OFF', 'شطب']]} /></td>}
+          {type === 'LOS' && <td className={td}><Seg value={l.res ?? 'FOUND'} onChange={(res) => upd(set, i, { res })} options={[['FOUND', 'لقيناه'], ['COMP', 'اتعوّض'], ['OFF', 'مفقود نهائي']]} /></td>}
           <td className={td}><Button size="sm" variant="ghost" aria-label="حذف" onClick={() => set((ls) => ls.filter((_, j) => j !== i))}><Trash2 className="size-4" /></Button></td>
         </tr>))}</tbody></table></TableWrap>
   );

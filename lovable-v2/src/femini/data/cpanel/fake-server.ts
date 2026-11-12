@@ -9,7 +9,7 @@ import type { PullResult, PushReply, Transport } from './backend';
 import { cairoToday } from '@/femini/domain/dates';
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF', 'EXT_HOLD'];
+const LOCATIONS = ['READY', 'DIRTY', 'FACTORY', 'SCRAP', 'LOST', 'EXT_CH', 'EXT_SHOP', 'EXT_FACTORY', 'EXT_OPEN', 'EXT_ADJ', 'EXT_OFF', 'EXT_HOLD', 'EXT_COMP'];
 const MOVE_TYPES = ['RCV', 'RTN', 'SRT', 'SCN', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'CXL', 'OPN', 'SWP', 'HLD', 'MOV'];
 export const DOC_PERM: Record<string, string> = { SCN: 'scan', RTN: 'returns', RCV: 'receive', FRC: 'internal', FSD: 'internal', CLN: 'internal', LOS: 'internal', SHP: 'ship', SRT: 'ship', CNT: 'count', CXL: 'cancel', SWP: 'count', HLD: 'internal', MOV: 'internal' };
 const META_PERM: Record<string, string | null> = { mid: null, did: null, seq: null, sup_eid: null, bk: null, st: 'settings', costs: 'settings', alias: 'catalog', img: 'catalog', cat: 'catalog', lock: 'close' };
@@ -27,7 +27,7 @@ function placesFit(type: string, a: string, b: string): boolean {
     case 'SCN': case 'CXL': return pair('READY', 'EXT_CH');
     case 'FSD': return pair('DIRTY', 'FACTORY') || pair('SCRAP', 'EXT_FACTORY');
     case 'FRC': return pair('FACTORY', 'READY') || pair('FACTORY', 'SCRAP');
-    case 'LOS': return pair('LOST', 'READY') || pair('LOST', 'EXT_OFF');
+    case 'LOS': return pair('LOST', 'READY') || pair('LOST', 'EXT_COMP') || pair('LOST', 'EXT_OFF');
     case 'SWP': return pair('READY', 'EXT_ADJ');
     case 'CLN': case 'MOV': return a !== b && inside.includes(a) && inside.includes(b);
     case 'RTN': { const r = ['READY', 'DIRTY', 'SCRAP', 'LOST']; return outIn('EXT_CH', r) || (a !== b && r.includes(a) && r.includes(b)); }

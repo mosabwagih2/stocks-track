@@ -1,5 +1,5 @@
 export type Loc = 'READY' | 'DIRTY' | 'FACTORY' | 'SCRAP' | 'LOST';
-export type ExtLoc = 'EXT_OPEN' | 'EXT_FACTORY' | 'EXT_CH' | 'EXT_SHOP' | 'EXT_ADJ' | 'EXT_OFF' | 'EXT_HOLD';
+export type ExtLoc = 'EXT_OPEN' | 'EXT_FACTORY' | 'EXT_CH' | 'EXT_SHOP' | 'EXT_ADJ' | 'EXT_OFF' | 'EXT_HOLD' | 'EXT_COMP';
 export type AnyLoc = Loc | ExtLoc;
 
 export interface Model { code: string; name: string; /** data URL (demo) or storage path (Supabase) of the square product photo */ image?: string | null }

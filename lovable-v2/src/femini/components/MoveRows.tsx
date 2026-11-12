@@ -10,7 +10,7 @@ import type { Loc, Move } from '@/femini/domain/types';
 /** One operation (a document) as people think of it: what, which code, who, how many pieces, when. */
 export interface DocEvent { doc: string; type: string; by: string; pieces: number; ts: string; date: string; from: string; to: string; moves: Move[] }
 
-const SHORT: Record<string, string> = { READY: 'جاهز', DIRTY: 'نظافة', FACTORY: 'المصنع', SCRAP: 'هالك', LOST: 'مفقود', EXT_OPEN: 'افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'جرد', EXT_OFF: 'شطب', EXT_HOLD: 'هولد' };
+const SHORT: Record<string, string> = { READY: 'جاهز', DIRTY: 'نظافة', FACTORY: 'المصنع', SCRAP: 'هالك', LOST: 'مفقود', EXT_OPEN: 'افتتاحي', EXT_FACTORY: 'المصنع', EXT_CH: 'العميل', EXT_SHOP: 'المحل', EXT_ADJ: 'جرد', EXT_OFF: 'شطب', EXT_COMP: 'اتعوّض', EXT_HOLD: 'هولد' };
 
 /** Groups moves by document, newest first. A reversal ("SCN-0001 (عكس)") is its own event. */
 export function docEvents(moves: Move[]): DocEvent[] {
