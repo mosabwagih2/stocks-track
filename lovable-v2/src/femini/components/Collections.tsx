@@ -7,9 +7,9 @@ import { parseSettlement, previewSettlement, type Settlement } from '@/femini/do
 import { cairoDay } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { cn, fmt } from '@/femini/cn';
-import { Alert, Button, Card, Empty, Field, Kpi, Seg, Sheet, TableWrap, th, td } from './ui';
+import { Alert, Button, Card, Empty, Field, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from './ui';
 import { C, StackedBars, TrendArea } from './charts';
-import { collectByDay, collectTrend, type CollectMetric } from '@/femini/domain/trends';
+import { closedBySheet, collectByDay, collectTrend, type CollectMetric } from '@/femini/domain/trends';
 import { change } from '@/femini/insights-tools';
 import { OrdersDetail } from './DetailSheets';
 import type { Order } from '@/femini/domain/types';
@@ -141,15 +141,34 @@ function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string })
     const avg = Math.round(paid.reduce((a, x) => a + x.due, 0) / Math.max(1, paid.length));
     return r.map((x) => ({ ...x, avg }));
   }, [d, from, to]);
+  const [pick, setPick] = useState<string | null>(null);
   if (!(d.snap.settles ?? []).length) return null;
   return <div className="grid gap-4 lg:grid-cols-2">
-    <Card title="المحصّل والراجع" hint="كل عمود = الأوردرات اللي اتقفلت في اليوم ده بتاريخ الشيت: اتحصّل · رجع">
+    {pick && <ClosedDaySheet d={d} day={pick} onClose={() => setPick(null)} />}
+    <Card title="المحصّل والراجع" hint="كل عمود = الأوردرات اللي اتقفلت في اليوم ده بتاريخ الشيت: اتحصّل · رجع · اضغط على يوم لتفاصيله">
       {/* stacked: the two parts are orders closing on that day. What was shipped is a number in the readout, not a
           line over the bars (it counts other orders, by ship day, and drawn on top it read as part of the same bar) */}
-      <StackedBars data={rows} totalName="اتقفل" series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} also={[{ key: 'shipped', name: 'اتشحن', color: C.accent }]} />
+      <StackedBars data={rows} totalName="اتقفل" onPick={setPick} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} also={[{ key: 'shipped', name: 'اتشحن', color: C.accent }]} />
     </Card>
     <CollectFlow d={d} />
   </div>;
+}
+
+/** The orders that closed on one day by the sheets (the same orders the graph counts for that day), collected first. */
+function ClosedDaySheet({ d, day, onClose }: { d: Derived; day: string; onClose: () => void }) {
+  const closed = useMemo(() => closedBySheet(d.snap.settles ?? []), [d]);
+  const refs = [...closed].filter(([, c]) => c.day === day);
+  const kind = new Map(refs.map(([r, c]) => [r, c.kind]));
+  const orders = d.snap.orders.filter((o) => kind.has(o.ref)).sort((a, b) => (kind.get(a.ref) === kind.get(b.ref) ? a.ref.localeCompare(b.ref) : kind.get(a.ref) === 'collected' ? -1 : 1));
+  const nCol = refs.filter(([, c]) => c.kind === 'collected').length; const nRet = refs.length - nCol;
+  const due = orders.reduce((a, o) => a + (kind.get(o.ref) === 'collected' ? d.collected.get(o.ref)?.due ?? 0 : 0), 0);
+  const missing = refs.length - orders.length;
+  return <OrdersDetail d={d} title={`اتقفل يوم ${day}`} onClose={onClose} orders={orders}
+    hint={`${fmt(nCol)} اتحصّل (التوريد ${money(due)} جنيه) · ${fmt(nRet)} رجع${missing ? ` · ${fmt(missing)} أوردر في الشيت مش في السيستم` : ''}.`}
+    chips={[{ id: 'collected', label: 'اتحصّل', test: (o) => kind.get(o.ref) === 'collected' }, { id: 'returned', label: 'رجع', test: (o) => kind.get(o.ref) === 'returned' }]}
+    cols={[{ head: 'الحالة', cell: (o) => kind.get(o.ref) === 'collected' ? <Pill tone="good">اتحصّل</Pill> : <Pill tone="crit">رجع</Pill> },
+      { head: 'التوريد', cell: (o) => kind.get(o.ref) === 'collected' ? <b className="num">{money(d.collected.get(o.ref)?.due ?? 0)}</b> : <span className="text-muted">—</span> },
+      { head: 'اتشحن', cell: (o) => <span className="num">{o.shippedAt ? cairoDay(o.shippedAt) : '—'}</span> }]} />;
 }
 
 const DAYS: [string, string][] = [['7', '7 يوم'], ['14', '14 يوم'], ['30', '30 يوم']];

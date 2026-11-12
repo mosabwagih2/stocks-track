@@ -1,6 +1,6 @@
 import type { Snapshot } from './types';
 import { addDays, cairoDay } from './dates';
-import { collectedOf } from './settle';
+import { collectedOf, type Settlement } from './settle';
 
 /**
  * Day-by-day series for the Analytics graphs. Pure: the snapshot in, rows out (one row per day, oldest first).
@@ -36,6 +36,19 @@ export function stockByDay(s: Pick<Snapshot, 'moves' | 'skus' | 'archivedSkus' |
  * Collections per day: from the settlement sheets (money by the sheet's date, orders by their own collect / return
  * date) against what left with the scan (orders shipped that day). `paidSoFar` is the running total of Fémini's due.
  */
+/**
+ * The day each order closed by the settlement sheets: collected on the date of its collect row, or (never collected)
+ * returned on the date of its first return / partial row. Each order counts once. The collections graph counts these
+ * per day, and clicking a day lists the same orders.
+ */
+export function closedBySheet(settles: Settlement[]): Map<string, { day: string; kind: 'collected' | 'returned' }> {
+  const out = new Map<string, { day: string; kind: 'collected' | 'returned' }>();
+  const { collected, returned } = collectedOf(settles);
+  for (const [ref, c] of collected) out.set(ref, { day: c.date, kind: 'collected' });
+  for (const x of settles) for (const r of x.rows) if ((r.type === 'return' || r.type === 'partial') && returned.has(r.ref) && !out.has(r.ref)) out.set(r.ref, { day: r.date || x.date, kind: 'returned' });
+  return out;
+}
+
 export interface CollectDay { day: string; shipped: number; collected: number; returned: number; /** التوريد */ due: number; paidSoFar: number }
 export function collectByDay(s: Pick<Snapshot, 'orders' | 'settles'>, from: string, to: string): CollectDay[] {
   const row = (): Omit<CollectDay, 'day' | 'paidSoFar'> => ({ shipped: 0, collected: 0, returned: 0, due: 0 });
@@ -47,12 +60,7 @@ export function collectByDay(s: Pick<Snapshot, 'orders' | 'settles'>, from: stri
     const r = at(x.date); if (!r) continue;
     r.due += x.totals.due;
   }
-  const { collected, returned } = collectedOf(settles);
-  for (const c of collected.values()) { const r = c.date ? at(c.date) : null; if (r) r.collected++; }
-  // a returned order counts once, on the day of its return row
-  const retDay = new Map<string, string>();
-  for (const x of settles) for (const r of x.rows) if ((r.type === 'return' || r.type === 'partial') && returned.has(r.ref) && !retDay.has(r.ref)) retDay.set(r.ref, r.date || x.date);
-  for (const k of retDay.values()) { const r = at(k); if (r) r.returned++; }
+  for (const c of closedBySheet(settles).values()) { const r = c.day ? at(c.day) : null; if (r) r[c.kind]++; }
   const out: CollectDay[] = []; let run = before;
   for (let k = from; k <= to; k = addDays(k, 1)) { const r = by[k] ?? row(); run += r.due; out.push({ day: k, ...r, paidSoFar: run }); }
   return out;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectByDay, collectTrend, stockByDay } from './trends';
+import { closedBySheet, collectByDay, collectTrend, stockByDay } from './trends';
 import type { Move, Order, Sku } from './types';
 import type { Settlement } from './settle';
 
@@ -25,6 +25,20 @@ describe('collections by day', () => {
     const r = collectByDay({ orders: [o('x1', '2026-11-01T10:00:00Z'), o('x2', '2026-11-01T11:00:00Z'), o('x3', '2026-11-02T10:00:00Z')],
       settles: [st('S0', '2026-10-30', 100, []), st('S1', '2026-11-02', 300, [['x1', 'collect', '2026-11-02'], ['x2', 'return', '2026-11-01']])] }, '2026-11-01', '2026-11-02');
     expect(r.map((x) => [x.day, x.shipped, x.collected, x.returned, x.due, x.paidSoFar])).toEqual([['2026-11-01', 2, 0, 1, 0, 100], ['2026-11-02', 1, 1, 0, 300, 400]]);
+  });
+});
+
+describe('orders closed by the sheets, per day', () => {
+  it('each order once: collected on its collect date, else returned on its first return row; the graph counts the same orders', () => {
+    const st = (id: string, date: string, rows: [string, string, string?][]) => ({ id, date, totals: { due: 0 }, rows: rows.map(([ref, type, d]) => ({ ref, type, date: d ?? date, supply: 10 })) }) as unknown as Settlement;
+    const settles = [st('S1', '2026-11-02', [['a', 'collect'], ['b', 'return', '2026-11-01'], ['c', 'partial']]), st('S2', '2026-11-03', [['c', 'collect'], ['b', 'return']])];
+    const m = closedBySheet(settles);
+    expect(Object.fromEntries(m)).toEqual({ a: { day: '2026-11-02', kind: 'collected' }, b: { day: '2026-11-01', kind: 'returned' }, c: { day: '2026-11-03', kind: 'collected' } });   // c came back in part, then got paid
+    const g = collectByDay({ orders: [], settles }, '2026-11-01', '2026-11-03');
+    for (const r of g) {
+      const on = [...m.values()].filter((x) => x.day === r.day);
+      expect([r.collected, r.returned]).toEqual([on.filter((x) => x.kind === 'collected').length, on.filter((x) => x.kind === 'returned').length]);
+    }
   });
 });
 

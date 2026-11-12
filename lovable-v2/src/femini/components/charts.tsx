@@ -198,7 +198,7 @@ export function TrendArea<R extends { day: string }>({ data, series, height = 26
  * left on a day: collected / returned / still out), so the bar's height is that day's total. The readout leads with the
  * total, then each part.
  */
-export function StackedBars<R extends { day: string }>({ data, series, height = 260, totalName = 'الإجمالي', also = [] }: { data: R[]; series: TrendSeries[]; height?: number; totalName?: string; /** numbers shown in the readout only, never drawn (e.g. what was shipped, beside what closed) */ also?: TrendSeries[] }) {
+export function StackedBars<R extends { day: string }>({ data, series, height = 260, totalName = 'الإجمالي', also = [], onPick }: { data: R[]; series: TrendSeries[]; height?: number; totalName?: string; /** a click on a day's column (anywhere in it, not only on the bar) opens that day; empty days do nothing */ onPick?: (day: string) => void; /** numbers shown in the readout only, never drawn (e.g. what was shipped, beside what closed) */ also?: TrendSeries[] }) {
   const [hi, on] = useHover(); const row = hi != null ? data[hi] : null;
   const num = (r: R, k: string) => Number((r as Record<string, unknown>)[k] ?? 0);
   const val = (k: string) => (row ? num(row, k) : data.reduce((a, r) => a + num(r, k), 0));
@@ -206,9 +206,11 @@ export function StackedBars<R extends { day: string }>({ data, series, height = 
   // explicit width from the room each day has (recharts' own sizing can give 1px bars)
   const barW = Math.max(4, Math.min(22, Math.floor(560 / Math.max(1, data.length))));
   const common = [<CartesianGrid key="g" stroke={C.grid} strokeDasharray="3 6" vertical={false} />, barDayAxis(data.length), <YAxis key="y" {...axis} orientation="right" allowDecimals={false} tickFormatter={numberTick} width={48} />, <Tooltip key="t" content={noTip} cursor={{ fill: 'var(--chart-track)' }} />];
-  return <div className="min-w-0"><Readout title={row ? shortDay(row.day) : `إجمالي ${data.length} يوم`} items={items} />
-    <div className="chart-surface min-w-0" style={{ height }}><ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 12, right: 0, left: 0, bottom: 8 }} {...on}>{common}
+  const total = (r: R) => series.reduce((a, s) => a + num(r, s.key), 0);
+  const pick = onPick ? (st: { activeTooltipIndex?: number | string | null }) => { const r = st?.activeTooltipIndex == null ? null : data[Number(st.activeTooltipIndex)]; if (r && total(r) > 0) onPick(r.day); } : undefined;
+  return <div className="min-w-0"><Readout title={row ? <>{shortDay(row.day)}{onPick && total(row) > 0 ? <span className="text-accent"> · اضغط للتفاصيل</span> : null}</> : `إجمالي ${data.length} يوم`} items={items} />
+    <div className={cn('chart-surface min-w-0', onPick && row && total(row) > 0 && 'cursor-pointer')} style={{ height }}><ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 12, right: 0, left: 0, bottom: 8 }} {...on} onClick={pick}>{common}
         {series.map((s) => <Bar key={s.key} dataKey={s.key} name={s.name} stackId="day" fill={s.color} barSize={barW} animationDuration={500} />)}
       </BarChart></ResponsiveContainer></div></div>;
 }
