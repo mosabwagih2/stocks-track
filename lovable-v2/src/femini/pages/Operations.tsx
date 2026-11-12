@@ -408,9 +408,9 @@ function Shops({ d, onOpen }: { d: Derived; onOpen: (no: string) => void }) {
       {!rows.length ? <Card><Empty>مفيش توريدات للمحل لسه. ابدأ من «توريد للمحل».</Empty></Card> : (
         <TableWrap><table className="text-sm"><thead><tr><th className={th}>الإذن</th><th className={th}>المحل</th><th className={th}>التاريخ</th><th className={th}>القطع</th><th className={th}>الحالة</th><th className={th} /></tr></thead>
           <tbody>{rows.map((x) => (
-            <tr key={x.no}><td className={td + ' font-mono font-semibold'}>{x.no}</td><td className={td}>{String(x.hdr.shop)}</td><td className={td}>{x.date}</td><td className={td + ' font-mono'}>{fmt(pcs(x))}</td>
+            <tr key={x.no} className="cursor-pointer hover:bg-lav" onClick={() => onOpen(x.no)}><td className={td + ' font-mono font-semibold'}>{x.no}</td><td className={td}>{String(x.hdr.shop)}</td><td className={td}>{x.date}</td><td className={td + ' font-mono'}>{fmt(pcs(x))}</td>
               <td className={td}>{x.type === 'SRT' ? <Pill tone="info">مرتجع من المحل</Pill> : x.hdr.delivered ? <Pill tone="good">اتسلم</Pill> : <Pill tone="warn">مستني التسليم</Pill>}</td>
-              <td className={td}><div className="flex gap-1"><Button size="sm" variant="ghost" aria-label="طباعة الإذن" onClick={() => printDeliveryNote(x, d.skuMap, d.modelMap)}><Printer className="size-4" /></Button><Button size="sm" onClick={() => onOpen(x.no)}>{x.type === 'SRT' || x.hdr.delivered ? 'تفاصيل' : 'تأكيد التسليم'}</Button></div></td></tr>))}</tbody></table></TableWrap>)}
+              <td className={td}><div className="flex gap-1"><Button size="sm" variant="ghost" aria-label="طباعة الإذن" onClick={(e) => { e.stopPropagation(); printDeliveryNote(x, d.skuMap, d.modelMap); }}><Printer className="size-4" /></Button><Button size="sm" onClick={(e) => { e.stopPropagation(); onOpen(x.no); }}>{x.type === 'SRT' || x.hdr.delivered ? 'تفاصيل' : 'تأكيد التسليم'}</Button></div></td></tr>))}</tbody></table></TableWrap>)}
     </div>
   );
 }
@@ -430,17 +430,17 @@ export default function Operations() {
   const known = new Set([...d.snap.skus, ...(d.snap.archivedSkus ?? [])].map((s) => s.id));
   const prefill = skusP ? [...new Set(skusP.split(','))].filter((s) => known.has(s)) : [];
   const openDoc = open ? d.snap.docs.find((x) => x.no === open) : undefined;
-  const openHolds = (d.snap.holds ?? []).filter((h) => h.status === 'open').length;
   const pendingShop = d.snap.docs.filter((x) => x.type === 'SHP' && x.status === 'done' && !x.hdr.delivered).length;
   return (
     <>
       <PageHead title="العمليات" sub="قلب التشغيل: كل حركة بتغيّر المخزون بتتسجل هنا بفحوص قبل التأكيد. الشحن بالإسكان من صفحة الأوردرات." />
-      <Tabs value={tab} onChange={(t) => go({ tab: t === 'new' ? null : t, op: null, draft: null, new: null })} tabs={[['new', 'عملية جديدة'], ['docs', `آخر العمليات (${d.snap.docs.length})`], ['shops', `توريدات المحل${pendingShop ? ` · ${pendingShop}` : ''}`], ['holds', `هولد${openHolds ? ` · ${openHolds}` : ''}`], ['counts', 'تقرير الجرد']]} />
+      <Tabs value={tab} onChange={(t) => go({ tab: t === 'new' ? null : t, op: null, draft: null, new: null })} tabs={[['new', 'عملية جديدة'], ['docs', `آخر العمليات (${d.snap.docs.length})`], ['shops', `توريدات المحل${pendingShop ? ` · ${pendingShop}` : ''}`], ['counts', 'تقرير الجرد']]} />
       {tab === 'new' && (op && OPS.some((o) => o.type === op)
         ? <OpForm key={`${op}-${draftId ?? ''}-${skusP}`} d={d} type={op} draft={draft} prefill={prefill} onBack={() => go({ op: null, draft: null })} onDone={(no) => go({ op: null, draft: null, ...(op === 'SHP' ? { tab: 'shops', doc: no } : {}) })} onOpen={(no) => go({ doc: no })} />
-        : <Launcher d={d} onPick={(t) => go({ op: t, draft: null })} onDraft={(x) => go({ op: x.type, draft: x.id })} onHold={() => go({ tab: 'holds', new: 'yes' })} />)}
+        : <Launcher d={d} onPick={(t) => go({ op: t, draft: null })} onDraft={(x) => go({ op: x.type, draft: x.id })} onHold={() => go({ tab: 'holds', new: null })} />)}
       {tab === 'docs' && <Docs d={d} onOpen={(no) => go({ doc: no })} />}
       {tab === 'counts' && <CountReport d={d} />}
+      {tab === 'holds' && <Button variant="ghost" className="mb-2 print:hidden" onClick={() => go({ tab: null, new: null })}><ArrowLeft className="size-4 rotate-180" /> كل العمليات</Button>}
       {tab === 'holds' && <Holds d={d} openNew={sp.get('new') === 'yes'} onOpenNew={(v) => go({ new: v ? 'yes' : null })} />}
       {tab === 'shops' && <Shops d={d} onOpen={(no) => go({ doc: no })} />}
       {openDoc && <DocDetails key={openDoc.no} d={d} doc={openDoc} onClose={() => go({ doc: null })} onOpen={(no) => go({ doc: no })}

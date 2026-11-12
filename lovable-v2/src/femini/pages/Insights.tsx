@@ -1,7 +1,7 @@
 import { addDays, dayDiff } from '@/femini/domain/dates';
 import { lineBase } from '@/femini/domain/constants';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Store, Truck, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, PackageX, Sparkles, Store, Truck, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Empty, Pill, Seg, TableWrap, th, td } from '@/femini/components/ui';
@@ -44,12 +44,13 @@ const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'finance', label: 'قيمة المخزون', icon: FileSpreadsheet },
 ];
 /** The parts of the summary, in reading order. Risk, demand and team were tabs of their own: their old links open here. */
-type Part = 'kpi' | 'attention' | 'risk' | 'trend' | 'mix' | 'demand' | 'team';
+type Part = 'kpi' | 'attention' | 'trend' | 'demand' | 'stock' | 'team';
 const PARTS: { id: Part; label: string }[] = [
-  { id: 'kpi', label: 'الأداء' }, { id: 'attention', label: 'يحتاج انتباهك' }, { id: 'risk', label: 'المخاطر' },
-  { id: 'trend', label: 'الاتجاه' }, { id: 'mix', label: 'التركيبة' }, { id: 'demand', label: 'الطلب' }, { id: 'team', label: 'الفريق' },
+  { id: 'kpi', label: 'الأداء' }, { id: 'attention', label: 'يحتاج انتباهك' }, { id: 'trend', label: 'الاتجاه' },
+  { id: 'demand', label: 'الطلب' }, { id: 'stock', label: 'المخزون' }, { id: 'team', label: 'الفريق' },
 ];
-const OLD_TABS: Part[] = ['risk', 'demand', 'team'];
+/** an old tab's address → the part of the summary that holds it now */
+const OLD_TABS: Record<string, Part> = { risk: 'attention', demand: 'demand', team: 'team' };
 
 /**
  * Scrolls to a part of the summary and keeps it in place while the parts above it finish drawing (they fill in after the
@@ -102,7 +103,7 @@ export default function Insights() {
   const tabP = sp.get('tab') ?? '';
   const sec = (SECTIONS.some((s) => s.id === tabP) ? tabP : 'summary') as Sec;
   // an old address (?tab=risk / demand / team) opens the summary at that part, and the address becomes the summary's
-  const oldPart = (OLD_TABS as string[]).includes(tabP) ? (tabP as Part) : null;
+  const oldPart = OLD_TABS[tabP] ?? null;
   useEffect(() => {
     if (!oldPart || !d) return;
     const p = new URLSearchParams(sp); p.delete('tab'); setSp(p, { replace: true });
@@ -180,10 +181,11 @@ export default function Insights() {
             </div>
           </div>
           <Summary d={d} st={st} cmp={cmp} label={rangeLabel} />
-          <Block id="risk" n={3} title="المخاطر" hint="تنبيهات، أوردرات متوقفة، رصيد سالب وراكد"><Deferred minHeight={520}><Risk d={d} st={st} alerts={alerts} /></Deferred></Block>
-          <TrendMix d={d} st={st} cmp={cmp} period={days} />
-          <Block id="demand" n={6} title="الطلب" hint={rangeLabel}><Deferred minHeight={600}><Demand d={d} st={st} /></Deferred></Block>
-          <Block id="team" n={7} title="الفريق" hint="الشحن المسجّل لكل موظف"><Deferred minHeight={420}><Team d={d} st={st} range={range} /></Deferred></Block>
+          <Block id="attention" n={2} title="يحتاج انتباهك" hint="الأهم الأول · كل تنبيه بيفتح الشغل بتاعه"><Deferred minHeight={320}><Attention d={d} alerts={alerts} /></Deferred></Block>
+          <Trend cmp={cmp} period={days} />
+          <Block id="demand" n={4} title="الطلب" hint={rangeLabel}><Deferred minHeight={600}><Demand d={d} st={st} /></Deferred></Block>
+          <Block id="stock" n={5} title="المخزون" hint="الوضع دلوقتي"><Deferred minHeight={520}><StockPart d={d} st={st} /></Deferred></Block>
+          <Block id="team" n={6} title="الفريق" hint="الشحن المسجّل لكل موظف"><Deferred minHeight={420}><Team d={d} st={st} range={range} /></Deferred></Block>
         </div>
       )}
       {sheet && <InsightSheet d={d} st={st} kind={sheet} range={null} onClose={() => setParam('sheet', null)} />}
@@ -296,15 +298,10 @@ function Block({ id, n, title, hint, children }: { id: Part; n: number; title: s
   );
 }
 
+/** 1 · the period's numbers */
 function Summary({ d, st, cmp, label }: { d: Derived; st: Stats; cmp: Cmp; label: string }) {
   const [kind, setKind] = useState<Kind | null>(null);
   const { cur, prev } = cmp; const rate = cur.rate;
-  const decisions: { tone: 'crit' | 'warn' | 'good' | 'accent'; icon: typeof BarChart3; title: string; body: string; to: Part; cta: string }[] = [];
-  if (d.blocked.size) decisions.push({ tone: 'crit', icon: PackageX, title: `${d.blocked.size} أوردر متوقف`, body: `${fmt(st.stuckPcs)} قطعة محجوزة بسبب نقص صنف واحد على الأقل في كل أوردر.`, to: 'risk', cta: 'الأصناف المسببة' });
-  if (st.sorted.length) decisions.push({ tone: 'accent', icon: Flame, title: `${st.sorted[0][0]} الأكثر طلبًا`, body: `${pct(st.sorted[0][1], st.total)}% من القطع. ${st.n80} موديل من ${st.sorted.length} تصنع 80% من الطلب.`, to: 'demand', cta: 'تحليل الطلب' });
-  if (st.dead.length) decisions.push({ tone: 'warn', icon: Gauge, title: `${st.dead.length} صنف راكد`, body: 'عليه رصيد جاهز ولم يُطلب في آخر 14 يومًا.', to: 'risk', cta: 'عرض الراكد' });
-  if (!decisions.length) decisions.push({ tone: 'good', icon: Sparkles, title: 'كل شيء على ما يرام', body: 'لا توجد أوردرات متوقفة ولا أصناف تحت الحد.', to: 'demand', cta: 'تحليل الطلب' });
-  const toneCls = { crit: 'border-crit-line bg-crit-bg text-crit', warn: 'border-warn-line bg-warn-bg text-warn', good: 'border-good-line bg-good-bg text-good', accent: 'border-line bg-accent-soft text-accent' };
   return (
     <>
       {kind && <InsightSheet d={d} st={st} kind={kind} range={{ from: cmp.cur.from, to: cmp.cur.to }} onClose={() => setKind(null)} />}
@@ -316,65 +313,60 @@ function Summary({ d, st, cmp, label }: { d: Derived; st: Stats; cmp: Cmp; label
           <Stat icon={PackageX} label="ملغاة" onClick={() => setKind('cancelled')} value={fmt(cur.cancelled)} sub="أوردر ألغي في الفترة" tone={cur.cancelled ? 'warn' : 'good'}><Delta cur={cur.cancelled} prev={prev.cancelled} upIsGood={false} /></Stat>
         </div>
       </Block>
-
-      <Block id="attention" n={2} title="يحتاج انتباهك" hint="الأهم الأول · اضغط للانتقال للتفاصيل">
-        <div className="grid divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-          {decisions.map((x, i) => (
-            <button key={i} type="button" onClick={() => jump(x.to)} className="group flex w-full items-center gap-3 p-4 text-start transition-colors hover:bg-lav">
-              <span className={cn('grid size-9 shrink-0 place-items-center rounded-xl border', toneCls[x.tone])}><x.icon className="size-4" /></span>
-              <span className="min-w-0 flex-1"><b className="block text-sm text-ink">{x.title}</b><span className="block text-[13px] text-muted">{x.body}</span></span>
-              <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold text-accent max-sm:hidden print:hidden">{x.cta}<ArrowLeft className="size-4 transition group-hover:-translate-x-1" /></span>
-            </button>
-          ))}
-        </div>
-      </Block>
     </>
   );
 }
 
-/** The trend and the mix of the summary: this period against the one before, the 80/20 models, lines and stock by state. */
-function TrendMix({ d, st, cmp, period }: { d: Derived; st: Stats; cmp: Cmp; period: number }) {
+/** 2 · what needs a decision now: the alerts (each opens its exact work), and the blocked orders when there are any */
+function Attention({ d, alerts }: { d: Derived; alerts: RiskAlert[] }) {
+  const [openRef, setOpenRef] = useState<string | null>(null); const [cancelRef, setCancelRef] = useState<string | null>(null);
+  const bl = d.open.filter((o) => d.blocked.has(o.ref));
+  const bv: Record<string, number> = {}; for (const o of bl) for (const x of d.blocked.get(o.ref) ?? []) bv[x.sku] = (bv[x.sku] ?? 0) + 1;
+  const ks = Object.entries(bv).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  return (
+    <div className="grid gap-4">
+      <AlertsPanel alerts={alerts} />
+      {bl.length > 0 && <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <Card title={`الأوردرات المتوقفة (${fmt(bl.length)})`} hint="اضغط على أي أوردر يفتح"><TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'تاريخ البيك أب', 'قطع', 'الناقص فيه'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{bl.slice(0, 15).map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => setOpenRef(o.ref)}><td className={td + ' font-mono text-accent'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{(d.blocked.get(o.ref) ?? []).map((x) => <span key={x.sku} className="m-0.5 inline-block"><Pill tone="crit">{skuLabel(d.skuMap, x.sku)} ×{x.short}</Pill></span>)}</td></tr>)}</tbody></table></TableWrap></Card>
+        <Card title="الأصناف اللي موقفاهم" hint="توفيرها يحرّك أوردرات أكتر"><HBars rows={ks.map(([s, n]) => ({ label: skuLabel(d.skuMap, s), value: n }))} color={C.scrap} unit="أوردر متوقف" /></Card>
+      </div>}
+      {openRef && <OrderSheet d={d} orderRef={openRef} onClose={() => setOpenRef(null)} onCancel={(c) => { setOpenRef(null); setCancelRef(c); }} />}
+      {cancelRef && <CancelSheet d={d} initial={cancelRef} onClose={() => setCancelRef(null)} />}
+    </div>
+  );
+}
+
+/** 3 · this period against the one before */
+function Trend({ cmp, period }: { cmp: Cmp; period: number }) {
   const [metric, setMetric] = useState<'pcs' | 'req' | 'ship'>('req');
   const series = cmp.curDays.map((r, i) => ({ day: r.day, cur: r[metric], prev: cmp.prevDays[i]?.[metric] ?? 0 }));
   return (
-    <>
-      <Block id="trend" n={4} title="الاتجاه" hint={`${period} يوم مقابل ${period} يوم`}>
-        <Deferred minHeight={380}>
-        <Card title="الفترة الحالية مقابل السابقة" action={<span className="print:hidden"><Seg value={metric} onChange={setMetric} options={[['req', 'أوردرات'], ['pcs', 'قطع مطلوبة'], ['ship', 'مشحون']]} /></span>}>
-          <CompareArea data={series} />
-          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-primary" />الحالية (<span dir="ltr">{cmp.cur.from} → {cmp.cur.to}</span>)</span><span><i className="me-1.5 inline-block h-0.5 w-4 border-t-2 border-dashed border-chart-previous align-middle" /> السابقة (<span dir="ltr">{cmp.prev.from} → {cmp.prev.to}</span>)</span></div>
-        </Card>
-        </Deferred>
-      </Block>
-
-      <Block id="mix" n={5} title="التركيبة" hint="منين بييجي الطلب وفين المخزون">
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <Deferred minHeight={520}>
-          <Card title="باريتو 80/20: الموديلات الأكثر طلبًا" hint={`${st.n80} موديل = 80% من الطلب`}>
-            {st.sorted.length ? <Pareto pull={st.pull} /> : <Empty>لا توجد طلبات في الفترة دي.</Empty>}
-          </Card>
-          </Deferred>
-          <div className="grid gap-4">
-            <Deferred minHeight={260}><LineCard st={st} /></Deferred>
-            <Deferred minHeight={280}><Card title="المخزون حسب الحالة"><StateDonut d={d} compact /></Card></Deferred>
-          </div>
-        </div>
-      </Block>
-    </>
+    <Block id="trend" n={3} title="الاتجاه" hint={`${period} يوم مقابل ${period} يوم`}>
+      <Deferred minHeight={380}>
+      <Card title="الفترة الحالية مقابل السابقة" action={<span className="print:hidden"><Seg value={metric} onChange={setMetric} options={[['req', 'أوردرات'], ['pcs', 'قطع مطلوبة'], ['ship', 'مشحون']]} /></span>}>
+        <CompareArea data={series} />
+        <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-primary" />الحالية (<span dir="ltr">{cmp.cur.from} → {cmp.cur.to}</span>)</span><span><i className="me-1.5 inline-block h-0.5 w-4 border-t-2 border-dashed border-chart-previous align-middle" /> السابقة (<span dir="ltr">{cmp.prev.from} → {cmp.prev.to}</span>)</span></div>
+      </Card>
+      </Deferred>
+    </Block>
   );
 }
 
+/** 4 · demand: the 80/20 models with the lines, the variants to make first, and the model × size map */
 function Demand({ d, st }: { d: Derived; st: Stats }) {
-  const m: Record<string, Record<string, number>> = {}; const col: Record<string, number> = {}; const gov: Record<string, number> = {}; const bk = { '1': 0, '2': 0, '3-4': 0, '5+': 0 };
+  const m: Record<string, Record<string, number>> = {};
   // pieces requested per model x size, and per colour inside each cell (shown on hover)
   const byColor: Record<string, Record<string, number>> = {};
-  for (const o of st.live) { for (const s of o.lines) { const k = d.skuMap.get(s); if (!k) continue; (m[k.model] ??= {})[k.size] = (m[k.model][k.size] ?? 0) + 1; const cc = (byColor[`${k.model}|${k.size}`] ??= {}); cc[k.color] = (cc[k.color] ?? 0) + 1; col[k.color] = (col[k.color] ?? 0) + 1; } if (o.gov) gov[o.gov] = (gov[o.gov] ?? 0) + 1; const n = o.lines.length; bk[n === 1 ? '1' : n === 2 ? '2' : n <= 4 ? '3-4' : '5+']++; }
+  for (const o of st.live) for (const s of o.lines) { const k = d.skuMap.get(s); if (!k) continue; (m[k.model] ??= {})[k.size] = (m[k.model][k.size] ?? 0) + 1; const cc = (byColor[`${k.model}|${k.size}`] ??= {}); cc[k.color] = (cc[k.color] ?? 0) + 1; }
   const models = Object.keys(m).sort((a, b) => (st.pull[b] ?? 0) - (st.pull[a] ?? 0)).slice(0, 14); const sizes = d.snap.sizes.filter((z) => models.some((x) => m[x][z]));
-  if (!st.live.length) return <Card><Empty>لا توجد أوردرات بعد.</Empty></Card>;
+  if (!st.live.length) return <Card><Empty>مفيش طلبات في الفترة دي.</Empty></Card>;
   return (
     <div className="grid gap-4">
-      <Card title="خريطة الطلب: الموديل × المقاس" hint="أعلى 14 موديل"><Heatmap models={models} sizes={sizes} value={(x, z) => m[x][z] ?? 0} total={(x) => st.pull[x] ?? 0} breakdown={(x, z) => Object.entries(byColor[`${x}|${z}`] ?? {}).sort((p, q) => q[1] - p[1]).map(([label, n]) => ({ label, n }))} /></Card>
-      <Card title="الأصناف الأكثر طلبًا" hint="مع الرصيد الجاهز وكم يكفي">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <Card title="باريتو 80/20: الموديلات الأكثر طلبًا" hint={`${st.n80} موديل = 80% من الطلب`}><Pareto pull={st.pull} /></Card>
+        <LineCard st={st} />
+      </div>
+      <Card title="الأصناف الأكثر طلبًا" hint="مع الرصيد الجاهز ويكفي كام يوم">
         <TableWrap><table className="text-sm"><thead><tr>{['', 'الصنف', 'مطلوب', 'طلب مفتوح', 'جاهز', 'يكفي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
           <tbody>{st.hot.map((r, i) => { const k = d.skuMap.get(r.id); return (
             <tr key={r.id} className="hover:bg-lav"><td className={td + ' w-10 font-mono text-muted'}>{i + 1}</td>
@@ -382,75 +374,43 @@ function Demand({ d, st }: { d: Derived; st: Stats }) {
               <td className={td + ' font-mono font-semibold'}>{fmt(r.n)}</td><td className={td + ' font-mono'}>{fmt(r.open)}</td><td className={td + ' font-mono'}>{fmt(r.ready)}</td>
               <td className={td}>{r.cover === null ? <span className="text-muted">—</span> : <Pill tone={r.cover < 7 ? 'crit' : r.cover < 14 ? 'warn' : 'good'}>{Math.round(r.cover)} يوم</Pill>}</td></tr>); })}</tbody></table></TableWrap>
       </Card>
-      <Deferred minHeight={280}>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card title="الألوان" hint="أعلى 8"><HBars rows={topN(col, 8).map(([c, v]) => ({ label: c, value: v }))} color={C.factory} unit="قطع" /></Card>
-        <Card title="المحافظات" hint="أعلى 8">{Object.keys(gov).length ? <HBars rows={topN(gov, 8).map(([g, v]) => ({ label: g, value: v }))} color={C.ready} unit="أوردر" /> : <Empty>لا توجد بيانات.</Empty>}</Card>
-        <Card title="حجم الأوردر" hint="قطع في الأوردر"><HBars rows={(['1', '2', '3-4', '5+'] as const).map((k) => ({ label: k === '1' ? 'قطعة واحدة' : k === '2' ? 'قطعتان' : `${k} قطع`, value: bk[k] }))} color={C.dirty} unit="أوردر" /></Card>
-      </div>
-      </Deferred>
+      <Card title="خريطة الطلب: الموديل × المقاس" hint="أعلى 14 موديل · قف على أي مربع تشوف ألوانه"><Heatmap models={models} sizes={sizes} value={(x, z) => m[x][z] ?? 0} total={(x) => st.pull[x] ?? 0} breakdown={(x, z) => Object.entries(byColor[`${x}|${z}`] ?? {}).sort((p, q) => q[1] - p[1]).map(([label, n]) => ({ label, n }))} /></Card>
     </div>
   );
 }
 
-function Risk({ d, st, alerts }: { d: Derived; st: Stats; alerts: RiskAlert[] }) {
-  const [openRef, setOpenRef] = useState<string | null>(null); const [cancelRef, setCancelRef] = useState<string | null>(null); const [kind, setKind] = useState<Kind | null>(null);
-  const bl = d.open.filter((o) => d.blocked.has(o.ref)); const old = d.open.filter((o) => (d.pickupDate.get(o.pickupId) ?? d.today) < d.today).length;
-  const bv: Record<string, { n: number; q: number }> = {}; for (const o of bl) for (const x of d.blocked.get(o.ref) ?? []) { const e = (bv[x.sku] ??= { n: 0, q: 0 }); e.n++; e.q += x.short; }
-  const ks = Object.entries(bv).sort((a, b) => b[1].n - a[1].n).slice(0, 10);
+/** 5 · the stock now: by state, how long the ready stock lasts, and what is not selling */
+function StockPart({ d, st }: { d: Derived; st: Stats }) {
   const buckets: Record<string, number> = { 'أقل من 3 أيام': 0, '3 - 7': 0, '7 - 14': 0, '14 - 30': 0, 'أكثر من 30': 0, 'بدون طلب': 0 };
   for (const s of d.snap.skus) { const r = qty(d.snap.balances, s.id, 'READY'); if (!r && !d.demand[s.id]) continue; const v = d.velocity[s.id]; if (!v) { buckets['بدون طلب']++; continue; } const c = r / v; buckets[c < 3 ? 'أقل من 3 أيام' : c < 7 ? '3 - 7' : c < 14 ? '7 - 14' : c < 30 ? '14 - 30' : 'أكثر من 30']++; }
   const tones = [C.scrap, C.scrap, C.dirty, C.ready, C.factory, C.muted];
   return (
     <div className="grid gap-4">
-      {kind && <InsightSheet d={d} st={st} kind={kind} range={null} onClose={() => setKind(null)} />}
-      <AlertsPanel alerts={alerts} />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={PackageX} label="أوردرات متوقفة" onClick={() => setKind('blocked')} value={bl.length} sub={`${fmt(st.stuckPcs)} قطعة`} tone={bl.length ? 'crit' : 'good'} />
-        <Stat icon={Truck} label="من أيام سابقة" onClick={() => setKind('old')} value={old} sub="لم تُشحن بعد" tone={old ? 'warn' : 'good'} />
-        <Stat icon={AlertTriangle} label="رصيد سالب" onClick={() => setKind('neg')} value={st.neg.length} sub="يحتاج جرد" tone={st.neg.length ? 'crit' : 'good'} />
-        <Stat icon={Gauge} label="أصناف راكدة" onClick={() => setKind('dead')} value={st.dead.length} sub={`لم يُطلب من ${STAGNANT_DAYS} يوم أو أكتر`} tone={st.dead.length ? 'warn' : 'good'} />
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Card title="المخزون حسب الحالة"><StateDonut d={d} compact /></Card>
+        <Card title="الأصناف حسب أيام التغطية" hint={d.velocityOK ? 'الجاهز يكفي كام يوم بسرعة السحب' : 'تقديري'}><HBars rows={Object.entries(buckets).map(([k, v], i) => ({ label: k, value: v, color: tones[i] }))} unit="صنف" /></Card>
       </div>
-      <Deferred minHeight={300}>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="الأصناف الأكثر تسببًا في التوقف" hint="توفيرها يحرك أوردرات أكثر">{ks.length ? <HBars rows={ks.map(([s, e]) => ({ label: skuLabel(d.skuMap, s), value: e.n }))} color={C.scrap} unit="أوردر متوقف" /> : <Alert tone="good">لا توجد أوردرات متوقفة بسبب الرصيد.</Alert>}</Card>
-        <Card title="الأصناف حسب أيام التغطية" hint={d.velocityOK ? '' : 'تقديري'}><HBars rows={Object.entries(buckets).map(([k, v], i) => ({ label: k, value: v, color: tones[i] }))} unit="صنف" /></Card>
-      </div>
-      </Deferred>
-      <Deferred minHeight={300}>
-      {bl.length > 0 && <Card title="الأوردرات المتوقفة"><TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'تاريخ البيك أب', 'قطع', 'الناقص فيه', 'عمره (يوم)'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{bl.slice(0, 25).map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => setOpenRef(o.ref)}><td className={td + ' font-mono text-accent underline-offset-2 hover:underline'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{(d.blocked.get(o.ref) ?? []).map((x) => <span key={x.sku} className="m-0.5 inline-block"><Pill tone="crit">{skuLabel(d.skuMap, x.sku)} ×{x.short}</Pill></span>)}</td><td className={td + ' font-mono'}>{Math.max(0, Math.round((Date.parse(d.today) - Date.parse(d.pickupDate.get(o.pickupId) ?? d.today)) / 864e5))}</td></tr>)}</tbody></table></TableWrap></Card>}
-      </Deferred>
-      {openRef && <OrderSheet d={d} orderRef={openRef} onClose={() => setOpenRef(null)} onCancel={(c) => { setOpenRef(null); setCancelRef(c); }} />}
-      {cancelRef && <CancelSheet d={d} initial={cancelRef} onClose={() => setCancelRef(null)} />}
-      <Deferred minHeight={260}>
-      <Card title="أكبر الأصناف الراكدة" hint={`رصيد جاهز لم يُطلب من ${STAGNANT_DAYS} يوم أو أكتر`}>{st.dead.length ? <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th><th className={th}>آخر طلب</th></tr></thead><tbody>{st.dead.slice(0, 10).map((s) => <tr key={s.sku}><td className={td}>{skuLabel(d.skuMap, s.sku)}</td><td className={td + ' font-mono'}>{fmt(s.ready)}</td><td className={td + ' font-mono text-muted'}>{s.last || 'لم يُطلب'}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا يوجد.</Empty>}</Card>
-      </Deferred>
+      <Card title="أكبر الأصناف الراكدة" hint={`رصيد جاهز ما اتطلبش من ${STAGNANT_DAYS} يوم أو أكتر · ${fmt(st.dead.length)} صنف`}>{st.dead.length ? <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th><th className={th}>آخر طلب</th></tr></thead><tbody>{st.dead.slice(0, 10).map((s) => <tr key={s.sku}><td className={td}>{skuLabel(d.skuMap, s.sku)}</td><td className={td + ' font-mono'}>{fmt(s.ready)}</td><td className={td + ' font-mono text-muted'}>{s.last || 'لم يُطلب'}</td></tr>)}</tbody></table></TableWrap> : <Empty>مفيش أصناف راكدة.</Empty>}</Card>
     </div>
   );
 }
 
+/** 6 · the team: who recorded the shipping in the dates */
 function Team({ d, st, range }: { d: Derived; st: Stats; range: Range | null }) {
   const [kind, setKind] = useState<Kind | null>(null);
-  const e: Record<string, { o: number; p: number; days: Set<string> }> = {}; const pivot: Record<string, Record<string, number>> = {}; let last = '';
+  const e: Record<string, { o: number; p: number; days: Set<string> }> = {}; let last = '';
   // shipping recorded inside the chosen dates (by the Cairo day of the scan)
-  for (const o of d.snap.orders) if (o.status === 'shipped' && o.shippedBy && o.shippedAt && inRange(range, cairoDay(o.shippedAt))) { const x = (e[o.shippedBy] ??= { o: 0, p: 0, days: new Set() }); x.o++; x.p += o.lines.length; const day = cairoDay(o.shippedAt); x.days.add(day); (pivot[day] ??= {})[o.shippedBy] = (pivot[day][o.shippedBy] ?? 0) + 1; last = o.shippedAt > last ? o.shippedAt : last; }
+  for (const o of d.snap.orders) if (o.status === 'shipped' && o.shippedBy && o.shippedAt && inRange(range, cairoDay(o.shippedAt))) { const x = (e[o.shippedBy] ??= { o: 0, p: 0, days: new Set() }); x.o++; x.p += o.lines.length; x.days.add(cairoDay(o.shippedAt)); last = o.shippedAt > last ? o.shippedAt : last; }
   const ks = Object.keys(e).sort((a, b) => e[b].o - e[a].o); const tot = ks.reduce((a, k) => a + e[k].o, 0);
   if (!ks.length) return <Card><Empty>مفيش أوردرات اتشحنت في الفترة دي.</Empty></Card>;
-  const days = Object.keys(pivot).sort().slice(-10).reverse();
   return (
     <div className="grid gap-4">
       {kind && <InsightSheet d={d} st={st} kind={kind} range={range} onClose={() => setKind(null)} />}
-      <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2"><Stat icon={Users} label="موظفون" value={ks.length} onClick={() => setKind('team')} /><Stat icon={Truck} label="أوردرات مشحونة" value={fmt(tot)} tone="good" onClick={() => setKind('team')} /><Stat icon={Gauge} label="آخر تسجيل" value={timeCairo(last)} /></div>
-      <Deferred minHeight={300}>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="الأوردرات حسب الموظف"><HBars rows={ks.map((k) => ({ label: k, value: e[k].o }))} color={C.ready} unit="أوردر" /></Card>
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Card title="الأوردرات حسب الموظف" hint={`${fmt(tot)} أوردر · آخر تسجيل ${timeCairo(last)}`} action={<Button size="sm" className="print:hidden" onClick={() => setKind('team')}>كل الأوردرات</Button>}><HBars rows={ks.map((k) => ({ label: k, value: e[k].o }))} color={C.ready} unit="أوردر" /></Card>
         <Card title="التفاصيل"><TableWrap><table className="text-sm"><thead><tr>{['الموظف', 'أوردرات', 'قطع', 'أيام', 'متوسط/يوم'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{ks.map((k) => <tr key={k}><td className={td}>{k}</td><td className={td + ' font-mono'}>{e[k].o} <span className="text-muted">({pct(e[k].o, tot)}%)</span></td><td className={td + ' font-mono'}>{e[k].p}</td><td className={td + ' font-mono'}>{e[k].days.size}</td><td className={td + ' font-mono'}>{Math.round(e[k].o / e[k].days.size)}</td></tr>)}</tbody></table></TableWrap></Card>
       </div>
-      </Deferred>
-      <Deferred minHeight={260}>
-      <Card title="كل يوم" hint="عدد الأوردرات المسجّلة"><TableWrap><table className="text-sm"><thead><tr><th className={th}>اليوم</th>{ks.map((k) => <th key={k} className={th}>{k}</th>)}</tr></thead><tbody>{days.map((x) => <tr key={x}><td className={td + ' font-mono'}>{x}</td>{ks.map((k) => <td key={k} className={td + ' font-mono'}>{pivot[x][k] ?? <span className="text-muted">·</span>}</td>)}</tr>)}</tbody></table></TableWrap></Card>
-      </Deferred>
-      <p className="text-xs text-muted">وقت الإسكان هو وقت رفع الملف وليس وقت التغليف، فلا تقيّم به السرعة.</p>
+      <p className="text-xs text-muted">وقت الإسكان هو وقت رفع الملف مش وقت التغليف، فماتقيّمش بيه السرعة.</p>
     </div>
   );
 }

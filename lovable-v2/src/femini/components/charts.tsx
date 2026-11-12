@@ -174,7 +174,7 @@ function barDayAxis(n: number) {
   return <XAxis key="x" dataKey="day" interval={0} tickFormatter={numDay} {...axis} tick={{ ...axis.tick, fontSize: n > 24 ? 10 : 11 }} tickMargin={slant ? 4 : 10} angle={slant ? -45 : 0} textAnchor={slant ? 'end' : 'middle'} height={slant ? 44 : 30} />;
 }
 export type TrendSeries = { key: string; name: string; color: string; dash?: boolean; total?: 'sum' | 'last' };
-export function TrendArea<R extends { day: string }>({ data, series, height = 260, bars, money }: { data: R[]; series: TrendSeries[]; height?: number; bars?: boolean; money?: boolean }) {
+export function TrendArea<R extends { day: string }>({ data, series, height = 260, bars, money, onPick }: { data: R[]; series: TrendSeries[]; height?: number; bars?: boolean; money?: boolean; /** bars only: a click on a day with anything in it opens that day */ onPick?: (day: string) => void }) {
   const id = useId().replace(/:/g, ''); const [hi, on] = useHover(); const row = hi != null ? data[hi] : null;
   const num = (r: R | undefined | null, k: string) => Number((r as Record<string, unknown> | undefined | null)?.[k] ?? 0);
   const value = (s: TrendSeries) => (row ? num(row, s.key) : s.total === 'last' ? num(data[data.length - 1], s.key) : data.reduce((a, r) => a + num(r, s.key), 0));
@@ -183,10 +183,13 @@ export function TrendArea<R extends { day: string }>({ data, series, height = 26
   const tick = (n: number) => (money && n >= 1000 ? `${Number((n / 1000).toFixed(1))}k` : numberTick(n));
   // an array, not a fragment: recharts only finds its axes among the chart's direct children
   const common = [<CartesianGrid key="g" stroke={C.grid} strokeDasharray="3 6" vertical={false} />, bars ? barDayAxis(data.length) : <XAxis key="x" dataKey="day" tickFormatter={shortDay} {...axis} minTickGap={35} />, <YAxis key="y" {...axis} orientation="right" allowDecimals={false} tickFormatter={tick} width={48} />, <Tooltip key="t" content={noTip} cursor={bars ? { fill: 'var(--chart-track)' } : { stroke: C.muted, strokeDasharray: '3 4' }} />];
-  return <div className="min-w-0"><Readout title={row ? shortDay(row.day) : series.some((s) => s.total !== 'last') ? `إجمالي ${data.length} يوم` : 'آخر يوم'} items={series.map((s) => ({ name: s.name, value: value(s), color: s.color }))} />
-    <div className="chart-surface min-w-0" style={{ height }}><ResponsiveContainer width="100%" height="100%">
+  const any = (r: R | null | undefined) => !!r && series.some((s) => num(r, s.key) !== 0);
+  const pick = bars && onPick ? (st: { activeTooltipIndex?: number | string | null }) => { const r = st?.activeTooltipIndex == null ? null : data[Number(st.activeTooltipIndex)]; if (r && any(r)) onPick(r.day); } : undefined;
+  const can = !!pick && any(row);
+  return <div className="min-w-0"><Readout title={row ? <>{shortDay(row.day)}{can ? <span className="text-accent"> · اضغط للتفاصيل</span> : null}</> : series.some((s) => s.total !== 'last') ? `إجمالي ${data.length} يوم` : 'آخر يوم'} items={series.map((s) => ({ name: s.name, value: value(s), color: s.color }))} />
+    <div className={cn('chart-surface min-w-0', can && 'cursor-pointer')} style={{ height }}><ResponsiveContainer width="100%" height="100%">
       {bars
-        ? <BarChart data={data} margin={{ top: 12, right: 0, left: 0, bottom: 8 }} barCategoryGap="22%" {...on}>{common}{series.map((s, i) => <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[4, 4, 0, 0]} barSize={barW} animationDuration={500} opacity={i ? 0.85 : 1} />)}</BarChart>
+        ? <BarChart data={data} margin={{ top: 12, right: 0, left: 0, bottom: 8 }} barCategoryGap="22%" {...on} onClick={pick}>{common}{series.map((s, i) => <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[4, 4, 0, 0]} barSize={barW} animationDuration={500} opacity={i ? 0.85 : 1} />)}</BarChart>
         : <ComposedChart data={data} margin={{ top: 12, right: 0, left: 0, bottom: 8 }} {...on}><defs><Fade id={id} color={series[0].color} /></defs>{common}
             {series.slice(1).map((s) => <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.color} strokeWidth={2.2} strokeDasharray={s.dash ? '5 5' : undefined} dot={false} activeDot={{ r: 4 }} animationDuration={600} />)}
             <Area type="monotone" dataKey={series[0].key} name={series[0].name} stroke={series[0].color} strokeWidth={2.8} fill={`url(#${id})`} activeDot={{ r: 5, stroke: 'var(--surface)', strokeWidth: 3 }} animationDuration={600} /></ComposedChart>}

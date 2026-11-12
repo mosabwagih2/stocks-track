@@ -3,7 +3,7 @@ import type { Derived } from '@/femini/hooks/data';
 import { shopFlow, type ShopDoc } from '@/femini/domain/shop';
 import { LOC_AR } from '@/femini/domain/constants';
 import { cn, fmt } from '@/femini/cn';
-import { Alert, Card, Empty, Kpi, Pill, Seg, TableWrap, th, td } from './ui';
+import { Alert, Card, Empty, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from './ui';
 import { C, TrendArea } from './charts';
 import { DocDetails } from './DocDetails';
 import { Progressive } from './Deferred';
@@ -19,7 +19,7 @@ const Egp = ({ v }: { v: number }) => <span dir="rtl" className="inline-flex ite
  */
 export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: string }) {
   const r = useMemo(() => shopFlow(d.snap, from, to), [d, from, to]);
-  const [open, setOpen] = useState<string | null>(null); const [f, setF] = useState<'all' | 'out' | 'back'>('all'); const [unit, setUnit] = useState<'value' | 'pieces'>('value');
+  const [open, setOpen] = useState<string | null>(null); const [day, setDay] = useState<string | null>(null); const [f, setF] = useState<'all' | 'out' | 'back'>('all'); const [unit, setUnit] = useState<'value' | 'pieces'>('value');
   const openDoc = open ? d.snap.docs.find((x) => x.no === open) : undefined;
   const list = r.docs.filter((x) => f === 'all' || x.kind === f);
   const noCost = r.out.noCost + r.back.noCost;
@@ -27,16 +27,15 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
   const net = r.out.value - r.back.value;
   return (
     <div className="grid gap-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Kpi label="اتورّد للمحل" value={<Egp v={r.out.value} />} sub={`${fmt(r.out.n)} توريدة · ${fmt(r.out.pieces)} قطعة`} onClick={() => setF('out')} />
         <Kpi label="مرتجع من المحل" value={<Egp v={r.back.value} />} sub={`${fmt(r.back.n)} مرتجع · ${fmt(r.back.pieces)} قطعة${r.out.pieces ? ` · ${Math.round((r.back.pieces / r.out.pieces) * 100)}% من المورّد` : ''}`} tone={r.back.pieces ? 'warn' : undefined} onClick={() => setF('back')} />
         <Kpi label="صافي اللي راح" value={<Egp v={net} />} sub={`${fmt(r.out.pieces - r.back.pieces)} قطعة في الفترة`} tone="good" />
-        <Kpi label="عند المحل دلوقتي" value={<span dir="rtl" className="inline-flex items-baseline gap-1.5"><span className="num">{fmt(r.atShop.pieces)}</span><span className="font-sans text-sm font-medium text-muted">قطعة</span></span>} sub={`بالتكلفة ${money(r.atShop.value)} جنيه · من أول توريدة`} />
       </div>
       {noCost > 0 && <Alert tone="warn">{fmt(noCost)} قطعة من موديلات مالهاش تكلفة متسجّلة: محسوبة في القطع، ومش في الفلوس. سجّل التكلفة من الإعدادات ← «تكلفة القطعة وسعر البيع».</Alert>}
 
-      <Card title="التوريد والمرتجع كل يوم" hint={unit === 'value' ? 'جنيه بالتكلفة · بتاريخ الورقة' : 'قطع · بتاريخ الورقة'} action={<span className="print:hidden"><Seg value={unit} onChange={setUnit} options={[['value', 'جنيه'], ['pieces', 'قطع']]} /></span>}>
-        <TrendArea bars money={unit === 'value'} data={r.days} series={unit === 'value'
+      <Card title="التوريد والمرتجع كل يوم" hint={`${unit === 'value' ? 'جنيه بالتكلفة' : 'قطع'} · بتاريخ الورقة · اضغط على أي يوم لتفاصيله`} action={<span className="print:hidden"><Seg value={unit} onChange={setUnit} options={[['value', 'جنيه'], ['pieces', 'قطع']]} /></span>}>
+        <TrendArea bars money={unit === 'value'} onPick={(k) => { const xs = r.docs.filter((x) => x.doc.date === k); if (xs.length === 1) setOpen(xs[0].doc.no); else setDay(k); }} data={r.days} series={unit === 'value'
           ? [{ key: 'outValue', name: 'توريد', color: C.accent }, { key: 'backValue', name: 'مرتجع', color: C.scrap }]
           : [{ key: 'out', name: 'توريد', color: C.accent }, { key: 'back', name: 'مرتجع', color: C.scrap }]} />
       </Card>
@@ -51,10 +50,14 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
       </Card>
 
       {shops.length > 1 && <Card title="حسب المحل" hint="كل الوقت">
-        <TableWrap><table className="text-sm"><thead><tr>{['المحل', 'اتورّد', 'مرتجع', 'عنده دلوقتي', 'بالتكلفة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+        <TableWrap><table className="text-sm"><thead><tr>{['المحل', 'اتورّد', 'مرتجع', 'الصافي', 'الصافي بالتكلفة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
           <tbody>{shops.map(([s, v]) => <tr key={s}><td className={td}>{s}</td><td className={td + ' num'}>{fmt(v.out)}</td><td className={td + ' num'}>{fmt(v.back)}</td><td className={td + ' num font-semibold'}>{fmt(v.out - v.back)}</td><td className={td + ' num'}>{money(v.outValue - v.backValue)}</td></tr>)}</tbody></table></TableWrap>
       </Card>}
 
+      {day && !openDoc && <Sheet title={`توريد ومرتجع يوم ${day}`} onClose={() => setDay(null)} wide>
+        <p className="text-sm text-muted">اضغط على أي واحدة لتفاصيلها.</p>
+        <div className="grid gap-3 sm:grid-cols-2">{r.docs.filter((x) => x.doc.date === day).map((x) => <DocCard key={x.doc.no} x={x} onOpen={() => setOpen(x.doc.no)} />)}</div>
+      </Sheet>}
       {openDoc && <DocDetails key={openDoc.no} d={d} doc={openDoc} onClose={() => setOpen(null)} onOpen={setOpen} />}
     </div>
   );
@@ -86,7 +89,6 @@ export function shopSheets(d: Derived, from: string, to: string): ExportSheet[] 
       ...r.docs.map((x) => [x.kind === 'out' ? 'توريد' : 'مرتجع', x.doc.no, x.doc.date, x.shop, x.pieces, Math.round(x.value), x.noCost, x.kind === 'out' ? (x.doc.hdr.delivered ? 'اتسلّم' : 'لسه') : Object.entries(x.states).map(([l, n]) => `${LOC_AR[l] ?? l} ${n}`).join('، ')]),
       ['الإجمالي', '', '', '', '', '', '', ''],
       ['توريد', `${r.out.n} توريدة`, '', '', r.out.pieces, Math.round(r.out.value), r.out.noCost, ''],
-      ['مرتجع', `${r.back.n} مرتجع`, '', '', r.back.pieces, Math.round(r.back.value), r.back.noCost, ''],
-      ['عند المحل دلوقتي', 'من أول توريدة', '', '', r.atShop.pieces, Math.round(r.atShop.value), '', '']] },
+      ['مرتجع', `${r.back.n} مرتجع`, '', '', r.back.pieces, Math.round(r.back.value), r.back.noCost, '']] },
   ];
 }
