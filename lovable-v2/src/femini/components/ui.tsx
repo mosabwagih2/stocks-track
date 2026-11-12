@@ -112,8 +112,8 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function Dot({ className }: { className?: string }) { return <i className={cn('inline-block size-2.5 rounded-full', className)} />; }
 
-export function TableWrap({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('max-h-[640px] overflow-auto rounded-xl border border-line bg-surface', className)}>{children}</div>;
+export function TableWrap({ children, className, maxHeight }: { children: ReactNode; className?: string; /** a shorter limit than the default: the rows scroll inside */ maxHeight?: string }) {
+  return <div className={cn('max-h-[640px] overflow-auto rounded-xl border border-line bg-surface', className)} style={maxHeight ? { maxHeight } : undefined}>{children}</div>;
 }
 export const th = 'sticky top-0 z-[1] border-b border-line bg-lav/95 px-3 py-2.5 text-start text-xs font-semibold text-muted whitespace-nowrap backdrop-blur';
 export const td = 'border-b border-grid px-3 py-2.5 align-middle';

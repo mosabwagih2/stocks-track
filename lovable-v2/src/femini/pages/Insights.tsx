@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, PackageX, Sparkles, Store, Truck, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
-import { Alert, Button, Card, Empty, Pill, Seg, TableWrap, th, td } from '@/femini/components/ui';
+import { Alert, Button, Card, Empty, Pill, Seg, Sheet, TableWrap, th, td } from '@/femini/components/ui';
 import { ErrorBox } from '@/femini/components/shared';
 import { Thumb } from '@/femini/components/Thumb';
 import { Spinner } from '@/femini/components/Spinner';
@@ -27,7 +27,7 @@ import { PeriodPicker } from '@/femini/components/PeriodPicker';
 import { lateDays, lateLevel, warehouseDays } from '@/femini/domain/warehouseDay';
 import { LateDot } from '@/femini/components/LateDot';
 import { CancelSheet, OrderSheet } from '@/femini/components/OrderSheets';
-import { ItemsDetail, OrdersDetail } from '@/femini/components/DetailSheets';
+import { ItemCard, ItemsDetail, OrdersDetail } from '@/femini/components/DetailSheets';
 import { STAGNANT_DAYS, stagnantSkus } from '@/femini/domain/stagnant';
 import type { Order } from '@/femini/domain/types';
 
@@ -44,13 +44,13 @@ const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'finance', label: 'قيمة المخزون', icon: FileSpreadsheet },
 ];
 /** The parts of the summary, in reading order. Risk, demand and team were tabs of their own: their old links open here. */
-type Part = 'kpi' | 'attention' | 'trend' | 'demand' | 'stock' | 'team';
+type Part = 'trend' | 'blocked' | 'demand' | 'stock' | 'team';
 const PARTS: { id: Part; label: string }[] = [
-  { id: 'kpi', label: 'الأداء' }, { id: 'attention', label: 'يحتاج انتباهك' }, { id: 'trend', label: 'الاتجاه' },
+  { id: 'trend', label: 'الاتجاه' }, { id: 'blocked', label: 'المتوقف' },
   { id: 'demand', label: 'الطلب' }, { id: 'stock', label: 'المخزون' }, { id: 'team', label: 'الفريق' },
 ];
 /** an old tab's address → the part of the summary that holds it now */
-const OLD_TABS: Record<string, Part> = { risk: 'attention', demand: 'demand', team: 'team' };
+const OLD_TABS: Record<string, Part> = { risk: 'blocked', demand: 'demand', team: 'team' };
 
 /**
  * Scrolls to a part of the summary and keeps it in place while the parts above it finish drawing (they fill in after the
@@ -90,7 +90,7 @@ function useStats(d: Derived | null, range: Range | null) {
     const stuckPcs = d.open.filter((o) => d.blocked.has(o.ref)).reduce((a, o) => a + o.lines.length, 0);
     // most requested variants with how long the ready stock lasts
     const skuPull: Record<string, number> = {}; for (const o of live) for (const s of o.lines) skuPull[s] = (skuPull[s] ?? 0) + 1;
-    const hot = topN(skuPull, 10).map(([id, n]) => { const r = qty(d.snap.balances, id, 'READY'); const v = d.velocity[id] ?? 0; return { id, n, ready: r, open: d.demand[id] ?? 0, cover: v > 0 ? r / v : null }; });
+    const hot = topN(skuPull, 40).map(([id, n]) => { const r = qty(d.snap.balances, id, 'READY'); const v = d.velocity[id] ?? 0; return { id, n, ready: r, open: d.demand[id] ?? 0, cover: v > 0 ? r / v : null }; });
     // ready stock per production line (now), for the demand / stock switch
     const stockLine: Record<string, number> = {}; for (const k of d.snap.skus) { const r = qty(d.snap.balances, k.id, 'READY'); if (r) stockLine[lineOf(k.model)] = (stockLine[lineOf(k.model)] ?? 0) + r; }
     return { live, pieces, shipped, sorted, total, n80, byLine, stockLine, pull, neg, dead, stuckPcs, hot };
@@ -136,7 +136,7 @@ export default function Insights() {
   const sheetP = sp.get('sheet') as Kind | null; const sheet = sheetP && SHEETS.includes(sheetP) ? sheetP : null;
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d || !st || !cmp) return <Spinner />;
-  const counts: Partial<Record<Sec, number>> = { summary: alerts.filter((a) => a.level === 'crit').length };
+  const counts: Partial<Record<Sec, number>> = {};
   const secLabel = SECTIONS.find((x) => x.id === sec)?.label ?? 'الملخص';
   const periodLabel = sec === 'finance' ? `الرسوم من ${cmp.cur.from} لـ ${cmp.cur.to} · جدول القيمة بالأرصدة الحالية حتى ${d.today} والتكلفة المسجلة حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`;
   const filters = 'بدون فلاتر إضافية';
@@ -177,15 +177,14 @@ export default function Insights() {
             <p className="text-[11px] text-muted"><i className="me-1 inline-block size-2 rounded-full bg-chart-primary align-middle" />الحالية <span className="num" dir="ltr">{cmp.cur.from} → {cmp.cur.to}</span><span className="mx-2 text-line">|</span><i className="me-1 inline-block size-2 rounded-full bg-chart-previous align-middle" />للمقارنة <span className="num" dir="ltr">{cmp.prev.from} → {cmp.prev.to}</span></p>
             <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
               <span className="shrink-0 self-center pe-1 text-xs text-muted">انتقل إلى:</span>
-              {PARTS.map((x) => <button key={x.id} type="button" onClick={() => jump(x.id)} className="shrink-0 rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink transition-colors hover:border-accent/50 hover:bg-lav">{x.label}</button>)}
+              {PARTS.filter((x) => x.id !== 'blocked' || d.open.some((o) => d.blocked.has(o.ref))).map((x) => <button key={x.id} type="button" onClick={() => jump(x.id)} className="shrink-0 rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink transition-colors hover:border-accent/50 hover:bg-lav">{x.label}</button>)}
             </div>
           </div>
-          <Summary d={d} st={st} cmp={cmp} label={rangeLabel} />
-          <Block id="attention" n={2} title="يحتاج انتباهك" hint="الأهم الأول · كل تنبيه بيفتح الشغل بتاعه"><Deferred minHeight={320}><Attention d={d} alerts={alerts} /></Deferred></Block>
           <Trend cmp={cmp} period={days} />
-          <Block id="demand" n={4} title="الطلب" hint={rangeLabel}><Deferred minHeight={600}><Demand d={d} st={st} /></Deferred></Block>
-          <Block id="stock" n={5} title="المخزون" hint="الوضع دلوقتي"><Deferred minHeight={520}><StockPart d={d} st={st} /></Deferred></Block>
-          <Block id="team" n={6} title="الفريق" hint="الشحن المسجّل لكل موظف"><Deferred minHeight={420}><Team d={d} st={st} range={range} /></Deferred></Block>
+          {d.open.some((o) => d.blocked.has(o.ref)) && <Block id="blocked" n={2} title="الأوردرات المتوقفة" hint="ناقص فيها صنف · اضغط على أي حاجة تفتح تفاصيلها"><Deferred minHeight={320}><Blocked d={d} /></Deferred></Block>}
+          <Block id="demand" n={3} title="الطلب" hint={rangeLabel}><Deferred minHeight={600}><Demand d={d} st={st} /></Deferred></Block>
+          <Block id="stock" n={4} title="المخزون" hint="الوضع دلوقتي"><Deferred minHeight={520}><StockPart d={d} st={st} /></Deferred></Block>
+          <Block id="team" n={5} title="الفريق" hint="الشحن المسجّل لكل موظف"><Deferred minHeight={420}><Team d={d} st={st} range={range} /></Deferred></Block>
         </div>
       )}
       {sheet && <InsightSheet d={d} st={st} kind={sheet} range={null} onClose={() => setParam('sheet', null)} />}
@@ -298,40 +297,19 @@ function Block({ id, n, title, hint, children }: { id: Part; n: number; title: s
   );
 }
 
-/** 1 · the period's numbers */
-function Summary({ d, st, cmp, label }: { d: Derived; st: Stats; cmp: Cmp; label: string }) {
-  const [kind, setKind] = useState<Kind | null>(null);
-  const { cur, prev } = cmp; const rate = cur.rate;
-  return (
-    <>
-      {kind && <InsightSheet d={d} st={st} kind={kind} range={{ from: cmp.cur.from, to: cmp.cur.to }} onClose={() => setKind(null)} />}
-      <Block id="kpi" n={1} title="مؤشرات الأداء" hint={`${label} · اضغط على أي رقم لتفاصيله`}>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Stat icon={Truck} label="نسبة الشحن" onClick={() => setKind('rate')} value={<span className="inline-flex items-center gap-2">{rate}%<Ring value={rate} /></span>} sub={`${fmt(cur.shipped)} من ${fmt(cur.orders)} أوردر`} tone="good"><Delta cur={cur.rate} prev={prev.rate} suffix="%" /></Stat>
-          <Stat icon={BarChart3} label="القطع المطلوبة" onClick={() => setKind('pieces')} value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر`}><Delta cur={cur.pieces} prev={prev.pieces} /><Sparkline data={cmp.curDays.map((r) => r.pcs)} labels={cmp.curDays.map((r) => r.day)} height={36} /></Stat>
-          <Stat icon={Truck} label="القطع المشحونة" onClick={() => setKind('shipped')} value={fmt(cur.shippedPcs)} sub={`${fmt(cur.shipped)} أوردر`} tone="good"><Delta cur={cur.shippedPcs} prev={prev.shippedPcs} /><Sparkline data={cmp.curDays.map((r) => r.shipPcs)} labels={cmp.curDays.map((r) => r.day)} color={C.ready} height={36} /></Stat>
-          <Stat icon={PackageX} label="ملغاة" onClick={() => setKind('cancelled')} value={fmt(cur.cancelled)} sub="أوردر ألغي في الفترة" tone={cur.cancelled ? 'warn' : 'good'}><Delta cur={cur.cancelled} prev={prev.cancelled} upIsGood={false} /></Stat>
-        </div>
-      </Block>
-    </>
-  );
-}
-
-/** 2 · what needs a decision now: the alerts (each opens its exact work), and the blocked orders when there are any */
-function Attention({ d, alerts }: { d: Derived; alerts: RiskAlert[] }) {
-  const [openRef, setOpenRef] = useState<string | null>(null); const [cancelRef, setCancelRef] = useState<string | null>(null);
+/** the orders that cannot leave for a missing item, and the items that block them most: every row opens its details */
+function Blocked({ d }: { d: Derived }) {
+  const [openRef, setOpenRef] = useState<string | null>(null); const [cancelRef, setCancelRef] = useState<string | null>(null); const [item, setItem] = useState<string | null>(null);
   const bl = d.open.filter((o) => d.blocked.has(o.ref));
   const bv: Record<string, number> = {}; for (const o of bl) for (const x of d.blocked.get(o.ref) ?? []) bv[x.sku] = (bv[x.sku] ?? 0) + 1;
-  const ks = Object.entries(bv).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const ks = Object.entries(bv).sort((a, b) => b[1] - a[1]);
   return (
-    <div className="grid gap-4">
-      <AlertsPanel alerts={alerts} />
-      {bl.length > 0 && <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Card title={`الأوردرات المتوقفة (${fmt(bl.length)})`} hint="اضغط على أي أوردر يفتح"><TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'تاريخ البيك أب', 'قطع', 'الناقص فيه'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{bl.slice(0, 15).map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => setOpenRef(o.ref)}><td className={td + ' font-mono text-accent'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{(d.blocked.get(o.ref) ?? []).map((x) => <span key={x.sku} className="m-0.5 inline-block"><Pill tone="crit">{skuLabel(d.skuMap, x.sku)} ×{x.short}</Pill></span>)}</td></tr>)}</tbody></table></TableWrap></Card>
-        <Card title="الأصناف اللي موقفاهم" hint="توفيرها يحرّك أوردرات أكتر"><HBars rows={ks.map(([s, n]) => ({ label: skuLabel(d.skuMap, s), value: n }))} color={C.scrap} unit="أوردر متوقف" /></Card>
-      </div>}
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <Card title={`الأوردرات المتوقفة (${fmt(bl.length)})`} hint="اضغط على أي أوردر يفتح"><TableWrap maxHeight="17rem"><table className="text-sm"><thead><tr>{['البوليصة', 'تاريخ البيك أب', 'قطع', 'الناقص فيه'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{bl.map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => setOpenRef(o.ref)}><td className={td + ' font-mono text-accent'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{(d.blocked.get(o.ref) ?? []).map((x) => <span key={x.sku} className="m-0.5 inline-block"><Pill tone="crit">{skuLabel(d.skuMap, x.sku)} ×{x.short}</Pill></span>)}</td></tr>)}</tbody></table></TableWrap></Card>
+      <Card title="الأصناف اللي موقفاهم" hint="توفيرها يحرّك أوردرات أكتر · اضغط على صنف"><HBars maxRows={5} rows={ks.map(([s, n]) => ({ label: skuLabel(d.skuMap, s), value: n }))} color={C.scrap} unit="أوردر متوقف" onPick={(i) => setItem(ks[i][0])} /></Card>
       {openRef && <OrderSheet d={d} orderRef={openRef} onClose={() => setOpenRef(null)} onCancel={(c) => { setOpenRef(null); setCancelRef(c); }} />}
       {cancelRef && <CancelSheet d={d} initial={cancelRef} onClose={() => setCancelRef(null)} />}
+      {item && <ItemCard d={d} sku={item} onClose={() => setItem(null)} />}
     </div>
   );
 }
@@ -341,7 +319,7 @@ function Trend({ cmp, period }: { cmp: Cmp; period: number }) {
   const [metric, setMetric] = useState<'pcs' | 'req' | 'ship'>('req');
   const series = cmp.curDays.map((r, i) => ({ day: r.day, cur: r[metric], prev: cmp.prevDays[i]?.[metric] ?? 0 }));
   return (
-    <Block id="trend" n={3} title="الاتجاه" hint={`${period} يوم مقابل ${period} يوم`}>
+    <Block id="trend" n={1} title="الاتجاه" hint={`${period} يوم مقابل ${period} يوم`}>
       <Deferred minHeight={380}>
       <Card title="الفترة الحالية مقابل السابقة" action={<span className="print:hidden"><Seg value={metric} onChange={setMetric} options={[['req', 'أوردرات'], ['pcs', 'قطع مطلوبة'], ['ship', 'مشحون']]} /></span>}>
         <CompareArea data={series} />
@@ -354,6 +332,7 @@ function Trend({ cmp, period }: { cmp: Cmp; period: number }) {
 
 /** 4 · demand: the 80/20 models with the lines, the variants to make first, and the model × size map */
 function Demand({ d, st }: { d: Derived; st: Stats }) {
+  const [model, setModel] = useState<string | null>(null); const [item, setItem] = useState<string | null>(null);
   const m: Record<string, Record<string, number>> = {};
   // pieces requested per model x size, and per colour inside each cell (shown on hover)
   const byColor: Record<string, Record<string, number>> = {};
@@ -363,34 +342,42 @@ function Demand({ d, st }: { d: Derived; st: Stats }) {
   return (
     <div className="grid gap-4">
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Card title="باريتو 80/20: الموديلات الأكثر طلبًا" hint={`${st.n80} موديل = 80% من الطلب`}><Pareto pull={st.pull} /></Card>
-        <LineCard st={st} />
+        <Card title="باريتو 80/20: الموديلات الأكثر طلبًا" hint={`${st.n80} موديل = 80% من الطلب · اضغط على موديل`}><Pareto pull={st.pull} limit={200} maxRows={5} onPick={setModel} /></Card>
+        <LineCard d={d} st={st} />
       </div>
-      <Card title="الأصناف الأكثر طلبًا" hint="مع الرصيد الجاهز ويكفي كام يوم">
-        <TableWrap><table className="text-sm"><thead><tr>{['', 'الصنف', 'مطلوب', 'طلب مفتوح', 'جاهز', 'يكفي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+      <Card title="الأصناف الأكثر طلبًا" hint="مع الرصيد الجاهز ويكفي كام يوم · اضغط على صنف">
+        <TableWrap maxHeight="19rem"><table className="text-sm"><thead><tr>{['', 'الصنف', 'مطلوب', 'طلب مفتوح', 'جاهز', 'يكفي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
           <tbody>{st.hot.map((r, i) => { const k = d.skuMap.get(r.id); return (
-            <tr key={r.id} className="hover:bg-lav"><td className={td + ' w-10 font-mono text-muted'}>{i + 1}</td>
+            <tr key={r.id} className="cursor-pointer hover:bg-lav" onClick={() => setItem(r.id)}><td className={td + ' w-10 font-mono text-muted'}>{i + 1}</td>
               <td className={td}><span className="flex items-center gap-2"><Thumb model={k ? d.modelMap.get(k.model) : undefined} size={36} />{skuLabel(d.skuMap, r.id)}</span></td>
               <td className={td + ' font-mono font-semibold'}>{fmt(r.n)}</td><td className={td + ' font-mono'}>{fmt(r.open)}</td><td className={td + ' font-mono'}>{fmt(r.ready)}</td>
               <td className={td}>{r.cover === null ? <span className="text-muted">—</span> : <Pill tone={r.cover < 7 ? 'crit' : r.cover < 14 ? 'warn' : 'good'}>{Math.round(r.cover)} يوم</Pill>}</td></tr>); })}</tbody></table></TableWrap>
       </Card>
       <Card title="خريطة الطلب: الموديل × المقاس" hint="أعلى 14 موديل · قف على أي مربع تشوف ألوانه"><Heatmap models={models} sizes={sizes} value={(x, z) => m[x][z] ?? 0} total={(x) => st.pull[x] ?? 0} breakdown={(x, z) => Object.entries(byColor[`${x}|${z}`] ?? {}).sort((p, q) => q[1] - p[1]).map(([label, n]) => ({ label, n }))} /></Card>
+      {model && <ModelDetail d={d} st={st} model={model} view="demand" onClose={() => setModel(null)} />}
+      {item && <ItemCard d={d} sku={item} onClose={() => setItem(null)} />}
     </div>
   );
 }
 
 /** 5 · the stock now: by state, how long the ready stock lasts, and what is not selling */
 function StockPart({ d, st }: { d: Derived; st: Stats }) {
+  const [bucket, setBucket] = useState<string | null>(null); const [item, setItem] = useState<string | null>(null);
   const buckets: Record<string, number> = { 'أقل من 3 أيام': 0, '3 - 7': 0, '7 - 14': 0, '14 - 30': 0, 'أكثر من 30': 0, 'بدون طلب': 0 };
-  for (const s of d.snap.skus) { const r = qty(d.snap.balances, s.id, 'READY'); if (!r && !d.demand[s.id]) continue; const v = d.velocity[s.id]; if (!v) { buckets['بدون طلب']++; continue; } const c = r / v; buckets[c < 3 ? 'أقل من 3 أيام' : c < 7 ? '3 - 7' : c < 14 ? '7 - 14' : c < 30 ? '14 - 30' : 'أكثر من 30']++; }
+  const members: Record<string, string[]> = {};   // the items of each group, to open it
+  for (const s of d.snap.skus) { const r = qty(d.snap.balances, s.id, 'READY'); if (!r && !d.demand[s.id]) continue; const v = d.velocity[s.id]; const key = !v ? 'بدون طلب' : (() => { const c = r / v; return c < 3 ? 'أقل من 3 أيام' : c < 7 ? '3 - 7' : c < 14 ? '7 - 14' : c < 30 ? '14 - 30' : 'أكثر من 30'; })(); buckets[key]++; (members[key] ??= []).push(s.id); }
   const tones = [C.scrap, C.scrap, C.dirty, C.ready, C.factory, C.muted];
   return (
     <div className="grid gap-4">
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Card title="المخزون حسب الحالة"><StateDonut d={d} compact /></Card>
-        <Card title="الأصناف حسب أيام التغطية" hint={d.velocityOK ? 'الجاهز يكفي كام يوم بسرعة السحب' : 'تقديري'}><HBars rows={Object.entries(buckets).map(([k, v], i) => ({ label: k, value: v, color: tones[i] }))} unit="صنف" /></Card>
+        <Card title="الأصناف حسب أيام التغطية" hint={d.velocityOK ? 'الجاهز يكفي كام يوم بسرعة السحب · اضغط على مجموعة' : 'تقديري'}><HBars rows={Object.entries(buckets).map(([k, v], i) => ({ label: k, value: v, color: tones[i] }))} unit="صنف" onPick={(i) => setBucket(Object.keys(buckets)[i])} /></Card>
       </div>
-      <Card title="أكبر الأصناف الراكدة" hint={`رصيد جاهز ما اتطلبش من ${STAGNANT_DAYS} يوم أو أكتر · ${fmt(st.dead.length)} صنف`}>{st.dead.length ? <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th><th className={th}>آخر طلب</th></tr></thead><tbody>{st.dead.slice(0, 10).map((s) => <tr key={s.sku}><td className={td}>{skuLabel(d.skuMap, s.sku)}</td><td className={td + ' font-mono'}>{fmt(s.ready)}</td><td className={td + ' font-mono text-muted'}>{s.last || 'لم يُطلب'}</td></tr>)}</tbody></table></TableWrap> : <Empty>مفيش أصناف راكدة.</Empty>}</Card>
+      <Card title="أكبر الأصناف الراكدة" hint={`رصيد جاهز ما اتطلبش من ${STAGNANT_DAYS} يوم أو أكتر · ${fmt(st.dead.length)} صنف · اضغط على صنف`}>{st.dead.length ? <TableWrap maxHeight="19rem"><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th><th className={th}>آخر طلب</th></tr></thead><tbody>{st.dead.map((s) => <tr key={s.sku} className="cursor-pointer hover:bg-lav" onClick={() => setItem(s.sku)}><td className={td}>{skuLabel(d.skuMap, s.sku)}</td><td className={td + ' font-mono'}>{fmt(s.ready)}</td><td className={td + ' font-mono text-muted'}>{s.last || 'لم يُطلب'}</td></tr>)}</tbody></table></TableWrap> : <Empty>مفيش أصناف راكدة.</Empty>}</Card>
+      {bucket && <ItemsDetail d={d} title={`أصناف ${bucket === 'بدون طلب' ? 'بدون طلب' : `تكفي ${bucket}${/^\d/.test(bucket) ? ' يوم' : ''}`}`} hint="الجاهز يكفي كام يوم بسرعة السحب. الأقل أول." head={['الجاهز', 'بيتسحب/يوم', 'يكفي']}
+        rows={(members[bucket] ?? []).map((id) => { const r = qty(d.snap.balances, id, 'READY'); const v = d.velocity[id] ?? 0; return { id, r, v, c: v ? r / v : Infinity }; }).sort((a, b) => a.c - b.c || b.r - a.r).map((x) => ({ sku: x.id, cells: [fmt(x.r), x.v ? x.v.toFixed(1) : '—', Number.isFinite(x.c) ? `${Math.round(x.c)} يوم` : '—'] }))}
+        onItem={setItem} onClose={() => setBucket(null)} />}
+      {item && <ItemCard d={d} sku={item} onClose={() => setItem(null)} />}
     </div>
   );
 }
@@ -491,13 +478,50 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
 }
 
 /** Demand (in the chosen period) or ready stock (now) per production line, in aligned rows. */
-function LineCard({ st }: { st: Stats }) {
-  const [view, setView] = useState<'demand' | 'stock'>('demand');
+function LineCard({ d, st }: { d: Derived; st: Stats }) {
+  const [view, setView] = useState<'demand' | 'stock'>('demand'); const [line, setLine] = useState<string | null>(null); const [model, setModel] = useState<string | null>(null);
   const src = view === 'demand' ? st.byLine : st.stockLine;
   const rows = Object.entries(src).sort((a, b) => b[1] - a[1]).map(([l, v]) => ({ label: l, value: v, color: LINE_COLOR[l] ?? C.dirty }));
   return (
-    <Card title={view === 'demand' ? 'الطلب حسب خط الإنتاج' : 'المخزون حسب خط الإنتاج'} hint={view === 'demand' ? 'قطع مطلوبة في الفترة' : 'جاهز للبيع دلوقتي'} action={<Seg value={view} onChange={setView} options={[['demand', 'الطلب'], ['stock', 'المخزون']]} />}>
-      {rows.length ? <ShareRows rows={rows} unit="قطعة" /> : <Empty>{view === 'demand' ? 'لا توجد طلبات في الفترة دي.' : 'لا يوجد مخزون جاهز.'}</Empty>}
+    <Card title={view === 'demand' ? 'الطلب حسب الموديل' : 'المخزون حسب الموديل'} hint={view === 'demand' ? 'قطع مطلوبة في الفترة · اضغط على نوع تشوف موديلاته' : 'جاهز للبيع دلوقتي · اضغط على نوع تشوف موديلاته'} action={<Seg value={view} onChange={setView} options={[['demand', 'الطلب'], ['stock', 'المخزون']]} />}>
+      {rows.length ? <ShareRows rows={rows} unit="قطعة" onPick={setLine} /> : <Empty>{view === 'demand' ? 'لا توجد طلبات في الفترة دي.' : 'لا يوجد مخزون جاهز.'}</Empty>}
+      {line && <LineDetail d={d} st={st} line={line} view={view} onModel={setModel} onClose={() => setLine(null)} />}
+      {model && <ModelDetail d={d} st={st} model={model} view={view} onClose={() => setModel(null)} />}
     </Card>
+  );
+}
+
+/** the models of one line: the pieces, and how many orders ask for each; a model opens its own orders */
+function LineDetail({ d, st, line, view, onModel, onClose }: { d: Derived; st: Stats; line: string; view: 'demand' | 'stock'; onModel: (m: string) => void; onClose: () => void }) {
+  const models = d.snap.models.map((m) => m.code).filter((c) => lineOf(c) === line);
+  const rows = models.map((m) => {
+    const ords = st.live.filter((o) => o.lines.some((l) => d.skuMap.get(l)?.model === m)).length;
+    const ready = d.snap.skus.reduce((a, k) => a + (k.model === m ? qty(d.snap.balances, k.id, 'READY') : 0), 0);
+    return { m, pieces: st.pull[m] ?? 0, orders: ords, ready };
+  }).filter((r) => (view === 'demand' ? r.pieces > 0 : r.ready > 0)).sort((a, b) => (view === 'demand' ? b.pieces - a.pieces : b.ready - a.ready));
+  const total = rows.reduce((a, r) => a + (view === 'demand' ? r.pieces : r.ready), 0) || 1;
+  return (
+    <Sheet title={`${line} · ${view === 'demand' ? 'الطلب' : 'المخزون'} حسب الموديل`} onClose={onClose}>
+      <p className="text-sm text-muted">{view === 'demand' ? 'القطع المطلوبة في الفترة وعدد الأوردرات اللي فيها كل موديل. اضغط على موديل تشوف أوردراته.' : 'الجاهز للبيع دلوقتي من كل موديل. اضغط على موديل تشوف تفاصيله.'}</p>
+      {!rows.length ? <Empty>مفيش موديلات.</Empty> : <TableWrap><table className="text-sm">
+        <thead><tr><th className={th}>الموديل</th><th className={th}>{view === 'demand' ? 'قطع مطلوبة' : 'جاهز'}</th>{view === 'demand' && <th className={th}>أوردرات</th>}<th className={th}>النسبة</th></tr></thead>
+        <tbody>{rows.map((r) => <tr key={r.m} className="cursor-pointer hover:bg-lav" onClick={() => onModel(r.m)}><td className={td}><span className="flex items-center gap-2"><Thumb model={d.modelMap.get(r.m)} size={32} /><b className="font-mono">{r.m}</b><span className="text-xs text-muted">{d.modelMap.get(r.m)?.name}</span></span></td><td className={td + ' num font-semibold'}>{fmt(view === 'demand' ? r.pieces : r.ready)}</td>{view === 'demand' && <td className={td + ' num'}>{fmt(r.orders)}</td>}<td className={td + ' num text-muted'}>{pct(view === 'demand' ? r.pieces : r.ready, total)}%</td></tr>)}</tbody>
+      </table></TableWrap>}
+    </Sheet>
+  );
+}
+
+/** one model: the orders of the period that have it (items on the second tab), or its items with their stock */
+function ModelDetail({ d, st, model, view, onClose }: { d: Derived; st: Stats; model: string; view: 'demand' | 'stock'; onClose: () => void }) {
+  const [item, setItem] = useState<string | null>(null);
+  const name = `${model} · ${d.modelMap.get(model)?.name ?? ''}`;
+  const orders = st.live.filter((o) => o.lines.some((l) => d.skuMap.get(l)?.model === model));
+  if (view === 'demand') return <OrdersDetail d={d} title={name} hint={`${fmt(st.pull[model] ?? 0)} قطعة في ${fmt(orders.length)} أوردر في الفترة`} orders={orders} startTab="items" onClose={onClose} />;
+  const skus = d.snap.skus.filter((k) => k.model === model);
+  return (
+    <>
+      <ItemsDetail d={d} title={name} hint="أصناف الموديل بالجاهز والطلب المفتوح." head={['الجاهز', 'طلب مفتوح']} rows={skus.map((k) => ({ sku: k.id, r: qty(d.snap.balances, k.id, 'READY') })).sort((a, b) => b.r - a.r).map((x) => ({ sku: x.sku, cells: [fmt(x.r), fmt(d.demand[x.sku] ?? 0)] }))} onItem={setItem} onClose={onClose} />
+      {item && <ItemCard d={d} sku={item} onClose={() => setItem(null)} />}
+    </>
   );
 }

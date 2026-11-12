@@ -4,7 +4,8 @@ import type { Order } from '@/femini/domain/types';
 import { skuLabel } from '@/femini/domain/orders';
 import { qty } from '@/femini/domain/ledger';
 import { fmt } from '@/femini/cn';
-import { Chip, Empty, Sheet, TableWrap, Tabs, th, td } from './ui';
+import { Button, Chip, Empty, Kpi, Sheet, TableWrap, Tabs, th, td } from './ui';
+import { LOCS, LOC_AR } from '@/femini/domain/constants';
 import { OrderPill } from './shared';
 import { OrderSheet, CancelSheet } from './OrderSheets';
 import { Thumb } from './Thumb';
@@ -112,5 +113,28 @@ export function SkuOrders({ d, sku, onClose }: { d: Derived; sku: string; onClos
     <OrdersDetail d={d} title={`أوردرات ${skuLabel(d.skuMap, sku)}`} hint={`جاهز الآن ${fmt(qty(d.snap.balances, sku, 'READY'))} قطعة · المطلوب ${fmt(orders.reduce((a, o) => a + o.lines.filter((l) => l === sku).length, 0))}`}
       orders={orders} onClose={onClose}
       cols={[{ head: 'ناقص فيه', cell: (o) => { const s = d.blocked.get(o.ref)?.find((x) => x.sku === sku)?.short; return s ? <b className="num text-crit">{s}</b> : <span className="text-muted">—</span>; } }]} />
+  );
+}
+
+/** One item: its pieces in every state, how fast it sells, and the open orders asking for it */
+export function ItemCard({ d, sku, onClose }: { d: Derived; sku: string; onClose: () => void }) {
+  const [orders, setOrders] = useState(false);
+  const k = d.skuMap.get(sku); const ready = qty(d.snap.balances, sku, 'READY'); const v = d.velocity[sku] ?? 0; const cover = v > 0 ? ready / v : null;
+  const open = d.open.filter((o) => o.lines.includes(sku));
+  return (
+    <>
+      <Sheet title={skuLabel(d.skuMap, sku)} onClose={onClose}>
+        <div className="flex items-center gap-3"><Thumb model={k ? d.modelMap.get(k.model) : undefined} size={72} /><div className="text-sm text-muted">{k ? `${k.model} · ${d.modelMap.get(k.model)?.name ?? ''}` : ''}</div></div>
+        <div className="grid grid-cols-2 gap-3">
+          <Kpi label="جاهز للبيع" value={fmt(ready)} tone={ready <= 0 ? 'crit' : undefined} />
+          <Kpi label="طلب مفتوح" value={fmt(d.demand[sku] ?? 0)} tone={(d.demand[sku] ?? 0) > ready ? 'crit' : undefined} />
+          <Kpi label="بيتسحب في اليوم" value={v ? v.toFixed(1) : '—'} sub={d.velocityOK ? undefined : 'تقديري'} />
+          <Kpi label="يكفي" value={cover === null ? '—' : `${Math.round(cover)} يوم`} tone={cover !== null && cover < 7 ? 'crit' : cover !== null && cover < 14 ? 'warn' : undefined} />
+        </div>
+        <TableWrap><table className="text-sm"><tbody>{LOCS.map((l) => <tr key={l}><td className={td}>{LOC_AR[l]}</td><td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, sku, l))}</td></tr>)}</tbody></table></TableWrap>
+        <Button disabled={!open.length} onClick={() => setOrders(true)}>الأوردرات اللي طالباه ({fmt(open.length)})</Button>
+      </Sheet>
+      {orders && <SkuOrders d={d} sku={sku} onClose={() => setOrders(false)} />}
+    </>
   );
 }

@@ -104,7 +104,7 @@ export function StockArea({data}:{data:ReturnType<typeof useStockDaily>}) {
  return <div className="min-w-0"><Readout title={row?(hi!=null?shortDay(row.day):'آخر يوم'):''} items={row?[{name:'جاهز للبيع',value:row.ready,color:C.ready},{name:'إجمالي المملوك',value:row.owned,color:C.accent}]:[]}/><p className="-mt-0.5 mb-1 h-4 truncate text-[11px] leading-4 text-muted">{first&&row?<>الجاهز {ch>=0?'زاد':'قلّ'} <b className="num">{fmt(Math.abs(ch))}</b> قطعة من أول الفترة{hi!=null?' لحد اليوم ده':''}</>:null}</p><div className="chart-surface h-[240px] min-w-0"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data} margin={{top:12,right:0,left:0,bottom:8}} {...on}><defs><Fade id={`${id}r`} color={C.ready}/></defs><CartesianGrid stroke={C.grid} strokeDasharray="3 6" vertical={false}/><XAxis dataKey="day" tickFormatter={shortDay} {...axis} minTickGap={35}/><YAxis {...axis} orientation="right" tickFormatter={numberTick} width={46} domain={['dataMin - 200','dataMax + 200']} allowDecimals={false}/><Tooltip content={noTip} cursor={{stroke:C.muted,strokeDasharray:'3 4'}}/><Line type="monotone" dataKey="owned" name="إجمالي المملوك" stroke={C.accent} strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={{r:4}} animationDuration={600}/><Area type="monotone" dataKey="ready" name="جاهز للبيع" stroke={C.ready} strokeWidth={2.8} fill={`url(#${id}r)`} activeDot={{r:5,stroke:'var(--surface)',strokeWidth:3}} animationDuration={600}/></AreaChart></ResponsiveContainer></div></div>;
 }
 /** The 80/20 list: a box per class, then the models ranked with a bar, the pieces and the running share. */
-export function Pareto({pull,onPick,limit=20}:{pull:Record<string,number>;onPick?:(m:string)=>void;limit?:number}) {
+export function Pareto({pull,onPick,limit=20,maxRows}:{pull:Record<string,number>;onPick?:(m:string)=>void;limit?:number;/** rows shown before the list scrolls */maxRows?:number}) {
   const { rows: all, total, classes } = paretoRows(pull); const rows = all.slice(0, limit); const top = rows[0]?.v || 1;
   const fill: Record<string, string> = { A: C.accent, B: C.dirty, C: C.muted }; const nA = classes[0].models;
   const cols = 'grid grid-cols-[1.5rem_3.75rem_minmax(0,1fr)_3.5rem_2.75rem] items-center gap-3 rounded-lg px-2 py-1.5 text-start text-sm';
@@ -113,7 +113,7 @@ export function Pareto({pull,onPick,limit=20}:{pull:Record<string,number>;onPick
       <div className="mb-4 grid grid-cols-3 gap-2 text-center">
         {classes.map((c) => <div key={c.k} className="rounded-xl border border-line px-2 py-2.5"><span className="inline-flex items-center gap-1.5 text-[11px] text-muted"><i className="size-2 rounded-full" style={{ background: fill[c.k] }} />فئة {c.k} · <span className="num">{c.models}</span> موديل</span><b className="num mt-0.5 block text-lg font-semibold">{pct(c.pieces, total)}%</b></div>)}
       </div>
-      <div className="grid gap-0.5">
+      <div className={cn('grid gap-0.5', !!maxRows && 'overflow-y-auto pe-1')} style={maxRows ? { maxHeight: `${maxRows * 2.3}rem` } : undefined}>
         {rows.map((r, i) => {
           const cells = <>
             <span className="num text-xs text-muted">{i + 1}</span>
@@ -137,17 +137,18 @@ export function Pareto({pull,onPick,limit=20}:{pull:Record<string,number>;onPick
   );
 }
 /** Aligned rows: label · bar · value · share. Plain HTML, so the columns line up exactly. */
-export function ShareRows({rows,unit='قطعة'}:{rows:{label:string;value:number;color:string}[];unit?:string}) {
+export function ShareRows({rows,unit='قطعة',onPick}:{rows:{label:string;value:number;color:string}[];unit?:string;onPick?:(label:string)=>void}) {
  const total=rows.reduce((a,r)=>a+Math.max(0,r.value),0)||1; const top=Math.max(1,...rows.map((r)=>r.value));
- return <div className="grid gap-2.5">{rows.map((r)=><div key={r.label} className="grid grid-cols-[6.5rem_minmax(0,1fr)_4.5rem_3rem] items-center gap-3 text-sm"><span className="flex min-w-0 items-center gap-2"><i className="size-2.5 shrink-0 rounded-full" style={{background:r.color}}/><span className="truncate">{r.label}</span></span><span className="h-2.5 overflow-hidden rounded-full bg-[var(--chart-track)]"><span className="block h-full rounded-full transition-[width] duration-500" style={{width:`${Math.max(0,r.value)/top*100}%`,background:r.color}}/></span><b className="num text-end">{fmt(r.value)}</b><span className="num text-end text-xs text-muted">{pct(Math.max(0,r.value),total)}%</span></div>)}<p className="text-end text-[11px] text-muted">الإجمالي <b className="num">{fmt(total)}</b> {unit}</p></div>;
+ return <div className="grid gap-2.5">{rows.map((r)=><div key={r.label} role={onPick?'button':undefined} tabIndex={onPick?0:undefined} onClick={onPick?()=>onPick(r.label):undefined} onKeyDown={onPick?(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onPick(r.label)}}:undefined} className={cn('grid grid-cols-[6.5rem_minmax(0,1fr)_4.5rem_3rem] items-center gap-3 text-sm',onPick&&'cursor-pointer rounded-lg px-1 py-1 transition-colors hover:bg-lav focus-visible:ring-2 focus-visible:ring-accent')}><span className="flex min-w-0 items-center gap-2"><i className="size-2.5 shrink-0 rounded-full" style={{background:r.color}}/><span className="truncate">{r.label}</span></span><span className="h-2.5 overflow-hidden rounded-full bg-[var(--chart-track)]"><span className="block h-full rounded-full transition-[width] duration-500" style={{width:`${Math.max(0,r.value)/top*100}%`,background:r.color}}/></span><b className="num text-end">{fmt(r.value)}</b><span className="num text-end text-xs text-muted">{pct(Math.max(0,r.value),total)}%</span></div>)}<p className="text-end text-[11px] text-muted">الإجمالي <b className="num">{fmt(total)}</b> {unit}</p></div>;
 }
 /** Ranked rows: the label and its number with the share on one line, a thin bar under it. Plain HTML, full labels. */
-export function HBars({rows,color=C.accent,unit=''}:{rows:{label:string;value:number;color?:string}[];color?:string;unit?:string}) {
+export function HBars({rows,color=C.accent,unit='',onPick,maxRows}:{rows:{label:string;value:number;color?:string}[];color?:string;unit?:string;/** a row opens its details */onPick?:(i:number)=>void;/** rows shown before the list scrolls */maxRows?:number}) {
   const top = Math.max(1, ...rows.map((r) => r.value)); const total = rows.reduce((a, r) => a + Math.max(0, r.value), 0);
   return (
-    <div className="chart-surface grid gap-3">
+    <div className={cn('chart-surface grid gap-3', !!maxRows && 'overflow-y-auto pe-1')} style={maxRows ? { maxHeight: `${maxRows * 3.1}rem` } : undefined}>
       {rows.map((r, i) => (
-        <div key={`${r.label}-${i}`} className="grid gap-1.5">
+        <div key={`${r.label}-${i}`} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={onPick ? () => onPick(i) : undefined} onKeyDown={onPick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(i); } } : undefined}
+          className={cn('grid gap-1.5', onPick && 'cursor-pointer rounded-lg px-1 py-0.5 transition-colors hover:bg-lav focus-visible:ring-2 focus-visible:ring-accent')}>
           <div className="flex items-baseline justify-between gap-3 text-sm"><span className="min-w-0 truncate text-ink" title={r.label}>{r.label}</span><span className="shrink-0"><b className="num">{fmt(r.value)}</b> <span className="num text-xs text-muted">{pct(Math.max(0, r.value), total || 1)}%</span></span></div>
           <span className="h-1.5 overflow-hidden rounded-full bg-[var(--chart-track)]"><span className="block h-full rounded-full transition-[width] duration-500" style={{ width: `${(Math.max(0, r.value) / top) * 100}%`, background: r.color ?? color }} /></span>
         </div>
