@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, X, Upload, ChevronDown } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, Upload, ChevronDown } from 'lucide-react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Chip, Empty, Field, Pill, Seg, Sheet, Tabs, TableWrap, th, td } from '@/femini/components/ui';
@@ -173,11 +173,9 @@ function SwapLines({ d, lines, set }: { d: Derived; lines: OpLine[]; set: SetLin
 function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void; lines: OpLine[]; set: SetLines }) {
   const [code, setCode] = useState(''); const [msg, setMsg] = useState<{ tone: 'crit' | 'good'; t: string } | null>(null); const [q, setQ] = useState('');
   const refs = hdr.refs ?? []; const marks = hdr.marks ?? {};
-  // variants added by hand (no waybill) have no expected pieces; the rest of the lines come from the orders and their marks
-  const manual = lines.filter((l) => !l.exp);
   const sync = (newRefs: string[], newMarks: ReturnMarks) => {
     const orders = newRefs.map((r) => d.orderMap.get(r)).filter((o): o is NonNullable<typeof o> => !!o);
-    set((ls) => [...returnLines(orders, newMarks), ...ls.filter((l) => !l.exp)]);
+    set(() => returnLines(orders, newMarks));
     setHdr({ ...hdr, refs: newRefs, marks: newMarks, counted: false });
   };
   const lookup = () => addCodes(code.split(/[\s,،]+/).filter(Boolean));
@@ -207,7 +205,6 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       addCodes(found, `${f.name} (${found.length} أوردر في الشيت)`);
     } catch (e) { setMsg({ tone: 'crit', t: `${f.name}: الملف ده مش بيتقري (${(e as Error).message})` }); }
   };
-  const removeRef = (ref: string) => { const m = { ...marks }; delete m[ref]; sync(refs.filter((r) => r !== ref), m); };
   const setMark = (ref: string, sku: string, k: 'd' | 'x' | 'l', v: number) => {
     const cur = marks[ref]?.[sku] ?? {};
     sync(refs, { ...marks, [ref]: { ...(marks[ref] ?? {}), [sku]: { ...cur, [k]: v } } });
@@ -247,7 +244,6 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
                   <b className="font-mono">{ref}</b><span className="font-mono text-xs text-muted">{o.waybill}</span><span className="text-xs text-muted">· {o.gov} · {fmt(o.lines.length)} قطعة</span>
                   <span className="ms-auto flex flex-wrap items-center gap-1.5">
                     {md + mx + ml === 0 ? <Pill tone="good">كله سليم</Pill> : <>{md > 0 && <Pill tone="warn">نضافة {md}</Pill>}{mx > 0 && <Pill tone="crit">هالك {mx}</Pill>}{ml > 0 && <Pill tone="info">مفقود {ml}</Pill>}</>}
-                    <button type="button" aria-label={`شيل ${ref}`} className="rounded-md p-1 text-muted hover:bg-lav hover:text-crit" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeRef(ref); }}><X className="size-4" /></button>
                   </span>
                 </summary>
                 <div className="border-t border-line p-3">
@@ -267,14 +263,6 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
         </div>
       </>}
 
-      <details className="rounded-xl border border-line p-3"><summary className="cursor-pointer text-sm font-semibold">جرد يدوي: إضافة صنف رجع من غير بوليصة</summary>
-        <div className="mt-3 grid gap-3"><VariantPicker d={d} onAdd={(sku, n) => { set((ls) => (ls.some((l) => l.sku === sku && !l.exp) ? ls.map((l) => (l.sku === sku && !l.exp ? { ...l, r: (l.r ?? 0) + n } : l)) : [...ls, { sku, q: 0, exp: 0, r: n, d: 0, x: 0 }])); setHdr({ ...hdr, counted: false }); }} />
-          {manual.length > 0 && <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'سليم', 'نضافة', 'هالك'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
-            <tbody>{manual.map((l) => { const i = lines.indexOf(l); return <tr key={l.sku}><td className={td}>{skuLabel(d.skuMap, l.sku)}</td>
-              <td className={td}><Stepper v={l.r ?? 0} on={(r) => { upd(set, i, { r }); setHdr({ ...hdr, counted: false }); }} label="سليم" /></td>
-              <td className={td}><Stepper v={l.d ?? 0} on={(v) => { upd(set, i, { d: v }); setHdr({ ...hdr, counted: false }); }} label="نضافة" /></td>
-              <td className={td}><Stepper v={l.x ?? 0} on={(x) => { upd(set, i, { x }); setHdr({ ...hdr, counted: false }); }} label="هالك" /></td></tr>; })}</tbody></table></TableWrap>}
-        </div></details>
       {!lines.length && <Empty>دوّر بالبوليصة أو ارفع شيت المرتجعات عشان تظهر الأوردرات. كل القطع بتتحسب سليمة، وانت تعلّم اللي غير كده.</Empty>}
       {lines.length > 0 && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!hdr.counted} onChange={(e) => setHdr({ ...hdr, counted: e.target.checked })} /> راجعت كل البوليصات وعلّمت النضافة والهالك والمفقود</label>}
     </div>
