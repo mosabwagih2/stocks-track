@@ -14,6 +14,7 @@ import { buildOp, effects, expectedReturn, GROUP_AR, OPS, type OpGroup, type OpH
 import { LostOrders } from '@/femini/components/LostOrders';
 import { deliveryNoteExcel, downloadDeliveryNote, printDeliveryNote } from '@/femini/components/DeliveryNote';
 import { Holds } from '@/femini/components/Holds';
+import { CountReport } from '@/femini/components/CountReport';
 import { DocDetails } from '@/femini/components/DocDetails';
 import { OpHistory } from '@/femini/components/OpHistory';
 import { isOverdue } from '@/femini/domain/holds';
@@ -265,7 +266,7 @@ function prefillLines(d: Derived, type: OpType, skus: string[]): OpLine[] {
 }
 
 function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derived; type: OpType; draft?: OpDraft | null; /** items an alert sent, see prefillLines */ prefill?: string[]; onDone: (doc: string) => void; onBack: () => void; onOpen: (no: string) => void }) {
-  const act = useAct(); const meta = OPS.find((o) => o.type === type)!; const I = ICON[type];
+  const act = useAct(); const nav = useNavigate(); const meta = OPS.find((o) => o.type === type)!; const I = ICON[type];
   const [hdr, setHdr] = useState<OpHdr>((draft?.hdr as OpHdr) ?? defaults(type));
   const [lines, setLinesState] = useState<OpLine[]>(() => (draft?.lines as unknown as OpLine[]) ?? (prefill?.length ? prefillLines(d, type, prefill) : []));
   const set: SetLines = (f) => setLinesState(f);
@@ -290,6 +291,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
         <span className={cn('grid size-9 place-items-center rounded-xl', GROUP_TONE[meta.grp])}><I className="size-4.5" /></span>
         <div><b className="text-lg">{meta.ar}</b><p className="text-xs text-muted">{meta.desc}</p></div>
         {draftId && <Pill tone="warn">مسودة</Pill>}
+        {type === 'CNT' && <Button variant="ghost" className="ms-auto print:hidden" onClick={() => nav('/operations?tab=counts')}><FileText className="size-4" /> تقرير الجرد</Button>}
       </div>
       {!draft && prefill?.length ? <Alert tone="info">{type === 'CNT' ? `جاي من التنبيه: ${fmt(prefill.length)} صنف محتاج جرد، ظاهرين تحت في «أصناف التنبيه». اعدّهم واكشف الفروق قبل التأكيد.` : `جاي من التنبيه: اتملى ${fmt(lines.length)} صنف بكل قطعهم${type === 'LOS' ? '، والكل متعلّم «لقيناه». غيّر اللي اتشطب' : ''}. راجع الكميات قبل التأكيد.`}</Alert> : null}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -417,7 +419,7 @@ function Shops({ d, onOpen }: { d: Derived; onOpen: (no: string) => void }) {
 export default function Operations() {
   const { d, isLoading, error } = useDerived();
   const [sp, setSp] = useSearchParams();
-  const tab = (sp.get('tab') ?? 'new') as 'new' | 'docs' | 'shops' | 'holds';
+  const tab = (sp.get('tab') ?? 'new') as 'new' | 'docs' | 'shops' | 'holds' | 'counts';
   const op = sp.get('op') as OpType | null; const draftId = sp.get('draft'); const open = sp.get('doc'); const skusP = sp.get('skus') ?? '';
   // leaving the form (or picking another operation) drops the items an alert sent with it
   const go = (p: Record<string, string | null>) => { const n = new URLSearchParams(sp); if ('op' in p) n.delete('skus'); for (const k in p) { const v = p[k]; if (v == null) n.delete(k); else n.set(k, v); } setSp(n); };
@@ -433,11 +435,12 @@ export default function Operations() {
   return (
     <>
       <PageHead title="العمليات" sub="قلب التشغيل: كل حركة بتغيّر المخزون بتتسجل هنا بفحوص قبل التأكيد. الشحن بالإسكان من صفحة الأوردرات." />
-      <Tabs value={tab} onChange={(t) => go({ tab: t === 'new' ? null : t, op: null, draft: null, new: null })} tabs={[['new', 'عملية جديدة'], ['docs', `آخر العمليات (${d.snap.docs.length})`], ['shops', `توريدات المحل${pendingShop ? ` · ${pendingShop}` : ''}`], ['holds', `هولد${openHolds ? ` · ${openHolds}` : ''}`]]} />
+      <Tabs value={tab} onChange={(t) => go({ tab: t === 'new' ? null : t, op: null, draft: null, new: null })} tabs={[['new', 'عملية جديدة'], ['docs', `آخر العمليات (${d.snap.docs.length})`], ['shops', `توريدات المحل${pendingShop ? ` · ${pendingShop}` : ''}`], ['holds', `هولد${openHolds ? ` · ${openHolds}` : ''}`], ['counts', 'تقرير الجرد']]} />
       {tab === 'new' && (op && OPS.some((o) => o.type === op)
         ? <OpForm key={`${op}-${draftId ?? ''}-${skusP}`} d={d} type={op} draft={draft} prefill={prefill} onBack={() => go({ op: null, draft: null })} onDone={(no) => go({ op: null, draft: null, ...(op === 'SHP' ? { tab: 'shops', doc: no } : {}) })} onOpen={(no) => go({ doc: no })} />
         : <Launcher d={d} onPick={(t) => go({ op: t, draft: null })} onDraft={(x) => go({ op: x.type, draft: x.id })} onHold={() => go({ tab: 'holds', new: 'yes' })} />)}
       {tab === 'docs' && <Docs d={d} onOpen={(no) => go({ doc: no })} />}
+      {tab === 'counts' && <CountReport d={d} />}
       {tab === 'holds' && <Holds d={d} openNew={sp.get('new') === 'yes'} onOpenNew={(v) => go({ new: v ? 'yes' : null })} />}
       {tab === 'shops' && <Shops d={d} onOpen={(no) => go({ doc: no })} />}
       {openDoc && <DocDetails key={openDoc.no} d={d} doc={openDoc} onClose={() => go({ doc: null })} onOpen={(no) => go({ doc: no })}
