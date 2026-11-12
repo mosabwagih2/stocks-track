@@ -7,7 +7,7 @@ import { parseSettlement, previewSettlement, type Settlement } from '@/femini/do
 import { cairoDay } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { cn, fmt } from '@/femini/cn';
-import { Alert, Button, Card, Empty, Field, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from './ui';
+import { Alert, Button, Card, Empty, Field, Kpi, Seg, Sheet, TableWrap, th, td } from './ui';
 import { C, StackedBars, TrendArea } from './charts';
 import { closedBySheet, collectByDay, collectTrend, type CollectMetric } from '@/femini/domain/trends';
 import { change } from '@/femini/insights-tools';
@@ -166,8 +166,7 @@ function ClosedDaySheet({ d, day, onClose }: { d: Derived; day: string; onClose:
   return <OrdersDetail d={d} title={`اتقفل يوم ${day}`} onClose={onClose} orders={orders}
     hint={`${fmt(nCol)} اتحصّل (التوريد ${money(due)} جنيه) · ${fmt(nRet)} رجع${missing ? ` · ${fmt(missing)} أوردر في الشيت مش في السيستم` : ''}.`}
     chips={[{ id: 'collected', label: 'اتحصّل', test: (o) => kind.get(o.ref) === 'collected' }, { id: 'returned', label: 'رجع', test: (o) => kind.get(o.ref) === 'returned' }]}
-    cols={[{ head: 'الحالة', cell: (o) => kind.get(o.ref) === 'collected' ? <Pill tone="good">اتحصّل</Pill> : <Pill tone="crit">رجع</Pill> },
-      { head: 'التوريد', cell: (o) => kind.get(o.ref) === 'collected' ? <b className="num">{money(d.collected.get(o.ref)?.due ?? 0)}</b> : <span className="text-muted">—</span> },
+    cols={[{ head: 'التوريد', cell: (o) => kind.get(o.ref) === 'collected' ? <b className="num">{money(d.collected.get(o.ref)?.due ?? 0)}</b> : <span className="text-muted">—</span> },
       { head: 'اتشحن', cell: (o) => <span className="num">{o.shippedAt ? cairoDay(o.shippedAt) : '—'}</span> }]} />;
 }
 
