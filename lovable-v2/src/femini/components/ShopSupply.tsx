@@ -12,7 +12,7 @@ import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { LOC_AR } from '@/femini/domain/constants';
 import { cn, fmt } from '@/femini/cn';
 import { Alert, Card, Empty, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from './ui';
-import { C, Heatmap, LOC_FILL, Pareto, ShareRows, TrendArea } from './charts';
+import { C, Heatmap, LOC_FILL, Pareto, ShareRows, StackedBars } from './charts';
 import { DocDetails } from './DocDetails';
 import { Progressive } from './Deferred';
 import type { ExportSheet } from '@/femini/insights-tools';
@@ -32,6 +32,7 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
   const p = useMemo(() => shopFlow(d.snap, pFrom, pTo), [d, pFrom, pTo]);
   const [open, setOpen] = useState<string | null>(null); const [day, setDay] = useState<string | null>(null); const [f, setF] = useState<'all' | 'out' | 'back'>('all'); const [unit, setUnit] = useState<'value' | 'pieces'>('value');
   const openDoc = open ? d.snap.docs.find((x) => x.no === open) : undefined;
+  const moved = r.days.filter((x) => x.out || x.back);   // only the days with a supply or a return, like the warehouse-day chart
   const list = r.docs.filter((x) => f === 'all' || x.kind === f);
   const noCost = r.out.noCost + r.back.noCost;
   const shops = Object.entries(r.shops).sort((a, b) => b[1].out - a[1].out);
@@ -45,10 +46,11 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
       </div>
       {noCost > 0 && <Alert tone="warn">{fmt(noCost)} قطعة من موديلات مالهاش تكلفة متسجّلة: محسوبة في القطع، ومش في الفلوس. سجّل التكلفة من الإعدادات ← «تكلفة القطعة وسعر البيع».</Alert>}
 
-      <Card title="التوريد والمرتجع كل يوم" hint={`${unit === 'value' ? 'جنيه بالتكلفة' : 'قطع'} · بتاريخ الورقة · اضغط على أي يوم لتفاصيله`} action={<span className="print:hidden"><Seg value={unit} onChange={setUnit} options={[['value', 'جنيه'], ['pieces', 'قطع']]} /></span>}>
-        <TrendArea bars money={unit === 'value'} onPick={(k) => { const xs = r.docs.filter((x) => x.doc.date === k); if (xs.length === 1) setOpen(xs[0].doc.no); else setDay(k); }} data={r.days} series={unit === 'value'
+      {/* one stacked bar per day that had movement, like the warehouse-day chart: what went out and what came back */}
+      <Card title="التوريد والمرتجع كل يوم" hint={`كل عمود = حركة اليوم ده: توريد · مرتجع · ${unit === 'value' ? 'جنيه بالتكلفة' : 'قطع'} · اضغط على أي يوم لتفاصيله`} action={<span className="print:hidden"><Seg value={unit} onChange={setUnit} options={[['value', 'جنيه'], ['pieces', 'قطع']]} /></span>}>
+        {moved.length ? <StackedBars data={moved} totalName="الحركة" onPick={(k) => { const xs = r.docs.filter((x) => x.doc.date === k); if (xs.length === 1) setOpen(xs[0].doc.no); else setDay(k); }} series={unit === 'value'
           ? [{ key: 'outValue', name: 'توريد', color: C.accent }, { key: 'backValue', name: 'مرتجع', color: C.scrap }]
-          : [{ key: 'out', name: 'توريد', color: C.accent }, { key: 'back', name: 'مرتجع', color: C.scrap }]} />
+          : [{ key: 'out', name: 'توريد', color: C.accent }, { key: 'back', name: 'مرتجع', color: C.scrap }]} /> : <Empty>مفيش توريد ولا مرتجع في الفترة دي.</Empty>}
       </Card>
 
       <Deferred minHeight={900}><ShopMix d={d} from={from} to={to} /></Deferred>
