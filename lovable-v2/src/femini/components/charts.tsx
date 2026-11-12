@@ -166,6 +166,13 @@ export function Heatmap({models,sizes,value,total,onPick,breakdown}:{models:stri
  * sums / last value when the cursor is away), the first series as a soft area, the others as lines (`dash` dashed),
  * or all as bars (`bars`). `total`: 'sum' for flows (orders, money in a day), 'last' for levels (stock at a day's end).
  */
+/** "2026-11-05" → "5/11": short enough that every bar can carry its own day */
+const numDay = (v: unknown) => { const [, m, d] = String(v).split('-'); return d && m ? `${Number(d)}/${Number(m)}` : String(v); };
+/** The day axis of a bar chart: every bar has its date under it (never skipped), slanted when there are many days. */
+function barDayAxis(n: number) {
+  const slant = n > 16;
+  return <XAxis key="x" dataKey="day" interval={0} tickFormatter={numDay} {...axis} tick={{ ...axis.tick, fontSize: n > 24 ? 10 : 11 }} tickMargin={slant ? 4 : 10} angle={slant ? -45 : 0} textAnchor={slant ? 'end' : 'middle'} height={slant ? 44 : 30} />;
+}
 export type TrendSeries = { key: string; name: string; color: string; dash?: boolean; total?: 'sum' | 'last' };
 export function TrendArea<R extends { day: string }>({ data, series, height = 260, bars, money }: { data: R[]; series: TrendSeries[]; height?: number; bars?: boolean; money?: boolean }) {
   const id = useId().replace(/:/g, ''); const [hi, on] = useHover(); const row = hi != null ? data[hi] : null;
@@ -175,7 +182,7 @@ export function TrendArea<R extends { day: string }>({ data, series, height = 26
   const barW = Math.max(3, Math.min(16, Math.floor(520 / Math.max(1, data.length * series.length))));
   const tick = (n: number) => (money && n >= 1000 ? `${Number((n / 1000).toFixed(1))}k` : numberTick(n));
   // an array, not a fragment: recharts only finds its axes among the chart's direct children
-  const common = [<CartesianGrid key="g" stroke={C.grid} strokeDasharray="3 6" vertical={false} />, <XAxis key="x" dataKey="day" tickFormatter={shortDay} {...axis} minTickGap={35} />, <YAxis key="y" {...axis} orientation="right" allowDecimals={false} tickFormatter={tick} width={48} />, <Tooltip key="t" content={noTip} cursor={bars ? { fill: 'var(--chart-track)' } : { stroke: C.muted, strokeDasharray: '3 4' }} />];
+  const common = [<CartesianGrid key="g" stroke={C.grid} strokeDasharray="3 6" vertical={false} />, bars ? barDayAxis(data.length) : <XAxis key="x" dataKey="day" tickFormatter={shortDay} {...axis} minTickGap={35} />, <YAxis key="y" {...axis} orientation="right" allowDecimals={false} tickFormatter={tick} width={48} />, <Tooltip key="t" content={noTip} cursor={bars ? { fill: 'var(--chart-track)' } : { stroke: C.muted, strokeDasharray: '3 4' }} />];
   return <div className="min-w-0"><Readout title={row ? shortDay(row.day) : series.some((s) => s.total !== 'last') ? `إجمالي ${data.length} يوم` : 'آخر يوم'} items={series.map((s) => ({ name: s.name, value: value(s), color: s.color }))} />
     <div className="chart-surface min-w-0" style={{ height }}><ResponsiveContainer width="100%" height="100%">
       {bars
@@ -198,7 +205,7 @@ export function StackedBars<R extends { day: string }>({ data, series, height = 
   const items = [{ name: totalName, value: series.reduce((a, s) => a + val(s.key), 0), color: C.text }, ...series.map((s) => ({ name: s.name, value: val(s.key), color: s.color })), ...also.map((s) => ({ name: s.name, value: val(s.key), color: s.color }))];
   // explicit width from the room each day has (recharts' own sizing can give 1px bars)
   const barW = Math.max(4, Math.min(22, Math.floor(560 / Math.max(1, data.length))));
-  const common = [<CartesianGrid key="g" stroke={C.grid} strokeDasharray="3 6" vertical={false} />, <XAxis key="x" dataKey="day" tickFormatter={shortDay} {...axis} minTickGap={35} />, <YAxis key="y" {...axis} orientation="right" allowDecimals={false} tickFormatter={numberTick} width={48} />, <Tooltip key="t" content={noTip} cursor={{ fill: 'var(--chart-track)' }} />];
+  const common = [<CartesianGrid key="g" stroke={C.grid} strokeDasharray="3 6" vertical={false} />, barDayAxis(data.length), <YAxis key="y" {...axis} orientation="right" allowDecimals={false} tickFormatter={numberTick} width={48} />, <Tooltip key="t" content={noTip} cursor={{ fill: 'var(--chart-track)' }} />];
   return <div className="min-w-0"><Readout title={row ? shortDay(row.day) : `إجمالي ${data.length} يوم`} items={items} />
     <div className="chart-surface min-w-0" style={{ height }}><ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 12, right: 0, left: 0, bottom: 8 }} {...on}>{common}
