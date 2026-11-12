@@ -48,7 +48,7 @@ function BundlePic({ d, b, size }: { d: Derived; b: Bundle; size: number }) {
 
 /** the bundles, each with the orders the stock can fill: the scarcest piece decides */
 export function BundlesView({ d, q }: { d: Derived; q: string }) {
-  const [open, setOpen] = useState<Bundle | null>(null); const [edit, setEdit] = useState<Bundle | 'new' | null>(null);
+  const [open, setOpen] = useState<Bundle | null>(null); const [edit, setEdit] = useState<Bundle | 'new' | null>(null); const [list, setList] = useState<ListKind | null>(null);
   const room = useRoom(d); const all = useBundles(d);
   const rows = useMemo(() => all.map((b) => { const by = b.unknown ? [] : bundleBySize(b, room); return { b, by, total: bundleTotal(by) }; }), [all, room]);
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -57,10 +57,10 @@ export function BundlesView({ d, q }: { d: Derived; q: string }) {
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="باندلز" value={fmt(all.length)} sub={`${fmt(d.snap.bundles.filter((b) => b.custom).length)} اتعملت هنا`} />
-        <Kpi label="تقدر تطلّع منها" value={fmt(known.filter((r) => r.total > 0).length)} sub="باندل فيه مخزون يكفي أوردر" tone="good" />
-        <Kpi label="خلصت" value={fmt(known.filter((r) => r.total === 0).length)} sub="ولا أوردر يتطلّع منها" tone={known.some((r) => r.total === 0) ? 'crit' : undefined} />
-        <Kpi label="تركيبتها مش واضحة" value={fmt(all.filter((b) => b.unknown).length)} sub="مش محسوبة" tone={all.some((b) => b.unknown) ? 'warn' : undefined} />
+        <Kpi label="باندلز" value={fmt(all.length)} sub={`${fmt(d.snap.bundles.filter((b) => b.custom).length)} اتعملت هنا`} onClick={() => setList('all')} />
+        <Kpi label="تقدر تطلّع منها" value={fmt(known.filter((r) => r.total > 0).length)} sub="باندل فيه مخزون يكفي أوردر" tone="good" onClick={() => setList('ok')} />
+        <Kpi label="خلصت" value={fmt(known.filter((r) => r.total === 0).length)} sub="ولا أوردر يتطلّع منها" tone={known.some((r) => r.total === 0) ? 'crit' : undefined} onClick={() => setList('out')} />
+        <Kpi label="تركيبتها مش واضحة" value={fmt(all.filter((b) => b.unknown).length)} sub="مش محسوبة" tone={all.some((b) => b.unknown) ? 'warn' : undefined} onClick={() => setList('unknown')} />
       </div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted">الأرقام من الجاهز للبيع، لكل باندل لوحده؛ القطع مشتركة بين الباندلز، فمتجمعش الأرقام.</p>
@@ -88,9 +88,48 @@ export function BundlesView({ d, q }: { d: Derived; q: string }) {
           ))}
         </div>
       )}
+      {list && <BundleList d={d} kind={list} rows={rows} onOpen={setOpen} onClose={() => setList(null)} />}
       {open && <BundleSheet d={d} b={open} room={room} onClose={() => setOpen(null)} onEdit={() => { setEdit(open); setOpen(null); }} />}
       {edit && <BundleEditor d={d} initial={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
     </>
+  );
+}
+
+type ListKind = 'all' | 'ok' | 'out' | 'unknown';
+type BundleRow = { b: Bundle; by: ReturnType<typeof bundleBySize>; total: number };
+const LISTS: Record<ListKind, { title: string; hint: string; empty: string }> = {
+  all: { title: 'كل الباندلز', hint: 'الأكتر أوردرات الأول. اضغط على باندل تشوف اللي جواه.', empty: 'مفيش باندلز.' },
+  ok: { title: 'الباندلز اللي تقدر تطلّع منها', hint: 'فيها مخزون يكفي أوردر على الأقل. الأكتر أوردرات الأول.', empty: 'ولا باندل فيه مخزون يكفي.' },
+  out: { title: 'الباندلز اللي خلصت', hint: 'ولا مقاس منها يتطلّع أوردر. تحت كل واحد المقاس والموديل اللي ناقص.', empty: 'ولا باندل خلص.' },
+  unknown: { title: 'باندلز تركيبتها مش واضحة', hint: 'مش محسوبة لأن الموقع مش مفصّل اللي جواها. افتح الباندل واضغط «حدد التركيبة».', empty: 'كل الباندلز تركيبتها واضحة.' },
+};
+/** the bundles behind one of the cards above, each opening its own details */
+function BundleList({ d, kind, rows, onOpen, onClose }: { d: Derived; kind: ListKind; rows: BundleRow[]; onOpen: (b: Bundle) => void; onClose: () => void }) {
+  const m = LISTS[kind];
+  const list = rows.filter(({ b, total }) => (kind === 'all' ? true : kind === 'unknown' ? !!b.unknown : kind === 'ok' ? !b.unknown && total > 0 : !b.unknown && total === 0)).sort((a, c) => c.total - a.total);
+  return (
+    <Sheet wide title={`${m.title} (${fmt(list.length)})`} onClose={onClose}>
+      <p className="text-sm text-muted">{m.hint}</p>
+      {!list.length ? <Empty>{m.empty}</Empty> : (
+        <div className="grid gap-2">
+          {list.map(({ b, by, total }) => {
+            const short = by.filter((r) => r.max === 0).map((r) => `${r.size}${r.best?.limiting ? ` ← ${r.best.limiting.comp.model}` : ''}`);
+            return (
+              <button key={b.id} type="button" onClick={() => onOpen(b)} className="flex items-center gap-3 rounded-xl border border-line bg-surface p-3 text-start transition hover:border-accent">
+                <BundlePic d={d} b={b} size={48} />
+                <span className="min-w-0 flex-1">
+                  <b className="block break-words text-sm leading-snug">{b.title}</b>
+                  {b.unknown ? <span className="text-xs text-muted">{b.unknown}</span> : <span className="num block break-words text-xs text-muted" dir="ltr">{bundleLine(b.variants[0])}</span>}
+                  {!b.unknown && short.length > 0 && total > 0 && <span className="mt-0.5 block text-xs text-crit">ناقص في: {short.join('، ')}</span>}
+                  {kind === 'out' && short.length > 0 && <span className="mt-0.5 block text-xs text-crit">{short.slice(0, 8).join('، ')}</span>}
+                </span>
+                {b.unknown ? <Pill tone="warn">مش محسوب</Pill> : <span className={cn('shrink-0 rounded-xl px-3 py-1.5 text-center', tone(total))}><span className="num block text-lg font-semibold leading-none">{fmt(total)}</span><span className="block text-[10px]">أوردر</span></span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </Sheet>
   );
 }
 
