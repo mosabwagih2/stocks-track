@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type MouseEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, ExternalLink, Package, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { Button, Card, Chip, Empty, Field, Kpi, Pill, Sheet, TableWrap, th, td } from '@/femini/components/ui';
+import { Button, Card, Chip, Empty, Field, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from '@/femini/components/ui';
 import { useImageUrl } from '@/femini/components/Thumb';
 import { BUNDLES } from '@/femini/data/bundles.generated';
 import { repo } from '@/femini/data';
-import { bundleBySize, bundleLine, bundleModels, bundleTotal, normColor, type Bundle, type BundleComp, type Stockroom } from '@/femini/domain/bundles';
+import { bundleBySize, bundleLine, bundleModels, bundleTotal, normColor, type Bundle, type BundleComp, type SizeResult, type Stockroom } from '@/femini/domain/bundles';
 import { qty } from '@/femini/domain/ledger';
 import { cn, fmt } from '@/femini/cn';
 import { useAct, type Derived } from '@/femini/hooks/data';
@@ -46,13 +47,45 @@ function BundlePic({ d, b, size }: { d: Derived; b: Bundle; size: number }) {
     : <span style={st} className="grid shrink-0 place-items-center rounded-xl border border-line bg-lav text-accent"><Package className="size-1/3" /></span>;
 }
 
+/** hover a size: a small card with the pieces of that size, by model and color (like the stock map's) */
+function useTip() {
+  const [tip, setTip] = useState<{ rect: DOMRect; r: SizeResult } | null>(null);
+  return { tip, show: (e: MouseEvent | { currentTarget: Element }, r: SizeResult) => setTip({ rect: e.currentTarget.getBoundingClientRect(), r }), hide: () => setTip(null) };
+}
+function SizeTip({ tip }: { tip: { rect: DOMRect; r: SizeResult } | null }) {
+  if (!tip) return null;
+  const { rect, r } = tip;
+  // the pieces of the size, merged over the color combinations: model → color → pieces
+  const models = new Map<string, { qty: number; colors: Map<string, number>; weakest: boolean }>();
+  for (const v of r.variants) for (const c of v.comps) {
+    const m = models.get(c.comp.model) ?? { qty: c.comp.qty, colors: new Map<string, number>(), weakest: false };
+    for (const col of c.colors) m.colors.set(col, c.have[col]);
+    if (r.best?.limiting === c) m.weakest = true;
+    models.set(c.comp.model, m);
+  }
+  const w = 224; const vw = document.documentElement.clientWidth;
+  const left = Math.max(8, Math.min(rect.left + rect.width / 2 - w / 2, vw - w - 8));
+  const below = rect.top < 220;
+  const pos = below ? { top: rect.bottom + 8 } : { bottom: window.innerHeight - rect.top + 8 };
+  return createPortal(
+    <div role="tooltip" dir="rtl" className="pointer-events-none fixed z-[60] max-h-[70vh] overflow-hidden rounded-2xl border border-line bg-surface p-3 text-sm shadow-card" style={{ left, width: w, ...pos }}>
+      <div className="mb-1.5 flex items-center justify-between font-semibold"><span>مقاس {r.size}</span><span className="num text-muted">{fmt(r.max)} أوردر</span></div>
+      {[...models].map(([model, m]) => (
+        <div key={model} className="mb-1.5 border-t border-grid pt-1.5 first:border-0 first:pt-0">
+          <div className={cn('mb-0.5 flex items-center justify-between text-xs font-semibold', m.weakest && 'text-warn')}><span className="font-mono">{model}</span><span className="num font-normal text-muted">{m.qty} في الأوردر{m.weakest ? ' · الأضعف' : ''}</span></div>
+          {[...m.colors].sort((a, b) => b[1] - a[1]).map(([col, n]) => <div key={col} className="flex items-center justify-between gap-3"><b className={cn('num', n <= 0 && 'text-crit')}>{fmt(n)}</b><span>{col}</span></div>)}
+        </div>
+      ))}
+    </div>, document.body);
+}
+
 /** the bundles, each with the orders the stock can fill: the scarcest piece decides */
 export function BundlesView({ d, q }: { d: Derived; q: string }) {
   const [open, setOpen] = useState<Bundle | null>(null); const [edit, setEdit] = useState<Bundle | 'new' | null>(null); const [list, setList] = useState<ListKind | null>(null);
-  const room = useRoom(d); const all = useBundles(d);
+  const room = useRoom(d); const all = useBundles(d); const tip = useTip(); const [order, setOrder] = useState<'most' | 'least'>('most');
   const rows = useMemo(() => all.map((b) => { const by = b.unknown ? [] : bundleBySize(b, room); return { b, by, total: bundleTotal(by) }; }), [all, room]);
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const shown = rows.filter(({ b }) => !words.length || words.every((w) => `${b.title} ${bundleModels(b).join(' ')}`.toLowerCase().includes(w))).sort((a, c) => (a.b.unknown ? 1 : 0) - (c.b.unknown ? 1 : 0) || c.total - a.total);
+  const shown = rows.filter(({ b }) => !words.length || words.every((w) => `${b.title} ${bundleModels(b).join(' ')}`.toLowerCase().includes(w))).sort((a, c) => (a.b.unknown ? 1 : 0) - (c.b.unknown ? 1 : 0) || (order === 'most' ? c.total - a.total : a.total - c.total));
   const known = rows.filter((r) => !r.b.unknown);
   return (
     <>
@@ -63,9 +96,10 @@ export function BundlesView({ d, q }: { d: Derived; q: string }) {
         <Kpi label="تركيبتها مش واضحة" value={fmt(all.filter((b) => b.unknown).length)} sub="مش محسوبة" tone={all.some((b) => b.unknown) ? 'warn' : undefined} onClick={() => setList('unknown')} />
       </div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted">الأرقام من الجاهز للبيع، لكل باندل لوحده؛ القطع مشتركة بين الباندلز، فمتجمعش الأرقام.</p>
+        <div className="flex flex-wrap items-center gap-2"><Seg label="الترتيب" value={order} onChange={setOrder} options={[['most', 'الأكتر أوردرات أول'], ['least', 'الأقل أول (على وشك الخلاص)']]} /></div>
         <Button variant="primary" onClick={() => setEdit('new')}><Plus className="size-4" />باندل جديد</Button>
       </div>
+      <p className="mb-3 text-xs text-muted">الأرقام من الجاهز للبيع، لكل باندل لوحده؛ القطع مشتركة بين الباندلز، فمتجمعش الأرقام. وقّف على أي مقاس تشوف القطع المتوفرة بألوانها.</p>
       {!shown.length ? <Empty>مفيش باندل مطابق للبحث.</Empty> : (
         <div className="grid gap-3 md:grid-cols-2">
           {shown.map(({ b, by, total }) => (
@@ -81,7 +115,7 @@ export function BundlesView({ d, q }: { d: Derived; q: string }) {
               </div>
               {!b.unknown && (
                 <div className="mt-3 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${by.length}, minmax(0, 1fr))` }} aria-label="الأوردرات لكل مقاس">
-                  {by.map((r) => <div key={r.size} className="grid justify-items-center gap-1 text-center"><span className="text-[11px] font-semibold text-muted">{r.size}</span><span className={cn('num w-full rounded-lg py-1 text-sm', tone(r.max))}>{fmt(r.max)}</span></div>)}
+                  {by.map((r) => <div key={r.size} onMouseEnter={(e) => tip.show(e, r)} onMouseLeave={tip.hide} className="grid justify-items-center gap-1 text-center"><span className="text-[11px] font-semibold text-muted">{r.size}</span><span className={cn('num w-full rounded-lg py-1 text-sm', tone(r.max))}>{fmt(r.max)}</span></div>)}
                 </div>
               )}
             </button>
@@ -89,6 +123,7 @@ export function BundlesView({ d, q }: { d: Derived; q: string }) {
         </div>
       )}
       {list && <BundleList d={d} kind={list} rows={rows} onOpen={setOpen} onClose={() => setList(null)} />}
+      <SizeTip tip={tip.tip} />
       {open && <BundleSheet d={d} b={open} room={room} onClose={() => setOpen(null)} onEdit={() => { setEdit(open); setOpen(null); }} />}
       {edit && <BundleEditor d={d} initial={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
     </>
@@ -134,7 +169,7 @@ function BundleList({ d, kind, rows, onOpen, onClose }: { d: Derived; kind: List
 }
 
 function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; room: Stockroom; onClose: () => void; onEdit: () => void }) {
-  const act = useAct(); const file = useRef<HTMLInputElement>(null);
+  const act = useAct(); const file = useRef<HTMLInputElement>(null); const tip = useTip();
   const by = useMemo(() => (b.unknown ? [] : bundleBySize(b, room)), [b, room]);
   const first = by.find((r) => r.max > 0) ?? by[0];   // opens on the weakest combination of the first size that has orders
   const [vi, setVi] = useState(() => Math.max(0, first?.best ? first.variants.indexOf(first.best) : 0)); const [size, setSize] = useState(() => first?.size ?? b.sizes[0] ?? '');
@@ -165,7 +200,7 @@ function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; r
             <tbody>{b.variants.map((v, i) => (
               <tr key={i} className={cn(i === vi && b.variants.length > 1 && 'bg-lav')}>
                 <td className={td}>{b.variants.length > 1 ? <button type="button" className="text-start text-xs underline-offset-2 hover:underline" onClick={() => setVi(i)}>{v.label || `تركيبة ${i + 1}`}</button> : <span className="text-muted">كل الباندل</span>}</td>
-                {by.map((r) => <td key={r.size} className={td + ' px-1 text-center'}><button type="button" onClick={() => { setSize(r.size); setVi(i); }} className={cn('num w-full rounded-lg py-1', tone(r.variants[i].max), r.size === size && i === vi && 'ring-2 ring-accent')}>{fmt(r.variants[i].max)}</button></td>)}
+                {by.map((r) => <td key={r.size} className={td + ' px-1 text-center'}><button type="button" onMouseEnter={(e) => tip.show(e, r)} onMouseLeave={tip.hide} onFocus={(e) => tip.show(e, r)} onBlur={tip.hide} onClick={() => { setSize(r.size); setVi(i); }} className={cn('num w-full rounded-lg py-1', tone(r.variants[i].max), r.size === size && i === vi && 'ring-2 ring-accent')}>{fmt(r.variants[i].max)}</button></td>)}
               </tr>))}
               {b.variants.length > 1 && <tr><td className={td}><b className="text-xs">اللي تضمنه</b><span className="block text-[10px] text-muted">أقل رقم بين التركيبات، لأن العميل يختار أي تركيبة</span></td>{by.map((r) => <td key={r.size} className={td + ' num text-center font-semibold'}>{fmt(r.max)}</td>)}</tr>}
             </tbody></table></TableWrap>
@@ -184,6 +219,7 @@ function BundleSheet({ d, b, room, onClose, onEdit }: { d: Derived; b: Bundle; r
           {sel.limiting && <p className="mt-2 text-sm text-muted">الأضعف: <b className="font-mono text-ink">{sel.limiting.comp.model}</b>{sel.max === 0 ? ' خلص أو ناقص ألوان' : ''}.</p>}
         </Card>}
       </>}
+      <SizeTip tip={tip.tip} />
     </Sheet>
   );
 }
