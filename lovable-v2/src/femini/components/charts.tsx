@@ -191,11 +191,11 @@ export function TrendArea<R extends { day: string }>({ data, series, height = 26
  * left on a day: collected / returned / still out), so the bar's height is that day's total. The readout leads with the
  * total, then each part.
  */
-export function StackedBars<R extends { day: string }>({ data, series, height = 260, totalName = 'الإجمالي' }: { data: R[]; series: TrendSeries[]; height?: number; totalName?: string }) {
+export function StackedBars<R extends { day: string }>({ data, series, height = 260, totalName = 'الإجمالي', also = [] }: { data: R[]; series: TrendSeries[]; height?: number; totalName?: string; /** numbers shown in the readout only, never drawn (e.g. what was shipped, beside what closed) */ also?: TrendSeries[] }) {
   const [hi, on] = useHover(); const row = hi != null ? data[hi] : null;
   const num = (r: R, k: string) => Number((r as Record<string, unknown>)[k] ?? 0);
   const val = (k: string) => (row ? num(row, k) : data.reduce((a, r) => a + num(r, k), 0));
-  const items = [{ name: totalName, value: series.reduce((a, s) => a + val(s.key), 0), color: C.text }, ...series.map((s) => ({ name: s.name, value: val(s.key), color: s.color }))];
+  const items = [{ name: totalName, value: series.reduce((a, s) => a + val(s.key), 0), color: C.text }, ...series.map((s) => ({ name: s.name, value: val(s.key), color: s.color })), ...also.map((s) => ({ name: s.name, value: val(s.key), color: s.color }))];
   // explicit width from the room each day has (recharts' own sizing can give 1px bars)
   const barW = Math.max(4, Math.min(22, Math.floor(560 / Math.max(1, data.length))));
   const common = [<CartesianGrid key="g" stroke={C.grid} strokeDasharray="3 6" vertical={false} />, <XAxis key="x" dataKey="day" tickFormatter={shortDay} {...axis} minTickGap={35} />, <YAxis key="y" {...axis} orientation="right" allowDecimals={false} tickFormatter={numberTick} width={48} />, <Tooltip key="t" content={noTip} cursor={{ fill: 'var(--chart-track)' }} />];

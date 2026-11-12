@@ -8,7 +8,7 @@ import { cairoDay } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { cn, fmt } from '@/femini/cn';
 import { Alert, Button, Card, Empty, Field, Kpi, Seg, Sheet, TableWrap, th, td } from './ui';
-import { C, TrendArea } from './charts';
+import { C, StackedBars, TrendArea } from './charts';
 import { collectByDay, collectTrend, type CollectMetric } from '@/femini/domain/trends';
 import { change } from '@/femini/insights-tools';
 import { OrdersDetail } from './DetailSheets';
@@ -143,8 +143,10 @@ function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string })
   }, [d, from, to]);
   if (!(d.snap.settles ?? []).length) return null;
   return <div className="grid gap-4 lg:grid-cols-2">
-    <Card title="المشحون والمحصّل" hint="أوردرات · المحصّل بتاريخ التحصيل في الشيت">
-      <TrendArea bars data={rows} series={[{ key: 'shipped', name: 'اتشحن', color: C.accent }, { key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} />
+    <Card title="المحصّل والراجع" hint="كل عمود = الأوردرات اللي اتقفلت في اليوم ده بتاريخ الشيت: اتحصّل · رجع">
+      {/* stacked: the two parts are orders closing on that day. What was shipped is a number in the readout, not a
+          line over the bars (it counts other orders, by ship day, and drawn on top it read as part of the same bar) */}
+      <StackedBars data={rows} totalName="اتقفل" series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} also={[{ key: 'shipped', name: 'اتشحن', color: C.accent }]} />
     </Card>
     <CollectFlow d={d} />
   </div>;
