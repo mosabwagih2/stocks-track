@@ -2,7 +2,7 @@ import Supplies from './Supplies';
 import { Archive, Check, Pencil, Plus, X } from 'lucide-react';
 import { useSearchParams } from '@/femini/router';
 import { useDeferredValue, useMemo, useState } from 'react';
-import { useDerived, useAct } from '@/femini/hooks/data';
+import { useDerived, useAct, VELOCITY_DAYS } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Button, Card, Chip, Dot, Empty, Field, Kpi, Pill, Seg, Sheet, TableWrap, th, td } from '@/femini/components/ui';
 import { ErrorBox } from '@/femini/components/shared';
@@ -13,7 +13,7 @@ import { Heatmap } from '@/femini/components/charts';
 import { Spinner } from '@/femini/components/Spinner';
 import { LOCS, LOC_AR, LOC_COLOR, LOC_HINT, lineBase } from '@/femini/domain/constants';
 import { locTotal, qty, totalOwned } from '@/femini/domain/ledger';
-import { cellInfo } from '@/femini/domain/stock';
+import { cellInfo, coverLabel } from '@/femini/domain/stock';
 import { NEXT } from '@/femini/domain/flow';
 import { cn, fmt } from '@/femini/cn';
 import { skuLabel } from '@/femini/domain/orders';
@@ -58,15 +58,16 @@ function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc
                 {sizes.map((z) => {
                   const s = by.get(`${c}|${z}`); if (!s) return <td key={z} />;
                   const v = qty(d.snap.balances, s.id, loc); row += v; const info = cellInfo(s, d.snap.balances, d.demand, d.velocity, d.velocityOK, 14);
-                  const tone = cellTone(loc, v, info);
+                  const tone = cellTone(loc, v, info); const cover = loc === 'READY' ? coverLabel(info, !d.velocityOK) : '';
                   return (
                     <td key={z}>
                       <button type="button" onClick={() => onCell(s)} aria-label={`${skuLabel(d.skuMap, s.id)}: ${v}`}
-                        title={`${LOCS.filter((l) => qty(d.snap.balances, s.id, l)).map((l) => `${LOC_AR[l]} ${qty(d.snap.balances, s.id, l)}`).join(' · ') || 'لا يوجد رصيد'}${info.demand ? `\nطلب مفتوح ${info.demand}` : ''}`}
-                        className={cn('relative grid h-11 min-w-14 place-items-center rounded-[10px] border border-transparent font-mono text-[15px] font-medium hover:border-accent',
+                        title={`${cover ? `يكفي ${cover.replace('~', 'تقريبًا ')} (سحب ${info.velocity.toFixed(1)} قطعة في اليوم)\n` : ''}${LOCS.filter((l) => qty(d.snap.balances, s.id, l)).map((l) => `${LOC_AR[l]} ${qty(d.snap.balances, s.id, l)}`).join(' · ') || 'لا يوجد رصيد'}${info.demand ? `\nطلب مفتوح ${info.demand}` : ''}`}
+                        className={cn('relative flex min-w-16 flex-col items-center justify-center rounded-[10px]', loc === 'READY' ? 'h-14 pt-1' : 'h-11', ' border border-transparent font-mono text-[15px] font-medium hover:border-accent',
                           tone)}>
-                        {v}
-                        {loc === 'READY' && info.demand > 0 && <small className="absolute inset-x-0 bottom-0.5 text-center font-sans text-[9.5px] leading-none opacity-80">طلب {info.demand}</small>}
+                        <span className="leading-none">{v}</span>
+                        {loc === 'READY' && <small className="mt-1 whitespace-nowrap font-sans text-[10px] leading-none opacity-80">{cover || 'بدون سحب'}</small>}
+                        {loc === 'READY' && info.demand > 0 && <small className="absolute start-1 top-0.5 font-sans text-[9px] leading-none opacity-80">طلب {info.demand}</small>}
                         {loc === 'READY' && qty(d.snap.balances, s.id, 'DIRTY') > 0 && <i className="absolute end-1 top-1 size-1.5 rounded-full bg-dirty" />}
                       </button>
                     </td>
@@ -192,7 +193,7 @@ export default function Stock() {
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted" aria-label="دليل الألوان">
             {loc === 'READY' ? (<>
               <Key cls="bg-good-bg border-good-line">كافٍ</Key><Key cls="bg-warn-bg border-warn-line">منخفض (على وشك النفاد)</Key><Key cls="bg-crit-bg border-crit-line">حرج (الطلب أكبر من الجاهز أو رصيد سالب)</Key>
-              <Key cls="bg-info-bg border-info-line">فائض (تغطية أكثر من 60 يومًا)</Key><Key cls="bg-grid border-line">صفر</Key><span className="inline-flex items-center gap-1.5"><i className="inline-block size-2 rounded-full bg-dirty" />يوجد هالك نظافة</span>
+              <Key cls="bg-info-bg border-info-line">فائض (تغطية أكثر من 60 يومًا)</Key><Key cls="bg-grid border-line">صفر</Key><span className="inline-flex items-center gap-1.5"><i className="inline-block size-2 rounded-full bg-dirty" />يوجد هالك نظافة</span><span>تحت الرقم: يكفي كام يوم = الجاهز ÷ معدل السحب (آخر {VELOCITY_DAYS} أيام){d.velocityOK ? '' : '، و~ يعني تقديري'}</span>
             </>) : (<>
               <Key cls={{ DIRTY: 'bg-warn-bg border-warn-line', FACTORY: 'bg-info-bg border-info-line', SCRAP: 'bg-crit-bg border-crit-line', LOST: 'bg-lost-bg border-lost-bg' }[loc as 'DIRTY']}>{LOC_AR[loc]}</Key><Key cls="bg-grid border-line">صفر</Key>
             </>)}

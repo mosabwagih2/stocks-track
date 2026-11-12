@@ -11,6 +11,8 @@ import { friendlyError } from '@/femini/data/errors';
 import type { Balances, Model, Order, Snapshot, Sku } from '@/femini/domain/types';
 
 export const SNAP_KEY = ['snapshot'] as const;
+/** The withdrawal rate (سرعة السحب) looks at the pickups of the last 7 days. */
+export const VELOCITY_DAYS = 7;
 
 export function useSnapshot() {
   // server edition: other people's work shows up by itself every 15 s (one small pull of what changed)
@@ -41,7 +43,7 @@ export interface Derived {
   open: Order[];
   blocked: ReturnType<typeof allocate>['blocked'];
   demand: Record<string, number>;
-  /** pieces per day per sku over the lookback window */
+  /** pieces per day per sku over the last VELOCITY_DAYS days */
   velocity: Record<string, number>;
   velocityOK: boolean;
   days: number;
@@ -63,12 +65,14 @@ export function useDerived(): { d: Derived | null; isLoading: boolean; error: un
     const pickupDate = new Map(data.pickups.map((p) => [p.id, p.date]));
     const open = data.orders.filter((o) => o.status === 'open');
     const { blocked, demand } = allocate(open, data.pickups, data.balances);
-    const from = addDays(today, -13); const dset = new Set<string>(); const velocity: Record<string, number> = {}; const pull: Record<string, number> = {};
+    // withdrawal rate = pieces picked up in the last VELOCITY_DAYS days ÷ days from the first pickup in that window to today;
+    // the model order (pull) still looks at the last 14 days
+    const from = addDays(today, -13); const vFrom = addDays(today, -(VELOCITY_DAYS - 1)); const dset = new Set<string>(); const velocity: Record<string, number> = {}; const pull: Record<string, number> = {};
     for (const o of data.orders) {
       if (o.status === 'cancelled') continue;
       const dt = pickupDate.get(o.pickupId); if (!dt || dt > today || dt < from) continue;
-      dset.add(dt);
-      for (const s of o.lines) { velocity[s] = (velocity[s] ?? 0) + 1; const m = skuMap.get(s)?.model; if (m) pull[m] = (pull[m] ?? 0) + 1; }
+      const inV = dt >= vFrom; if (inV) dset.add(dt);
+      for (const s of o.lines) { if (inV) velocity[s] = (velocity[s] ?? 0) + 1; const m = skuMap.get(s)?.model; if (m) pull[m] = (pull[m] ?? 0) + 1; }
     }
     const days = dset.size; const span = days ? Math.max(1, Math.round((Date.parse(today) - Date.parse([...dset].sort()[0])) / 864e5) + 1) : 1;
     for (const k in velocity) velocity[k] /= span;

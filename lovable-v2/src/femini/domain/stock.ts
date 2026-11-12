@@ -12,3 +12,16 @@ export function cellInfo(sku: Sku, b: Balances, demand: Record<string, number>, 
   const cover = v > 0 ? ready / v : null;
   return { ready, demand: d, velocity: v, cover, level, surplus: velOK && cover !== null && cover > 60 };
 }
+
+/**
+ * "Lasts how many days" for a cell: ready ÷ withdrawal rate (the same `cover` as cellInfo), as a short label.
+ * No withdrawals in the window → no label; out of stock while it is being withdrawn → «خلص»; over 60 days → «+60 يوم».
+ * `estimated` (fewer than 3 pickup days) puts a ~ in front. Pure.
+ */
+export function coverLabel(c: Pick<Cell, 'ready' | 'velocity'>, estimated = false): string {
+  if (!(c.velocity > 0)) return '';
+  if (c.ready <= 0) return 'خلص';
+  const days = c.ready / c.velocity;
+  const t = days < 1 ? 'أقل من يوم' : days > 60 ? '+60 يوم' : ((n) => (n === 1 ? 'يوم' : n === 2 ? 'يومين' : n <= 10 ? `${n} أيام` : `${n} يوم`))(Math.floor(days));
+  return (estimated ? '~' : '') + t;
+}
