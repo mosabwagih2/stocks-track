@@ -29,7 +29,7 @@ export interface OpHdr {
   shop?: string; note?: string; // SHP, SRT
   from?: Loc; to?: Loc; reason?: string; // CLN
   kind?: 'wash' | 'scrap'; // FSD
-  refs?: string[]; counted?: boolean; // RTN
+  refs?: string[]; counted?: boolean; marks?: ReturnMarks; // RTN
   state?: Loc; cnt?: Record<string, number>; snap?: Record<string, number>; reveal?: boolean; ack?: boolean; // CNT
 }
 export interface OpMove { sku: string; qty: number; from: AnyLoc; to: AnyLoc; note: string }
@@ -126,6 +126,27 @@ export function effects(moves: OpMove[], b: Balances): { sku: string; ch: { loc:
 }
 
 /** expected return lines for shipped orders: pieces per SKU */
+/**
+ * RTN marks: per order, per variant, how many of its pieces came back for cleaning (d), scrap (x) or are missing (l).
+ * Everything not marked came back sound, so the default is "all sound" and the parts always add up to the pieces.
+ */
+export type ReturnMarks = Record<string, Record<string, { d?: number; x?: number; l?: number }>>;
+/** The return lines (per variant, all orders added up) from the orders and their marks. Sound = pieces − the marked. */
+export function returnLines(orders: { ref: string; lines: string[] }[], marks: ReturnMarks = {}): OpLine[] {
+  const by = new Map<string, OpLine>();
+  for (const o of orders) {
+    const cnt: Record<string, number> = {}; for (const s of o.lines) cnt[s] = (cnt[s] ?? 0) + 1;
+    for (const [sku, n] of Object.entries(cnt)) {
+      const m = marks[o.ref]?.[sku] ?? {};
+      // never more marked than the order has: cleaning first, then scrap, then missing
+      const d = Math.min(n, Math.max(0, Math.floor(m.d ?? 0))); const x = Math.min(n - d, Math.max(0, Math.floor(m.x ?? 0))); const l = Math.min(n - d - x, Math.max(0, Math.floor(m.l ?? 0)));
+      const e = by.get(sku) ?? { sku, q: 0, exp: 0, r: 0, d: 0, x: 0 };
+      e.exp = (e.exp ?? 0) + n; e.d = (e.d ?? 0) + d; e.x = (e.x ?? 0) + x; e.r = (e.r ?? 0) + n - d - x - l;
+      by.set(sku, e);
+    }
+  }
+  return [...by.values()];
+}
 export function expectedReturn(orderLines: string[][]): OpLine[] {
   const a: Record<string, number> = {};
   for (const ls of orderLines) for (const s of ls) a[s] = (a[s] ?? 0) + 1;

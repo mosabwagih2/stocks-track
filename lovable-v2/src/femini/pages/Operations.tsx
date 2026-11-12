@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, X, Upload } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, X, Upload, ChevronDown } from 'lucide-react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Chip, Empty, Field, Pill, Seg, Sheet, Tabs, TableWrap, th, td } from '@/femini/components/ui';
@@ -10,7 +10,7 @@ import { LOCS, LOC_AR, TYPE_AR } from '@/femini/domain/constants';
 import { qty } from '@/femini/domain/ledger';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
 import { addDays } from '@/femini/domain/dates';
-import { buildOp, effects, expectedReturn, GROUP_AR, OPS, type OpGroup, type OpHdr, type OpLine, type OpType } from '@/femini/domain/ops';
+import { buildOp, effects, GROUP_AR, OPS, returnLines, type OpGroup, type OpHdr, type OpLine, type OpType, type ReturnMarks } from '@/femini/domain/ops';
 import { LostOrders } from '@/femini/components/LostOrders';
 import { returnCodesFromSheet } from '@/femini/domain/returnsSheet';
 import { deliveryNoteExcel, downloadDeliveryNote, printDeliveryNote } from '@/femini/components/DeliveryNote';
@@ -171,13 +171,20 @@ function SwapLines({ d, lines, set }: { d: Derived; lines: OpLine[]; set: SetLin
 }
 
 function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void; lines: OpLine[]; set: SetLines }) {
-  const [code, setCode] = useState(''); const [msg, setMsg] = useState<{ tone: 'crit' | 'good'; t: string } | null>(null);
-  const refs = hdr.refs ?? [];
+  const [code, setCode] = useState(''); const [msg, setMsg] = useState<{ tone: 'crit' | 'good'; t: string } | null>(null); const [q, setQ] = useState('');
+  const refs = hdr.refs ?? []; const marks = hdr.marks ?? {};
+  // variants added by hand (no waybill) have no expected pieces; the rest of the lines come from the orders and their marks
+  const manual = lines.filter((l) => !l.exp);
+  const sync = (newRefs: string[], newMarks: ReturnMarks) => {
+    const orders = newRefs.map((r) => d.orderMap.get(r)).filter((o): o is NonNullable<typeof o> => !!o);
+    set((ls) => [...returnLines(orders, newMarks), ...ls.filter((l) => !l.exp)]);
+    setHdr({ ...hdr, refs: newRefs, marks: newMarks, counted: false });
+  };
   const lookup = () => addCodes(code.split(/[\s,،]+/).filter(Boolean));
   // codes typed / pasted, or the orders found in an uploaded returns sheet: each one checked the same way
   const addCodes = (codes: string[], from?: string) => {
     const added: string[] = []; const bad: string[] = [];
-    const newRefs = [...refs]; let newLines = lines;
+    const newRefs = [...refs];
     for (const c of codes) {
       const o = findByCode(d.snap.orders, c);
       if (!o) { bad.push(`${c}: مش لاقيه`); continue; }
@@ -185,12 +192,8 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       if (o.returned) { bad.push(`${o.ref}: اتسجل له مرتجع (${o.returned.doc})`); continue; }
       if (newRefs.includes(o.ref)) continue;
       newRefs.push(o.ref); added.push(o.ref);
-      for (const e of expectedReturn([o.lines])) {
-        const k = newLines.findIndex((l) => l.sku === e.sku);
-        newLines = k >= 0 ? newLines.map((l, j) => (j === k ? { ...l, exp: (l.exp ?? 0) + (e.exp ?? 0), r: (l.r ?? 0) + (e.exp ?? 0) } : l)) : [...newLines, e];
-      }
     }
-    setHdr({ ...hdr, refs: newRefs, counted: false }); set(() => newLines); setCode('');
+    sync(newRefs, marks); setCode('');
     const head = from ? `${from}: ` : '';
     setMsg(bad.length ? { tone: 'crit', t: `${head}${added.length ? `اتضاف ${added.length} أوردر · ` : ''}${bad.join(' · ')}` } : added.length ? { tone: 'good', t: `${head}اتضاف ${added.length} أوردر` } : from ? { tone: 'crit', t: `${head}كل الأوردرات اللي فيه متضافة قبل كده.` } : null);
   };
@@ -204,32 +207,76 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       addCodes(found, `${f.name} (${found.length} أوردر في الشيت)`);
     } catch (e) { setMsg({ tone: 'crit', t: `${f.name}: الملف ده مش بيتقري (${(e as Error).message})` }); }
   };
-  const removeRef = (ref: string) => {
-    const o = d.orderMap.get(ref); if (!o) return;
-    const exp = expectedReturn([o.lines]);
-    set((ls) => ls.map((l) => { const e = exp.find((x) => x.sku === l.sku); if (!e) return l; const ne = Math.max(0, (l.exp ?? 0) - (e.exp ?? 0)); return { ...l, exp: ne, r: Math.min(l.r ?? 0, ne) }; }).filter((l) => (l.exp ?? 0) > 0 || (l.r ?? 0) + (l.d ?? 0) + (l.x ?? 0) > 0));
-    setHdr({ ...hdr, refs: refs.filter((r) => r !== ref), counted: false });
+  const removeRef = (ref: string) => { const m = { ...marks }; delete m[ref]; sync(refs.filter((r) => r !== ref), m); };
+  const setMark = (ref: string, sku: string, k: 'd' | 'x' | 'l', v: number) => {
+    const cur = marks[ref]?.[sku] ?? {};
+    sync(refs, { ...marks, [ref]: { ...(marks[ref] ?? {}), [sku]: { ...cur, [k]: v } } });
   };
+  const s = q.trim().toLowerCase().replace(/[#\s]/g, '');
+  const shown = refs.filter((r) => { if (!s) return true; const o = d.orderMap.get(r); return r.toLowerCase().includes(s) || (o?.waybill ?? '').replace(/\s/g, '').toLowerCase().includes(s); });
+  const fromOrders = lines.filter((l) => l.exp);
+  const tot = fromOrders.reduce((a, l) => ({ n: a.n + (l.exp ?? 0), r: a.r + (l.r ?? 0), d: a.d + (l.d ?? 0), x: a.x + (l.x ?? 0) }), { n: 0, r: 0, d: 0, x: 0 });
+  const lost = tot.n - tot.r - tot.d - tot.x;
   return (
     <div className="grid gap-3">
       <div className="grid gap-2 rounded-xl border border-line bg-lav p-3">
         <Field label="البوليصة أو رقم الأوردر (تقدر تلصق أكتر من واحد)">
-          <div className="flex gap-2"><input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && lookup()} placeholder="امسح أو اكتب البوليصة" className="flex-1" /><Button variant="primary" onClick={lookup} disabled={!code.trim()}><Search className="size-4" /> لاقي الأوردر</Button><Button onClick={() => fileRef.current?.click()} title="Excel أو CSV فيه البوليصة أو رقم الأوردر في أي عمود"><Upload className="size-4" /> رفع إكسل مرتجعات</Button><input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void readSheet(f); }} /></div>
+          <div className="flex flex-wrap gap-2"><input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && lookup()} placeholder="امسح أو اكتب البوليصة" className="min-w-48 flex-1" /><Button variant="primary" onClick={lookup} disabled={!code.trim()}><Search className="size-4" /> لاقي الأوردر</Button><Button onClick={() => fileRef.current?.click()} title="Excel أو CSV فيه البوليصة أو رقم الأوردر في أي عمود"><Upload className="size-4" /> رفع إكسل مرتجعات</Button><input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void readSheet(f); }} /></div>
         </Field>
         {msg && <p className={cn('text-xs', msg.tone === 'crit' ? 'text-crit' : 'text-good')}>{msg.t}</p>}
-        {refs.length > 0 && <div className="flex flex-wrap gap-1.5">{refs.map((r) => { const o = d.orderMap.get(r); return <span key={r} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-1 text-xs"><b className="font-mono">{r}</b>{o && <span className="text-muted">· {o.gov} · {o.lines.length} قطعة</span>}<button aria-label="شيل" onClick={() => removeRef(r)}><X className="size-3" /></button></span>; })}</div>}
       </div>
+
+      {refs.length > 0 && <>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-3 text-sm">
+          <b className="num">{fmt(refs.length)}</b> بوليصة · <b className="num">{fmt(tot.n)}</b> قطعة:
+          <Pill tone="good">سليم {fmt(tot.r)}</Pill><Pill tone="warn">نضافة {fmt(tot.d)}</Pill><Pill tone="crit">هالك {fmt(tot.x)}</Pill><Pill tone="info">مفقود {fmt(lost)}</Pill>
+          <span className="text-xs text-muted">الطبيعي كله سليم: افتح البوليصة وزوّد النضافة أو الهالك أو المفقود.</span>
+        </div>
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث ببوليصة أو رقم أوردر" aria-label="بحث في البوليصات" />
+        <div className="grid gap-2">
+          {!shown.length ? <Empty>مفيش بوليصة بالرقم ده في المرتجع.</Empty> : shown.map((ref) => {
+            const o = d.orderMap.get(ref); if (!o) return null;
+            const cnt: Record<string, number> = {}; for (const x of o.lines) cnt[x] = (cnt[x] ?? 0) + 1;
+            const m = marks[ref] ?? {};
+            const sum = (k: 'd' | 'x' | 'l') => Object.keys(cnt).reduce((a, sku) => a + (m[sku]?.[k] ?? 0), 0);
+            const md = sum('d'), mx = sum('x'), ml = sum('l');
+            return (
+              <details key={ref} open={!!s && shown.length <= 3} className="group rounded-xl border border-line bg-surface">
+                <summary className="flex cursor-pointer flex-wrap items-center gap-2 p-3 text-sm marker:content-none">
+                  <ChevronDown className="size-4 shrink-0 text-muted transition group-open:rotate-180" />
+                  <b className="font-mono">{ref}</b><span className="font-mono text-xs text-muted">{o.waybill}</span><span className="text-xs text-muted">· {o.gov} · {fmt(o.lines.length)} قطعة</span>
+                  <span className="ms-auto flex flex-wrap items-center gap-1.5">
+                    {md + mx + ml === 0 ? <Pill tone="good">كله سليم</Pill> : <>{md > 0 && <Pill tone="warn">نضافة {md}</Pill>}{mx > 0 && <Pill tone="crit">هالك {mx}</Pill>}{ml > 0 && <Pill tone="info">مفقود {ml}</Pill>}</>}
+                    <button type="button" aria-label={`شيل ${ref}`} className="rounded-md p-1 text-muted hover:bg-lav hover:text-crit" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeRef(ref); }}><X className="size-4" /></button>
+                  </span>
+                </summary>
+                <div className="border-t border-line p-3">
+                  <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'القطع', 'سليم', 'نضافة', 'هالك', 'مفقود'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                    <tbody>{Object.entries(cnt).map(([sku, n]) => {
+                      const c = m[sku] ?? {}; const dd = c.d ?? 0, xx = c.x ?? 0, ll = c.l ?? 0;
+                      return <tr key={sku}><td className={td}>{skuLabel(d.skuMap, sku)}</td><td className={td + ' num'}>{n}</td>
+                        <td className={td}><b className="num text-good">{n - dd - xx - ll}</b></td>
+                        <td className={td}><Stepper v={dd} max={n - xx - ll} on={(v) => setMark(ref, sku, 'd', v)} label="نضافة" /></td>
+                        <td className={td}><Stepper v={xx} max={n - dd - ll} on={(v) => setMark(ref, sku, 'x', v)} label="هالك" /></td>
+                        <td className={td}><Stepper v={ll} max={n - dd - xx} on={(v) => setMark(ref, sku, 'l', v)} label="مفقود" /></td></tr>;
+                    })}</tbody></table></TableWrap>
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </>}
+
       <details className="rounded-xl border border-line p-3"><summary className="cursor-pointer text-sm font-semibold">جرد يدوي: إضافة صنف رجع من غير بوليصة</summary>
-        <div className="mt-3"><VariantPicker d={d} onAdd={(s, q) => { set((ls) => (ls.some((l) => l.sku === s) ? ls.map((l) => (l.sku === s ? { ...l, r: (l.r ?? 0) + q } : l)) : [...ls, { sku: s, q: 0, exp: 0, r: q, d: 0, x: 0 }])); setHdr({ ...hdr, counted: false }); }} /></div></details>
-      {!lines.length ? <Empty>دوّر بالبوليصة عشان تظهر القطع اللي اتشحنت، وعلّم كل قطعة رجعت إزاي.</Empty> : (
-        <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>اتشحن</th><th className={th}>سليم</th><th className={th}>نضافة</th><th className={th}>هالك</th><th className={th}>الفرق</th></tr></thead>
-          <tbody>{lines.map((l, i) => { const got = (l.r ?? 0) + (l.d ?? 0) + (l.x ?? 0); const diff = got - (l.exp ?? 0); return (
-            <tr key={l.sku}><td className={td}>{skuLabel(d.skuMap, l.sku)}</td><td className={td + ' font-mono'}>{l.exp ?? 0}</td>
+        <div className="mt-3 grid gap-3"><VariantPicker d={d} onAdd={(sku, n) => { set((ls) => (ls.some((l) => l.sku === sku && !l.exp) ? ls.map((l) => (l.sku === sku && !l.exp ? { ...l, r: (l.r ?? 0) + n } : l)) : [...ls, { sku, q: 0, exp: 0, r: n, d: 0, x: 0 }])); setHdr({ ...hdr, counted: false }); }} />
+          {manual.length > 0 && <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'سليم', 'نضافة', 'هالك'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+            <tbody>{manual.map((l) => { const i = lines.indexOf(l); return <tr key={l.sku}><td className={td}>{skuLabel(d.skuMap, l.sku)}</td>
               <td className={td}><Stepper v={l.r ?? 0} on={(r) => { upd(set, i, { r }); setHdr({ ...hdr, counted: false }); }} label="سليم" /></td>
               <td className={td}><Stepper v={l.d ?? 0} on={(v) => { upd(set, i, { d: v }); setHdr({ ...hdr, counted: false }); }} label="نضافة" /></td>
-              <td className={td}><Stepper v={l.x ?? 0} on={(x) => { upd(set, i, { x }); setHdr({ ...hdr, counted: false }); }} label="هالك" /></td>
-              <td className={td}>{diff === 0 ? <Pill tone="good">مطابق</Pill> : diff < 0 ? <Pill tone="crit">ناقص {-diff}</Pill> : <Pill tone="warn">زيادة {diff}</Pill>}</td></tr>); })}</tbody></table></TableWrap>)}
-      {lines.length > 0 && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!hdr.counted} onChange={(e) => setHdr({ ...hdr, counted: e.target.checked })} /> خلّصت عدّ كل القطع وعلّمت حالتها</label>}
+              <td className={td}><Stepper v={l.x ?? 0} on={(x) => { upd(set, i, { x }); setHdr({ ...hdr, counted: false }); }} label="هالك" /></td></tr>; })}</tbody></table></TableWrap>}
+        </div></details>
+      {!lines.length && <Empty>دوّر بالبوليصة أو ارفع شيت المرتجعات عشان تظهر الأوردرات. كل القطع بتتحسب سليمة، وانت تعلّم اللي غير كده.</Empty>}
+      {lines.length > 0 && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!hdr.counted} onChange={(e) => setHdr({ ...hdr, counted: e.target.checked })} /> راجعت كل البوليصات وعلّمت النضافة والهالك والمفقود</label>}
     </div>
   );
 }
