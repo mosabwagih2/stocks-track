@@ -57,7 +57,7 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
       <p className="text-sm text-muted">كل أوردر محسوب على اليوم اللي خرج فيه من المخزن (يوم الإسكان)، مهما كان يوم التسوية اللي جت فيها فلوسه. اليوم بيفضل في «الأيام اللي لسه مفتوحة» لحد ما كل أوردراته تتحصّل أو ترجع، وبعدين بينزل لوحده في «الأيام اللي اتقفلت».</p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="خرج من المخزن" value={fmt(sum('orders'))} sub={`${days.length} يوم · ${fmt(sum('pieces'))} قطعة`} onClick={() => show('all')} />
-        <Kpi label="اتحصّل" value={fmt(sum('collected'))} sub={`${pct(sum('collected'), sum('orders'))}% · التوريد ${money(sum('due'))} جنيه`} tone="good" onClick={() => show('collected')} />
+        <Kpi label="اتحصّل · التوريد" value={<>{money(sum('due'))} <span className="text-sm font-medium text-muted">جنيه</span></>} sub={`${fmt(sum('collected'))} أوردر (${pct(sum('collected'), sum('orders'))}%) · ${fmt(sum('collectedPieces'))} قطعة`} tone="good" onClick={() => show('collected')} />
         <Kpi label="رجع" value={fmt(sum('returned'))} sub={`${pct(sum('returned'), sum('orders'))}% · ${fmt(sum('returnedPieces'))} قطعة`} onClick={() => show('returned')} />
         <Kpi label="لسه ما اتقفلش" value={fmt(sum('pending'))} sub={`${pct(sum('pending'), sum('orders'))}% · ${fmt(sum('pendingPieces'))} قطعة`} tone={sum('pending') ? 'warn' : 'good'} onClick={() => show('pending')} />
       </div>
@@ -124,9 +124,16 @@ function StateCard({ state, x, on, onClick }: { state: WhState; x: WhDay; on: bo
     <button type="button" onClick={onClick} aria-pressed={on}
       className={cn('grid content-start gap-1 rounded-2xl border bg-surface px-4 py-3 text-start shadow-card transition hover:-translate-y-0.5', on ? 'border-accent ring-1 ring-accent/40' : 'border-line hover:border-accent/50')}>
       <span className="flex items-center gap-2 text-[13px] font-medium text-muted"><i className="h-3.5 w-1 rounded-full" style={{ background: FILL[state] }} />{F_AR[state]}</span>
-      <b className={cn('num text-[28px] leading-none font-semibold', tone)}>{fmt(n)}</b>
-      <span className="num text-xs text-muted">{fmt(pieces)} قطعة</span>
-      {state === 'collected' && <span className="mt-1 border-t border-line pt-1.5 text-xs text-muted">التوريد: <b className="num text-sm text-ink">{money(x.due)}</b> جنيه</span>}
+      {state === 'collected'
+        // the money first (التوريد), then how many orders and pieces it came from
+        ? <>
+            <b className={cn('num text-[28px] leading-none font-semibold', tone)}>{money(x.due)} <span className="text-sm font-medium text-muted">جنيه</span></b>
+            <span className="text-xs text-muted">التوريد · <b className="num text-ink">{fmt(n)}</b> أوردر · <span className="num">{fmt(pieces)}</span> قطعة</span>
+          </>
+        : <>
+            <b className={cn('num text-[28px] leading-none font-semibold', tone)}>{fmt(n)}</b>
+            <span className="num text-xs text-muted">{fmt(pieces)} قطعة</span>
+          </>}
     </button>
   );
 }
