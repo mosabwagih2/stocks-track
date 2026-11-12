@@ -32,7 +32,7 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
   const pv = useMemo(() => (parsed ? previewSettlement(parsed, d.snap.orders, new Set<string>(), d.snap.settles ?? []) : null), [parsed, d]);
   return (
     <Sheet title="رفع شيت التحصيل (التسوية)" onClose={onClose} wide>
-      <p className="text-sm text-muted">الشيت اللي بيوصل من شركة الشحن: كل أوردر اتحصّل (العميل دفع) أو رجع. "مشحون" يعني خرج بالإسكان، و"تم التحصيل" يعني فلوسه وصلت، ودي بتيجي من الشيت ده.</p>
+      <p className="text-sm text-muted">الشيت اللي بيوصل من شركة الشحن: كل أوردر اتحصّل (العميل دفع) أو مرتجع. "مشحون" يعني خرج بالإسكان، و"تم التحصيل" يعني فلوسه وصلت، ودي بتيجي من الشيت ده.</p>
       <Field label="ملف التسوية (Excel)"><input type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f) void read(f); }} /></Field>
       {err && <Alert tone="crit">{err}</Alert>}
       {parsed && pv && <>
@@ -44,7 +44,7 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
         <TableWrap><table className="text-sm"><thead><tr><th className={th}>الأوردرات</th><th className={th}>العدد</th></tr></thead><tbody>
           <tr><td className={td}><b>إجمالي الأوردرات</b></td><td className={td + ' font-mono font-semibold'}>{pv.rows}</td></tr>
           <tr><td className={td}>اتحصّل (اتسلّم واتدفع)</td><td className={td + ' font-mono'}>{pv.collect}</td></tr>
-          <tr><td className={td}>رجع (رفض الاستلام)</td><td className={td + ' font-mono'}>{pv.ret}</td></tr>
+          <tr><td className={td}>مرتجع (رفض الاستلام)</td><td className={td + ' font-mono'}>{pv.ret}</td></tr>
           <tr><td className={td}>تسليم جزئي / استبدال</td><td className={td + ' font-mono'}>{pv.partial}</td></tr>
           {pv.adjust > 0 && <tr><td className={td}>تعديل (فرق تحصيل)</td><td className={td + ' font-mono'}>{pv.adjust}</td></tr>}
           <tr><td className={td}>منهم في السيستم</td><td className={td + ' font-mono'}>{pv.inSystem}</td></tr>
@@ -93,7 +93,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
       <CollectTrend d={d} from={from} to={to} />
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>
         {!settles.length ? <Empty>لسه ما اترفعش شيت تسوية.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'رجع', 'جزئي / استبدال', 'التوريد', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'مرتجع', 'جزئي / استبدال', 'التوريد', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{settles.map((s) => (
               <tr key={s.id}>
                 <td className={td + ' font-mono'} title={s.source}>{s.date}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' font-mono'}>{s.rows.length}</td>
@@ -145,10 +145,10 @@ function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string })
   if (!(d.snap.settles ?? []).length) return null;
   return <div className="grid gap-4 lg:grid-cols-2">
     {pick && <ClosedDaySheet d={d} day={pick} onClose={() => setPick(null)} />}
-    <Card title="المحصّل والراجع" hint="كل عمود = الأوردرات اللي اتقفلت في اليوم ده بتاريخ الشيت: اتحصّل · رجع · اضغط على يوم لتفاصيله">
+    <Card title="المحصّل والمرتجع" hint="كل عمود = الأوردرات اللي اتقفلت في اليوم ده بتاريخ الشيت: اتحصّل · مرتجع · اضغط على يوم لتفاصيله">
       {/* stacked: the two parts are orders closing on that day. What was shipped is a number in the readout, not a
           line over the bars (it counts other orders, by ship day, and drawn on top it read as part of the same bar) */}
-      <StackedBars data={rows} totalName="اتقفل" onPick={setPick} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }]} also={[{ key: 'shipped', name: 'اتشحن', color: C.accent }]} />
+      <StackedBars data={rows} totalName="اتقفل" onPick={setPick} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'مرتجع', color: C.scrap }]} also={[{ key: 'shipped', name: 'اتشحن', color: C.accent }]} />
     </Card>
     <CollectFlow d={d} from={from} to={to} />
   </div>;
@@ -164,8 +164,8 @@ function ClosedDaySheet({ d, day, onClose }: { d: Derived; day: string; onClose:
   const due = orders.reduce((a, o) => a + (kind.get(o.ref) === 'collected' ? d.collected.get(o.ref)?.due ?? 0 : 0), 0);
   const missing = refs.length - orders.length;
   return <OrdersDetail d={d} title={`اتقفل يوم ${day}`} onClose={onClose} orders={orders}
-    hint={`${fmt(nCol)} اتحصّل (التوريد ${money(due)} جنيه) · ${fmt(nRet)} رجع${missing ? ` · ${fmt(missing)} أوردر في الشيت مش في السيستم` : ''}.`}
-    chips={[{ id: 'collected', label: 'اتحصّل', test: (o) => kind.get(o.ref) === 'collected' }, { id: 'returned', label: 'رجع', test: (o) => kind.get(o.ref) === 'returned' }]}
+    hint={`${fmt(nCol)} اتحصّل (التوريد ${money(due)} جنيه) · ${fmt(nRet)} مرتجع${missing ? ` · ${fmt(missing)} أوردر في الشيت مش في السيستم` : ''}.`}
+    chips={[{ id: 'collected', label: 'اتحصّل', test: (o) => kind.get(o.ref) === 'collected' }, { id: 'returned', label: 'مرتجع', test: (o) => kind.get(o.ref) === 'returned' }]}
     cols={[{ head: 'التوريد', cell: (o) => kind.get(o.ref) === 'collected' ? <b className="num">{money(d.collected.get(o.ref)?.due ?? 0)}</b> : <span className="text-muted">—</span> },
       { head: 'اتشحن', cell: (o) => <span className="num">{o.shippedAt ? cairoDay(o.shippedAt) : '—'}</span> }]} />;
 }

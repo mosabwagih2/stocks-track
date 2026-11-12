@@ -3,15 +3,17 @@ import type { Derived } from '@/femini/hooks/data';
 import { lateLevel, warehouseDays, type WhDay, type WhState } from '@/femini/domain/warehouseDay';
 import { dayDiff } from '@/femini/domain/dates';
 import { cn, fmt, pct } from '@/femini/cn';
-import { Card, Chip, Empty, Kpi, Pill, Sheet, TableWrap, th, td } from './ui';
+import { Button, Card, Chip, Empty, Kpi, Pill, Sheet, TableWrap, th, td } from './ui';
+import { SettleUpload } from './Collections';
+import { Upload } from 'lucide-react';
 import { C, StackedBars } from './charts';
 import { OrderSheet } from './OrderSheets';
 
 const money = (n: number) => new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 0 }).format(n);
-const STATE: Record<WhState, [string, 'good' | 'warn' | 'lost']> = { collected: ['اتحصّل', 'good'], returned: ['رجع', 'lost'], pending: ['لسه', 'warn'] };
+const STATE: Record<WhState, [string, 'good' | 'warn' | 'lost']> = { collected: ['اتحصّل', 'good'], returned: ['مرتجع', 'lost'], pending: ['لسه', 'warn'] };
 /** the colour of each state: the chart's own (teal, rose, amber), livelier than the text tones */
 const FILL: Record<WhState, string> = { collected: 'var(--chart-secondary)', returned: 'var(--scrap)', pending: 'var(--dirty)' };
-const F_AR: Record<WhState | 'all', string> = { all: 'كل الأوردرات', collected: 'اتحصّل', returned: 'رجع', pending: 'لسه' };
+const F_AR: Record<WhState | 'all', string> = { all: 'كل الأوردرات', collected: 'اتحصّل', returned: 'مرتجع', pending: 'لسه' };
 const SUM_KEYS = ['orders', 'pieces', 'collected', 'returned', 'pending', 'collectedPieces', 'returnedPieces', 'pendingPieces', 'due'] as const;
 
 /** how much of a day is closed (collected or came back) */
@@ -22,7 +24,7 @@ function StateBar({ x, label = true }: { x: Pick<WhDay, 'orders' | 'collected' |
   const w = (n: number) => `${x.orders ? (n / x.orders) * 100 : 0}%`;
   return (
     <div className="min-w-28">
-      <div className="flex h-2 overflow-hidden rounded-full bg-lav" role="img" aria-label={`اتقفل ${closedPct(x)}%: اتحصّل ${x.collected}، رجع ${x.returned}، لسه ${x.pending}`}>
+      <div className="flex h-2 overflow-hidden rounded-full bg-lav" role="img" aria-label={`اتقفل ${closedPct(x)}%: اتحصّل ${x.collected}، مرتجع ${x.returned}، لسه ${x.pending}`}>
         <i style={{ width: w(x.collected), background: FILL.collected }} /><i style={{ width: w(x.returned), background: FILL.returned }} /><i style={{ width: w(x.pending), background: FILL.pending }} />
       </div>
       {label && <span className="num mt-0.5 block text-[11px] text-muted">اتقفل <bdi dir="ltr">{closedPct(x)}%</bdi></span>}
@@ -51,18 +53,25 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
   const all = useMemo(() => periodTotal(days), [days]);
   const day = sheet?.day === '*' ? all : days.find((x) => x.day === sheet?.day);
   const show = (f: WhState | 'all') => setSheet({ day: '*', f });
-  if (!days.length) return <Card><Empty>مفيش أوردرات خرجت من المخزن في الفترة دي.</Empty></Card>;
+  // the same upload as on التحصيل (the same sheet, the same import): a settlement can be uploaded from either page
+  const [up, setUp] = useState(false);
+  const upload = <>
+    <div className="flex justify-end print:hidden"><Button variant="primary" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button></div>
+    {up && <SettleUpload d={d} onClose={() => setUp(false)} />}
+  </>;
+  if (!days.length) return <div className="grid gap-4">{upload}<Card><Empty>مفيش أوردرات خرجت من المخزن في الفترة دي.</Empty></Card></div>;
   return (
     <div className="grid gap-4">
+      {upload}
       <p className="text-sm text-muted">كل أوردر محسوب على اليوم اللي خرج فيه من المخزن (يوم الإسكان)، مهما كان يوم التسوية اللي جت فيها فلوسه. اليوم بيفضل في «الأيام اللي لسه مفتوحة» لحد ما كل أوردراته تتحصّل أو ترجع، وبعدين بينزل لوحده في «الأيام اللي اتقفلت».</p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="خرج من المخزن" value={fmt(sum('orders'))} sub={`${days.length} يوم · ${fmt(sum('pieces'))} قطعة`} onClick={() => show('all')} />
         <Kpi label="اتحصّل" value={<span dir="rtl" className="inline-flex items-baseline gap-1.5"><span className="num">{money(sum('due'))}</span><span className="font-sans text-sm font-medium text-muted">جنيه</span></span>} sub={`${fmt(sum('collected'))} أوردر (${pct(sum('collected'), sum('orders'))}%) · ${fmt(sum('collectedPieces'))} قطعة`} tone="good" onClick={() => show('collected')} />
-        <Kpi label="رجع" value={fmt(sum('returned'))} sub={`${pct(sum('returned'), sum('orders'))}% · ${fmt(sum('returnedPieces'))} قطعة`} onClick={() => show('returned')} />
+        <Kpi label="مرتجع" value={fmt(sum('returned'))} sub={`${pct(sum('returned'), sum('orders'))}% · ${fmt(sum('returnedPieces'))} قطعة`} onClick={() => show('returned')} />
         <Kpi label="لسه ما اتقفلش" value={fmt(sum('pending'))} sub={`${pct(sum('pending'), sum('orders'))}% · ${fmt(sum('pendingPieces'))} قطعة`} tone={sum('pending') ? 'warn' : 'good'} onClick={() => show('pending')} />
       </div>
-      <Card title="حالة أوردرات كل يوم خروج" hint="كل عمود = أوردرات اليوم ده: اتحصّل · رجع · لسه">
-        <StackedBars data={chart} totalName="خرج" onPick={(day) => setSheet({ day, f: 'all' })} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }, { key: 'pending', name: 'لسه', color: C.dirty }]} />
+      <Card title="حالة أوردرات كل يوم خروج" hint="كل عمود = أوردرات اليوم ده: اتحصّل · مرتجع · لسه">
+        <StackedBars data={chart} totalName="خرج" onPick={(day) => setSheet({ day, f: 'all' })} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'مرتجع', color: C.scrap }, { key: 'pending', name: 'لسه', color: C.dirty }]} />
       </Card>
       <Card title={`أيام لسه مفتوحة (${fmt(open.length)})`} hint="الأقدم الأول · الأحمر عدّى عليه 7 أيام أو أكتر من غير ما يتقفل">
         {!open.length ? <Empty>كل الأيام اتقفلت.</Empty> : <DaysTable d={d} days={open} kind="open" onOpen={(x) => setSheet({ day: x.day, f: 'pending' })} />}
@@ -77,7 +86,7 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
 
 /** Days with what was collected (with its توريد), what came back and what is left (with their pieces). */
 function DaysTable({ d, days, kind, onOpen }: { d: Derived; days: WhDay[]; kind: 'open' | 'closed'; onOpen: (x: WhDay) => void }) {
-  const head = ['يوم الخروج', 'أوردرات', 'اتحصّل · التوريد', 'رجع', ...(kind === 'open' ? ['لسه'] : []), 'الحالة', kind === 'open' ? 'اتحصّل في تسويات' : 'اتقفل يوم'];
+  const head = ['يوم الخروج', 'أوردرات', 'اتحصّل · التوريد', 'مرتجع', ...(kind === 'open' ? ['لسه'] : []), 'الحالة', kind === 'open' ? 'اتحصّل في تسويات' : 'اتقفل يوم'];
   return (
     <TableWrap><table className="text-sm"><thead><tr>{head.map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
       <tbody>{days.map((x) => {

@@ -29,7 +29,7 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
     <div className="grid gap-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="اتورّد للمحل" value={<Egp v={r.out.value} />} sub={`${fmt(r.out.n)} توريدة · ${fmt(r.out.pieces)} قطعة`} onClick={() => setF('out')} />
-        <Kpi label="رجع من المحل" value={<Egp v={r.back.value} />} sub={`${fmt(r.back.n)} مرتجع · ${fmt(r.back.pieces)} قطعة${r.out.pieces ? ` · ${Math.round((r.back.pieces / r.out.pieces) * 100)}% من المورّد` : ''}`} tone={r.back.pieces ? 'warn' : undefined} onClick={() => setF('back')} />
+        <Kpi label="مرتجع من المحل" value={<Egp v={r.back.value} />} sub={`${fmt(r.back.n)} مرتجع · ${fmt(r.back.pieces)} قطعة${r.out.pieces ? ` · ${Math.round((r.back.pieces / r.out.pieces) * 100)}% من المورّد` : ''}`} tone={r.back.pieces ? 'warn' : undefined} onClick={() => setF('back')} />
         <Kpi label="صافي اللي راح" value={<Egp v={net} />} sub={`${fmt(r.out.pieces - r.back.pieces)} قطعة في الفترة`} tone="good" />
         <Kpi label="عند المحل دلوقتي" value={<span dir="rtl" className="inline-flex items-baseline gap-1.5"><span className="num">{fmt(r.atShop.pieces)}</span><span className="font-sans text-sm font-medium text-muted">قطعة</span></span>} sub={`بالتكلفة ${money(r.atShop.value)} جنيه · من أول توريدة`} />
       </div>
@@ -51,7 +51,7 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
       </Card>
 
       {shops.length > 1 && <Card title="حسب المحل" hint="كل الوقت">
-        <TableWrap><table className="text-sm"><thead><tr>{['المحل', 'اتورّد', 'رجع', 'عنده دلوقتي', 'بالتكلفة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+        <TableWrap><table className="text-sm"><thead><tr>{['المحل', 'اتورّد', 'مرتجع', 'عنده دلوقتي', 'بالتكلفة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
           <tbody>{shops.map(([s, v]) => <tr key={s}><td className={td}>{s}</td><td className={td + ' num'}>{fmt(v.out)}</td><td className={td + ' num'}>{fmt(v.back)}</td><td className={td + ' num font-semibold'}>{fmt(v.out - v.back)}</td><td className={td + ' num'}>{money(v.outValue - v.backValue)}</td></tr>)}</tbody></table></TableWrap>
       </Card>}
 
