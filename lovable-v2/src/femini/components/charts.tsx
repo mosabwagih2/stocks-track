@@ -1,11 +1,12 @@
 import { createPortal } from 'react-dom';
 import { useId, useMemo, useState, type ReactNode } from 'react';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from './ui';
 import { LocDetail } from './LocDetail';
 import { LOCS, LOC_AR, LOC_HINT } from '@/femini/domain/constants';
 import { locTotal } from '@/femini/domain/ledger';
 import { addDays } from '@/femini/domain/dates';
+import { paretoRows } from '@/femini/domain/pareto';
 import { cn, fmt, pct } from '@/femini/cn';
 import type { Derived } from '@/femini/hooks/data';
 import type { Loc } from '@/femini/domain/types';
@@ -25,9 +26,21 @@ function useHover() {
   const [i, setI] = useState<number | null>(null);
   return [i, { onMouseMove: (st: { activeTooltipIndex?: number | string | null }) => setI(st?.activeTooltipIndex == null ? null : Number(st.activeTooltipIndex)), onMouseLeave: () => setI(null) }] as const;
 }
-/** The values under the cursor (or the period totals when the cursor is away), in one slim line. */
+/**
+ * The values under the cursor (or the period totals when the cursor is away): the first series as one big number,
+ * the others as small chips beside it. Fixed minimum height, so hovering never makes the chart jump.
+ */
 export function Readout({ title, items }: { title: ReactNode; items: { name: string; value: number; color: string }[] }) {
-  return <div className="mb-1 flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-live="polite"><span className="font-semibold text-ink">{title}</span>{items.map((x) => <span key={x.name} className="inline-flex items-center gap-1.5 text-muted"><i className="inline-block size-2 rounded-full" style={{ background: x.color }} />{x.name} <b className="num text-ink">{fmt(x.value)}</b></span>)}</div>;
+  const [main, ...rest] = items;
+  return (
+    <div className="mb-3 flex min-h-12 flex-wrap items-end justify-between gap-x-6 gap-y-2" aria-live="polite">
+      <div className="grid min-w-0 gap-0.5">
+        <span className="text-[11px] font-medium text-muted">{title}</span>
+        {main && <span className="flex items-baseline gap-2"><b className="num text-2xl leading-none font-semibold tracking-tight text-ink">{fmt(main.value)}</b><span className="inline-flex items-center gap-1.5 text-xs text-muted"><i className="inline-block size-2 rounded-full" style={{ background: main.color }} />{main.name}</span></span>}
+      </div>
+      {rest.length > 0 && <div className="flex flex-wrap gap-2">{rest.map((x) => <span key={x.name} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-lav/50 px-2.5 py-1 text-xs text-muted"><i className="inline-block size-2 rounded-full" style={{ background: x.color }} />{x.name} <b className="num text-ink">{fmt(x.value)}</b></span>)}</div>}
+    </div>
+  );
 }
 const noTip = () => null;
 export function Sparkline({data,labels,color=C.accent,height=48}:{data:number[];labels?:string[];color?:string;height?:number}) {
@@ -90,21 +103,58 @@ export function StockArea({data}:{data:ReturnType<typeof useStockDaily>}) {
  const ch=row&&first?row.ready-first.ready:0;
  return <div className="min-w-0"><Readout title={row?(hi!=null?shortDay(row.day):'آخر يوم'):''} items={row?[{name:'جاهز للبيع',value:row.ready,color:C.ready},{name:'إجمالي المملوك',value:row.owned,color:C.accent}]:[]}/><p className="-mt-0.5 mb-1 h-4 truncate text-[11px] leading-4 text-muted">{first&&row?<>الجاهز {ch>=0?'زاد':'قلّ'} <b className="num">{fmt(Math.abs(ch))}</b> قطعة من أول الفترة{hi!=null?' لحد اليوم ده':''}</>:null}</p><div className="chart-surface h-[240px] min-w-0"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data} margin={{top:12,right:0,left:0,bottom:8}} {...on}><defs><Fade id={`${id}r`} color={C.ready}/></defs><CartesianGrid stroke={C.grid} strokeDasharray="3 6" vertical={false}/><XAxis dataKey="day" tickFormatter={shortDay} {...axis} minTickGap={35}/><YAxis {...axis} orientation="right" tickFormatter={numberTick} width={46} domain={['dataMin - 200','dataMax + 200']} allowDecimals={false}/><Tooltip content={noTip} cursor={{stroke:C.muted,strokeDasharray:'3 4'}}/><Line type="monotone" dataKey="owned" name="إجمالي المملوك" stroke={C.accent} strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={{r:4}} animationDuration={600}/><Area type="monotone" dataKey="ready" name="جاهز للبيع" stroke={C.ready} strokeWidth={2.8} fill={`url(#${id}r)`} activeDot={{r:5,stroke:'var(--surface)',strokeWidth:3}} animationDuration={600}/></AreaChart></ResponsiveContainer></div></div>;
 }
+/** The 80/20 list: a box per class, then the models ranked with a bar, the pieces and the running share. */
 export function Pareto({pull,onPick,limit=20}:{pull:Record<string,number>;onPick?:(m:string)=>void;limit?:number}) {
- const sorted=Object.entries(pull).sort((a,b)=>b[1]-a[1]);const total=sorted.reduce((a,x)=>a+x[1],0)||1;let cum=0; const [hi,on]=useHover();
- const rows=sorted.slice(0,limit).map(([m,v])=>{const before=cum;cum+=v;return {m,v,cum:Math.round(cum/total*1000)/10,cls:before/total<0.8?'A':before/total<0.95?'B':'C'};});const fill:Record<string,string>={A:C.accent,B:C.dirty,C:C.muted};
- const r=hi!=null?rows[hi]:null;
- // right to left: the most requested model is on the right, the cumulative line rises towards the left
- return <div className="min-w-0"><Readout title={r?<span className="font-mono">{r.m} <span className="font-sans font-normal text-muted">فئة {r.cls}</span></span>:`${rows.length} موديل`} items={r?[{name:'قطع مطلوبة',value:r.v,color:fill[r.cls]},{name:'تراكمي %',value:r.cum,color:C.scrap}]:[{name:'إجمالي القطع',value:sorted.reduce((a,x)=>a+x[1],0),color:C.accent}]}/><div className="chart-surface overflow-x-auto" dir="rtl"><div className="h-[300px]" style={{minWidth:Math.max(280,rows.length*44)}}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={rows} margin={{top:16,right:2,left:2,bottom:6}} {...on}><CartesianGrid stroke={C.grid} strokeDasharray="3 6" vertical={false}/><XAxis dataKey="m" {...axis} interval={0} height={35} reversed/><YAxis yAxisId="v" {...axis} orientation="right" width={40} tickFormatter={numberTick}/><YAxis yAxisId="c" {...axis} orientation="left" domain={[0,100]} ticks={[0,40,80,100]} tickFormatter={v=>`${v}%`} width={46}/><ReferenceLine yAxisId="c" y={80} stroke={C.muted} strokeDasharray="4 5"/><Tooltip cursor={{fill:'var(--chart-track)'}} content={noTip}/><Bar yAxisId="v" dataKey="v" name="قطع" radius={[5,5,0,0]} maxBarSize={30} onClick={(x:{m?:string})=>x.m&&onPick?.(x.m)} animationDuration={600}>{rows.map(r=><Cell key={r.m} fill={fill[r.cls]}/>)}</Bar><Line yAxisId="c" type="monotone" dataKey="cum" name="تراكمي" stroke={C.scrap} strokeWidth={2.5} dot={false} activeDot={{r:5,stroke:'var(--surface)',strokeWidth:2}} animationDuration={600}/></ComposedChart></ResponsiveContainer></div></div></div>;
+  const { rows: all, total, classes } = paretoRows(pull); const rows = all.slice(0, limit); const top = rows[0]?.v || 1;
+  const fill: Record<string, string> = { A: C.accent, B: C.dirty, C: C.muted }; const nA = classes[0].models;
+  const cols = 'grid grid-cols-[1.5rem_3.75rem_minmax(0,1fr)_3.5rem_2.75rem] items-center gap-3 rounded-lg px-2 py-1.5 text-start text-sm';
+  return (
+    <div className="chart-surface min-w-0">
+      <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+        {classes.map((c) => <div key={c.k} className="rounded-xl border border-line px-2 py-2.5"><span className="inline-flex items-center gap-1.5 text-[11px] text-muted"><i className="size-2 rounded-full" style={{ background: fill[c.k] }} />فئة {c.k} · <span className="num">{c.models}</span> موديل</span><b className="num mt-0.5 block text-lg font-semibold">{pct(c.pieces, total)}%</b></div>)}
+      </div>
+      <div className="grid gap-0.5">
+        {rows.map((r, i) => {
+          const cells = <>
+            <span className="num text-xs text-muted">{i + 1}</span>
+            <span className="truncate font-mono text-xs font-semibold" title={r.m}>{r.m}</span>
+            <span className="h-2 overflow-hidden rounded-full bg-[var(--chart-track)]"><span className="block h-full rounded-full transition-[width] duration-500" style={{ width: `${(r.v / top) * 100}%`, background: fill[r.cls] }} /></span>
+            <b className="num text-end">{fmt(r.v)}</b>
+            <span className="num text-end text-xs text-muted" title="تراكمي">{r.cum}%</span>
+          </>;
+          // a dashed line under the last model of class A (only when more models follow it)
+          const cut = i === nA - 1 && i < rows.length - 1 && 'mb-1 border-b border-dashed border-line pb-2.5';
+          return onPick
+            ? <button key={r.m} type="button" onClick={() => onPick(r.m)} className={cn(cols, 'transition-colors hover:bg-lav', cut)}>{cells}</button>
+            : <div key={r.m} className={cn(cols, cut)}>{cells}</div>;
+        })}
+      </div>
+      <p className="mt-3 text-[11px] text-muted">
+        {nA > 0 && nA < all.length ? <>الخط المتقطع: أول <b className="num text-ink">{nA}</b> موديل بيعملوا 80% من الطلب. </> : null}
+        العمود الأخير = النسبة التراكمية{all.length > rows.length ? <> · معروض أعلى <span className="num">{rows.length}</span> من <span className="num">{all.length}</span> موديل</> : null}.
+      </p>
+    </div>
+  );
 }
 /** Aligned rows: label · bar · value · share. Plain HTML, so the columns line up exactly. */
 export function ShareRows({rows,unit='قطعة'}:{rows:{label:string;value:number;color:string}[];unit?:string}) {
  const total=rows.reduce((a,r)=>a+Math.max(0,r.value),0)||1; const top=Math.max(1,...rows.map((r)=>r.value));
  return <div className="grid gap-2.5">{rows.map((r)=><div key={r.label} className="grid grid-cols-[6.5rem_minmax(0,1fr)_4.5rem_3rem] items-center gap-3 text-sm"><span className="flex min-w-0 items-center gap-2"><i className="size-2.5 shrink-0 rounded-full" style={{background:r.color}}/><span className="truncate">{r.label}</span></span><span className="h-2.5 overflow-hidden rounded-full bg-[var(--chart-track)]"><span className="block h-full rounded-full transition-[width] duration-500" style={{width:`${Math.max(0,r.value)/top*100}%`,background:r.color}}/></span><b className="num text-end">{fmt(r.value)}</b><span className="num text-end text-xs text-muted">{pct(Math.max(0,r.value),total)}%</span></div>)}<p className="text-end text-[11px] text-muted">الإجمالي <b className="num">{fmt(total)}</b> {unit}</p></div>;
 }
-export function HBars({rows,color=C.accent,unit='',height}:{rows:{label:string;value:number;color?:string}[];color?:string;unit?:string;height?:number}) {
- const h=height??Math.max(140,rows.length*44+12);
- return <div className="chart-surface" style={{height:h}}><ResponsiveContainer width="100%" height="100%"><BarChart data={rows} layout="vertical" margin={{top:5,right:0,left:30,bottom:5}} barCategoryGap={16}><XAxis type="number" hide reversed domain={[0,(max:number)=>max*1.2]}/><YAxis type="category" dataKey="label" orientation="right" width={100} {...axis} tick={{fill:'var(--ink)',fontSize:12}} tickFormatter={(l:string)=>l.length>15?l.slice(0,14)+'…':l}/><Tooltip cursor={false} content={<TipBox/>}/><Bar dataKey="value" name={unit||'العدد'} radius={[3,6,6,3]} maxBarSize={14} background={{fill:'var(--chart-track)',radius:5}} animationDuration={600}>{rows.map((r,i)=><Cell key={i} fill={r.color??color}/>)}<LabelList dataKey="value" content={(p:{x?:number|string;y?:number|string;width?:number|string;height?:number|string;value?:unknown})=>{const x=Number(p.x),w=Number(p.width),y=Number(p.y)+Number(p.height)/2;return <text x={Math.min(x,x+w)-6} y={y} dy={4} textAnchor="end" fill="var(--ink)" fontSize={11} className="num">{fmt(Number(p.value))}</text>;}}/></Bar></BarChart></ResponsiveContainer></div>;
+/** Ranked rows: the label and its number with the share on one line, a thin bar under it. Plain HTML, full labels. */
+export function HBars({rows,color=C.accent,unit=''}:{rows:{label:string;value:number;color?:string}[];color?:string;unit?:string}) {
+  const top = Math.max(1, ...rows.map((r) => r.value)); const total = rows.reduce((a, r) => a + Math.max(0, r.value), 0);
+  return (
+    <div className="chart-surface grid gap-3">
+      {rows.map((r, i) => (
+        <div key={`${r.label}-${i}`} className="grid gap-1.5">
+          <div className="flex items-baseline justify-between gap-3 text-sm"><span className="min-w-0 truncate text-ink" title={r.label}>{r.label}</span><span className="shrink-0"><b className="num">{fmt(r.value)}</b> <span className="num text-xs text-muted">{pct(Math.max(0, r.value), total || 1)}%</span></span></div>
+          <span className="h-1.5 overflow-hidden rounded-full bg-[var(--chart-track)]"><span className="block h-full rounded-full transition-[width] duration-500" style={{ width: `${(Math.max(0, r.value) / top) * 100}%`, background: r.color ?? color }} /></span>
+        </div>
+      ))}
+      {unit && <p className="text-end text-[11px] text-muted">بالـ{unit}</p>}
+    </div>
+  );
 }
 /** `breakdown`: what a cell holds, shown in a popup on hover (e.g. pieces per color) instead of the browser's tooltip */
 export function Heatmap({models,sizes,value,total,onPick,breakdown}:{models:string[];sizes:string[];value:(m:string,z:string)=>number;total:(m:string)=>number;onPick?:(m:string,z:string)=>void;breakdown?:(m:string,z:string)=>{label:string;n:number}[]}) {
@@ -134,4 +184,24 @@ export function TrendArea<R extends { day: string }>({ data, series, height = 26
             {series.slice(1).map((s) => <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.color} strokeWidth={2.2} strokeDasharray={s.dash ? '5 5' : undefined} dot={false} activeDot={{ r: 4 }} animationDuration={600} />)}
             <Area type="monotone" dataKey={series[0].key} name={series[0].name} stroke={series[0].color} strokeWidth={2.8} fill={`url(#${id})`} activeDot={{ r: 5, stroke: 'var(--surface)', strokeWidth: 3 }} animationDuration={600} /></ComposedChart>}
     </ResponsiveContainer></div></div>;
+}
+
+/**
+ * One stacked bar per day: the day's total split into its parts. Only for parts of the SAME orders (e.g. the orders that
+ * left on a day: collected / returned / still out), so the bar's height is that day's total. The readout leads with the
+ * total, then each part.
+ */
+export function StackedBars<R extends { day: string }>({ data, series, height = 260, totalName = 'الإجمالي' }: { data: R[]; series: TrendSeries[]; height?: number; totalName?: string }) {
+  const [hi, on] = useHover(); const row = hi != null ? data[hi] : null;
+  const num = (r: R, k: string) => Number((r as Record<string, unknown>)[k] ?? 0);
+  const val = (k: string) => (row ? num(row, k) : data.reduce((a, r) => a + num(r, k), 0));
+  const items = [{ name: totalName, value: series.reduce((a, s) => a + val(s.key), 0), color: C.text }, ...series.map((s) => ({ name: s.name, value: val(s.key), color: s.color }))];
+  // explicit width from the room each day has (recharts' own sizing can give 1px bars)
+  const barW = Math.max(4, Math.min(22, Math.floor(560 / Math.max(1, data.length))));
+  const common = [<CartesianGrid key="g" stroke={C.grid} strokeDasharray="3 6" vertical={false} />, <XAxis key="x" dataKey="day" tickFormatter={shortDay} {...axis} minTickGap={35} />, <YAxis key="y" {...axis} orientation="right" allowDecimals={false} tickFormatter={numberTick} width={48} />, <Tooltip key="t" content={noTip} cursor={{ fill: 'var(--chart-track)' }} />];
+  return <div className="min-w-0"><Readout title={row ? shortDay(row.day) : `إجمالي ${data.length} يوم`} items={items} />
+    <div className="chart-surface min-w-0" style={{ height }}><ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 12, right: 0, left: 0, bottom: 8 }} {...on}>{common}
+        {series.map((s) => <Bar key={s.key} dataKey={s.key} name={s.name} stackId="day" fill={s.color} barSize={barW} animationDuration={500} />)}
+      </BarChart></ResponsiveContainer></div></div>;
 }

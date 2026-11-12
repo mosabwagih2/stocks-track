@@ -4,7 +4,7 @@ import { lateLevel, warehouseDays, type WhDay, type WhState } from '@/femini/dom
 import { dayDiff } from '@/femini/domain/dates';
 import { cn, fmt, pct } from '@/femini/cn';
 import { Card, Chip, Empty, Kpi, Pill, Sheet, TableWrap, th, td } from './ui';
-import { C, TrendArea } from './charts';
+import { C, StackedBars } from './charts';
 import { OrderSheet } from './OrderSheets';
 
 const money = (n: number) => new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 0 }).format(n);
@@ -61,8 +61,8 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
         <Kpi label="رجع" value={fmt(sum('returned'))} sub={`${pct(sum('returned'), sum('orders'))}% · ${fmt(sum('returnedPieces'))} قطعة`} onClick={() => show('returned')} />
         <Kpi label="لسه ما اتقفلش" value={fmt(sum('pending'))} sub={`${pct(sum('pending'), sum('orders'))}% · ${fmt(sum('pendingPieces'))} قطعة`} tone={sum('pending') ? 'warn' : 'good'} onClick={() => show('pending')} />
       </div>
-      <Card title="حالة أوردرات كل يوم خروج" hint="أوردرات">
-        <TrendArea bars data={chart} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }, { key: 'pending', name: 'لسه', color: C.dirty }]} />
+      <Card title="حالة أوردرات كل يوم خروج" hint="كل عمود = أوردرات اليوم ده: اتحصّل · رجع · لسه">
+        <StackedBars data={chart} totalName="خرج" series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'رجع', color: C.scrap }, { key: 'pending', name: 'لسه', color: C.dirty }]} />
       </Card>
       <Card title={`أيام لسه مفتوحة (${fmt(open.length)})`} hint="الأقدم الأول · الأحمر عدّى عليه 7 أيام أو أكتر من غير ما يتقفل">
         {!open.length ? <Empty>كل الأيام اتقفلت.</Empty> : <DaysTable d={d} days={open} kind="open" onOpen={(x) => setSheet({ day: x.day, f: 'pending' })} />}

@@ -1,6 +1,6 @@
 import { addDays, dayDiff } from '@/femini/domain/dates';
 import { lineBase } from '@/femini/domain/constants';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, Flame, Gauge, PackageX, Sparkles, Truck, Users, Wallet } from 'lucide-react';
 import { useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
@@ -34,16 +34,41 @@ const lineOf = (m: string) => { const b = lineBase(m); return /^PAN/.test(b) ? '
 const LINE_COLOR: Record<string, string> = { بانتي: C.accent, برا: C.scrap, شورت: C.factory, 'موديلات أخرى': C.dirty };
 const topN = (o: Record<string, number>, n: number) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
 
-type Sec = 'summary' | 'demand' | 'risk' | 'team' | 'collect' | 'whday' | 'finance';
+type Sec = 'summary' | 'collect' | 'whday' | 'finance';
 const SECTIONS: { id: Sec; label: string; icon: typeof BarChart3 }[] = [
   { id: 'summary', label: 'الملخص', icon: Sparkles },
   { id: 'collect', label: 'التحصيل', icon: Wallet },
-  { id: 'whday', label: 'تقفيل يوم المخزن', icon: CalendarCheck },
-  { id: 'finance', label: 'القيمة المالية', icon: FileSpreadsheet },
-  { id: 'risk', label: 'المخاطر', icon: AlertTriangle },
-  { id: 'demand', label: 'الطلب', icon: Flame },
-  { id: 'team', label: 'الفريق', icon: Users },
+  { id: 'whday', label: 'تقفيل اليوم', icon: CalendarCheck },
+  { id: 'finance', label: 'قيمة المخزون', icon: FileSpreadsheet },
 ];
+/** The parts of the summary, in reading order. Risk, demand and team were tabs of their own: their old links open here. */
+type Part = 'kpi' | 'attention' | 'risk' | 'trend' | 'mix' | 'demand' | 'team';
+const PARTS: { id: Part; label: string }[] = [
+  { id: 'kpi', label: 'الأداء' }, { id: 'attention', label: 'يحتاج انتباهك' }, { id: 'risk', label: 'المخاطر' },
+  { id: 'trend', label: 'الاتجاه' }, { id: 'mix', label: 'التركيبة' }, { id: 'demand', label: 'الطلب' }, { id: 'team', label: 'الفريق' },
+];
+const OLD_TABS: Part[] = ['risk', 'demand', 'team'];
+
+/**
+ * Scrolls to a part of the summary and keeps it in place while the parts above it finish drawing (they fill in after the
+ * first paint and change height). Stops at once if the person scrolls by hand.
+ */
+function jump(id: Part) {
+  const el = () => document.getElementById(`part-${id}`);
+  el()?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  let stop = false; const cancel = () => { stop = true; };
+  const opts = { once: true, passive: true } as const;
+  window.addEventListener('wheel', cancel, opts); window.addEventListener('touchstart', cancel, opts); window.addEventListener('keydown', cancel, opts);
+  const t0 = performance.now();
+  const step = () => {
+    const x = el(); const t = performance.now() - t0;
+    if (stop || !x || t > 2500) { window.removeEventListener('wheel', cancel); window.removeEventListener('touchstart', cancel); window.removeEventListener('keydown', cancel); return; }
+    // after the smooth scroll had its time, put it back where it belongs if something above it grew or shrank
+    if (t > 700) { const want = parseFloat(getComputedStyle(x).scrollMarginTop) || 0; if (Math.abs(x.getBoundingClientRect().top - want) > 8) x.scrollIntoView({ block: 'start' }); }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
 
 function useStats(d: Derived | null, range: Range | null) {
   return useMemo(() => {
@@ -72,7 +97,17 @@ function useStats(d: Derived | null, range: Range | null) {
 export default function Insights() {
   const { d, isLoading, error } = useDerived();
   const [sp, setSp] = useSearchParams();
-  const sec = (SECTIONS.some((s) => s.id === sp.get('tab')) ? sp.get('tab') : 'summary') as Sec;
+  const tabP = sp.get('tab') ?? '';
+  const sec = (SECTIONS.some((s) => s.id === tabP) ? tabP : 'summary') as Sec;
+  // an old address (?tab=risk / demand / team) opens the summary at that part, and the address becomes the summary's
+  const oldPart = (OLD_TABS as string[]).includes(tabP) ? (tabP as Part) : null;
+  useEffect(() => {
+    if (!oldPart || !d) return;
+    const p = new URLSearchParams(sp); p.delete('tab'); setSp(p, { replace: true });
+    // not cancelled by the re-render that the new address brings (that would drop the jump); harmless if the page closed
+    setTimeout(() => jump(oldPart), 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oldPart, !!d]);
   const go = (v: Sec) => { const p = new URLSearchParams(sp); if (v === 'summary') p.delete('tab'); else p.set('tab', v); setSp(p, { replace: true }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const period = (PERIODS.find((x) => String(x) === sp.get('p')) ?? 14) as Period;
   // a chosen date range (from / to in the address) replaces the ready-made periods
@@ -97,7 +132,7 @@ export default function Insights() {
   const toast = useToast();
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d || !st || !cmp) return <Spinner />;
-  const counts: Partial<Record<Sec, number>> = { risk: alerts.filter((a) => a.level === 'crit').length };
+  const counts: Partial<Record<Sec, number>> = { summary: alerts.filter((a) => a.level === 'crit').length };
   const secLabel = SECTIONS.find((x) => x.id === sec)?.label ?? 'الملخص';
   const periodLabel = sec === 'finance' ? `الأرصدة الحالية حتى ${d.today} · التكلفة المسجلة حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`;
   const filters = 'بدون فلاتر إضافية';
@@ -118,7 +153,7 @@ export default function Insights() {
         <div>الفترة: {periodLabel}</div><div>الفلاتر: {filters}</div><div>تاريخ التصدير: {d.today}</div>
       </div>
 
-      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-6 grid grid-cols-7 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:static max-sm:grid-cols-4">
+      <nav aria-label="أقسام التحليلات" className="print:hidden sticky top-[57px] z-10 -mx-1 mb-4 grid grid-cols-4 gap-1 rounded-2xl border border-line bg-surface/90 p-1 shadow-card backdrop-blur max-sm:static max-sm:grid-cols-4">
         {SECTIONS.map(({ id, label, icon: Icon }) => (
           <Button key={id} variant={sec === id ? 'primary' : 'ghost'} onClick={() => go(id)} aria-pressed={sec === id}
             className={cn('group flex h-auto items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition max-sm:flex-col max-sm:gap-1 max-sm:px-1 max-sm:py-2 max-sm:text-[11px] max-sm:leading-tight', sec === id ? 'bg-accent text-on-accent' : 'text-ink hover:bg-lav')}>
@@ -129,10 +164,22 @@ export default function Insights() {
         ))}
       </nav>
 
-      {sec === 'summary' && <Summary d={d} st={st} cmp={cmp} period={days} label={rangeLabel} go={go} />}
-      {sec === 'demand' && <Demand d={d} st={st} />}
-      {sec === 'risk' && <Risk d={d} st={st} alerts={alerts} />}
-      {sec === 'team' && <Team d={d} st={st} />}
+      {sec === 'summary' && (
+        <div className="grid gap-8">
+          <div className="print:hidden -mt-1 grid gap-2">
+            <p className="text-[11px] text-muted"><i className="me-1 inline-block size-2 rounded-full bg-chart-primary align-middle" />الحالية <span className="num" dir="ltr">{cmp.cur.from} → {cmp.cur.to}</span><span className="mx-2 text-line">|</span><i className="me-1 inline-block size-2 rounded-full bg-chart-previous align-middle" />للمقارنة <span className="num" dir="ltr">{cmp.prev.from} → {cmp.prev.to}</span></p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+              <span className="shrink-0 self-center pe-1 text-xs text-muted">انتقل إلى:</span>
+              {PARTS.map((x) => <button key={x.id} type="button" onClick={() => jump(x.id)} className="shrink-0 rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink transition-colors hover:border-accent/50 hover:bg-lav">{x.label}</button>)}
+            </div>
+          </div>
+          <Summary d={d} st={st} cmp={cmp} label={rangeLabel} />
+          <Block id="risk" n={3} title="المخاطر" hint="تنبيهات، أوردرات متوقفة، رصيد سالب وراكد"><Deferred minHeight={520}><Risk d={d} st={st} alerts={alerts} /></Deferred></Block>
+          <TrendMix d={d} st={st} cmp={cmp} period={days} />
+          <Block id="demand" n={6} title="الطلب" hint={rangeLabel}><Deferred minHeight={600}><Demand d={d} st={st} /></Deferred></Block>
+          <Block id="team" n={7} title="الفريق" hint="الشحن المسجّل لكل موظف"><Deferred minHeight={420}><Team d={d} st={st} /></Deferred></Block>
+        </div>
+      )}
       {sec === 'collect' && range && <CollectionsView d={d} from={range.from} to={range.to} />}
       {sec === 'whday' && range && <WarehouseDayView d={d} from={range.from} to={range.to} />}
       {sec === 'finance' && <FinancialReport s={d.snap} />}
@@ -159,16 +206,17 @@ function Delta({ cur, prev, upIsGood = true, suffix = '' }: { cur: number; prev:
 
 function Stat({ icon: Icon, label, value, sub, tone = 'accent', children, onClick }: { icon: typeof BarChart3; label: string; value: ReactNode; sub?: ReactNode; tone?: 'accent' | 'good' | 'warn' | 'crit'; children?: ReactNode; /** opens the detail behind the number */ onClick?: () => void }) {
   const t = { accent: 'bg-accent-soft text-accent', good: 'bg-good-bg text-good', warn: 'bg-warn-bg text-warn', crit: 'bg-crit-bg text-crit' }[tone];
-  const cls = 'fade-up relative grid content-start rounded-2xl border border-line bg-surface p-4 shadow-card';
+  const cls = 'fade-up group relative flex min-h-[132px] flex-col rounded-2xl border border-line bg-surface p-4 shadow-card';
   const body = (
     <>
-      <div className="flex items-center gap-2.5"><span className={cn('grid size-9 place-items-center rounded-xl', t)}><Icon className="size-[18px]" /></span><span className="text-[13px] font-medium text-muted">{label}</span></div>
-      <b className="num mt-3 text-[30px] leading-none font-semibold tracking-tight">{value}</b>
+      <div className="flex items-center justify-between gap-2"><span className="text-[13px] font-medium text-muted">{label}</span><span className={cn('grid size-7 shrink-0 place-items-center rounded-lg', t)}><Icon className="size-3.5" /></span></div>
+      <b className="num mt-2 text-[28px] leading-none font-semibold tracking-tight">{value}</b>
       {sub && <span className="mt-1.5 text-xs text-muted">{sub}</span>}
-      {children}
+      {children && <div className="mt-auto pt-2">{children}</div>}
+      {onClick && <ArrowLeft aria-hidden="true" className="absolute bottom-3 end-3 size-4 text-muted opacity-0 transition group-hover:opacity-100 print:hidden" />}
     </>
   );
-  return onClick ? <button type="button" onClick={onClick} className={cls + ' w-full cursor-pointer text-start transition hover:-translate-y-0.5 hover:border-accent/50'}>{body}</button> : <div className={cls}>{body}</div>;
+  return onClick ? <button type="button" onClick={onClick} className={cls + ' w-full cursor-pointer text-start transition hover:border-accent/50 hover:shadow-md'}>{body}</button> : <div className={cls}>{body}</div>;
 }
 
 type Kind = 'rate' | 'pieces' | 'shipped' | 'cancelled' | 'blocked' | 'old' | 'neg' | 'dead' | 'team';
@@ -208,73 +256,89 @@ function InsightSheet({ d, st, kind, range, onClose }: { d: Derived; st: Stats; 
 function Ring({ value }: { value: number }) {
   const r = 16, c = 2 * Math.PI * r;
   return (
-    <svg viewBox="0 0 40 40" className="size-11 -rotate-90" role="img" aria-label={`نسبة الشحن ${value}%`}><circle cx="20" cy="20" r={r} fill="none" stroke="var(--chart-track)" strokeWidth="3" />
+    <svg viewBox="0 0 40 40" className="size-8 -rotate-90" role="img" aria-label={`نسبة الشحن ${value}%`}><circle cx="20" cy="20" r={r} fill="none" stroke="var(--chart-track)" strokeWidth="3" />
       <circle cx="20" cy="20" r={r} fill="none" stroke="var(--chart-secondary)" strokeWidth="3" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - value / 100)} className="transition-all duration-700 motion-reduce:transition-none" /></svg>
   );
 }
 
-function Summary({ d, st, cmp, period, label, go }: { d: Derived; st: Stats; cmp: Cmp; period: number; label: string; go: (s: Sec) => void }) {
-  const [metric, setMetric] = useState<'pcs' | 'req' | 'ship'>('req'); const [kind, setKind] = useState<Kind | null>(null);
+/** A numbered part of the summary: a small heading over its content, so the page reads top-down in blocks. */
+function Block({ id, n, title, hint, children }: { id: Part; n: number; title: string; hint?: ReactNode; children: ReactNode }) {
+  return (
+    <section id={`part-${id}`} aria-labelledby={`part-${id}-h`} className="grid scroll-mt-36 gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line pb-2">
+        <span className="grid size-6 place-items-center rounded-lg bg-accent-soft font-mono text-xs font-semibold text-accent">{n}</span>
+        <h2 id={`part-${id}-h`} className="font-display text-lg font-semibold">{title}</h2>{hint && <span className="text-xs text-muted">{hint}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Summary({ d, st, cmp, label }: { d: Derived; st: Stats; cmp: Cmp; label: string }) {
+  const [kind, setKind] = useState<Kind | null>(null);
   const { cur, prev } = cmp; const rate = cur.rate;
-  const series = cmp.curDays.map((r, i) => ({ day: r.day, cur: r[metric], prev: cmp.prevDays[i]?.[metric] ?? 0 }));
-  const decisions: { tone: 'crit' | 'warn' | 'good' | 'accent'; icon: typeof BarChart3; title: string; body: string; to: Sec; cta: string }[] = [];
+  const decisions: { tone: 'crit' | 'warn' | 'good' | 'accent'; icon: typeof BarChart3; title: string; body: string; to: Part; cta: string }[] = [];
   if (d.blocked.size) decisions.push({ tone: 'crit', icon: PackageX, title: `${d.blocked.size} أوردر متوقف`, body: `${fmt(st.stuckPcs)} قطعة محجوزة بسبب نقص صنف واحد على الأقل في كل أوردر.`, to: 'risk', cta: 'الأصناف المسببة' });
   if (st.sorted.length) decisions.push({ tone: 'accent', icon: Flame, title: `${st.sorted[0][0]} الأكثر طلبًا`, body: `${pct(st.sorted[0][1], st.total)}% من القطع. ${st.n80} موديل من ${st.sorted.length} تصنع 80% من الطلب.`, to: 'demand', cta: 'تحليل الطلب' });
   if (st.dead.length) decisions.push({ tone: 'warn', icon: Gauge, title: `${st.dead.length} صنف راكد`, body: 'عليه رصيد جاهز ولم يُطلب في آخر 14 يومًا.', to: 'risk', cta: 'عرض الراكد' });
   if (!decisions.length) decisions.push({ tone: 'good', icon: Sparkles, title: 'كل شيء على ما يرام', body: 'لا توجد أوردرات متوقفة ولا أصناف تحت الحد.', to: 'demand', cta: 'تحليل الطلب' });
   const toneCls = { crit: 'border-crit-line bg-crit-bg text-crit', warn: 'border-warn-line bg-warn-bg text-warn', good: 'border-good-line bg-good-bg text-good', accent: 'border-line bg-accent-soft text-accent' };
   return (
-    <div className="grid gap-4">
+    <>
       {kind && <InsightSheet d={d} st={st} kind={kind} range={{ from: cmp.cur.from, to: cmp.cur.to }} onClose={() => setKind(null)} />}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={Truck} label="نسبة الشحن" onClick={() => setKind('rate')} value={`${rate}%`} sub={`${fmt(cur.shipped)} شحنة من ${fmt(cur.orders)} أوردر`} tone="good"><div className="absolute top-4 left-4 max-sm:hidden"><Ring value={rate} /></div><div className="mt-2"><Delta cur={cur.rate} prev={prev.rate} suffix="%" /></div></Stat>
-        <Stat icon={BarChart3} label="القطع المطلوبة" onClick={() => setKind('pieces')} value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر · ${label}`}><div className="mt-2"><Delta cur={cur.pieces} prev={prev.pieces} /></div><Sparkline data={cmp.curDays.map((r) => r.pcs)} labels={cmp.curDays.map((r) => r.day)} /></Stat>
-        <Stat icon={Truck} label="القطع المشحونة" onClick={() => setKind('shipped')} value={fmt(cur.shippedPcs)} sub={`${fmt(cur.shipped)} أوردر`} tone="good"><div className="mt-2"><Delta cur={cur.shippedPcs} prev={prev.shippedPcs} /></div><Sparkline data={cmp.curDays.map((r) => r.shipPcs)} labels={cmp.curDays.map((r) => r.day)} color={C.ready} /></Stat>
-        <Stat icon={PackageX} label="ملغاة" onClick={() => setKind('cancelled')} value={fmt(cur.cancelled)} sub="أوردرات ألغيت في الفترة" tone={cur.cancelled ? 'warn' : 'good'}><div className="mt-2"><Delta cur={cur.cancelled} prev={prev.cancelled} upIsGood={false} /></div></Stat>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Stat icon={PackageX} label="متوقف بسبب المخزون الآن" onClick={() => setKind('blocked')} value={fmt(d.blocked.size)} sub={`${fmt(st.stuckPcs)} قطعة`} tone={d.blocked.size ? 'crit' : 'good'} />
-        <Stat icon={Gauge} label="أصناف راكدة" onClick={() => setKind('dead')} value={fmt(st.dead.length)} sub={`رصيد جاهز لم يُطلب من ${STAGNANT_DAYS} يوم أو أكتر`} tone={st.dead.length ? 'warn' : 'good'} />
-      </div>
+      <Block id="kpi" n={1} title="مؤشرات الأداء" hint={`${label} · اضغط على أي رقم لتفاصيله`}>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat icon={Truck} label="نسبة الشحن" onClick={() => setKind('rate')} value={<span className="inline-flex items-center gap-2">{rate}%<Ring value={rate} /></span>} sub={`${fmt(cur.shipped)} من ${fmt(cur.orders)} أوردر`} tone="good"><Delta cur={cur.rate} prev={prev.rate} suffix="%" /></Stat>
+          <Stat icon={BarChart3} label="القطع المطلوبة" onClick={() => setKind('pieces')} value={fmt(cur.pieces)} sub={`${fmt(cur.orders)} أوردر`}><Delta cur={cur.pieces} prev={prev.pieces} /><Sparkline data={cmp.curDays.map((r) => r.pcs)} labels={cmp.curDays.map((r) => r.day)} height={36} /></Stat>
+          <Stat icon={Truck} label="القطع المشحونة" onClick={() => setKind('shipped')} value={fmt(cur.shippedPcs)} sub={`${fmt(cur.shipped)} أوردر`} tone="good"><Delta cur={cur.shippedPcs} prev={prev.shippedPcs} /><Sparkline data={cmp.curDays.map((r) => r.shipPcs)} labels={cmp.curDays.map((r) => r.day)} color={C.ready} height={36} /></Stat>
+          <Stat icon={PackageX} label="ملغاة" onClick={() => setKind('cancelled')} value={fmt(cur.cancelled)} sub="أوردر ألغي في الفترة" tone={cur.cancelled ? 'warn' : 'good'}><Delta cur={cur.cancelled} prev={prev.cancelled} upIsGood={false} /></Stat>
+        </div>
+      </Block>
 
-      <div>
-        <h2 className="mb-3 font-display text-[15px] font-semibold">قرارات تحتاج انتباهك</h2>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <Block id="attention" n={2} title="يحتاج انتباهك" hint="الأهم الأول · اضغط للانتقال للتفاصيل">
+        <div className="grid divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
           {decisions.map((x, i) => (
-            <button key={i} type="button" onClick={() => go(x.to)} className={cn('fade-up group grid content-start gap-2 rounded-2xl border p-4 text-start transition hover:-translate-y-0.5 hover:shadow-card', toneCls[x.tone])}>
-              <x.icon className="size-5" />
-              <b className="text-[15px] text-ink">{x.title}</b>
-              <span className="text-[13px] text-muted">{x.body}</span>
-              <span className="mt-1 inline-flex items-center gap-1 text-[13px] font-semibold">{x.cta}<ArrowLeft className="size-4 transition group-hover:-translate-x-1" /></span>
+            <button key={i} type="button" onClick={() => jump(x.to)} className="group flex w-full items-center gap-3 p-4 text-start transition-colors hover:bg-lav">
+              <span className={cn('grid size-9 shrink-0 place-items-center rounded-xl border', toneCls[x.tone])}><x.icon className="size-4" /></span>
+              <span className="min-w-0 flex-1"><b className="block text-sm text-ink">{x.title}</b><span className="block text-[13px] text-muted">{x.body}</span></span>
+              <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold text-accent max-sm:hidden print:hidden">{x.cta}<ArrowLeft className="size-4 transition group-hover:-translate-x-1" /></span>
             </button>
           ))}
         </div>
-      </div>
+      </Block>
+    </>
+  );
+}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Deferred minHeight={400}>
-        <Card title="الفترة الحالية مقابل السابقة" hint={`${period} يوم مقابل ${period} يوم`} action={<span className="print:hidden"><Seg value={metric} onChange={setMetric} options={[['req', 'أوردرات'], ['pcs', 'قطع مطلوبة'], ['ship', 'مشحون']]} /></span>}>
+/** The trend and the mix of the summary: this period against the one before, the 80/20 models, lines and stock by state. */
+function TrendMix({ d, st, cmp, period }: { d: Derived; st: Stats; cmp: Cmp; period: number }) {
+  const [metric, setMetric] = useState<'pcs' | 'req' | 'ship'>('req');
+  const series = cmp.curDays.map((r, i) => ({ day: r.day, cur: r[metric], prev: cmp.prevDays[i]?.[metric] ?? 0 }));
+  return (
+    <>
+      <Block id="trend" n={4} title="الاتجاه" hint={`${period} يوم مقابل ${period} يوم`}>
+        <Deferred minHeight={380}>
+        <Card title="الفترة الحالية مقابل السابقة" action={<span className="print:hidden"><Seg value={metric} onChange={setMetric} options={[['req', 'أوردرات'], ['pcs', 'قطع مطلوبة'], ['ship', 'مشحون']]} /></span>}>
           <CompareArea data={series} />
-          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-primary" />الفترة الحالية ({cmp.cur.from} → {cmp.cur.to})</span><span><i className="me-1.5 inline-block h-0.5 w-4 border-t-2 border-dashed border-chart-previous align-middle" /> الفترة السابقة ({cmp.prev.from} → {cmp.prev.to})</span></div>
+          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-primary" />الحالية (<span dir="ltr">{cmp.cur.from} → {cmp.cur.to}</span>)</span><span><i className="me-1.5 inline-block h-0.5 w-4 border-t-2 border-dashed border-chart-previous align-middle" /> السابقة (<span dir="ltr">{cmp.prev.from} → {cmp.prev.to}</span>)</span></div>
         </Card>
         </Deferred>
-        <Deferred minHeight={300}>
-        <LineCard st={st} />
-        </Deferred>
-      </div>
+      </Block>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Deferred minHeight={420}>
-        <Card title="باريتو 80/20: الموديلات الأكثر طلبًا" hint={`${st.n80} موديل = 80% من الطلب`}>
-          {st.sorted.length ? <Pareto pull={st.pull} /> : <Empty>لا توجد طلبات في الفترة دي.</Empty>}
-          <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted"><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-primary" />فئة A</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-dirty" />فئة B</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-chart-previous" />فئة C</span><span><i className="me-1.5 inline-block size-2.5 rounded-full bg-scrap" />تراكمي</span></div>
-        </Card>
-        </Deferred>
-        <Deferred minHeight={280}>
-        <Card title="المخزون حسب الحالة"><StateDonut d={d} compact /></Card>
-        </Deferred>
-      </div>
-    </div>
+      <Block id="mix" n={5} title="التركيبة" hint="منين بييجي الطلب وفين المخزون">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <Deferred minHeight={520}>
+          <Card title="باريتو 80/20: الموديلات الأكثر طلبًا" hint={`${st.n80} موديل = 80% من الطلب`}>
+            {st.sorted.length ? <Pareto pull={st.pull} /> : <Empty>لا توجد طلبات في الفترة دي.</Empty>}
+          </Card>
+          </Deferred>
+          <div className="grid gap-4">
+            <Deferred minHeight={260}><LineCard st={st} /></Deferred>
+            <Deferred minHeight={280}><Card title="المخزون حسب الحالة"><StateDonut d={d} compact /></Card></Deferred>
+          </div>
+        </div>
+      </Block>
+    </>
   );
 }
 
@@ -353,7 +417,7 @@ function Team({ d, st }: { d: Derived; st: Stats }) {
   return (
     <div className="grid gap-4">
       {kind && <InsightSheet d={d} st={st} kind={kind} range={null} onClose={() => setKind(null)} />}
-      <div className="grid grid-cols-3 gap-3"><Stat icon={Users} label="موظفون" value={ks.length} onClick={() => setKind('team')} /><Stat icon={Truck} label="أوردرات مشحونة" value={fmt(tot)} tone="good" onClick={() => setKind('team')} /><Stat icon={Gauge} label="آخر تسجيل" value={timeCairo(last)} /></div>
+      <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2"><Stat icon={Users} label="موظفون" value={ks.length} onClick={() => setKind('team')} /><Stat icon={Truck} label="أوردرات مشحونة" value={fmt(tot)} tone="good" onClick={() => setKind('team')} /><Stat icon={Gauge} label="آخر تسجيل" value={timeCairo(last)} /></div>
       <Deferred minHeight={300}>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="الأوردرات حسب الموظف"><HBars rows={ks.map((k) => ({ label: k, value: e[k].o }))} color={C.ready} unit="أوردر" /></Card>
@@ -402,11 +466,11 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
     ['نسبة الشحن %', cur.rate, prev.rate, ch(cur.rate, prev.rate)],
     ['ملغاة', cur.cancelled, prev.cancelled, ch(cur.cancelled, prev.cancelled)],
   ] }, { name: 'يومي', rows: [['اليوم', 'قطع مطلوبة', 'أوردرات', 'مشحون', 'اليوم المقابل', 'قطع مطلوبة (سابقة)'], ...cmp.curDays.map((r, i) => [r.day, r.pcs, r.req, r.ship, cmp.prevDays[i]?.day ?? '', cmp.prevDays[i]?.pcs ?? 0])] }];
-  if (sec === 'summary' || sec === 'demand') {
+  if (sec === 'summary') {   // the summary holds demand, risk and team now
     sheets.push({ name: 'باريتو', rows: [['الموديل', 'قطع', '% من الطلب'], ...st.sorted.map(([m, v]) => [m, v, pct(v, st.total)])] });
     sheets.push({ name: 'الأكثر طلبا', rows: [['الصنف', 'مطلوب', 'طلب مفتوح', 'جاهز', 'يكفي (يوم)'], ...st.hot.map((r) => [skuLabel(d.skuMap, r.id), r.n, r.open, r.ready, r.cover === null ? '—' : Math.round(r.cover)])] });
   }
-  if (sec === 'summary' || sec === 'risk') {
+  if (sec === 'summary') {
     sheets.push({ name: 'التنبيهات', rows: [['المستوى', 'التنبيه', 'التفاصيل'], ...alerts.map((a) => [a.level === 'crit' ? 'عاجل' : a.level === 'warn' ? 'انتبه' : 'للعلم', a.title, a.body])] });
     sheets.push({ name: 'المتوقف', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'قطع', 'الناقص'], ...d.open.filter((o) => d.blocked.has(o.ref)).map((o) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', o.lines.length, (d.blocked.get(o.ref) ?? []).map((x) => `${skuLabel(d.skuMap, x.sku)} ×${x.short}`).join('، ')])] });
   }
@@ -434,7 +498,7 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
       .map((o) => ({ o, day: o.shippedAt ? cairoDay(o.shippedAt) : '' })).sort((a, b) => a.day.localeCompare(b.day));
     sheets.push({ name: 'لسه ما اتحصلش', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'قطع'], ...waiting.map(({ o, day }) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', day, o.lines.length])] });
   }
-  if (sec === 'team') {
+  if (sec === 'summary') {
     const e: Record<string, { o: number; p: number }> = {};
     for (const o of d.snap.orders) if (o.status === 'shipped' && o.shippedBy) { const x = (e[o.shippedBy] ??= { o: 0, p: 0 }); x.o++; x.p += o.lines.length; }
     sheets.push({ name: 'الفريق', rows: [['الموظف', 'أوردرات', 'قطع'], ...Object.entries(e).sort((a, b) => b[1].o - a[1].o).map(([k, v]) => [k, v.o, v.p])] });
