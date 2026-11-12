@@ -41,11 +41,9 @@ function cellTone(loc: Loc, v: number, info: ReturnType<typeof cellInfo>): strin
 }
 const Key = ({ cls, children }: { cls: string; children: string }) => <span className="inline-flex items-center gap-1.5"><i className={`inline-block size-3.5 rounded border ${cls}`} />{children}</span>;
 
-/** a small line in a matrix cell: the number at the right edge, its word at the left edge (so every cell lines up); a text with no number stays centered */
+/** a small line in a matrix cell: the number then its word, as plain centered text («46 طلب»), in left-to-right order so the number stays first */
 function CellLine({ num, word, text }: { num?: string; word?: string; text?: string }) {
-  if (num == null) { const m = /^(~?\+?\d+)\s+(.+)$/.exec(text ?? ''); if (m) { num = m[1]; word = m[2]; } }
-  if (num == null) return <small className="whitespace-nowrap text-center font-sans text-[10px] leading-none opacity-80">{text}</small>;
-  return <small className="flex w-full items-baseline justify-between gap-1 whitespace-nowrap font-sans text-[10px] leading-none opacity-80"><span className="num">{num}</span><span>{word}</span></small>;
+  return <small dir="rtl" className="whitespace-nowrap text-center font-sans text-[10px] leading-none opacity-80">{num != null ? `${num} ${word}` : text}</small>;
 }
 
 function Matrix({ d, model, loc, onCell }: { d: Derived; model: string; loc: Loc; onCell: (s: Sku) => void }) {
