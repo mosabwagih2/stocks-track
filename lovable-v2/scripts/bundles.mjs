@@ -10,14 +10,20 @@ const digits = (s) => String(s ?? '').replace(/[٠-٩]/g, (c) => AR.indexOf(c));
 const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const MODEL = String.raw`(?:FC-|Women-)?((?:PAN|BR|SH)\d+|D\d+|A\d+|S\d+)`;
 
-/** bundles whose pieces are not spelled out per model in the store: shown, but not counted */
-const UNKNOWN = {
-  10457392546081: 'التركيبة مش مكتوبة بالتفصيل في الموقع (١٠ بانتي + ٥ هوت شورت + ٥ برا بقصات مختلفة).',
-  10457365250337: 'التركيبة مش مكتوبة بالتفصيل في الموقع (٣٠ قطعة أندروير + ٥ سبورت برا هدية).',
-  10457274188065: 'التركيبة مش مكتوبة بالتفصيل في الموقع (١٥ بانتي ثونج من ٣ قصات).',
-};
-/** bundles whose store code lists models without the count of each */
+/** bundles whose composition cannot be told at all: shown, but not counted */
+const UNKNOWN = {};
+/** bundles whose store code says too little: the pieces and colors, read from the pictures */
+const FIVE = ['احمر', 'ابيض', 'اسود', 'رمادي', 'بيج'];
+const THREE = ['اسود', 'بيج', 'احمر'];
 const MANUAL = {
+  // read from the store's pictures: the colors of each model in the bundle
+  10585047433505: [...['PAN4', 'PAN5', 'BR3', 'BR4', 'SH1'].map((model) => ({ model, qty: 3, colors: THREE })), { model: 'BR2', qty: 1, colors: ['بيج'] }, { model: 'SH2', qty: 1, colors: ['بيج'] }],
+  // the picture: black and white racerback sports bras (BR3), the grey thin-strap one (BR4), red and beige triangle bras (BR2).
+  // The store's code names BR2 for black/white and BR3 for red/beige: the picture and the model names agree with each other, not with the code.
+  10457392546081: [...['SH1', 'PAN4', 'PAN5'].map((model) => ({ model, qty: 5, colors: FIVE })), { model: 'BR3', qty: 2, colors: ['اسود', 'ابيض'] }, { model: 'BR4', qty: 1, colors: ['رمادي'] }, { model: 'BR2', qty: 2, colors: ['احمر', 'بيج'] }],
+  10457365250337: [...['PAN1', 'PAN2', 'PAN3', 'PAN4', 'PAN5', 'SH1', 'BR4'].map((model) => ({ model, qty: 5, colors: FIVE }))],
+  10457274188065: [...['PAN1', 'PAN2', 'PAN3'].map((model) => ({ model, qty: 5, colors: FIVE }))],
+  // the store's code lists the models without the count of each
   10395980333345: [{ model: 'PAN4', qty: 5, colors: null }, { model: 'PAN5', qty: 5, colors: null }],
 };
 
