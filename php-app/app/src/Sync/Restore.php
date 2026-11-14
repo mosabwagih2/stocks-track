@@ -158,6 +158,29 @@ final class Restore
         return ['safety' => $safety, 'rev' => (int)Database::value('SELECT rev FROM sync_state WHERE id = 1')];
     }
 
+    /**
+     * Empties every data table (moves, documents, pickups, orders, collections, settings, files): the system starts again
+     * from nothing. The uploaded files stay on disk so the safety copy taken first can bring them back. Users, passwords,
+     * roles and the activity log are never touched. Same protection as a restore: safety copy first (no copy, no wipe), one
+     * transaction, and a new epoch so every page open before it reloads before it can save.
+     */
+    public static function wipe(array $user): array
+    {
+        $safety = self::safetyCopy('before-wipe');
+        Database::transaction(function () use ($user): void {
+            $rev = (int)Database::value('SELECT rev FROM sync_state WHERE id = 1 FOR UPDATE') + 1;
+            foreach (self::DATA_TABLES as $t) {
+                Database::run("DELETE FROM `$t`");
+            }
+            $epoch = json_encode(['id' => bin2hex(random_bytes(8)), 'at' => gmdate('c'), 'by' => $user['name'], 'from' => 'wipe'], JSON_UNESCAPED_UNICODE);
+            Database::run('INSERT INTO meta (k, v, rev, updated_by, updated_at) VALUES (?,?,?,?,UTC_TIMESTAMP())', ['epoch', $epoch, $rev, $user['id']]);
+            Database::run('UPDATE sync_state SET rev = ? WHERE id = 1', [$rev]);
+            Database::run('INSERT INTO audit (t, by_name, msg, rev) VALUES (?,?,?,?)',
+                [(int)(microtime(true) * 1000), mb_substr($user['name'], 0, 80), 'اتمسحت كل البيانات (نسخة الأمان: ' . $safety . ')', $rev]);
+        });
+        return ['safety' => $safety, 'rev' => (int)Database::value('SELECT rev FROM sync_state WHERE id = 1')];
+    }
+
     // ---------------------------------------------------------------------------------------------------------------
 
     private static function check(\stdClass $b): void
