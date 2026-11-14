@@ -19,11 +19,11 @@ describe('shop return (مرتجع المحل)', () => {
 });
 
 describe('model order for the pickers', () => {
-  it('groups by line, the most pulled line first; inside a line by pull, then stock, then number', () => {
+  it('groups by line, the most pulled line first; inside a line by number (PAN1, PAN2, PAN3…)', () => {
     const codes = ['A1', 'BR2', 'BR10', 'PAN6', 'PAN1', 'SH3', 'A2'];
     const pull = { BR10: 5, BR2: 9, PAN6: 30, SH3: 1 };
     const stock = { A2: 4, PAN1: 7 };
-    expect(orderModels(codes, pull, stock)).toEqual(['PAN6', 'PAN1', 'BR2', 'BR10', 'SH3', 'A2', 'A1']);
+    expect(orderModels(codes, pull, stock)).toEqual(['PAN1', 'PAN6', 'BR2', 'BR10', 'SH3', 'A1', 'A2']);
   });
 });
 

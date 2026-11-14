@@ -114,7 +114,7 @@ function stockOf(skus: { id: string; model: string }[], balances: Balances) {
 /** The product line of a model code: its letters before the number ("PAN6" → PAN, "BR12" → BR, "A1" → A). */
 export const lineCode = (m: string) => /^[A-Z]+/.exec(lineBase(m))?.[0] ?? m;
 
-/** Models grouped by line, the most pulled line first; inside a line the most pulled first, then stock, then the number. */
+/** Models grouped by line, the most pulled line first (then stock); inside a line by the number, so similar models read PAN1, PAN2, PAN3. */
 export function orderModels(codes: string[], pull: Record<string, number>, stock: Record<string, number>) {
   const linePull: Record<string, number> = {}; const lineStock: Record<string, number> = {};
   for (const c of codes) { const l = lineCode(c); linePull[l] = (linePull[l] ?? 0) + (pull[c] ?? 0); lineStock[l] = (lineStock[l] ?? 0) + (stock[c] ?? 0); }
@@ -122,6 +122,6 @@ export function orderModels(codes: string[], pull: Record<string, number>, stock
   return [...codes].sort((a, b) => {
     const la = lineCode(a); const lb = lineCode(b);
     if (la !== lb) return (linePull[lb] ?? 0) - (linePull[la] ?? 0) || (lineStock[lb] ?? 0) - (lineStock[la] ?? 0) || num(la, lb);
-    return (pull[b] ?? 0) - (pull[a] ?? 0) || (stock[b] ?? 0) - (stock[a] ?? 0) || num(a, b);
+    return num(a, b);   // inside a line, by number: PAN1, PAN2, PAN3…
   });
 }
