@@ -14,11 +14,11 @@ import { startAccount } from '@/femini/data/account';
 const NAV = [
   { to: '/', label: 'اليوم', icon: LayoutGrid },
   { to: '/stock', label: 'المخزون', icon: Boxes },
-  { to: '/orders', label: 'الأوردرات', icon: Package },
   { to: '/operations', label: 'العمليات', icon: ClipboardList },
   { to: '/insights', label: 'التحليلات', icon: BarChart3 },
-  { to: '/ledger', label: 'السجل', icon: ReceiptText },
+  { to: '/orders', label: 'الأوردرات', icon: Package },
   { to: '/files', label: 'الملفات', icon: FileText },
+  { to: '/ledger', label: 'السجل', icon: ReceiptText },
   { to: '/settings', label: 'الإعدادات', icon: Cog },
 ] as const;
 
