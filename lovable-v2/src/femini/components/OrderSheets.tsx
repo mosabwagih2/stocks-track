@@ -10,7 +10,7 @@ import { findByCode, need, skuLabel } from '@/femini/domain/orders';
 import { matchScans, parseCsv, parseScan, type ScanMatch, type ScanRow } from '@/femini/domain/scan';
 import { parsePickupRows, resolveModel, type ParsedOrder } from '@/femini/domain/pickup';
 import { qty } from '@/femini/domain/ledger';
-import { BACKDATE_DAYS, CHANNELS, channelName } from '@/femini/domain/constants';
+import { CHANNELS, channelName } from '@/femini/domain/constants';
 import { fmt } from '@/femini/cn';
 import { addDays, cairoDay, timeCairo } from '@/femini/domain/dates';
 import { useAccountName } from '@/femini/data/account';
@@ -103,8 +103,7 @@ type Mode = 'scan' | 'pickup';
 export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Derived; mode: Mode; onClose: () => void; manualRefs?: string[]; date?: string }) {
   const act = useAct(); const fileRef = useRef<HTMLInputElement>(null);
   // the day the pickup was requested / the orders left: today, or a past day for a forgotten upload
-  const minDay = addDays(d.today, -BACKDATE_DAYS);
-  const [day, setDay] = useState(() => (date && date >= minDay && date <= d.today ? date : d.today));
+  const [day, setDay] = useState(() => (date && date <= d.today ? date : d.today));
   const closed = dayClosed(d.snap, day);
   const dayText = day === d.today ? 'تاريخ اليوم' : `بتاريخ ${day}`;
   const account = useAccountName();
@@ -168,9 +167,9 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
       )}
       {manualRefs && <Alert>تسجيل يدوي لأوردرات محددة من القائمة، دون ملف.</Alert>}
       <Field label={mode === 'pickup' ? 'تاريخ البيك أب (اليوم اللي اتطلب فيه)' : 'تاريخ الشحن (اليوم اللي القطع خرجت فيه)'}>
-        <input type="date" value={day} min={minDay} max={d.today} onChange={(e) => e.target.value && setDay(e.target.value)} className="w-48" />
+        <input type="date" value={day} max={d.today} onChange={(e) => e.target.value && setDay(e.target.value)} className="w-48" />
       </Field>
-      {day !== d.today && <p className="-mt-2 text-xs text-muted">هيتسجل على يوم {day} زي ما يكون اتعمل فيه. ينفع لحد {BACKDATE_DAYS} أيام لورا.</p>}
+      {day !== d.today && <p className="-mt-2 text-xs text-muted">هيتسجل على يوم {day} زي ما يكون اتعمل فيه. ينفع أي يوم قديم طالما مش مقفول.</p>}
       {closed && <Alert tone="warn" className="flex flex-wrap items-center justify-between gap-2"><span>يوم {day} مقفول. افتحه الأول عشان تسجّل عليه.</span><Button size="sm" onClick={() => act(() => repo.reopenDay(day), `اتفتح يوم ${day}`)}>افتح اليوم</Button></Alert>}
       {err && <Alert tone="crit">{err}</Alert>}
 

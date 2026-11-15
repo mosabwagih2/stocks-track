@@ -8,7 +8,7 @@ export interface Repo {
   readonly mode: 'supabase' | 'memory' | 'server';
   snapshot(): Promise<Snapshot>;
   importPickup(i: { label: string; date: string; channel: string; source: string; orders: ParsedOrder[]; file?: File | null }): Promise<{ pickup: string; imported: number; duplicates: number }>;
-  /** `date`: the day the orders left (defaults to today; a past day up to BACKDATE_DAYS back for a forgotten upload) */
+  /** `date`: the day the orders left (defaults to today; any past day that is not closed, for a forgotten upload) */
   shipOrders(i: { refs: string[]; employee: string; source: string; file?: File | null; date?: string }): Promise<ShipResult>;
   reverseShipment(doc: string): Promise<void>;
   receiveStock(i: { lines: { sku: string; qty: number }[]; date: string; ref: string; declared: number; photo: File }): Promise<{ doc: string; pieces: number }>;

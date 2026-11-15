@@ -5,7 +5,7 @@ import { balancesFromMoves, qty, totalOwned } from '@/femini/domain/ledger';
 import { consumption } from '@/femini/domain/supplies';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
 import { itemMapper } from '@/femini/domain/pickup';
-import { BACKDATE_DAYS, skuPrefix } from '@/femini/domain/constants';
+import { skuPrefix } from '@/femini/domain/constants';
 import { buildOp } from '@/femini/domain/ops';
 import { buildHoldOut, buildHoldSettle, HOLD_REASON_AR, outstanding, type Hold } from '@/femini/domain/holds';
 import { rowKey, supplyOnly, type Settlement } from '@/femini/domain/settle';
@@ -72,7 +72,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
   let skipAuto = false;
   const guard = () => { if (backend) return; if (localStorage.getItem(KEY) !== baseline) { S = load(); baseline = localStorage.getItem(KEY); throw new Error('البيانات تغيّرت في تبويب آخر. أعد تحميل الصفحة قبل التسجيل.'); } };
   const save = () => { if (backend) { dirty = true; return; } guard(); try { const next = JSON.stringify(S); localStorage.setItem(KEY, next); baseline = next; } catch { S = load(); throw new Error('لم تُحفظ العملية؛ مساحة المتصفح غير كافية. نزّل نسخة احتياطية وفرّغ مساحة.'); } };
-  const inWindow = (date: string) => { const t = cairoToday(); if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > t) fail('لا يمكن أن يكون التاريخ في المستقبل'); if (date < addDays(t, -BACKDATE_DAYS)) fail(`ينفع تسجّل بتاريخ قديم لحد ${BACKDATE_DAYS} أيام بس`); };
+  const inWindow = (date: string) => { const t = cairoToday(); if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > t) fail('لا يمكن أن يكون التاريخ في المستقبل'); };   // any past day is fine (a closed day is refused by unlocked())
   const unlocked = (date = cairoToday()) => { guard(); if (backend) { if (S.lock && date <= S.lock) fail('اليوم مقفول؛ افتحه من تقرير اليوم قبل تسجيل عملية.'); return; } if ((S.closes ?? []).some((c) => c.date === date && c.status === 'closed')) fail('اليوم مقفول؛ افتحه من تقرير اليوم قبل تسجيل عملية.'); };
   // the server edition keeps every photo and original on the server (uploaded right after the action is accepted)
   const keepPhoto = backend ? async (_path: string, _blob: Blob) => {} : putPhoto;

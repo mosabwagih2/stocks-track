@@ -16,7 +16,7 @@ const DAYS: [string, string][] = [['7', '7 يوم'], ['14', '14 يوم'], ['30',
 import { Spinner } from '@/femini/components/Spinner';
 import { OrderSheet, UploadSheet, CancelSheet } from '@/femini/components/OrderSheets';
 import { addDays, dayLabel, timeCairo } from '@/femini/domain/dates';
-import { channelName, LOC_AR, BACKDATE_DAYS } from '@/femini/domain/constants';
+import { channelName, LOC_AR } from '@/femini/domain/constants';
 import { cn, fmt, pct } from '@/femini/cn';
 import { skuLabel } from '@/femini/domain/orders';
 import { locTotal, qty } from '@/femini/domain/ledger';
@@ -71,8 +71,7 @@ function FlowSheet({ d, w, orders, onClose, onOrder }: { d: Derived; w: FlowKey;
 export default function Today() {
   const { d, isLoading, error } = useDerived();
   const act = useAct(); const [date, setDate] = useState(''); const [closing, setClosing] = useState(false); const [event, setEvent] = useState<Move[] | null>(null);
-  const selected = date || d?.today || ''; const historical = !!d && selected !== d.today; const tooOld = !!d && selected < addDays(d.today, -BACKDATE_DAYS);
-  const nav = useNavigate();
+  const selected = date || d?.today || ''; const historical = !!d && selected !== d.today;  const nav = useNavigate();
   const [flow, setFlow] = useState<FlowKey | null>(null);
   const [upload, setUpload] = useState<'scan' | 'pickup' | null>(null);
   const [orderRef, setOrderRef] = useState<string | null>(null);
@@ -139,10 +138,10 @@ export default function Today() {
           </div>
           <Button className="h-10" onClick={()=>setClosing(true)}><LockKeyhole className="size-4" />{dayClosed(d.snap,selected) ? 'تقرير اليوم المقفول' : 'قفل اليوم'}</Button>
         </div>
-        {historical && <p className="mb-3 text-xs text-muted">{dayLabel(selected)} · {tooOld ? 'قراءة فقط' : 'تقدر ترفع بيك أب أو ملف إسكان على اليوم ده لو كنت نسيته'}</p>}
+        {historical && <p className="mb-3 text-xs text-muted">{dayLabel(selected)} · تقدر ترفع بيك أب أو ملف إسكان على اليوم ده لو كنت نسيته (طالما اليوم مش مقفول)</p>}
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Button variant="primary" className="h-11 w-full" disabled={tooOld} onClick={() => setUpload('pickup')}><Upload className="size-4 shrink-0" />رفع بيك أب</Button>
-          <Button className="h-11 w-full" disabled={tooOld} onClick={() => setUpload('scan')}><Upload className="size-4 shrink-0" />رفع ملف الإسكان</Button>
+          <Button variant="primary" className="h-11 w-full" onClick={() => setUpload('pickup')}><Upload className="size-4 shrink-0" />رفع بيك أب</Button>
+          <Button className="h-11 w-full" onClick={() => setUpload('scan')}><Upload className="size-4 shrink-0" />رفع ملف الإسكان</Button>
           <Button className="h-11 w-full" disabled={historical} onClick={()=>nav('/operations?op=RCV')}><ArrowDownToLine className="size-4 shrink-0" />استلام توريد</Button>
           <Button className="h-11 w-full" disabled={historical} onClick={()=>nav('/operations?op=CLN')}><Shuffle className="size-4 shrink-0" />تصنيف الهالك</Button>
         </div>

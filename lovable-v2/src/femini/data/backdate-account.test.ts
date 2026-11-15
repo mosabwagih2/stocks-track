@@ -34,11 +34,11 @@ describe('forgotten uploads: pickup and scan on a past day', () => {
     const s = await snap(r); const o = s.orders.find((x) => x.ref === 'Y1')!;
     expect(s.pickups.find((p) => p.id === o.pickupId)!.date).toBe(yesterday());
   });
-  it('more than 7 days back or in the future is refused', async () => {
+  it('any past day is accepted (no day limit); the future is refused', async () => {
     const r = createMemoryRepo();
-    await expect(r.importPickup({ label: 'x', date: addDays(cairoToday(), -8), channel: 'VENDOOR', source: 't', orders: [] })).rejects.toThrow(/7/);
     await expect(r.importPickup({ label: 'x', date: addDays(cairoToday(), 1), channel: 'VENDOOR', source: 't', orders: [] })).rejects.toThrow(/المستقبل/);
     await expect(r.importPickup({ label: 'x', date: addDays(cairoToday(), -7), channel: 'VENDOOR', source: 't', orders: [] })).resolves.toBeTruthy();
+    await expect(r.importPickup({ label: 'y', date: addDays(cairoToday(), -40), channel: 'VENDOOR', source: 't', orders: [] })).resolves.toBeTruthy();
   });
   it("a scan of yesterday takes the stock out on yesterday and counts in yesterday's report", async () => {
     const r = createMemoryRepo(); const sku = await newOrder(r, 'Y2', yesterday());
