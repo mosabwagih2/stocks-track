@@ -301,6 +301,10 @@ describe('scanner CSV', () => {
     const rows = parseScan(parseCsv('DATE,QUANTITY,NAME,CODECONTENT,CODETYPE\n2026-11-02 18:05:36 +0200,1,"","so5178",6\n'));
     expect(rows).toEqual([{ code: 'so5178', time: '2026-11-02 18:05:36', name: '' }]);
   });
+  it('reads the barcode-scanner app export (code in «text», date and time in two columns)', () => {
+    const csv = '"date","time","time_zone","format","text","notes","favorite","date_utc","time_utc","metadata"\n"2026-11-05","17:25:00","توقيت شرق أوروبا الرسمي","Code 128","iy1648","","0","2026-11-05","15:25:00",""\n"2026-11-05","17:25:08","توقيت شرق أوروبا الرسمي","Code 128","bm2402","","0","2026-11-05","15:25:08",""\n';
+    expect(parseScan(parseCsv(csv))).toEqual([{ code: 'iy1648', time: '2026-11-05 17:25:00', name: '' }, { code: 'bm2402', time: '2026-11-05 17:25:08', name: '' }]);
+  });
   it('refuses a file with no code column', () => expect(() => parseScan([['x', 'y']])).toThrow());
   it('classifies matched, duplicate, already shipped, unknown, unmapped, cancelled', () => {
     const os = [order('a1', ['A']), order('b2', ['A'], { status: 'shipped', shippedBy: 'm' }), order('c3', [], { unmapped: [['x']] }), order('d4', ['A'], { status: 'cancelled' })];

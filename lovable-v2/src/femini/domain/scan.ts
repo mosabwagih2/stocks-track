@@ -18,9 +18,13 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((x) => x.trim() !== ''));
 }
 
-/** Reads a scanner export (QRbot CSV or any sheet with a code column). The QR holds the random order code. */
+/**
+ * Reads a scanner export: QRbot (DATE, QUANTITY, NAME, CODECONTENT), the barcode-scanner app (date, time, time_zone, format,
+ * text, …: the code is in «text», the day and the time in two columns), or any sheet with a code column. The QR holds the
+ * random order code.
+ */
 export function parseScan(rows: string[][]): ScanRow[] {
-  const codeRe = /codecontent|^code$|content|الكود|^كود/;
+  const codeRe = /codecontent|^code$|content|^text$|^barcode$|الكود|^كود/;
   let hi = -1; let head: string[] = [];
   for (let i = 0; i < Math.min(rows.length, 6); i++) {
     head = rows[i].map((x) => String(x).trim().toLowerCase());
@@ -29,11 +33,15 @@ export function parseScan(rows: string[][]): ScanRow[] {
   if (hi < 0) throw new Error('لم يتم العثور على عمود الكود (CODECONTENT). يجب أن يكون الملف تصدير QRbot أو فيه عمود البوليصة.');
   const ic = head.findIndex((h) => codeRe.test(h));
   const it = head.findIndex((h) => /^date|time|وقت|تاريخ/.test(h));
+  const clock = head.findIndex((h) => h === 'time');   // a separate time-of-day column next to a date-only one
   const inm = head.findIndex((h) => /^name$|employee|موظف|^الاسم/.test(h));
   const out: ScanRow[] = [];
   for (const r of rows.slice(hi + 1)) {
     const code = String(r[ic] ?? '').trim();
-    if (code) out.push({ code, time: it >= 0 ? String(r[it] ?? '').slice(0, 19) : '', name: inm >= 0 ? String(r[inm] ?? '').trim() : '' });
+    if (!code) continue;
+    let time = it >= 0 ? String(r[it] ?? '').trim() : '';
+    if (clock >= 0 && clock !== it && /^\d{4}-\d{2}-\d{2}$/.test(time)) time = `${time} ${String(r[clock] ?? '').trim()}`;
+    out.push({ code, time: time.slice(0, 19), name: inm >= 0 ? String(r[inm] ?? '').trim() : '' });
   }
   return out;
 }
