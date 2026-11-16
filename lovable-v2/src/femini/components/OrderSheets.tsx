@@ -188,11 +188,10 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
           {scan.unknown.length > 0 && <Alert tone="crit">أكواد غير موجودة في أي بيك أب: <span className="font-mono">{scan.unknown.slice(0, 12).join('، ')}</span>{scan.unknown.length > 12 ? ' ...' : ''}<br />ارفع البيك أب الخاص بها أولًا.</Alert>}
           {scan.unmapped.length > 0 && <Alert tone="warn"><b>{scan.unmapped.length} أوردر فيه صنف مش مربوط بالكتالوج</b>، ومش هيتشحن غير لما يتربط. اربطه من هنا:
             <LinkLines d={d} lines={scan.unmapped.flatMap((r) => d.orderMap.get(r)?.unmapped ?? [])} /></Alert>}
-          {neg.length > 0 && <Alert tone="crit"><b>الرصيد مش كفاية لـ {neg.length} صنف</b>، فالتأكيد مقفول لحد ما تصلّح الرصيد (جرد أو تبديل مقاس)، علشان الرصيد مايبقاش بالسالب:
-            <ul className="mt-1 list-disc ps-5">{neg.map((x) => <li key={x.sku}>{skuLabel(d.skuMap, x.sku)}: الجاهز {x.ready} والمطلوب يخرج {x.need} (ناقص {x.need - x.ready})</li>)}</ul>
-            <div className="mt-2 flex flex-wrap gap-2"><Button size="sm" onClick={() => { onClose(); nav('/operations?op=SWP'); }}>تبديل مقاس</Button><Button size="sm" onClick={() => { onClose(); nav('/operations?op=CNT'); }}>جرد</Button></div>
-            <p className="mt-2 text-xs">بعد ما تصلّح الرصيد ارفع نفس الملف تاني.</p></Alert>}
-          <Button variant="primary" disabled={!scan.matched.length || neg.length > 0 || !(account ?? emp).trim() || closed || busy} onClick={async () => {
+          {neg.length > 0 && <Alert tone="warn"><b>الرصيد مش كفاية لـ {neg.length} صنف</b>، ويتشحن عادي والرصيد هيبقى بالسالب لحد ما تصلّحه (جرد أو تبديل مقاس):
+            <ul className="mt-1 list-disc ps-5">{neg.map((x) => <li key={x.sku}>{skuLabel(d.skuMap, x.sku)}: الجاهز {x.ready} والمطلوب يخرج {x.need} (الرصيد هيبقى {x.ready - x.need})</li>)}</ul>
+            <div className="mt-2 flex flex-wrap gap-2"><Button size="sm" onClick={() => { onClose(); nav('/operations?op=SWP'); }}>تبديل مقاس</Button><Button size="sm" onClick={() => { onClose(); nav('/operations?op=CNT'); }}>جرد</Button></div></Alert>}
+          <Button variant="primary" disabled={!scan.matched.length || !(account ?? emp).trim() || closed || busy} onClick={async () => {
             setBusy(true); if (!account) localStorage.setItem('femini-last-emp', emp.trim());
             const r = await act(() => repo.shipOrders({ refs: scan.matched, employee: (account ?? emp).trim(), source: manualRefs ? 'تسجيل يدوي' : fname, file: manualRefs ? null : original, date: day }), (x) => `تم شحن ${x.shipped} أوردر وخصمها من المخزون${x.negative.length ? `. تنبيه: ${x.negative.length} صنف برصيد سالب` : ''}`);
             setBusy(false); if (r) onClose();
