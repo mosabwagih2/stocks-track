@@ -180,7 +180,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
   };
   const lookup = () => addCodes(code.split(/[\s,،]+/).filter(Boolean));
   // codes typed / pasted, or the orders found in an uploaded returns sheet: each one checked the same way
-  const addCodes = (codes: string[], from?: string) => {
+  const addCodes = (codes: string[], from?: string, extra?: string) => {
     const added: string[] = []; const bad: string[] = [];
     const newRefs = [...refs];
     for (const c of codes) {
@@ -193,16 +193,20 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
     }
     sync(newRefs, marks); setCode('');
     const head = from ? `${from}: ` : '';
-    setMsg(bad.length ? { tone: 'crit', t: `${head}${added.length ? `اتضاف ${added.length} أوردر · ` : ''}${bad.join(' · ')}` } : added.length ? { tone: 'good', t: `${head}اتضاف ${added.length} أوردر` } : from ? { tone: 'crit', t: `${head}كل الأوردرات اللي فيه متضافة قبل كده.` } : null);
+    const tail = extra ? ` · ${extra}` : '';
+    setMsg(bad.length ? { tone: 'crit', t: `${head}${added.length ? `اتضاف ${added.length} أوردر · ` : ''}${bad.join(' · ')}${tail}` } : added.length ? { tone: extra ? 'crit' : 'good', t: `${head}اتضاف ${added.length} أوردر${tail}` } : from ? { tone: 'crit', t: `${head}كل الأوردرات اللي فيه متضافة قبل كده.${tail}` } : null);
   };
   const fileRef = useRef<HTMLInputElement>(null);
   const readSheet = async (f: File) => {
     try {
       const X = await import('xlsx'); const wb = X.read(await f.arrayBuffer(), { type: 'array', cellDates: false });
       const aoa = wb.SheetNames.flatMap((n) => X.utils.sheet_to_json<unknown[]>(wb.Sheets[n], { header: 1, raw: true, defval: '' }));
-      const { refs: found } = returnCodesFromSheet(aoa, d.snap.orders);
-      if (!found.length) { setMsg({ tone: 'crit', t: `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
-      addCodes(found, `${f.name} (${found.length} أوردر في الشيت)`);
+      const { refs: found, returnRows, skippedRows, missing } = returnCodesFromSheet(aoa, d.snap.orders);
+      // the courier's report has «collect» rows too: only its «return» rows are read, and the ones the system doesn't know are said out loud
+      const list = (a: string[]) => `${a.slice(0, 4).join('، ')}${a.length > 4 ? ` و${a.length - 4} كمان` : ''}`;
+      const note = [skippedRows ? `${skippedRows} صف تحصيل اتجاهل` : '', missing.length ? `${missing.length} مرتجع مش موجودين في النظام (${list(missing)}): أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش` : ''].filter(Boolean).join(' · ');
+      if (!found.length) { setMsg({ tone: 'crit', t: returnRows ? `${f.name}: فيه ${returnRows} مرتجع، ولا واحد منهم موجود في النظام (${list(missing)}). غالبًا أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش.${skippedRows ? ` (و${skippedRows} صف تحصيل اتجاهل)` : ''}` : skippedRows ? `${f.name}: الشيت ده كله تحصيل (${skippedRows} صف)، مفيهوش ولا مرتجع.` : `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
+      addCodes(found, `${f.name} (${found.length} أوردر مرتجع في الشيت)`, note);
     } catch (e) { setMsg({ tone: 'crit', t: `${f.name}: الملف ده مش بيتقري (${(e as Error).message})` }); }
   };
   const setMark = (ref: string, sku: string, k: 'd' | 'x' | 'l', v: number) => {
