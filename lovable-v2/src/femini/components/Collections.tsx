@@ -3,7 +3,7 @@ import { ArrowDownRight, ArrowUpRight, Download, Trash2, Upload } from 'lucide-r
 import type { Derived } from '@/femini/hooks/data';
 import { useAct } from '@/femini/hooks/data';
 import { isAdmin, repo } from '@/femini/data';
-import { parseSettlement, previewSettlement, type Settlement } from '@/femini/domain/settle';
+import { parseSettlement, previewSettlement, returnedAfterCollect, type Settlement } from '@/femini/domain/settle';
 import { cairoDay, dayDiff } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { cn, fmt } from '@/femini/cn';
@@ -69,6 +69,9 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
   const inRange = settles.filter((s) => s.date >= from && s.date <= to);
   const sum = (list: Settlement[], k: keyof Settlement['totals']) => list.reduce((a, s) => a + s.totals[k], 0);
   const shipped = d.snap.orders.filter((o) => o.status === 'shipped' && !o.returned);
+  // collected, then returned by a return document: their التوريد comes off the collection on the day they came back
+  const back = returnedAfterCollect(d.snap.settles ?? [], d.snap.orders); const backIn = back.filter((x) => x.day >= from && x.day <= to);
+  const backAll = back.reduce((a, x) => a + x.due, 0); const backDue = backIn.reduce((a, x) => a + x.due, 0);
   const paid = shipped.filter((o) => d.collected.has(o.ref));
   const waiting = shipped.filter((o) => !d.collected.has(o.ref) && !d.settleReturned.has(o.ref))
     .map((o) => ({ o, day: o.shippedAt ? cairoDay(o.shippedAt) : '' })).sort((a, b) => a.day.localeCompare(b.day));
@@ -86,7 +89,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         <Button variant="primary" onClick={() => setUp(true)}><Upload className="size-4" />رفع شيت التحصيل</Button>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Kpi label="التوريد في الفترة (جنيه)" onClick={() => setCard('due')} value={money(sum(inRange, 'due'))} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due'))}`} tone="good" />
+        <Kpi label="التوريد في الفترة (جنيه)" onClick={() => setCard('due')} value={money(sum(inRange, 'due') - backDue)} sub={`${inRange.length} تسوية · الكل ${money(sum(settles, 'due') - backAll)}${backIn.length ? ` · بعد خصم ${fmt(backIn.length)} مرتجع (${money(backDue)})` : ''}`} tone="good" />
         <Kpi label="أوردرات اتحصّلت" onClick={() => setCard('paid')} value={fmt(paid.length)} sub={`من ${fmt(shipped.length)} مشحون`} tone="good" />
         <Kpi label="مشحون ولسه ما اتحصّلش" onClick={() => setCard('wait')} value={fmt(waiting.length)} sub={`${fmt(waiting.reduce((a, x) => a + x.o.lines.length, 0))} قطعة`} tone={waiting.length ? 'warn' : undefined} />
       </div>
@@ -124,7 +127,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
           cols={[{ head: 'اتشحن من', cell: (o) => { const w = waiting.find((x) => x.o.ref === o.ref); return <span className="num">{w ? age(w.day) : 0} يوم</span>; } }]} />;
         if (card === 'paid') return <OrdersDetail d={d} title="أوردرات اتحصّلت" hint="كل اللي فلوسه وصلت حسب شيتات التسوية." orders={paid.slice().sort((a, b) => (collected(b)?.date ?? '').localeCompare(collected(a)?.date ?? ''))} cols={cols} onClose={() => setCard(null)} />;
         const inPeriod = d.snap.orders.filter((o) => { const c = collected(o); return !!c && c.date >= from && c.date <= to; }).sort((a, b) => (collected(b)?.date ?? '').localeCompare(collected(a)?.date ?? ''));
-        const listed = inPeriod.reduce((a, o) => a + (collected(o)?.due ?? 0), 0); const all = sum(inRange, 'due');
+        const listed = inPeriod.reduce((a, o) => a + (collected(o)?.due ?? 0), 0); const all = sum(inRange, 'due') - back.filter((x) => x.paidOn >= from && x.paidOn <= to).reduce((acc, x) => acc + x.due, 0);
         return <OrdersDetail d={d} title="التوريد في الفترة" hint={`الأوردرات اللي اتحصّلت من ${from} لـ ${to}، بتاريخ تحصيلها: ${money(listed)} من ${money(all)} جنيه${Math.round(listed) !== Math.round(all) ? '. الباقي من أوردرات مش في السيستم أو تسويات ما اتربطتش بأوردر.' : '.'}`} orders={inPeriod} cols={cols} onClose={() => setCard(null)} />;
       })()}
       {up && <SettleUpload d={d} onClose={() => setUp(false)} />}
@@ -156,7 +159,7 @@ function CollectTrend({ d, from, to }: { d: Derived; from: string; to: string })
 
 /** The orders that closed on one day by the sheets (the same orders the graph counts for that day), collected first. */
 function ClosedDaySheet({ d, day, onClose }: { d: Derived; day: string; onClose: () => void }) {
-  const closed = useMemo(() => closedBySheet(d.snap.settles ?? []), [d]);
+  const closed = useMemo(() => closedBySheet(d.snap.settles ?? [], returnedAfterCollect(d.snap.settles ?? [], d.snap.orders)), [d]);
   const refs = [...closed].filter(([, c]) => c.day === day);
   const kind = new Map(refs.map(([r, c]) => [r, c.kind]));
   const orders = d.snap.orders.filter((o) => kind.has(o.ref)).sort((a, b) => (kind.get(a.ref) === kind.get(b.ref) ? a.ref.localeCompare(b.ref) : kind.get(a.ref) === 'collected' ? -1 : 1));

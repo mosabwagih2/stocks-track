@@ -1,4 +1,4 @@
-import { collectedOf } from '@/femini/domain/settle';
+import { collectedOf, returnedAfterCollect } from '@/femini/domain/settle';
 import { lineBase } from '@/femini/domain/constants';
 import { serverEdition } from '@/femini/data';
 import { useCallback, useEffect, useMemo } from 'react';
@@ -78,7 +78,9 @@ export function useDerived(): { d: Derived | null; isLoading: boolean; error: un
     for (const k in velocity) velocity[k] /= span;
     const modelsByPull = data.models.map((m) => m.code).sort((a, b) => (pull[b] ?? 0) - (pull[a] ?? 0) || a.localeCompare(b, 'en', { numeric: true }));
     const modelOrder = orderModels(data.models.map((m) => m.code), pull, stockOf(data.skus, data.balances));
-    const { collected, returned: settleReturned } = collectedOf(data.settles ?? []);
+    // collected and then returned by a return document: the money is deducted, it counts as returned, not collected
+    const back = new Set(returnedAfterCollect(data.settles ?? [], data.orders).map((x) => x.ref));
+    const { collected, returned: settleReturned } = collectedOf(data.settles ?? [], back);
     return { snap: data, today, skuMap, modelMap, orderMap, pickupDate, collected, settleReturned, open, blocked, demand, velocity, velocityOK: days >= 3, days, modelsByPull, modelOrder, pull };
   }, [data, today]);
   return { d, isLoading, error };
