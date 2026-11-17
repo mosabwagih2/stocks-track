@@ -207,11 +207,9 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       // the order codes as the system writes them (ol6550), with the days they were ordered on
       const list = (a: typeof missing) => `${a.slice(0, 30).map((m) => m.ref || m.serial).join('، ')}${a.length > 30 ? ` و${a.length - 30} كمان` : ''}`;
       const when = (a: typeof missing) => { const d = a.map((m) => m.date).filter(Boolean).sort(); return d.length ? ` من تاريخ ${d[0] === d[d.length - 1] ? d[0] : `${d[0]} لـ ${d[d.length - 1]}`}` : ''; };
-      // the sheet's collected orders are not returns: left out on purpose, the money comes from the settlement sheet only
-      const info = skippedRows ? `الشيت فيه كمان ${skippedRows} أوردر اتحصّل (مش مرتجع)، فمااتضافوش: التحصيل بيتسجل من شيت التسوية بس.` : '';
       const problem = missing.length ? `${missing.length} مرتجع مش موجودين في النظام${when(missing)} (${list(missing)}): أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش` : '';
-      if (!found.length) { setMsg({ tone: 'crit', t: returnRows ? `${f.name}: فيه ${returnRows} مرتجع، ولا واحد منهم موجود في النظام${when(missing)} (${list(missing)}). غالبًا أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش.${skippedRows ? ` الشيت فيه كمان ${skippedRows} أوردر اتحصّل (مش مرتجع)، فمااتضافوش.` : ''}` : skippedRows ? `${f.name}: الشيت ده كله تحصيل (${skippedRows} صف)، مفيهوش ولا مرتجع.` : `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
-      addCodes(found, `${f.name} (${found.length} أوردر مرتجع في الشيت)`, info, problem);
+      if (!found.length) { setMsg({ tone: 'crit', t: returnRows ? `${f.name}: فيه ${returnRows} مرتجع، ولا واحد منهم موجود في النظام${when(missing)} (${list(missing)}). غالبًا أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش.` : skippedRows ? `${f.name}: الشيت ده كله تحصيل (${skippedRows} صف)، مفيهوش ولا مرتجع.` : `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
+      addCodes(found, `${f.name} (${found.length} أوردر مرتجع في الشيت)`, undefined, problem);
     } catch (e) { setMsg({ tone: 'crit', t: `${f.name}: الملف ده مش بيتقري (${(e as Error).message})` }); }
   };
   const setMark = (ref: string, sku: string, k: 'd' | 'x' | 'l', v: number) => {
@@ -230,7 +228,6 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
           <div className="flex flex-wrap gap-2"><input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && lookup()} placeholder="امسح أو اكتب البوليصة" className="min-w-48 flex-1" /><Button variant="primary" onClick={lookup} disabled={!code.trim()}><Search className="size-4" /> لاقي الأوردر</Button><Button onClick={() => fileRef.current?.click()} title="Excel أو CSV فيه البوليصة أو رقم الأوردر في أي عمود"><Upload className="size-4" /> رفع إكسل مرتجعات</Button><input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void readSheet(f); }} /></div>
         </Field>
         {msg && <p className={cn('text-xs', msg.tone === 'crit' ? 'text-crit' : 'text-good')}>{msg.t}</p>}
-        <p className="text-xs text-muted">المرتجع هنا بيحرّك المخزون بس. التحصيل والمرتجع في الحسابات بيجوا من شيت التسوية، والشيت ده مش بيغيّر فيهم حاجة.</p>
       </div>
 
       {refs.length > 0 && <>
