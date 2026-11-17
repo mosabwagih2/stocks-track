@@ -193,9 +193,10 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
     }
     sync(newRefs, marks); setCode('');
     const head = from ? `${from}: ` : '';
-    // red only for a real problem (an order that can't be added, or returns the system doesn't know); a plain note stays green
+    // green: just how many orders and pieces were added; red only for a real problem (an order that can't be added, or returns the system doesn't know)
     const bits = [...bad, ...(problem ? [problem] : [])]; const tail = info ? ` ${info}` : '';
-    setMsg(bits.length ? { tone: 'crit', t: `${head}${added.length ? `اتضاف ${added.length} أوردر للمرتجع · ` : ''}${bits.join(' · ')}${tail}` } : added.length ? { tone: 'good', t: `${head}اتضاف ${added.length} أوردر للمرتجع.${tail}` } : from ? { tone: 'crit', t: `${head}كل الأوردرات المرتجعة اللي فيه متضافة قبل كده.${tail}` } : null);
+    const pieces = added.reduce((a, r) => a + (d.orderMap.get(r)?.lines.length ?? 0), 0); const done = `اتضاف ${fmt(added.length)} أوردر · ${fmt(pieces)} قطعة`;
+    setMsg(bits.length ? { tone: 'crit', t: `${head}${added.length ? `${done} · ` : ''}${bits.join(' · ')}${tail}` } : added.length ? { tone: 'good', t: done } : from ? { tone: 'crit', t: `${head}كل الأوردرات المرتجعة اللي فيه متضافة قبل كده.${tail}` } : null);
   };
   const fileRef = useRef<HTMLInputElement>(null);
   const readSheet = async (f: File) => {
