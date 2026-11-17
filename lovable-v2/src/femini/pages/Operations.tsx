@@ -203,9 +203,11 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       const aoa = wb.SheetNames.flatMap((n) => X.utils.sheet_to_json<unknown[]>(wb.Sheets[n], { header: 1, raw: true, defval: '' }));
       const { refs: found, returnRows, skippedRows, missing } = returnCodesFromSheet(aoa, d.snap.orders);
       // the courier's report has «collect» rows too: only its «return» rows are read, and the ones the system doesn't know are said out loud
-      const list = (a: string[]) => `${a.slice(0, 4).join('، ')}${a.length > 4 ? ` و${a.length - 4} كمان` : ''}`;
-      const note = [skippedRows ? `${skippedRows} صف تحصيل اتجاهل` : '', missing.length ? `${missing.length} مرتجع مش موجودين في النظام (${list(missing)}): أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش` : ''].filter(Boolean).join(' · ');
-      if (!found.length) { setMsg({ tone: 'crit', t: returnRows ? `${f.name}: فيه ${returnRows} مرتجع، ولا واحد منهم موجود في النظام (${list(missing)}). غالبًا أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش.${skippedRows ? ` (و${skippedRows} صف تحصيل اتجاهل)` : ''}` : skippedRows ? `${f.name}: الشيت ده كله تحصيل (${skippedRows} صف)، مفيهوش ولا مرتجع.` : `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
+      // the order codes as the system writes them (ol6550), with the days they were ordered on
+      const list = (a: typeof missing) => `${a.slice(0, 30).map((m) => m.ref || m.serial).join('، ')}${a.length > 30 ? ` و${a.length - 30} كمان` : ''}`;
+      const when = (a: typeof missing) => { const d = a.map((m) => m.date).filter(Boolean).sort(); return d.length ? ` من تاريخ ${d[0] === d[d.length - 1] ? d[0] : `${d[0]} لـ ${d[d.length - 1]}`}` : ''; };
+      const note = [skippedRows ? `${skippedRows} صف تحصيل اتجاهل` : '', missing.length ? `${missing.length} مرتجع مش موجودين في النظام${when(missing)} (${list(missing)}): أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش` : ''].filter(Boolean).join(' · ');
+      if (!found.length) { setMsg({ tone: 'crit', t: returnRows ? `${f.name}: فيه ${returnRows} مرتجع، ولا واحد منهم موجود في النظام${when(missing)} (${list(missing)}). غالبًا أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش.${skippedRows ? ` (و${skippedRows} صف تحصيل اتجاهل)` : ''}` : skippedRows ? `${f.name}: الشيت ده كله تحصيل (${skippedRows} صف)، مفيهوش ولا مرتجع.` : `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
       addCodes(found, `${f.name} (${found.length} أوردر مرتجع في الشيت)`, note);
     } catch (e) { setMsg({ tone: 'crit', t: `${f.name}: الملف ده مش بيتقري (${(e as Error).message})` }); }
   };

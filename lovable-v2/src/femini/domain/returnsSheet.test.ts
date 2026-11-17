@@ -27,7 +27,7 @@ describe('returns sheet', () => {
 
 // the courier's report: «collect» rows are delivered orders (the money came), only «return» rows are returns
 const head = ['Company name', 'Serial', 'Order delivery status', 'Statusnote', 'Order date', 'Full name', 'Phone', 'Type', 'Collect date', 'Return date'];
-const row = (serial: number, type: string) => ['Femini G Vendoor', serial, 'Delivered', '', '2026-10-28', 'Name - zz0000', '0100', type, '2026-10-30', null];
+const row = (serial: number, type: string, name = 'Name - zz0000', day: unknown = '2026-10-28') => ['Femini G Vendoor', serial, 'Delivered', '', day, name, '0100', type, '2026-10-30', null];
 describe('returns sheet with a Type column', () => {
   it('reads only the return rows: a collect row is not a return even when its order exists', () => {
     const aoa = [head, row(23772999, 'collect'), row(23807114, 'return'), row(23807113, 'collect')];
@@ -39,16 +39,24 @@ describe('returns sheet with a Type column', () => {
     const aoa = [head, row(23481433, 'return'), row(23807114, 'return'), row(23536901, 'return'), row(23683255, 'collect')];
     const r = returnCodesFromSheet(aoa, orders);
     expect(r.refs).toEqual(['cd5678']);
-    expect(r.missing).toEqual(['23481433', '23536901']);
+    expect(r.missing.map((m) => m.serial)).toEqual(['23481433', '23536901']);
     expect(r.returnRows).toBe(3); expect(r.skippedRows).toBe(1);
   });
   it('a sheet of returns that are all unknown: nothing found, every serial reported', () => {
     const r = returnCodesFromSheet([head, row(1, 'return'), row(2, 'Return ')], orders);
-    expect(r.refs).toEqual([]); expect(r.missing).toEqual(['1', '2']); expect(r.returnRows).toBe(2);
+    expect(r.refs).toEqual([]); expect(r.missing.map((m) => m.serial)).toEqual(['1', '2']); expect(r.returnRows).toBe(2);
   });
   it('a header in each sheet of the workbook resets the filter; rows before any header are read as before', () => {
     const aoa = [[23772999, 'x'], head, row(23807114, 'collect'), head, row(23807113, 'return')];
     expect(returnCodesFromSheet(aoa, orders).refs).toEqual(['ab1234', 'ef9012']);
+  });
+  it('a missing return carries the order code from the customer name and the day it was ordered', () => {
+    const aoa = [head, row(23481433, 'return', 'ذكريم محمد - cv7191', '2026-10-20'), row(23536901, 'return', 'Amir Hummer - YQ5866', 46322), row(23536902, 'return', 'no code here')];
+    expect(returnCodesFromSheet(aoa, orders).missing).toEqual([
+      { serial: '23481433', ref: 'cv7191', date: '2026-10-20' },
+      { serial: '23536901', ref: 'yq5866', date: '2026-10-27' },   // an Excel date serial is read too
+      { serial: '23536902', ref: '', date: '2026-10-28' },
+    ]);
   });
   it('Arabic headers and values work too', () => {
     const aoa = [['البوليصة', 'النوع'], [23807114, 'تحصيل'], [23807113, 'مرتجع']];
