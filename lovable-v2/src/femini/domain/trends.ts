@@ -1,6 +1,6 @@
 import type { Snapshot } from './types';
 import { addDays, cairoDay, dayDiff } from './dates';
-import { collectedOf, returnedAfterCollect, type Settlement } from './settle';
+import { collectedOf, type Settlement } from './settle';
 
 /**
  * Day-by-day series for the Analytics graphs. Pure: the snapshot in, rows out (one row per day, oldest first).
@@ -41,13 +41,11 @@ export function stockByDay(s: Pick<Snapshot, 'moves' | 'skus' | 'archivedSkus' |
  * returned on the date of its first return / partial row. Each order counts once. The collections graph counts these
  * per day, and clicking a day lists the same orders.
  */
-export function closedBySheet(settles: Settlement[], back: { ref: string; day: string }[] = []): Map<string, { day: string; kind: 'collected' | 'returned' }> {
+export function closedBySheet(settles: Settlement[]): Map<string, { day: string; kind: 'collected' | 'returned' }> {
   const out = new Map<string, { day: string; kind: 'collected' | 'returned' }>();
-  // `back`: collected, then returned by a return document: it is a return now, on the day it came back
-  const { collected, returned } = collectedOf(settles, new Set(back.map((x) => x.ref)));
+  const { collected, returned } = collectedOf(settles);
   for (const [ref, c] of collected) out.set(ref, { day: c.date, kind: 'collected' });
   for (const x of settles) for (const r of x.rows) if ((r.type === 'return' || r.type === 'partial') && returned.has(r.ref) && !out.has(r.ref)) out.set(r.ref, { day: r.date || x.date, kind: 'returned' });
-  for (const b of back) out.set(b.ref, { day: b.day, kind: 'returned' });
   return out;
 }
 
@@ -62,10 +60,7 @@ export function collectByDay(s: Pick<Snapshot, 'orders' | 'settles'>, from: stri
     const r = at(x.date); if (!r) continue;
     r.due += x.totals.due;
   }
-  // collected, then returned: its money is deducted on the day it came back
-  const back = returnedAfterCollect(settles, s.orders);
-  for (const b of back) { if (b.day < from) before -= b.due; else { const r = at(b.day); if (r) r.due -= b.due; } }
-  for (const c of closedBySheet(settles, back).values()) { const r = c.day ? at(c.day) : null; if (r) r[c.kind]++; }
+  for (const c of closedBySheet(settles).values()) { const r = c.day ? at(c.day) : null; if (r) r[c.kind]++; }
   const out: CollectDay[] = []; let run = before;
   for (let k = from; k <= to; k = addDays(k, 1)) { const r = by[k] ?? row(); run += r.due; out.push({ day: k, ...r, paidSoFar: run }); }
   return out;

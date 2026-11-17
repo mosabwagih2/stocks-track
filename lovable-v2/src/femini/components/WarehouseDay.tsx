@@ -182,7 +182,7 @@ function DaySheet({ d, x, start, period, onClose }: { d: Derived; x: WhDay; star
           <tr key={w.ref} className="cursor-pointer hover:bg-lav" onClick={() => setRef(w.ref)}>
             {many && <td className={td + ' font-mono text-muted'}>{w.day}</td>}<td className={td + ' font-mono'}>{w.ref}</td><td className={td + ' font-mono text-muted'}>{w.waybill}</td><td className={td + ' font-mono'}>{w.pieces}</td>
             <td className={td}><Pill tone={STATE[w.state][1]}>{STATE[w.state][0]}{w.closedOn ? ` · ${w.closedOn.slice(5)}` : ''}</Pill></td>
-            <td className={td + ' font-mono font-semibold'}>{w.due ? money(w.due) : w.deducted ? <span className="text-crit" title="اتحصّل وبعدين رجع: التوريد اتخصم من التحصيل">−{money(w.deducted)}</span> : '—'}</td>
+            <td className={td + ' font-mono font-semibold'}>{w.due ? money(w.due) : '—'}</td>
             <td className={td + ' font-mono text-xs text-muted'}>{w.stl.join('، ') || '—'}</td>
           </tr>))}</tbody></table></TableWrap>}
       {ref && <OrderSheet d={d} orderRef={ref} onClose={() => setRef(null)} onCancel={() => setRef(null)} />}

@@ -1,5 +1,4 @@
 import type { Order } from './types';
-import { cairoDay } from './dates';
 
 /**
  * The channel's settlement sheet (تسوية): one row per order the courier closed. Only Fémini's share is kept
@@ -82,17 +81,12 @@ export function parseSettlement(aoa: unknown[][], fileName = ''): Omit<Settlemen
   return { title, date, dateNote, totals: { due }, rows };
 }
 
-/**
- * Per order: collected (with which settlement and how much), or returned per the courier. Later settlements win.
- * `back`: orders that were collected and then came back (a customer-return document): they are NOT collected any more
- * (their money is deducted), they count as returned.
- */
+/** Per order: collected (with which settlement and how much), or returned per the courier. Later settlements win. */
 export interface Collected { stl: string; date: string; due: number }
-export function collectedOf(settles: Settlement[], back?: ReadonlySet<string>): { collected: Map<string, Collected>; returned: Map<string, string> } {
+export function collectedOf(settles: Settlement[]): { collected: Map<string, Collected>; returned: Map<string, string> } {
   const collected = new Map<string, Collected>(); const returned = new Map<string, string>();
   for (const s of [...settles].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) {
     for (const r of s.rows) {
-      if (r.type === 'collect' && back?.has(r.ref)) { returned.set(r.ref, s.id); continue; }
       if (r.type === 'collect') {
         const prev = collected.get(r.ref);   // collected once; a second row for the same order adds its amounts
         collected.set(r.ref, prev ? { ...prev, due: prev.due + r.supply } : { stl: s.id, date: r.date || s.date, due: r.supply });
@@ -101,23 +95,6 @@ export function collectedOf(settles: Settlement[], back?: ReadonlySet<string>): 
     }
   }
   return { collected, returned };
-}
-
-/**
- * An order that was collected (a settlement paid it) and later came back (a customer-return document) gives its money
- * back: the order's التوريد is deducted from the collection, on the day it came back (never before the day it was paid,
- * so the running total never dips below what really came in). One entry per order. Pure.
- */
-export interface CollectReturn { ref: string; doc: string; /** the day the deduction lands */ day: string; /** التوريد deducted */ due: number; /** the day the money came */ paidOn: string }
-export function returnedAfterCollect(settles: Settlement[], orders: Pick<Order, 'ref' | 'returned'>[]): CollectReturn[] {
-  const { collected } = collectedOf(settles);
-  const out: CollectReturn[] = [];
-  for (const o of orders) {
-    const c = o.returned && collected.get(o.ref); if (!o.returned || !c) continue;
-    const back = cairoDay(o.returned.at);
-    out.push({ ref: o.ref, doc: o.returned.doc, day: back > c.date ? back : c.date, due: c.due, paidOn: c.date });
-  }
-  return out;
 }
 
 /** What a new sheet would add: orders matched in the system, old orders, unknown codes, and rows already recorded. */
