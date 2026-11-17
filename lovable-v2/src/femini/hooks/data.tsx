@@ -37,6 +37,8 @@ export interface Derived {
   skuMap: Map<string, Sku>;
   modelMap: Map<string, Model>;
   orderMap: Map<string, Order>;
+  /** orders of archived pickups: a reference for returns only (never part of the orders, the counts or the money) */
+  archivedOrders: Map<string, Order>;
   pickupDate: Map<string, string>;
   /** orders the channel's settlement sheets say were collected (the money came), and returned per the courier */
   collected: Map<string, import('@/femini/domain/settle').Collected>; settleReturned: Map<string, string>;
@@ -62,6 +64,7 @@ export function useDerived(): { d: Derived | null; isLoading: boolean; error: un
     const skuMap = new Map(data.skus.map((s) => [s.id, s]));
     const modelMap = new Map(data.models.map((m) => [m.code, m]));
     const orderMap = new Map(data.orders.map((o) => [o.ref, o]));
+    const archivedOrders = new Map((data.archivedPickups ?? []).flatMap((a) => a.orders).filter((o) => !orderMap.has(o.ref)).map((o) => [o.ref, o] as const));
     const pickupDate = new Map(data.pickups.map((p) => [p.id, p.date]));
     const open = data.orders.filter((o) => o.status === 'open');
     const { blocked, demand } = allocate(open, data.pickups, data.balances);
@@ -79,7 +82,7 @@ export function useDerived(): { d: Derived | null; isLoading: boolean; error: un
     const modelsByPull = data.models.map((m) => m.code).sort((a, b) => (pull[b] ?? 0) - (pull[a] ?? 0) || a.localeCompare(b, 'en', { numeric: true }));
     const modelOrder = orderModels(data.models.map((m) => m.code), pull, stockOf(data.skus, data.balances));
     const { collected, returned: settleReturned } = collectedOf(data.settles ?? []);
-    return { snap: data, today, skuMap, modelMap, orderMap, pickupDate, collected, settleReturned, open, blocked, demand, velocity, velocityOK: days >= 3, days, modelsByPull, modelOrder, pull };
+    return { snap: data, today, skuMap, modelMap, orderMap, archivedOrders, pickupDate, collected, settleReturned, open, blocked, demand, velocity, velocityOK: days >= 3, days, modelsByPull, modelOrder, pull };
   }, [data, today]);
   return { d, isLoading, error };
 }

@@ -258,7 +258,16 @@ export function createMemoryRepo(backend?: Backend): Repo {
       const today = cairoToday(); const skuMap = new Map(allSkus().map((k) => [k.id, k]));
       const h = { ...hdr, hasPhoto: !!photo };
       if (type === 'RTN') {
-        for (const ref of h.refs ?? []) { const o = S.orders.find((x) => x.ref === ref); if (!o || o.status !== 'shipped') fail(`الأوردر ${ref} مش متشحن`); if (o!.returned) fail(`الأوردر ${ref} اتسجل له مرتجع قبل كده (${o!.returned.doc})`); }
+        for (const ref of h.refs ?? []) {
+          const o = S.orders.find((x) => x.ref === ref);
+          if (!o) {
+            // an order of an archived pickup: a reference only (its pieces, nothing else changes). It can come back once: the return documents are the record
+            const known = (S.archivedPickups ?? []).some((a) => a.orders.some((x) => x.ref === ref)); if (!known) fail(`الأوردر ${ref} مش موجود`);
+            const prev = S.docs.find((x) => x.type === 'RTN' && x.status === 'done' && ((x.hdr.refs as string[] | undefined) ?? []).includes(ref)); if (prev) fail(`الأوردر ${ref} اتسجل له مرتجع قبل كده (${prev.no})`);
+            continue;
+          }
+          if (o.status !== 'shipped') fail(`الأوردر ${ref} مش متشحن`); if (o.returned) fail(`الأوردر ${ref} اتسجل له مرتجع قبل كده (${o.returned.doc})`);
+        }
       }
       const r = buildOp(type, h, lines, bal(), date, today, (s) => skuLabel(skuMap, s));
       if (!r.ok) fail(r.err[0] ?? r.checks.find((c) => !c.ok)?.t ?? 'العملية ناقصة');

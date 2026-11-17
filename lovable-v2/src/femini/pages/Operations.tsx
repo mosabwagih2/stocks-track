@@ -173,8 +173,11 @@ function SwapLines({ d, lines, set }: { d: Derived; lines: OpLine[]; set: SetLin
 function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void; lines: OpLine[]; set: SetLines }) {
   const [code, setCode] = useState(''); const [msg, setMsg] = useState<{ tone: 'crit' | 'good'; t: string } | null>(null); const [q, setQ] = useState('');
   const refs = hdr.refs ?? []; const marks = hdr.marks ?? {};
+  // the order of a code: the live orders first, then the orders of archived pickups (a reference for returns only)
+  const ordOf = (ref: string) => d.orderMap.get(ref) ?? d.archivedOrders.get(ref);
+  const archivedDone = (ref: string) => d.snap.docs.find((x) => x.type === 'RTN' && x.status === 'done' && ((x.hdr.refs as string[] | undefined) ?? []).includes(ref))?.no;
   const sync = (newRefs: string[], newMarks: ReturnMarks) => {
-    const orders = newRefs.map((r) => d.orderMap.get(r)).filter((o): o is NonNullable<typeof o> => !!o);
+    const orders = newRefs.map(ordOf).filter((o): o is NonNullable<typeof o> => !!o);
     set(() => returnLines(orders, newMarks));
     setHdr({ ...hdr, refs: newRefs, marks: newMarks, counted: false });
   };
@@ -184,10 +187,11 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
     const added: string[] = []; const bad: string[] = [];
     const newRefs = [...refs];
     for (const c of codes) {
-      const o = findByCode(d.snap.orders, c);
+      const live = findByCode(d.snap.orders, c); const o = live ?? findByCode([...d.archivedOrders.values()], c);
       if (!o) { bad.push(`${c}: مش لاقيه`); continue; }
-      if (o.status !== 'shipped') { bad.push(`${o.ref}: ${o.status === 'open' ? 'لسه ما اتشحنش' : 'ملغي'}`); continue; }
-      if (o.returned) { bad.push(`${o.ref}: اتسجل له مرتجع (${o.returned.doc})`); continue; }
+      if (!live) { const prev = archivedDone(o.ref); if (prev) { bad.push(`${o.ref}: اتسجل له مرتجع (${prev})`); continue; } }   // archived: a reference, it only needs not to be returned already
+      else if (o.status !== 'shipped') { bad.push(`${o.ref}: ${o.status === 'open' ? 'لسه ما اتشحنش' : 'ملغي'}`); continue; }
+      else if (o.returned) { bad.push(`${o.ref}: اتسجل له مرتجع (${o.returned.doc})`); continue; }
       if (newRefs.includes(o.ref)) continue;
       newRefs.push(o.ref); added.push(o.ref);
     }
@@ -195,7 +199,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
     const head = from ? `${from}: ` : '';
     // green: just how many orders and pieces were added; red only for a real problem (an order that can't be added, or returns the system doesn't know)
     const bits = [...bad, ...(problem ? [problem] : [])]; const tail = info ? ` ${info}` : '';
-    const pieces = added.reduce((a, r) => a + (d.orderMap.get(r)?.lines.length ?? 0), 0); const done = `اتضاف ${fmt(added.length)} أوردر · ${fmt(pieces)} قطعة`;
+    const pieces = added.reduce((a, r) => a + (ordOf(r)?.lines.length ?? 0), 0); const done = `اتضاف ${fmt(added.length)} أوردر · ${fmt(pieces)} قطعة`;
     setMsg(bits.length ? { tone: 'crit', t: `${head}${added.length ? `${done} · ` : ''}${bits.join(' · ')}${tail}` } : added.length ? { tone: 'good', t: done } : from ? { tone: 'crit', t: `${head}كل الأوردرات المرتجعة اللي فيه متضافة قبل كده.${tail}` } : null);
   };
   const fileRef = useRef<HTMLInputElement>(null);
@@ -203,7 +207,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
     try {
       const X = await import('xlsx'); const wb = X.read(await f.arrayBuffer(), { type: 'array', cellDates: false });
       const aoa = wb.SheetNames.flatMap((n) => X.utils.sheet_to_json<unknown[]>(wb.Sheets[n], { header: 1, raw: true, defval: '' }));
-      const { refs: found, returnRows, skippedRows, missing } = returnCodesFromSheet(aoa, d.snap.orders);
+      const { refs: found, returnRows, skippedRows, missing } = returnCodesFromSheet(aoa, [...d.snap.orders, ...d.archivedOrders.values()]);
       // the courier's report has «collect» rows too: only its «return» rows are read, and the ones the system doesn't know are said out loud
       // the order codes as the system writes them (ol6550), with the days they were ordered on
       const list = (a: typeof missing) => `${a.slice(0, 30).map((m) => m.ref || m.serial).join('، ')}${a.length > 30 ? ` و${a.length - 30} كمان` : ''}`;
@@ -218,7 +222,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
     sync(refs, { ...marks, [ref]: { ...(marks[ref] ?? {}), [sku]: { ...cur, [k]: v } } });
   };
   const s = q.trim().toLowerCase().replace(/[#\s]/g, '');
-  const shown = refs.filter((r) => { if (!s) return true; const o = d.orderMap.get(r); return r.toLowerCase().includes(s) || (o?.waybill ?? '').replace(/\s/g, '').toLowerCase().includes(s); });
+  const shown = refs.filter((r) => { if (!s) return true; const o = ordOf(r); return r.toLowerCase().includes(s) || (o?.waybill ?? '').replace(/\s/g, '').toLowerCase().includes(s); });
   const fromOrders = lines.filter((l) => l.exp);
   const tot = fromOrders.reduce((a, l) => ({ n: a.n + (l.exp ?? 0), r: a.r + (l.r ?? 0), d: a.d + (l.d ?? 0), x: a.x + (l.x ?? 0) }), { n: 0, r: 0, d: 0, x: 0 });
   const lost = tot.n - tot.r - tot.d - tot.x;
@@ -240,7 +244,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث ببوليصة أو رقم أوردر" aria-label="بحث في البوليصات" />
         <div className="grid gap-2">
           {!shown.length ? <Empty>مفيش بوليصة بالرقم ده في المرتجع.</Empty> : shown.map((ref) => {
-            const o = d.orderMap.get(ref); if (!o) return null;
+            const o = ordOf(ref); if (!o) return null;
             const cnt: Record<string, number> = {}; for (const x of o.lines) cnt[x] = (cnt[x] ?? 0) + 1;
             const m = marks[ref] ?? {};
             const sum = (k: 'd' | 'x' | 'l') => Object.keys(cnt).reduce((a, sku) => a + (m[sku]?.[k] ?? 0), 0);
