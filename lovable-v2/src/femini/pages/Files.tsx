@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { DateField } from '@/femini/components/DateField';
 import { dmy } from '@/femini/domain/dates';
 import { DateFilter } from '@/femini/components/PeriodPicker';
 import type { Range } from '@/femini/domain/range';
@@ -29,7 +30,7 @@ function PickupSheet({ d, p, onClose }: { d: Derived; p: Pickup; onClose: () => 
       <p className="text-[13px] text-muted">الملف الأصلي: <b>{p.source || '—'}</b></p>
       <div className="grid grid-cols-2 gap-3">
         <Field label="اسم البيك أب" className="col-span-2"><input value={label} onChange={(e) => setLabel(e.target.value)} /></Field>
-        <Field label="التاريخ (اليوم اللي اتطلب فيه)"><input type="date" value={date} max={d.today} onChange={(e) => setDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
+        <Field label="التاريخ (اليوم اللي اتطلب فيه)"><DateField value={date} max={d.today} onChange={setDate} /></Field>
         <Field label="القناة"><select value={channel} onChange={(e) => setChannel(e.target.value)}>{CHANNELS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
       </div>
       {admin && (dayClosed(d.snap, p.date) || dayClosed(d.snap, date)) && <p className="-mt-2 text-xs text-muted">اليوم مقفول، بس كمدير تقدر تصحّح تاريخ البيك أب. البيك أب ما بيحرّكش مخزون، فالسجل ما بيتأثرش.</p>}
@@ -57,7 +58,7 @@ function ShipmentSheet({ d, doc, onClose }: { d: Derived; doc: Doc; onClose: () 
             <h3 className="text-sm font-semibold">تصحيح تاريخ الورقة <span className="text-xs font-normal text-muted">(للمدير)</span></h3>
             <p className="text-xs text-muted">الورقة المؤكدة ما بتتعدلش في السجل. النقل بيعكسها على يومها، ويسجّل أوردراتها ({movable}) تاني على اليوم الصحيح في حفظة واحدة، باسم نفس الموظف. المرتجعات بتفضل زي ما هي.{pkDays.length === 1 && pkDays[0] !== doc.date ? ` يوم البيك أب بتاعها: ${pkDays[0]}.` : ''}</p>
             <div className="flex flex-wrap items-end gap-2">
-              <Field label="اليوم الصحيح"><input type="date" value={newDate} max={d.today} onChange={(e) => e.target.value && setNewDate(e.target.value > d.today ? d.today : e.target.value)} /></Field>
+              <Field label="اليوم الصحيح"><DateField value={newDate} max={d.today} onChange={setNewDate} /></Field>
               {closed && newDate !== doc.date && <Button size="sm" onClick={() => act(() => repo.reopenDay(newDate), `اتفتح يوم ${dmy(newDate)}`)}>افتح يوم {dmy(newDate)}</Button>}
               <Button variant="primary" disabled={newDate === doc.date || closed || !movable} onClick={async () => { const r = await act(() => repo.redateShipment(doc.no, newDate), (x) => `اتنقلت الورقة: ${x.doc} على ${newDate} (${x.orders} أوردر)`); if (r) onClose(); }}>نقل الورقة لليوم ده</Button>
             </div>

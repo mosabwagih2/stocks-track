@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { DateField } from '@/femini/components/DateField';
 import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Pencil, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, Upload, ChevronDown } from 'lucide-react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
@@ -398,7 +399,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid content-start gap-4">
           <Card title="البيانات"><div className="grid gap-3 sm:grid-cols-3">
-            <Field label="التاريخ"><input type="date" value={date} max={d.today} onChange={(e) => setDate(e.target.value)} /></Field>
+            <Field label="التاريخ"><DateField value={date} max={d.today} onChange={setDate} /></Field>
             {type === 'RCV' && <>
               <Field label="رقم الإذن / الورقة"><input value={hdr.ref ?? ''} onChange={(e) => setHdr({ ...hdr, ref: e.target.value })} /></Field>
               <Field label="إجمالي القطع المكتوب في الورقة"><input type="number" min={0} value={hdr.declared ?? ''} onChange={(e) => setHdr({ ...hdr, declared: e.target.value === '' ? null : +e.target.value })} /></Field></>}

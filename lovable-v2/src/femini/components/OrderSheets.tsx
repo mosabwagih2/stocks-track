@@ -1,4 +1,5 @@
 import { dayClosed } from '@/femini/domain/reports';
+import { DateField } from '@/femini/components/DateField';
 import { DayLock } from './DayLock';
 import { FileDrop } from './FileDrop';
 import { useMemo, useRef, useState } from 'react';
@@ -164,7 +165,7 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
       )}
       {manualRefs && <Alert>تسجيل يدوي لأوردرات محددة من القائمة، دون ملف.</Alert>}
       <Field label={mode === 'pickup' ? 'تاريخ البيك أب (اليوم اللي اتطلب فيه)' : 'تاريخ الشحن (اليوم اللي القطع خرجت فيه)'}>
-        <input type="date" value={day} max={d.today} onChange={(e) => e.target.value && setDay(e.target.value)} className="w-48" />
+        <DateField value={day} max={d.today} onChange={setDay} className="w-48" />
       </Field>
       {day !== d.today && <p className="-mt-2 text-xs text-muted">هيتسجل على يوم {dmy(day)} زي ما يكون اتعمل فيه. ينفع أي يوم قديم طالما مش مقفول.</p>}
       <DayLock d={d} day={day} />

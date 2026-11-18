@@ -1,4 +1,5 @@
 import { serverEdition } from '@/femini/data';
+import { DateField } from '@/femini/components/DateField';
 import { dayClosed } from '@/femini/domain/reports';
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@/femini/router';
@@ -133,7 +134,7 @@ export default function Today() {
           <div className="flex min-w-0 items-center gap-1.5">
             {/* right = newer, left = older (like a timeline read from the left) */}
             <Button className="size-10 shrink-0 p-0" aria-label="اليوم التالي" title="اليوم التالي" disabled={!historical} onClick={()=>setDate(addDays(selected,1))}><ChevronRight className="size-4" /></Button>
-            <input className="h-10 w-40 min-w-0" aria-label="يوم التقرير" type="date" value={selected} max={d.today} onChange={(e)=>setDate(e.target.value)} />
+            <DateField className="h-10 w-44 min-w-0" ariaLabel="يوم التقرير" value={selected} max={d.today} onChange={setDate} />
             <Button className="size-10 shrink-0 p-0" aria-label="اليوم السابق" title="اليوم السابق" onClick={()=>setDate(addDays(selected,-1))}><ChevronLeft className="size-4" /></Button>
             {historical && <Button size="sm" onClick={()=>setDate('')}>العودة لليوم</Button>}
           </div>
