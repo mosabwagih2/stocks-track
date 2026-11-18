@@ -2,12 +2,14 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Button, Empty, Sheet, TableWrap, Tabs, th, td } from '@/femini/components/ui';
+import { ArchivedPickup } from '@/femini/components/ArchivedPickup';
 import { EventDetails } from '@/femini/components/EventDetails';
 import { repo } from '@/femini/data';
 import type { Move } from '@/femini/domain/types';
 import { ErrorBox } from '@/femini/components/shared';
 import { Spinner } from '@/femini/components/Spinner';
 import { LOC_AR, TYPE_AR } from '@/femini/domain/constants';
+import { fmt } from '@/femini/cn';
 import { skuLabel } from '@/femini/domain/orders';
 import { dayLabel, dmy } from '@/femini/domain/dates';
 import { EventTable, docEvents, type DocEvent } from '@/femini/components/MoveRows';
@@ -32,8 +34,19 @@ export default function Ledger() {
     return out;
   }, [d, tab]);
   const supplyRows = useMemo(() => (d ? d.snap.supplyLog.filter((e) => (!range || (e.date >= range.from && e.date <= range.to)) && (!person || e.by === person)).slice().reverse() : []), [d, range, person]);
+  // what the archive cards show beyond a name: the file, the day, the pieces, which orders came back through a return, and orders that are in two pickups
+  const retRefs = useMemo(() => new Set((d?.snap.docs ?? []).filter((x) => x.type === 'RTN' && x.status === 'done').flatMap((x) => (x.hdr.refs as string[] | undefined) ?? [])), [d]);
+  const archivedPickups = useMemo(() => (d ? [...d.snap.archivedPickups].sort((a, b) => b.pickup.date.localeCompare(a.pickup.date) || (b.at ?? '').localeCompare(a.at ?? '')) : []), [d]);
+  const holders = useMemo(() => {
+    const m = new Map<string, { id: string; label: string }[]>(); if (!d) return m;
+    const add = (ref: string, id: string, label: string) => { const l = m.get(ref) ?? []; l.push({ id, label }); m.set(ref, l); };
+    for (const o of d.snap.orders) { const p = d.snap.pickups.find((x) => x.id === o.pickupId); add(o.ref, `P:${o.pickupId}`, p?.label ?? o.pickupId); }
+    for (const a of d.snap.archivedPickups) for (const o of a.orders) add(o.ref, `A:${a.pickup.id}`, `${a.pickup.label} (مؤرشف)`);
+    return m;
+  }, [d]);
+  const dupOf = (x: { pickup: { id: string }; orders: { ref: string }[] }) => { const by = new Map<string, number>(); for (const o of x.orders) for (const h of holders.get(o.ref) ?? []) if (h.id !== `A:${x.pickup.id}`) by.set(h.label, (by.get(h.label) ?? 0) + 1); return [...by].sort((a, b) => b[1] - a[1]); };
   /** who archived it (from the account name), and when */
-  const who = (by?: string, at?: string) => (by ? `أرشفه ${by}${at ? ` · ${at.slice(0, 10)}` : ''}` : 'أرشفه: مش متسجّل (قبل التحديث)');
+  const who = (by?: string, at?: string) => (by ? `أرشفه ${by}${at ? ` · ${dmy(at.slice(0, 10))}` : ''}` : 'أرشفه: مش متسجّل (قبل التحديث)');
   if (error) return <ErrorBox error={error} />;
   if (isLoading || !d) return <Spinner />;
   const types = [...new Set(d.snap.moves.map((m) => m.type))];
@@ -42,8 +55,8 @@ export default function Ledger() {
       <PageHead title="السجل" sub="الأحداث وتتبّع الأصناف والأرشيف؛ الحركات المؤكدة ثابتة." />
       <Tabs value={tab} onChange={setTab} tabs={[['events','اللي حصل'],['sku','تتبّع صنف'],['archive','المؤرشف']]} />
       {tab === 'archive' ? <div className="grid gap-3">
-        {d.snap.archivedPickups.map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.pickup.id}><div><b>{x.pickup.label}</b><p className="text-xs text-muted">بيك أب · {x.orders.length} أوردر · {who(x.by, x.at)}</p></div><Button onClick={()=>setRestore({label:x.pickup.label,run:()=>repo.restoreArchive('pickup',x.pickup.id)})}>استرجاع</Button></div>)}
-        {d.snap.archivedDrafts.map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{TYPE_AR[x.type]} · {x.id}</b><p className="text-xs text-muted">مسودة · {dmy(x.date)} · {who(x.archivedBy, x.archivedAt)}</p></div><Button onClick={()=>setRestore({label:x.id,run:()=>repo.restoreArchive('draft',x.id)})}>استرجاع</Button></div>)}
+        {archivedPickups.map((x) => <ArchivedPickup key={x.pickup.id} x={x} d={d} who={who} dup={dupOf(x)} returned={x.orders.filter((o) => retRefs.has(o.ref)).length} onRestore={() => setRestore({ label: x.pickup.label, run: () => repo.restoreArchive('pickup', x.pickup.id) })} />)}
+        {d.snap.archivedDrafts.map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{TYPE_AR[x.type]} · {x.id}</b><p className="text-xs text-muted">مسودة · يوم {dmy(x.date)} · {fmt(x.lines.reduce((a, l) => a + Number((l as { q?: number; qty?: number }).q ?? (l as { qty?: number }).qty ?? 0), 0))} قطعة في {fmt(x.lines.length)} صنف{Array.isArray(x.hdr.refs) ? ` · ${fmt((x.hdr.refs as unknown[]).length)} بوليصة` : ''}{x.hdr.shop ? ` · ${String(x.hdr.shop)}` : ''}{Array.isArray(x.hdr.sheets) && x.hdr.sheets.length ? ` · ${(x.hdr.sheets as string[]).join('، ')}` : ''} · آخر تعديل {dmy(x.updatedAt.slice(0, 10))} · {who(x.archivedBy, x.archivedAt)}</p></div><Button onClick={()=>setRestore({label:x.id,run:()=>repo.restoreArchive('draft',x.id)})}>استرجاع</Button></div>)}
         {d.snap.supplies.filter((x)=>x.archived).map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{x.name}</b><p className="text-xs text-muted">مستلزم · {who(x.archivedBy)}</p></div><Button onClick={()=>setRestore({label:x.name,run:()=>repo.supplyArchive(x.id,false)})}>استرجاع</Button></div>)}
         {[...new Set(d.snap.archivedSkus.map((s)=>s.model))].map((model)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={model}><div><b>{model}</b><p className="text-xs text-muted">كتالوج · {d.snap.archivedSkus.filter((s)=>s.model===model).length} صنف · {who([...new Set(d.snap.archivedSkus.filter((s)=>s.model===model).map((s)=>d.snap.archivedSkuBy[s.id]).filter(Boolean))].join('، '))}</p></div><Button onClick={()=>setRestore({label:model,run:()=>repo.catalogRestore({model})})}>استرجاع</Button></div>)}
         {!d.snap.archivedPickups.length && !d.snap.archivedDrafts.length && !d.snap.archivedSkus.length && !d.snap.supplies.some((s)=>s.archived) && <Empty>الأرشيف فارغ.</Empty>}
