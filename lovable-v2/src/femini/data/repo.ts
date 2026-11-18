@@ -53,6 +53,8 @@ export interface Repo {
   exportBackup(): Promise<import('./backup').Backup>;
   restoreBackup(backup: import('./backup').Backup): Promise<void>;
   restoreArchive(kind: 'pickup' | 'draft', id: string): Promise<void>;
+  /** deletes archived pickups that are only copies: refused for any order that no other copy (or live order) holds */
+  deleteArchivedPickups(ids: string[]): Promise<number>;
   closeDay(date: string, auto?: boolean): Promise<void>;
   reopenDay(date: string): Promise<void>;
   setAutoClose(on: boolean): Promise<void>;

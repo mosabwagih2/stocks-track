@@ -538,6 +538,16 @@ export function createMemoryRepo(backend?: Backend): Repo {
       if (S.orders.some((o) => o.pickupId === id && o.status === 'shipped')) fail('لا يمكن حذف بيك أب فيه أوردرات مشحونة');
       const p = S.pickups.find((p) => p.id === id); if (!p) fail('بيك أب غير معروف'); S.archivedPickups ??= []; S.archivedPickups.push({ by: actor(), at: new Date().toISOString(), pickup: p as Pickup, orders: S.orders.filter((o) => o.pickupId === id) }); const n = S.orders.filter((o) => o.pickupId === id).length; S.orders = S.orders.filter((o) => o.pickupId !== id); S.pickups = S.pickups.filter((p) => p.id !== id); save(); return n;
     },
+    async deleteArchivedPickups(ids) {
+      guard();
+      const all = S.archivedPickups ?? []; const set = new Set(ids); const gone = all.filter((a) => set.has(a.pickup.id));
+      if (!set.size || gone.length !== set.size) fail('بيك أب مؤرشف غير معروف');
+      const keep = all.filter((a) => !set.has(a.pickup.id));
+      // only pure copies go: every order of a deleted pickup must still be held by a live order or by an archived pickup that stays
+      const held = new Set([...S.orders.map((o) => o.ref), ...keep.flatMap((a) => a.orders.map((o) => o.ref))]);
+      for (const a of gone) { const lone = a.orders.find((o) => !held.has(o.ref)); if (lone) fail(`مقدرش أمسح ${a.pickup.label}: الأوردر ${lone.ref} مش موجود في أي نسخة تانية`); }
+      S.archivedPickups = keep; save(); return gone.length;
+    },
     async renameShipmentEmployee(doc, name) {
       if (!name.trim()) fail('أدخل اسم الموظف'); const os = S.orders.filter((o) => o.shipDoc === doc); if (!os.length) fail('مستند شحن غير معروف');
       const sheet = S.docs.find((x) => x.no === doc); if (sheet) unlocked(sheet.date);   // a closed day keeps its team as frozen
