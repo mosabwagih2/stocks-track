@@ -175,7 +175,7 @@ function SwapLines({ d, lines, set }: { d: Derived; lines: OpLine[]; set: SetLin
   );
 }
 
-function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void; lines: OpLine[]; set: SetLines }) {
+function ReturnLines({ d, hdr, setHdr, lines, set, onSheet }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void; lines: OpLine[]; set: SetLines; /** a returns sheet that gave orders: its file is kept with the return when it is confirmed */ onSheet: (f: File) => void }) {
   const [code, setCode] = useState(''); const [msg, setMsg] = useState<{ tone: 'crit' | 'good'; t: string } | null>(null); const [q, setQ] = useState('');
   /** the variant picker, open on one order: to change what a line came back as (sku), or to add a piece the order never had */
   const [pick, setPick] = useState<{ ref: string; sku?: string } | null>(null);
@@ -192,7 +192,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
   };
   const lookup = () => addCodes(code.split(/[\s,،]+/).filter(Boolean));
   // codes typed / pasted, or the orders found in an uploaded returns sheet: each one checked the same way
-  const addCodes = (codes: string[], from?: string, info?: string, problem?: string, sheet?: string) => {
+  const addCodes = (codes: string[], from?: string, info?: string, problem?: string, sheet?: File) => {
     const added: string[] = []; const bad: string[] = [];
     const newRefs = [...refs];
     for (const c of codes) {
@@ -204,7 +204,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       if (newRefs.includes(o.ref)) continue;
       newRefs.push(o.ref); added.push(o.ref);
     }
-    rebuild(newRefs, marks, extras, sheet && added.length && !sheets.includes(sheet) ? [...sheets, sheet] : sheets); setCode('');
+    rebuild(newRefs, marks, extras, sheet && added.length && !sheets.includes(sheet.name) ? [...sheets, sheet.name] : sheets); setCode(''); if (sheet && added.length) onSheet(sheet);
     const head = from ? `${from}: ` : '';
     // green: just how many orders and pieces were added; red only for a real problem (an order that can't be added, or returns the system doesn't know)
     const bits = [...bad, ...(problem ? [problem] : [])]; const tail = info ? ` ${info}` : '';
@@ -222,7 +222,7 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       const when = (a: typeof missing) => { const days = a.map((m) => m.date).filter(Boolean).sort(); return days.length ? ` من تاريخ ${dmy(days[0]) === dmy(days[days.length - 1]) ? dmy(days[0]) : `${dmy(days[0])} لـ ${dmy(days[days.length - 1])}`}` : ''; };
       const problem = missing.length ? `${missing.length} مرتجع مش موجودين في النظام${when(missing)} (${list(missing)}): أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش` : '';
       if (!found.length) { setMsg({ tone: 'crit', t: returnRows ? `${f.name}: فيه ${returnRows} مرتجع، ولا واحد منهم موجود في النظام${when(missing)} (${list(missing)}). غالبًا أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش.` : skippedRows ? `${f.name}: الشيت ده كله تحصيل (${skippedRows} صف)، مفيهوش ولا مرتجع.` : `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
-      addCodes(found, `${f.name} (${found.length} أوردر مرتجع في الشيت)`, undefined, problem, f.name);
+      addCodes(found, `${f.name} (${found.length} أوردر مرتجع في الشيت)`, undefined, problem, f);
     } catch (e) { setMsg({ tone: 'crit', t: `${f.name}: الملف ده مش بيتقري (${(e as Error).message})` }); }
   };
   const setMark = (ref: string, sku: string, patch: ReturnMark) => {
@@ -372,6 +372,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
   const [lines, setLinesState] = useState<OpLine[]>(() => (draft?.lines as unknown as OpLine[]) ?? (prefill?.length ? prefillLines(d, type, prefill) : []));
   const set: SetLines = (f) => setLinesState(f);
   const [date, setDate] = useState(draft?.date ?? d.today); const [photo, setPhoto] = useState<File | null>(null); const [busy, setBusy] = useState(false);
+  const [sheetFiles, setSheetFiles] = useState<File[]>([]);   // the returns sheets uploaded in this form (a customer return keeps them as originals)
   const [draftId, setDraftId] = useState(draft?.id);
   const from = SOURCE[type]?.(hdr);
   const name = (s: string) => skuLabel(d.skuMap, s);
@@ -380,7 +381,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
   const total = r.moves.reduce((a, m) => a + m.qty, 0) / (type === 'SWP' ? 2 : 1);
   const confirm = async () => {
     setBusy(true);
-    const res = await act(() => repo.postOp({ type, date, hdr, lines, photo }), (x) => `اتأكدت ${x.doc} (${fmt(x.pieces)} قطعة)`);
+    const res = await act(() => repo.postOp({ type, date, hdr, lines, photo, sheets: type === 'RTN' ? sheetFiles : undefined }), (x) => `اتأكدت ${x.doc} (${fmt(x.pieces)} قطعة)`);
     if (res && draftId) await repo.deleteDraft(draftId);
     setBusy(false); if (res) onDone(res.doc);
   };
@@ -420,7 +421,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
               onToggle={(s, add) => set((l) => add ? addLine(l, s, 1, { res: 'FOUND' }, from ? qty(d.snap.balances, s, from) : undefined) : l.flatMap((x) => (x.sku !== s ? [x] : x.q > 1 ? [{ ...x, q: x.q - 1 }] : [])))} />
           </Card>}
           <Card title={type === 'RTN' ? 'المرتجعات بالبوليصة' : type === 'CNT' ? 'ورقة الجرد' : type === 'SWP' ? 'التبديلات' : 'الأصناف'}>
-            {type === 'RTN' ? <ReturnLines d={d} hdr={hdr} setHdr={setHdr} lines={lines} set={set} />
+            {type === 'RTN' ? <ReturnLines d={d} hdr={hdr} setHdr={setHdr} lines={lines} set={set} onSheet={(f) => setSheetFiles((x) => [...x, f])} />
               : type === 'CNT' ? <CountSheet d={d} hdr={hdr} setHdr={setHdr} focus={prefill} />
               : type === 'SWP' ? <SwapLines d={d} lines={lines} set={set} />
               : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : type === 'SRT' ? { to: 'READY' } : {}, from ? qty(d.snap.balances, s, from) : undefined))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}

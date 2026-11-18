@@ -16,7 +16,7 @@ export interface Repo {
   receiveStock(i: { lines: { sku: string; qty: number }[]; date: string; ref: string; declared: number; photo: File }): Promise<{ doc: string; pieces: number }>;
   moveState(i: { lines: { sku: string; qty: number }[]; from: Loc; to: Loc; reason: string }): Promise<{ doc: string; pieces: number }>;
   /** any stock operation (RCV, RTN, SHP, CLN, FSD, FRC, CNT, LOS); rules in domain/ops.ts */
-  postOp(i: { type: import('@/femini/domain/ops').OpType; date: string; hdr: import('@/femini/domain/ops').OpHdr; lines: import('@/femini/domain/ops').OpLine[]; photo?: File | null }): Promise<{ doc: string; pieces: number }>;
+  postOp(i: { type: import('@/femini/domain/ops').OpType; date: string; hdr: import('@/femini/domain/ops').OpHdr; lines: import('@/femini/domain/ops').OpLine[]; photo?: File | null; /** the sheets a customer return was made from: kept as the originals */ sheets?: File[] }): Promise<{ doc: string; pieces: number }>;
   /** shop delivery is confirmed only with the signed delivery-note photo */
   holdOut(i: { who: string; note: string; reason: import('@/femini/domain/holds').HoldReason; reasonText: string; lines: { sku: string; q: number }[]; photo: File | null }): Promise<string>;
   holdSettle(i: { no: string; ret: { sku: string; q: number; to: Loc }[]; off: { sku: string; q: number }[]; note: string; photo: File | null }): Promise<{ closed: boolean }>;

@@ -91,6 +91,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       else if (kind === 'scan') backend.queueFile({ type: 'doc', no: owner }, 'scan', file);
       else if (kind === 'cancel') backend.queueFile({ type: 'order', ref: owner }, 'cancel', file);
       else if (kind === 'settle') backend.queueFile({ type: 'settle', id: owner }, 'doc_file', file);
+      else if (kind === 'sheet') backend.queueFile({ type: 'doc', no: owner }, 'doc_file', file);   // a returns sheet kept as the original
       else backend.queueFile({ type: 'doc', no: owner }, 'doc_photo', file);
       return;
     }
@@ -253,7 +254,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       post(lines.filter((l) => l.qty > 0).map((l) => ({ date: cairoToday(), sku: l.sku, qty: l.qty, from, to, type: 'MOV', doc: no, by: actor(), note: reason })));
       S.docs.push({ no, type: 'MOV', date: cairoToday(), by: actor(), status: 'done', hdr: { from, to, reason }, lines }); save(); return { doc: no, pieces: pcs };
     },
-    async postOp({ type, date, hdr, lines, photo }) {
+    async postOp({ type, date, hdr, lines, photo, sheets }) {
       unlocked(date);
       const today = cairoToday(); const skuMap = new Map(allSkus().map((k) => [k.id, k]));
       const h = { ...hdr, hasPhoto: !!photo };
@@ -280,6 +281,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       if (type === 'SRT') { const shop = (h.shop ?? '').trim(); keep.shop = shop; S.shops = S.shops ?? []; if (shop && !S.shops.includes(shop)) S.shops.push(shop); (keep as Record<string, unknown>).at = new Date().toISOString(); }
       if (type === 'RTN') for (const ref of h.refs ?? []) { const o = S.orders.find((x) => x.ref === ref); if (o) o.returned = { doc: no, at: new Date().toISOString() }; }
       S.docs.push({ no, type, date, by: actor(), status: 'done', hdr: { ...keep, pieces, moves: r.moves.map((m) => ({ sku: m.sku, qty: m.qty, from: m.from, to: m.to })) }, lines: r.moves.map((m) => ({ sku: m.sku, qty: m.qty })), attachment });
+      for (const f of type === 'RTN' ? sheets ?? [] : []) await original(no, 'sheet', f);
       save(); return { doc: no, pieces };
     },
     /**

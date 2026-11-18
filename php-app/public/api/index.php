@@ -47,7 +47,6 @@ try {
     $router->add('POST', '/api/admin/restore',     [RestoreController::class, 'restore']);
     $router->add('GET',  '/api/admin/restore/points', [RestoreController::class, 'points']);
     $router->add('POST', '/api/admin/restore/undo', [RestoreController::class, 'undo']);
-    $router->add('POST', '/api/admin/wipe', [RestoreController::class, 'wipe']);
 
     Auth::checkOrigin($req);
     // Login is the only state-changing endpoint that does not need a session CSRF token yet.

@@ -21,37 +21,6 @@ async function send<T>(path: string, init: RequestInit): Promise<T> {
 }
 const when = (ms: number | null) => (ms ? new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(ms)) : '—');
 
-const WIPE_WORD = 'مسح كل البيانات';
-
-/** Admin: empty the whole system to start over. Two confirmations (the second by typing the words); the server keeps a safety copy first. */
-export function WipeCard() {
-  const [step, setStep] = useState(0); const [word, setWord] = useState(''); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
-  const run = async () => {
-    setErr(''); setBusy('بمسح… متقفلش الصفحة.');
-    try {
-      const r = await send<{ safety: string }>('/api/admin/wipe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: word.trim() }) });
-      setBusy(`اتمسحت كل البيانات. نسخة الأمان: ${r.safety}. الصفحة هتتحدّث…`); setTimeout(() => location.reload(), 1500);
-    } catch (e) { setErr((e as Error).message); setBusy(''); }
-  };
-  return (
-    <Card title="مسح كل البيانات والبدء من الصفر">
-      <p className="text-sm text-muted">بيمسح كل الحركات والأرصدة والأوردرات والبيك أب والمستندات والتوريدات والتقفيلات والكتالوج المضاف والتكاليف والصور والملفات، وترجع أرقام المستندات تبدأ من 1. المستخدمين وكلمات السر مش بيتغيروا. الموديلات الأساسية المدمجة في النظام بتفضل بدون رصيد.</p>
-      <p className="mt-1 text-xs text-muted">قبل المسح السيرفر بيحفظ نسخة أمان، وتقدر ترجعلها من «نسخ الأمان» فوق. نزّل نسخة احتياطية قبل ما تكمّل.</p>
-      {err && <Alert tone="crit" className="mt-2">{err}</Alert>}
-      {busy && <p className="mt-2 text-sm" aria-live="polite">{busy}</p>}
-      {!busy && step === 0 && <div className="mt-3"><Button variant="danger" onClick={() => setStep(1)}>مسح كل البيانات…</Button></div>}
-      {!busy && step === 1 && <div className="mt-3 grid gap-2 rounded-xl border border-warn-line bg-warn-bg p-3">
-        <p className="text-sm"><b>متأكد؟</b> كل الشغل الحالي هيتمسح وكل الأجهزة المفتوحة هتتحدّث.</p>
-        <div className="flex gap-2"><Button variant="danger" onClick={() => setStep(2)}>أيوه، كمّل</Button><Button onClick={() => setStep(0)}>لأ</Button></div>
-      </div>}
-      {!busy && step === 2 && <div className="mt-3 grid gap-2 rounded-xl border border-crit-line bg-crit-bg p-3">
-        <Field label={`للتأكيد اكتب «${WIPE_WORD}»`}><input value={word} onChange={(e) => setWord(e.target.value)} autoFocus autoComplete="off" /></Field>
-        <div className="flex gap-2"><Button variant="danger" disabled={word.trim() !== WIPE_WORD} onClick={run}>امسح دلوقتي</Button><Button onClick={() => { setStep(0); setWord(''); }}>إلغاء</Button></div>
-      </div>}
-    </Card>
-  );
-}
-
 export function RestoreCard() {
   const [file, setFile] = useState<File | null>(null); const [sum, setSum] = useState<Summary | null>(null);
   const [step, setStep] = useState(0); const [word, setWord] = useState(''); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');

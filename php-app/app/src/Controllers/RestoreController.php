@@ -63,18 +63,6 @@ final class RestoreController
         Response::json(['ok' => true] + Restore::undo((string)($body['name'] ?? ''), $user));
     }
 
-    /** POST /api/admin/wipe  confirm="مسح كل البيانات": every data table emptied (a safety copy is kept first). */
-    public static function wipe(Request $req): never
-    {
-        $user = self::admin();
-        $body = $req->json();
-        if (trim((string)($body['confirm'] ?? '')) !== 'مسح كل البيانات') {
-            throw new HttpError(422, 'confirm', 'للتأكيد اكتب «مسح كل البيانات».');
-        }
-        @set_time_limit(300);
-        Response::json(['ok' => true] + Restore::wipe($user));
-    }
-
     private static function admin(): array
     {
         $user = Auth::requireUser();
