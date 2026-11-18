@@ -36,9 +36,10 @@ describe('forgotten uploads: pickup and scan on a past day', () => {
   });
   it('any past day is accepted (no day limit); the future is refused', async () => {
     const r = createMemoryRepo();
-    await expect(r.importPickup({ label: 'x', date: addDays(cairoToday(), 1), channel: 'VENDOOR', source: 't', orders: [] })).rejects.toThrow(/المستقبل/);
-    await expect(r.importPickup({ label: 'x', date: addDays(cairoToday(), -7), channel: 'VENDOOR', source: 't', orders: [] })).resolves.toBeTruthy();
-    await expect(r.importPickup({ label: 'y', date: addDays(cairoToday(), -40), channel: 'VENDOOR', source: 't', orders: [] })).resolves.toBeTruthy();
+    const sku = (await snap(r)).skus[0].id; const one = (ref: string) => [{ ref, waybill: ref, type: 'new' as const, gov: '', total: 0, lines: [sku], unmapped: [] }];
+    await expect(r.importPickup({ label: 'x', date: addDays(cairoToday(), 1), channel: 'VENDOOR', source: 't1', orders: one('D1') })).rejects.toThrow(/المستقبل/);
+    await expect(r.importPickup({ label: 'x', date: addDays(cairoToday(), -7), channel: 'VENDOOR', source: 't2', orders: one('D2') })).resolves.toBeTruthy();
+    await expect(r.importPickup({ label: 'y', date: addDays(cairoToday(), -40), channel: 'VENDOOR', source: 't3', orders: one('D3') })).resolves.toBeTruthy();
   });
   it("a scan of yesterday takes the stock out on yesterday and counts in yesterday's report", async () => {
     const r = createMemoryRepo(); const sku = await newOrder(r, 'Y2', yesterday());

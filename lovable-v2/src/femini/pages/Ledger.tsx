@@ -3,8 +3,6 @@ import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Button, Empty, Sheet, TableWrap, Tabs, th, td } from '@/femini/components/ui';
 import { ArchivedPickup } from '@/femini/components/ArchivedPickup';
-import { duplicateArchives } from '@/femini/domain/archiveDup';
-import { isAdmin } from '@/femini/data';
 import { EventDetails } from '@/femini/components/EventDetails';
 import { repo } from '@/femini/data';
 import type { Move } from '@/femini/domain/types';
@@ -46,10 +44,6 @@ export default function Ledger() {
     for (const a of d.snap.archivedPickups) for (const o of a.orders) add(o.ref, `A:${a.pickup.id}`, `${a.pickup.label} (مؤرشف)`);
     return m;
   }, [d]);
-  // archived pickups that are only copies (every order is held by a live order or by an older archived copy): the oldest copy of each stays
-  const copies = useMemo(() => (d ? duplicateArchives(d.snap.archivedPickups, new Set(d.snap.orders.map((o) => o.ref))) : []), [d]);
-  const copyIds = useMemo(() => new Set(copies.map((c) => c.id)), [copies]);
-  const [askDup, setAskDup] = useState(false);
   const dupOf = (x: { pickup: { id: string }; orders: { ref: string }[] }) => { const by = new Map<string, number>(); for (const o of x.orders) for (const h of holders.get(o.ref) ?? []) if (h.id !== `A:${x.pickup.id}`) by.set(h.label, (by.get(h.label) ?? 0) + 1); return [...by].sort((a, b) => b[1] - a[1]); };
   /** who archived it (from the account name), and when */
   const who = (by?: string, at?: string) => (by ? `أرشفه ${by}${at ? ` · ${dmy(at.slice(0, 10))}` : ''}` : 'أرشفه: مش متسجّل (قبل التحديث)');
@@ -61,17 +55,7 @@ export default function Ledger() {
       <PageHead title="السجل" sub="الأحداث وتتبّع الأصناف والأرشيف؛ الحركات المؤكدة ثابتة." />
       <Tabs value={tab} onChange={setTab} tabs={[['events','اللي حصل'],['sku','تتبّع صنف'],['archive','المؤرشف']]} />
       {tab === 'archive' ? <div className="grid gap-3">
-        {copies.length > 0 && isAdmin() && <div className="grid gap-2 rounded-xl border border-warn-line bg-warn-bg p-4 text-sm">
-          <p><b>{fmt(copies.length)}</b> بيك أب مؤرشف نسخة مكررة تمامًا من بيك أب تاني (نفس الأوردرات). الأقدم في كل مجموعة بيفضل.</p>
-          {!askDup
-            ? <div><Button onClick={() => setAskDup(true)}>امسح النسخ المكررة ({fmt(copies.length)})</Button></div>
-            : <div className="grid gap-2">
-              <ul className="grid gap-1 text-xs">{copies.map((c) => { const x = d.snap.archivedPickups.find((a) => a.pickup.id === c.id)!; const k = c.keptIn.map((id) => d.snap.archivedPickups.find((a) => a.pickup.id === id)?.pickup.label).filter(Boolean); return <li key={c.id}>هيتمسح <b>{x.pickup.label}</b> ({fmt(x.orders.length)} أوردر · {x.pickup.source || 'من غير اسم ملف'} · أرشفه {x.by ?? '—'} {x.at ? dmy(x.at.slice(0, 10)) : ''}) · بيفضل في: {k.length ? k.join('، ') : 'الأوردرات الحالية'}</li>; })}</ul>
-              <p className="text-xs">المسح نهائي ومش بيترجّع. الأوردرات نفسها بتفضل في النسخة اللي بتفضل، والمرتجعات بتفضل شغالة عليها.</p>
-              <div className="flex gap-2"><Button variant="danger" onClick={async () => { const n = await act(() => repo.deleteArchivedPickups(copies.map((c) => c.id)), (x) => `اتمسح ${x} نسخة مكررة من الأرشيف`); if (n != null) setAskDup(false); }}>أيوه، امسحهم ({fmt(copies.length)})</Button><Button onClick={() => setAskDup(false)}>لأ</Button></div>
-            </div>}
-        </div>}
-        {archivedPickups.map((x) => <ArchivedPickup key={x.pickup.id} x={x} d={d} who={who} isCopy={copyIds.has(x.pickup.id)} dup={dupOf(x)} returned={x.orders.filter((o) => retRefs.has(o.ref)).length} onRestore={() => setRestore({ label: x.pickup.label, run: () => repo.restoreArchive('pickup', x.pickup.id) })} />)}
+        {archivedPickups.map((x) => <ArchivedPickup key={x.pickup.id} x={x} d={d} who={who} dup={dupOf(x)} returned={x.orders.filter((o) => retRefs.has(o.ref)).length} onRestore={() => setRestore({ label: x.pickup.label, run: () => repo.restoreArchive('pickup', x.pickup.id) })} />)}
         {d.snap.archivedDrafts.map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{TYPE_AR[x.type]} · {x.id}</b><p className="text-xs text-muted">مسودة · يوم {dmy(x.date)} · {fmt(x.lines.reduce((a, l) => a + Number((l as { q?: number; qty?: number }).q ?? (l as { qty?: number }).qty ?? 0), 0))} قطعة في {fmt(x.lines.length)} صنف{Array.isArray(x.hdr.refs) ? ` · ${fmt((x.hdr.refs as unknown[]).length)} بوليصة` : ''}{x.hdr.shop ? ` · ${String(x.hdr.shop)}` : ''}{Array.isArray(x.hdr.sheets) && x.hdr.sheets.length ? ` · ${(x.hdr.sheets as string[]).join('، ')}` : ''} · آخر تعديل {dmy(x.updatedAt.slice(0, 10))} · {who(x.archivedBy, x.archivedAt)}</p></div><Button onClick={()=>setRestore({label:x.id,run:()=>repo.restoreArchive('draft',x.id)})}>استرجاع</Button></div>)}
         {d.snap.supplies.filter((x)=>x.archived).map((x)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={x.id}><div><b>{x.name}</b><p className="text-xs text-muted">مستلزم · {who(x.archivedBy)}</p></div><Button onClick={()=>setRestore({label:x.name,run:()=>repo.supplyArchive(x.id,false)})}>استرجاع</Button></div>)}
         {[...new Set(d.snap.archivedSkus.map((s)=>s.model))].map((model)=><div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4" key={model}><div><b>{model}</b><p className="text-xs text-muted">كتالوج · {d.snap.archivedSkus.filter((s)=>s.model===model).length} صنف · {who([...new Set(d.snap.archivedSkus.filter((s)=>s.model===model).map((s)=>d.snap.archivedSkuBy[s.id]).filter(Boolean))].join('، '))}</p></div><Button onClick={()=>setRestore({label:model,run:()=>repo.catalogRestore({model})})}>استرجاع</Button></div>)}

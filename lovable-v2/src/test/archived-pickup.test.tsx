@@ -26,10 +26,6 @@ describe('an archived pickup tells you what it is', () => {
     expect(t).toContain('BR2 · 3'); expect(t).toContain('SH1 · 1');                       // pieces per model
     expect(screen.getByRole('button', { name: 'استرجاع' })).toBeTruthy();
   });
-  it('a pure copy is marked, an original is not', () => {
-    const copy = render(<ArchivedPickup x={x} d={d} who={who} dup={[]} returned={0} isCopy onRestore={vi.fn()} />).container.textContent ?? '';
-    expect(copy).toContain('نسخة مكررة');
-  });
   it('a pickup with no file name, no duplicates and no returns says so quietly', () => {
     const y = { ...x, pickup: { ...x.pickup, source: '' } } as typeof x;
     const { container } = render(<ArchivedPickup x={y} d={d} who={who} dup={[]} returned={0} onRestore={vi.fn()} />);

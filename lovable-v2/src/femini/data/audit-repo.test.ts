@@ -306,11 +306,11 @@ describe('pickups', () => {
     const r = createMemoryRepo();
     await expect(r.importPickup({ label: 't', date: addDays(cairoToday(), 2), channel: 'VENDOOR', source: 't', orders: [] })).rejects.toThrow();
   });
-  it('an archived pickup cannot come back if its orders were imported again (control)', async () => {
+  it('the orders of an archived pickup cannot be imported again (so the archive can always come back whole)', async () => {
     const r = createMemoryRepo(); const s = await snap(r); const sku = s.skus[0].id;
     const { pickup } = await r.importPickup({ label: 't', date: cairoToday(), channel: 'VENDOOR', source: 't', orders: [{ ref: 'Z1', waybill: '9', type: 'new', gov: '', total: 0, lines: [sku], unmapped: [] }] });
     await r.pickupDelete(pickup);
-    await r.importPickup({ label: 't2', date: cairoToday(), channel: 'VENDOOR', source: 't', orders: [{ ref: 'Z1', waybill: '9', type: 'new', gov: '', total: 0, lines: [sku], unmapped: [] }] });
-    await expect(r.restoreArchive('pickup', pickup)).rejects.toThrow();
+    await expect(r.importPickup({ label: 't2', date: cairoToday(), channel: 'VENDOOR', source: 't2', orders: [{ ref: 'Z1', waybill: '9', type: 'new', gov: '', total: 0, lines: [sku], unmapped: [] }] })).rejects.toThrow(/موجودة قبل كده/);
+    await expect(r.restoreArchive('pickup', pickup)).resolves.toBeUndefined();
   });
 });

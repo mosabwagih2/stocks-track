@@ -1,4 +1,5 @@
 import { dayClosed } from '@/femini/domain/reports';
+import { nextPickupLabel, usedPickupSheet } from '@/femini/domain/sheetNames';
 import { DateField } from '@/femini/components/DateField';
 import { DayLock } from './DayLock';
 import { FileDrop } from './FileDrop';
@@ -122,8 +123,10 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
   const [pickupRows, setPickupRows] = useState<unknown[][] | null>(null);
   const pickup = useMemo(() => {
     if (!pickupRows) return null;
-    try { return parsePickupRows(pickupRows, d.snap.skus, new Set(d.snap.orders.map((o) => o.ref))); } catch { return null; }
-  }, [pickupRows, d.snap.skus, d.snap.orders]);
+    try { return parsePickupRows(pickupRows, d.snap.skus, new Set([...d.snap.orders.map((o) => o.ref), ...d.archivedOrders.keys()])); } catch { return null; }   // orders of archived pickups count as already uploaded
+  }, [pickupRows, d.snap.skus, d.snap.orders, d.archivedOrders]);
+  // the same sheet (by its file name) cannot go in twice, whether its pickup is live or archived
+  const usedSheet = mode === 'pickup' && fname ? usedPickupSheet(fname, d.snap.pickups, d.snap.archivedPickups) : null;
   const [channel, setChannel] = useState('VENDOOR'); const [busy, setBusy] = useState(false);
   const pcs = (refs: string[]) => refs.reduce((a, r) => a + (d.orderMap.get(r)?.lines.length ?? 0), 0);
   const neg = useMemo(() => {
@@ -204,9 +207,11 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
             <LinkLines d={d} lines={pickup.orders.flatMap((o) => o.unmapped)} />
           </Alert>}
           <Alert>البيك أب لا يخصم من المخزون، ويُحتسب طلبًا فقط إلى أن تُشحن الأوردرات. لا تُحفظ بيانات العملاء.</Alert>
-          <Button variant="primary" disabled={!pickup.orders.length || closed || busy} onClick={async () => {
+          {usedSheet && <Alert tone="crit">الشيت ده اترفع قبل كده: <b>{usedSheet.label}</b> بتاريخ {dmy(usedSheet.date)}{usedSheet.archived ? ' (مؤرشف)' : ''}. مينفعش يترفع مرتين.</Alert>}
+          {!pickup.orders.length && pickup.duplicates.length > 0 && <Alert tone="crit">كل أوردرات الشيت ده موجودة قبل كده (في بيك أب حالي أو مؤرشف).</Alert>}
+          <Button variant="primary" disabled={!pickup.orders.length || !!usedSheet || closed || busy} onClick={async () => {
             setBusy(true);
-            const r = await act(() => repo.importPickup({ label: `بيك أب ${d.snap.pickups.length + 1}`, date: day, channel, source: fname, orders: pickup.orders, file: original }), (x) => `تم استيراد ${x.imported} أوردر. لم يُخصم أي رصيد بعد.`);
+            const r = await act(() => repo.importPickup({ label: nextPickupLabel(d.snap.pickups, d.snap.archivedPickups), date: day, channel, source: fname, orders: pickup.orders, file: original }), (x) => `تم استيراد ${x.imported} أوردر. لم يُخصم أي رصيد بعد.`);
             setBusy(false); if (r) onClose();
           }}>استيراد {pickup.orders.length} أوردر ({dayText})</Button>
         </>

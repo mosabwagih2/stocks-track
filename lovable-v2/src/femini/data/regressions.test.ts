@@ -71,7 +71,7 @@ describe('pickups', () => {
     const mk = (ref: string) => ({ ref, waybill: ref, type: 'new' as const, gov: 'x', total: 1, lines: [], unmapped: [] });
     const a = await r.importPickup({ label: 'a', date: T, channel: 'VENDOOR', source: 's', orders: [mk('zz1')] });
     await r.pickupDelete(a.pickup);
-    const b = await r.importPickup({ label: 'b', date: T, channel: 'VENDOOR', source: 's', orders: [mk('zz2')] });
+    const b = await r.importPickup({ label: 'b', date: T, channel: 'VENDOOR', source: 's2', orders: [mk('zz2')] });
     expect(b.pickup).not.toBe(a.pickup);
     await r.restoreArchive('pickup', a.pickup);
     const ids = (await r.snapshot()).pickups.map((p) => p.id);
