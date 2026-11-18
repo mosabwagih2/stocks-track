@@ -1,6 +1,6 @@
 import { LOC_AR, TYPE_AR } from '@/femini/domain/constants';
 import { skuLabel } from '@/femini/domain/orders';
-import { timeCairo } from '@/femini/domain/dates';
+import { timeCairo, dmy } from '@/femini/domain/dates';
 import { cn, fmt } from '@/femini/cn';
 import { TableWrap, th, td } from './ui';
 import { TONE } from './tones';
@@ -58,7 +58,7 @@ export function MoveRows({ d, moves, loc, max = 30 }: { d: Derived; moves: Move[
           <li key={m.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-[13px]">
             <span className="min-w-0">
               <span className="block truncate">{skuLabel(d.skuMap, m.sku)}</span>
-              <span className="block truncate text-[11px] text-muted">{TYPE_AR[m.type] ?? m.type} · <span className="font-mono">{m.doc}</span> · {m.date} {timeCairo(m.ts)}{m.by ? ` · ${m.by}` : ''} · {LOC_AR[inn ? m.from : m.to] ?? ''}</span>
+              <span className="block truncate text-[11px] text-muted">{TYPE_AR[m.type] ?? m.type} · <span className="font-mono">{m.doc}</span> · {dmy(m.date)} {timeCairo(m.ts)}{m.by ? ` · ${m.by}` : ''} · {LOC_AR[inn ? m.from : m.to] ?? ''}</span>
             </span>
             <b className={cn('num shrink-0', inn ? 'text-good' : 'text-crit')}>{inn ? '+' : '−'}{fmt(m.qty)}</b>
           </li>

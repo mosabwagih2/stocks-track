@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
+import { FileDrop } from './FileDrop';
 import { ArrowDownRight, ArrowUpRight, Download, Trash2, Upload } from 'lucide-react';
 import type { Derived } from '@/femini/hooks/data';
 import { useAct } from '@/femini/hooks/data';
 import { isAdmin, repo } from '@/femini/data';
 import { parseSettlement, previewSettlement, type Settlement } from '@/femini/domain/settle';
-import { cairoDay, dayDiff } from '@/femini/domain/dates';
+import { cairoDay, dayDiff, dmy } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { cn, fmt } from '@/femini/cn';
 import { Alert, Button, Card, Empty, Field, Kpi, Seg, Sheet, TableWrap, th, td } from './ui';
@@ -33,11 +34,11 @@ export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }
   return (
     <Sheet title="رفع شيت التحصيل (التسوية)" onClose={onClose} wide>
       <p className="text-sm text-muted">الشيت اللي بيوصل من شركة الشحن: كل أوردر اتحصّل (العميل دفع) أو مرتجع. "مشحون" يعني خرج بالإسكان، و"تم التحصيل" يعني فلوسه وصلت، ودي بتيجي من الشيت ده.</p>
-      <Field label="ملف التسوية (Excel)"><input type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f) void read(f); }} /></Field>
+      <FileDrop accept=".xlsx,.xls" onFile={(f) => void read(f)} fileName={file?.name} title="اسحب شيت التسوية هنا أو اضغط للاختيار" hint="ملف Excel من شركة الشحن" />
       {err && <Alert tone="crit">{err}</Alert>}
       {parsed && pv && <>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Kpi label="تاريخ التسوية" value={<span className="text-lg">{parsed.date}</span>} sub={parsed.title} />
+          <Kpi label="تاريخ التسوية" value={<span className="text-lg">{dmy(parsed.date)}</span>} sub={parsed.title} />
           <Kpi label="إجمالي الأوردرات" value={pv.rows} sub="في الشيت" />
           <Kpi label="التوريد (جنيه)" value={money(parsed.totals.due)} tone="good" />
         </div>
@@ -96,7 +97,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
           <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'مرتجع', 'جزئي / استبدال', 'التوريد', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{settles.map((s) => (
               <tr key={s.id}>
-                <td className={td + ' font-mono'} title={s.source}>{s.date}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' font-mono'}>{s.rows.length}</td>
+                <td className={td + ' font-mono'} title={s.source}>{dmy(s.date)}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' font-mono'}>{s.rows.length}</td>
                 <td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'collect').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'return').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'partial').length}</td>
                 <td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td}>{s.by}</td>
                 <td className={td}><div className="flex gap-1">
@@ -112,14 +113,14 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         {!waiting.length ? <Empty>كل المشحون اتحصّل.</Empty> : (
           <TableWrap><table className="text-sm"><thead><tr>{['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'من كام يوم', 'قطع'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{waiting.slice(0, 100).map(({ o, day }) => (
-              <tr key={o.ref}><td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{o.waybill}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{day}</td>
+              <tr key={o.ref}><td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{o.waybill}</td><td className={td + ' font-mono text-muted'}>{dmy(d.pickupDate.get(o.pickupId)) || '—'}</td><td className={td + ' font-mono'}>{dmy(day)}</td>
                 <td className={td + ' font-mono'}>{age(day)}</td><td className={td + ' font-mono'}>{o.lines.length}</td></tr>))}</tbody></table></TableWrap>
         )}
         {waiting.length > 100 && <p className="mt-2 text-xs text-muted">أول 100 من {fmt(waiting.length)}.</p>}
       </Card>
       {card && (() => {
         const collected = (o: Order) => d.collected.get(o.ref);
-        const cols = [{ head: 'تاريخ التحصيل', cell: (o: Order) => <span className="num">{collected(o)?.date ?? '—'}</span> }, { head: 'التوريد', cell: (o: Order) => <b className="num">{money(collected(o)?.due ?? 0)}</b> }, { head: 'التسوية', cell: (o: Order) => <span className="num text-muted">{collected(o)?.stl ?? '—'}</span> }];
+        const cols = [{ head: 'تاريخ التحصيل', cell: (o: Order) => <span className="num">{dmy(collected(o)?.date) || '—'}</span> }, { head: 'التوريد', cell: (o: Order) => <b className="num">{money(collected(o)?.due ?? 0)}</b> }, { head: 'التسوية', cell: (o: Order) => <span className="num text-muted">{collected(o)?.stl ?? '—'}</span> }];
         if (card === 'wait') return <OrdersDetail d={d} title="مشحون ولسه ما اتحصّلش" hint="الأقدم الأول." orders={waiting.map((x) => x.o)} onClose={() => setCard(null)}
           cols={[{ head: 'اتشحن من', cell: (o) => { const w = waiting.find((x) => x.o.ref === o.ref); return <span className="num">{w ? age(w.day) : 0} يوم</span>; } }]} />;
         if (card === 'paid') return <OrdersDetail d={d} title="أوردرات اتحصّلت" hint="كل اللي فلوسه وصلت حسب شيتات التسوية." orders={paid.slice().sort((a, b) => (collected(b)?.date ?? '').localeCompare(collected(a)?.date ?? ''))} cols={cols} onClose={() => setCard(null)} />;
@@ -163,7 +164,7 @@ function ClosedDaySheet({ d, day, onClose }: { d: Derived; day: string; onClose:
   const nCol = refs.filter(([, c]) => c.kind === 'collected').length; const nRet = refs.length - nCol;
   const due = orders.reduce((a, o) => a + (kind.get(o.ref) === 'collected' ? d.collected.get(o.ref)?.due ?? 0 : 0), 0);
   const missing = refs.length - orders.length;
-  return <OrdersDetail d={d} title={`اتقفل يوم ${day}`} onClose={onClose} orders={orders}
+  return <OrdersDetail d={d} title={`اتقفل يوم ${dmy(day)}`} onClose={onClose} orders={orders}
     hint={`${fmt(nCol)} اتحصّل (التوريد ${money(due)} جنيه) · ${fmt(nRet)} مرتجع${missing ? ` · ${fmt(missing)} أوردر في الشيت مش في السيستم` : ''}.`}
     chips={[{ id: 'collected', label: 'اتحصّل', test: (o) => kind.get(o.ref) === 'collected' }, { id: 'returned', label: 'مرتجع', test: (o) => kind.get(o.ref) === 'returned' }]}
     cols={[{ head: 'التوريد', cell: (o) => kind.get(o.ref) === 'collected' ? <b className="num">{money(d.collected.get(o.ref)?.due ?? 0)}</b> : <span className="text-muted">—</span> },

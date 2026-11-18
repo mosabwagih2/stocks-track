@@ -16,3 +16,15 @@ export function timeCairo(iso: string): string {
 export function dayLabel(date: string): string {
   return new Date(date + 'T12:00:00Z').toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
+
+/**
+ * How a date is shown everywhere: day-month-year (2026-11-18 → 18-11-2026). Anything that is not a date comes back as it was.
+ * The date is wrapped in a left-to-right isolate: inside Arabic (right-to-left) text the browser lays the parts of "18-11-2026"
+ * out from the right, so without it the same date would read 2026-11-18 on screen.
+ */
+const LRI = '\u2066', PDI = '\u2069';
+export const dmy = (iso?: string | null): string => { const m = /^(\d{4})-(\d{2})-(\d{2})([\s\S]*)$/.exec(iso ?? ''); return m ? `${LRI}${m[3]}-${m[2]}-${m[1]}${PDI}${m[4]}` : (iso ?? ''); };
+/** every yyyy-mm-dd inside a text, shown day-month-year (isolated, see dmy) */
+export const dmyText = (t: string): string => t.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, `${LRI}$3-$2-$1${PDI}`);
+/** the same text without the invisible isolate marks: for a file (Excel, CSV) rather than the screen */
+export const plainText = (t: string): string => t.replace(/[\u2066\u2069]/g, '');

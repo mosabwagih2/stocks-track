@@ -1,4 +1,5 @@
 import { lazy, Suspense, useRef, useState } from 'react';
+import { FileDrop } from '@/femini/components/FileDrop';
 import { Download, Upload } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { PageHead } from '@/femini/components/PageHead';
@@ -19,7 +20,7 @@ import { serverEdition } from '@/femini/data';
 import { ModelCosts } from '@/femini/components/ModelCosts';
 
 export default function Settings() {
-  const qc = useQueryClient(); const toast = useToast(); const { d } = useDerived(); const input = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient(); const toast = useToast(); const { d } = useDerived(); 
   const [preview, setPreview] = useState<ImportPreview | null>(null); const [ack, setAck] = useState(false); const [search, setSearch] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setError(''); try { await fn(); await qc.invalidateQueries({ queryKey: SNAP_KEY }); } catch(e) { setError(friendlyError(e)); } finally { setBusy(false); } };
   if (serverEdition) return (
@@ -42,8 +43,8 @@ export default function Settings() {
         <Card title="النسخة الاحتياطية">
           <p className="mb-3 text-sm text-muted">{d?.snap.lastBackup ? `آخر نسخة: ${new Date(d.snap.lastBackup).toLocaleString('ar-EG-u-nu-latn')}` : 'لم تُؤخذ نسخة احتياطية بعد.'}</p>
           <p className="mb-4 text-sm text-muted">تشمل العمليات والأوردرات والكتالوج والمستلزمات والصور والملفات المحفوظة.</p>
-          <div className="flex flex-wrap gap-2"><Button variant="primary" disabled={busy} onClick={() => run(async () => { const b = await repo.exportBackup(); downloadBlob(new Blob([JSON.stringify(b)], { type:'application/json' }), `femini-backup-${d?.today ?? 'today'}.json`); toast('تم تجهيز النسخة الاحتياطية للتنزيل'); })}><Download className="size-4" />تنزيل نسخة احتياطية</Button><Button disabled={busy} onClick={() => input.current?.click()}><Upload className="size-4" />استيراد / استرجاع نسخة</Button></div>
-          <input ref={input} hidden type="file" accept=".json" aria-label="ملف النسخة الاحتياطية" onChange={async (e) => { const f=e.target.files?.[0]; e.target.value=''; if(!f)return; setError(''); setPreview(null); try { const current = await repo.snapshot(); setPreview(previewBackup(JSON.parse(await f.text()), current.moves)); setAck(false); setSearch(''); } catch(e) {setError(friendlyError(e));} }} />
+          <div className="flex flex-wrap gap-2"><Button variant="primary" disabled={busy} onClick={() => run(async () => { const b = await repo.exportBackup(); downloadBlob(new Blob([JSON.stringify(b)], { type:'application/json' }), `femini-backup-${d?.today ?? 'today'}.json`); toast('تم تجهيز النسخة الاحتياطية للتنزيل'); })}><Download className="size-4" />تنزيل نسخة احتياطية</Button></div>
+          <FileDrop compact accept=".json" disabled={busy} className="mt-3" title="استيراد / استرجاع نسخة: اسحب الملف هنا أو اضغط للاختيار" onFile={async (f) => { setError(''); setPreview(null); try { const current = await repo.snapshot(); setPreview(previewBackup(JSON.parse(await f.text()), current.moves)); setAck(false); setSearch(''); } catch(e) {setError(friendlyError(e));} }} />
         </Card>
       </div>
       {preview && <Sheet wide title={preview.legacy ? 'معاينة استيراد النظام القديم' : 'معاينة استرجاع النسخة'} onClose={() => { if(!busy)setPreview(null); }} footer={<div className="flex gap-2"><Button variant="primary" disabled={busy || !ack} onClick={() => run(async () => { await repo.restoreBackup(preview.backup); setPreview(null); toast('تم استيراد النسخة والأرصدة بدون إضافة حركات مكررة'); })}>{busy ? 'جارٍ الاستيراد…' : 'تأكيد الاستيراد'}</Button><Button disabled={busy} onClick={() => setPreview(null)}>إلغاء</Button></div>}>

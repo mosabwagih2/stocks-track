@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Derived } from '@/femini/hooks/data';
 import { shopFlow, shopMix, type ShopDoc } from '@/femini/domain/shop';
 import { lineOf } from '@/femini/domain/lines';
-import { addDays, dayDiff } from '@/femini/domain/dates';
+import { addDays, dayDiff, dmy } from '@/femini/domain/dates';
 import { qty } from '@/femini/domain/ledger';
 import { skuLabel } from '@/femini/domain/orders';
 import { change } from '@/femini/insights-tools';
@@ -72,7 +72,7 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
         <p className="text-sm text-muted">اضغط على أي واحدة لتفاصيلها.</p>
         <div className="grid gap-3 sm:grid-cols-2">{r.docs.filter((x) => kpi === 'all' || x.kind === kpi).map((x) => <DocCard key={x.doc.no} x={x} onOpen={() => setOpen(x.doc.no)} />)}</div>
       </Sheet>}
-      {day && !openDoc &&<Sheet title={`توريد ومرتجع يوم ${day}`} onClose={() => setDay(null)} wide>
+      {day && !openDoc &&<Sheet title={`توريد ومرتجع يوم ${dmy(day)}`} onClose={() => setDay(null)} wide>
         <p className="text-sm text-muted">اضغط على أي واحدة لتفاصيلها.</p>
         <div className="grid gap-3 sm:grid-cols-2">{r.docs.filter((x) => x.doc.date === day).map((x) => <DocCard key={x.doc.no} x={x} onOpen={() => setOpen(x.doc.no)} />)}</div>
       </Sheet>}
@@ -88,7 +88,7 @@ function DocCard({ x, onOpen }: { x: ShopDoc; onOpen: () => void }) {
       <span className="flex flex-wrap items-center gap-2">
         <Pill tone={out ? 'info' : 'crit'}>{out ? 'توريد' : 'مرتجع'}</Pill>
         <b className="font-mono text-xs">{x.doc.no}</b>
-        <span className="num ms-auto text-xs text-muted">{x.doc.date}</span>
+        <span className="num ms-auto text-xs text-muted">{dmy(x.doc.date)}</span>
       </span>
       <span className="flex items-baseline gap-1.5"><b className="num text-2xl leading-none font-semibold">{money(x.value)}</b><span className="text-xs text-muted">جنيه</span></span>
       <span className="text-xs text-muted"><b className="num text-ink">{fmt(x.pieces)}</b> قطعة · {x.shop}{x.noCost ? ` · ${fmt(x.noCost)} قطعة من غير تكلفة` : ''}</span>

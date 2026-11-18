@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { Derived } from '@/femini/hooks/data';
 import type { Doc } from '@/femini/domain/types';
 import { docLog, type LogEntry } from '@/femini/domain/docLog';
-import { cairoDay, timeCairo } from '@/femini/domain/dates';
+import { cairoDay, timeCairo, dmy } from '@/femini/domain/dates';
 import { cn, fmt } from '@/femini/cn';
 import { TONE } from './tones';
 
@@ -16,7 +16,7 @@ export function DocLog({ d, doc, limit, onOpen }: { d: Derived; doc: Doc; limit?
   const when = (at: string) => {
     if (!at) return '';
     const day = at.includes('T') ? cairoDay(at) : at; const time = at.includes('T') ? timeCairo(at) : '';
-    return day === doc.date ? time : `${day.slice(5)}${time ? ` ${time}` : ''}`;
+    return day === doc.date ? time : `${dmy(day)}${time ? ` ${time}` : ''}`;
   };
   return (
     <ul className="grid divide-y divide-line" aria-label={`سجل ${doc.no}`}>

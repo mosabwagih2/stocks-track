@@ -11,6 +11,8 @@ export interface Repo {
   /** `date`: the day the orders left (defaults to today; any past day that is not closed, for a forgotten upload) */
   shipOrders(i: { refs: string[]; employee: string; source: string; file?: File | null; date?: string }): Promise<ShipResult>;
   reverseShipment(doc: string): Promise<void>;
+  /** opens a confirmed customer return for editing: undoes it and gives back a draft with what it held */
+  reopenReturn(doc: string): Promise<{ draft: string }>;
   receiveStock(i: { lines: { sku: string; qty: number }[]; date: string; ref: string; declared: number; photo: File }): Promise<{ doc: string; pieces: number }>;
   moveState(i: { lines: { sku: string; qty: number }[]; from: Loc; to: Loc; reason: string }): Promise<{ doc: string; pieces: number }>;
   /** any stock operation (RCV, RTN, SHP, CLN, FSD, FRC, CNT, LOS); rules in domain/ops.ts */

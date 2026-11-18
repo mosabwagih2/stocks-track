@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FileDrop } from './FileDrop';
 import { History, Upload } from 'lucide-react';
 import { Alert, Button, Card, Field, TableWrap, th, td } from './ui';
 import { boot } from '@/femini/data';
@@ -79,7 +80,7 @@ export function RestoreCard() {
     <Card title="استرجاع من نسخة احتياطية">
       <p className="text-sm text-muted">بيرجّع كل البيانات لحالة النسخة: الحركات والأوردرات والمستندات والبيك أب والكتالوج والإعدادات والملفات والصور. أي حاجة اتعملت بعد النسخة بتتشال. المستخدمين وكلمات السر مش بتتغير.</p>
       <p className="mt-1 text-xs text-muted">قبل أي استرجاع السيرفر بيحفظ نسخة أمان من الحالة الحالية، وتقدر ترجعلها من تحت.</p>
-      <Field label="ملف النسخة الاحتياطية (femini-backup-….json)"><input type="file" accept=".json,application/json" disabled={!!busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void check(f); }} /></Field>
+      <FileDrop accept=".json,application/json" disabled={!!busy} onFile={(f) => void check(f)} title="اسحب ملف النسخة الاحتياطية هنا أو اضغط للاختيار" hint="femini-backup-….json" />
       {err && <Alert tone="crit" className="mt-2">{err}</Alert>}
       {busy && <p className="mt-2 text-sm" aria-live="polite">{busy}</p>}
       {sum && !busy && (

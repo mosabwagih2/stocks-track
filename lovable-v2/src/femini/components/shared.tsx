@@ -1,4 +1,5 @@
 import { StateDonut } from './charts';
+import { FileDrop } from './FileDrop';
 import type { Derived } from '@/femini/hooks/data';
 import type { Order } from '@/femini/domain/types';
 import { Pill, Alert, Button, Field } from './ui';
@@ -43,7 +44,7 @@ export function PhotoInput({ file, onChange, label }: { file: File | null; onCha
   useEffect(() => { if (!file) { setPreview(null); return; } const u = URL.createObjectURL(file); setPreview(u); return () => URL.revokeObjectURL(u); }, [file]);
   return (
     <div className="grid gap-2">
-      <Field label={label}><input type="file" accept="image/*" capture="environment" onChange={(e) => onChange(e.target.files?.[0] ?? null)} /></Field>
+      <Field label={label}><FileDrop accept="image/*" capture="environment" compact fileName={file?.name} title="اسحب الصورة هنا أو اضغط للتصوير / الاختيار" onFile={(f) => onChange(f)} /></Field>
       {preview && <img src={preview} alt="معاينة" className="max-h-60 w-full rounded-xl border border-line object-contain" />}
     </div>
   );

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Derived } from '@/femini/hooks/data';
 import { lateLevel, warehouseDays, type WhDay, type WhState } from '@/femini/domain/warehouseDay';
-import { dayDiff } from '@/femini/domain/dates';
+import { dayDiff, dmy } from '@/femini/domain/dates';
 import { cn, fmt, pct } from '@/femini/cn';
 import { Button, Card, Chip, Empty, Kpi, Pill, Sheet, TableWrap, th, td } from './ui';
 import { SettleUpload } from './Collections';
@@ -96,7 +96,7 @@ function DaysTable({ d, days, kind, onOpen }: { d: Derived; days: WhDay[]; kind:
         return (
           <tr key={x.day} className={cn('cursor-pointer', lvl ? 'bg-crit-bg/60 hover:bg-crit-bg' : 'hover:bg-lav', lvl === 2 && 'bg-crit-bg')} onClick={() => onOpen(x)}>
             <td className={td + ' whitespace-nowrap'}>
-              <b className="font-mono">{x.day}</b>
+              <b className="font-mono">{dmy(x.day)}</b>
               {kind === 'open' && <div className="mt-0.5">{lvl ? <Pill tone="crit" title={lvl === 2 ? 'عدّى عليه 10 أيام أو أكتر' : 'عدّى عليه 7 أيام'}>عدّى {age} يوم</Pill> : <span className="num text-[11px] text-muted">من {age} يوم</span>}</div>}
             </td>
             <td className={td}><div className="font-mono font-semibold">{fmt(x.orders)}</div><div className="num whitespace-nowrap text-[11px] text-muted">{fmt(x.pieces)} قطعة</div></td>
@@ -105,8 +105,8 @@ function DaysTable({ d, days, kind, onOpen }: { d: Derived; days: WhDay[]; kind:
             {kind === 'open' && <Num n={x.pending} sub={`${fmt(x.pendingPieces)} قطعة`} tone="text-warn" />}
             <td className={td}><StateBar x={x} /></td>
             {kind === 'open'
-              ? <td className={td + ' text-xs text-muted'}>{x.paidOn.length ? x.paidOn.map((p) => `${p.date.slice(5)} (${p.n})`).join('، ') : '—'}</td>
-              : <td className={td + ' whitespace-nowrap'}><b className="font-mono">{x.closedOn}</b><div className="num text-[11px] text-muted">بعد {Math.max(0, dayDiff(x.day, x.closedOn))} يوم</div></td>}
+              ? <td className={td + ' text-xs text-muted'}>{x.paidOn.length ? x.paidOn.map((p) => `${dmy(p.date)} (${p.n})`).join('، ') : '—'}</td>
+              : <td className={td + ' whitespace-nowrap'}><b className="font-mono">{dmy(x.closedOn)}</b><div className="num text-[11px] text-muted">بعد {Math.max(0, dayDiff(x.day, x.closedOn))} يوم</div></td>}
           </tr>
         );
       })}</tbody></table></TableWrap>
@@ -156,13 +156,13 @@ function DaySheet({ d, x, start, period, onClose }: { d: Derived; x: WhDay; star
   const many = !!period;
   const age = many ? 0 : dayDiff(x.day, d.today); const lvl = x.pending && !many ? lateLevel(age) : 0;
   return (
-    <Sheet title={many ? `${F_AR[f]} · ${period} · ${fmt(list.length)} أوردر` : <span className="flex flex-wrap items-center gap-2">يوم الخروج <span className="num">{x.day}</span></span>} onClose={onClose} wide>
+    <Sheet title={many ? `${F_AR[f]} · ${period} · ${fmt(list.length)} أوردر` : <span className="flex flex-wrap items-center gap-2">يوم الخروج <span className="num">{dmy(x.day)}</span></span>} onClose={onClose} wide>
       <section aria-label="حالة اليوم" className="grid gap-3 rounded-2xl border border-line bg-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span><b className="num">{fmt(x.orders)}</b> أوردر · <b className="num">{fmt(x.pieces)}</b> قطعة · التوريد <b className="num">{money(x.due)}</b> جنيه</span>
           {!many && (x.pending
             ? <Pill tone={lvl ? 'crit' : 'warn'}>{lvl ? `متأخر · عدّى ${age} يوم` : `لسه مفتوح · من ${age} يوم`}</Pill>
-            : <Pill tone="good">اتقفل يوم {x.closedOn} · بعد {Math.max(0, dayDiff(x.day, x.closedOn))} يوم</Pill>)}
+            : <Pill tone="good">اتقفل يوم {dmy(x.closedOn)} · بعد {Math.max(0, dayDiff(x.day, x.closedOn))} يوم</Pill>)}
           {many && <Pill tone={x.pending ? 'warn' : 'good'}>اتقفل <bdi dir="ltr">{closedPct(x)}%</bdi></Pill>}
         </div>
         <StateBar x={x} label={false} />
@@ -180,8 +180,8 @@ function DaySheet({ d, x, start, period, onClose }: { d: Derived; x: WhDay; star
       {!list.length ? <Empty>مفيش أوردرات {F_AR[f]} هنا.</Empty> : <TableWrap><table className="text-sm"><thead><tr>{[...(many ? ['يوم الخروج'] : []), 'البوليصة', 'رقم الأوردر', 'قطع', 'الحالة', 'التوريد', 'التسوية'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
         <tbody>{list.map((w) => (
           <tr key={w.ref} className="cursor-pointer hover:bg-lav" onClick={() => setRef(w.ref)}>
-            {many && <td className={td + ' font-mono text-muted'}>{w.day}</td>}<td className={td + ' font-mono'}>{w.ref}</td><td className={td + ' font-mono text-muted'}>{w.waybill}</td><td className={td + ' font-mono'}>{w.pieces}</td>
-            <td className={td}><Pill tone={STATE[w.state][1]}>{STATE[w.state][0]}{w.closedOn ? ` · ${w.closedOn.slice(5)}` : ''}</Pill></td>
+            {many && <td className={td + ' font-mono text-muted'}>{dmy(w.day)}</td>}<td className={td + ' font-mono'}>{w.ref}</td><td className={td + ' font-mono text-muted'}>{w.waybill}</td><td className={td + ' font-mono'}>{w.pieces}</td>
+            <td className={td}><Pill tone={STATE[w.state][1]}>{STATE[w.state][0]}{w.closedOn ? ` · ${dmy(w.closedOn)}` : ''}</Pill></td>
             <td className={td + ' font-mono font-semibold'}>{w.due ? money(w.due) : '—'}</td>
             <td className={td + ' font-mono text-xs text-muted'}>{w.stl.join('، ') || '—'}</td>
           </tr>))}</tbody></table></TableWrap>}

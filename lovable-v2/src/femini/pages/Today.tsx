@@ -15,7 +15,7 @@ import { Seg } from '@/femini/components/ui';
 const DAYS: [string, string][] = [['7', '7 يوم'], ['14', '14 يوم'], ['30', '30 يوم']];
 import { Spinner } from '@/femini/components/Spinner';
 import { OrderSheet, UploadSheet, CancelSheet } from '@/femini/components/OrderSheets';
-import { addDays, dayLabel, timeCairo } from '@/femini/domain/dates';
+import { addDays, dayLabel, timeCairo, dmy } from '@/femini/domain/dates';
 import { channelName, LOC_AR } from '@/femini/domain/constants';
 import { cn, fmt, pct } from '@/femini/cn';
 import { skuLabel } from '@/femini/domain/orders';
@@ -51,16 +51,17 @@ function FlowSheet({ d, w, orders, onClose, onOrder }: { d: Derived; w: FlowKey;
           {w === 'blocked' && <Alert>يتوقف الأوردر إذا نقصت أي قطعة منه، لأنه يُشحن كاملًا. الناقص محسوب على الجاهز حاليًا وموزّع على الأوردرات بالترتيب.</Alert>}
           {w === 'older' && <Alert tone="warn">أوردرات من بيك أب أيام فاتت ولسه ما اتشحنتش، الأقدم الأول. {list.filter((o) => d.blocked.has(o.ref)).length ? <>منهم <b>{list.filter((o) => d.blocked.has(o.ref)).length}</b> متوقف بسبب المخزون (الناقص في الجدول).</> : 'كلها رصيدها موجود ومستنية الإسكان.'}</Alert>}
           {w === 'wait' && <Alert>أوردرات مطلوبة ويتوفر لها رصيد، لكنها لم تُشحن بعد. لم يُخصم الرصيد بعد.</Alert>}
-          {byVariant.length > 0 && (
-            <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th><th className={th}>{w === 'blocked' || w === 'older' ? 'ناقص' : 'مطلوب'}</th><th className={th}>أوردرات</th></tr></thead>
-              <tbody>{byVariant.map(([s, e]) => <tr key={s}><td className={td}>{skuLabel(d.skuMap, s)}</td><td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, s, 'READY'))}</td><td className={td}>{w === 'blocked' || w === 'older' ? <Pill tone="crit">{e.q}</Pill> : <span className="font-mono">{e.q}</span>}</td><td className={td + ' font-mono'}>{e.n}</td></tr>)}</tbody></table></TableWrap>
-          )}
           {w === 'done' && (
             <TableWrap><table className="text-sm"><thead><tr><th className={th}>الموظف</th><th className={th}>أوردرات</th><th className={th}>قطع</th><th className={th}>من - إلى</th></tr></thead>
               <tbody>{team.map(([k, e]) => <tr key={k}><td className={td}>{k}</td><td className={td + ' font-mono'}>{e.o}</td><td className={td + ' font-mono'}>{e.p}</td><td className={td + ' font-mono'}>{timeCairo(e.a)} - {timeCairo(e.b)}</td></tr>)}</tbody></table></TableWrap>
           )}
           <TableWrap><table className="text-sm"><thead><tr><th className={th}>الكود</th><th className={th}>تاريخ البيك أب</th><th className={th}>قطع</th><th className={th}>الحالة</th></tr></thead>
-            <tbody>{list.slice(0, w === 'older' ? 500 : 80).map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => onOrder(o.ref)}><td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{day(o) || '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}><OrderPill o={o} d={d} /></td></tr>)}</tbody></table></TableWrap>
+            <tbody>{list.slice(0, w === 'older' ? 500 : 80).map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => onOrder(o.ref)}><td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{dmy(day(o)) || '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}><OrderPill o={o} d={d} /></td></tr>)}</tbody></table></TableWrap>
+          {byVariant.length > 0 && <p className="text-sm font-semibold">{w === 'blocked' || w === 'older' ? 'الأصناف الناقصة' : 'الأصناف المطلوبة'}</p>}
+          {byVariant.length > 0 && (
+            <TableWrap><table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>جاهز</th><th className={th}>{w === 'blocked' || w === 'older' ? 'ناقص' : 'مطلوب'}</th><th className={th}>أوردرات</th></tr></thead>
+              <tbody>{byVariant.map(([s, e]) => <tr key={s}><td className={td}>{skuLabel(d.skuMap, s)}</td><td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, s, 'READY'))}</td><td className={td}>{w === 'blocked' || w === 'older' ? <Pill tone="crit">{e.q}</Pill> : <span className="font-mono">{e.q}</span>}</td><td className={td + ' font-mono'}>{e.n}</td></tr>)}</tbody></table></TableWrap>
+          )}
           <Button onClick={() => { onClose(); nav(w === 'older' ? '/orders?f=wait' : '/orders'); }}>عرضها في صفحة الأوردرات</Button>
         </>
       )}
@@ -152,7 +153,7 @@ export default function Today() {
         <Card title="تدفق اليوم" hint="البيك أب هو الطلب. الخصم من المخزون يتم عند الشحن بالإسكان فقط.">
           {/* always there, also on a new day with no pickup yet: what is still waiting from earlier days */}
           <div className={cn('grid gap-3', total ? 'mb-4 grid-cols-2 md:grid-cols-5' : 'mb-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-5')}>
-            <Kpi label="متأخر من أيام سابقة" value={fmt(x.older.length)} sub={x.older.length ? `${fmt(x.pcs(x.older))} قطعة · من ${x.oldDay}${x.olderBlk.length ? ` · ${x.olderBlk.length} متوقف` : ''}` : 'مفيش حاجة متأخرة'} tone={x.olderBlk.length ? 'crit' : x.older.length ? 'warn' : 'good'} onClick={x.older.length ? () => setFlow('older') : undefined}>{x.olderDays.length > 1 && <Sparkline data={x.olderDays.map((k) => x.olderBy[k])} labels={x.olderDays} color={C.scrap} />}</Kpi>
+            <Kpi label="متأخر من أيام سابقة" value={fmt(x.older.length)} sub={x.older.length ? `${fmt(x.pcs(x.older))} قطعة · من ${dmy(x.oldDay)}${x.olderBlk.length ? ` · ${x.olderBlk.length} متوقف` : ''}` : 'مفيش حاجة متأخرة'} tone={x.olderBlk.length ? 'crit' : x.older.length ? 'warn' : 'good'} onClick={x.older.length ? () => setFlow('older') : undefined}>{x.olderDays.length > 1 && <Sparkline data={x.olderDays.map((k) => x.olderBy[k])} labels={x.olderDays} color={C.scrap} />}</Kpi>
           {!total ? <div className="md:col-span-4"><Empty>لا يوجد بيك أب اليوم. ارفع ملف البيك أب.</Empty></div> : <>
                 <Kpi label="المطلوب (بيك أب)" value={fmt(total)} sub={`${fmt(x.pcs(x.orders))} قطعة`} onClick={() => setFlow('all')}><Sparkline data={daily.map((r) => r.req)} labels={daily.map((r) => r.day)} /></Kpi>
                 <Kpi label="تم الشحن (خرج فعلًا)" value={fmt(x.done.length)} sub={`${fmt(x.pcs(x.done))} قطعة · ${pct(x.done.length, total)}%`} tone="good" onClick={x.done.length ? () => setFlow('done') : undefined}><Sparkline data={daily.map((r) => r.ship)} labels={daily.map((r) => r.day)} color={C.ready} /></Kpi>
@@ -215,7 +216,7 @@ export default function Today() {
         </Deferred>
       </div>
       {event && <EventDetails d={d} moves={event} title={event[0]?.doc ?? 'حدث'} onClose={()=>setEvent(null)} />}
-      {closing && <Sheet title={`تقرير يوم ${selected}`} onClose={()=>setClosing(false)}>
+      {closing && <Sheet title={`تقرير يوم ${dmy(selected)}`} onClose={()=>setClosing(false)}>
         <Alert>{serverEdition ? 'القفل على السيرفر: بيقفل اليوم ده وكل اللي قبله لكل الموظفين. التنبيهات للعلم ولا تمنع الإغلاق.' : 'قفل محلي في هذا المتصفح؛ التنبيهات للعلم ولا تمنع الإغلاق.'}</Alert>
         <DayCloseReport s={d.snap} date={selected} />
         <label className="flex items-center gap-2"><input type="checkbox" checked={d.snap.autoClose} onChange={(e)=>act(()=>repo.setAutoClose(e.target.checked),'تم تحديث القفل التلقائي')} />قفل الأيام تلقائيًا عند بداية يوم جديد</label>

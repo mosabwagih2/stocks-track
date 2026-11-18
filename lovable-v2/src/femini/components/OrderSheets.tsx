@@ -1,4 +1,6 @@
 import { dayClosed } from '@/femini/domain/reports';
+import { DayLock } from './DayLock';
+import { FileDrop } from './FileDrop';
 import { useMemo, useRef, useState } from 'react';
 import { Sheet, Button, Pill, Alert, Field, Kpi, TableWrap, th, td } from './ui';
 import { OrderPill, Photo, PhotoInput } from './shared';
@@ -12,7 +14,7 @@ import { parsePickupRows, resolveModel, type ParsedOrder } from '@/femini/domain
 import { qty } from '@/femini/domain/ledger';
 import { CHANNELS, channelName } from '@/femini/domain/constants';
 import { fmt } from '@/femini/cn';
-import { addDays, cairoDay, timeCairo } from '@/femini/domain/dates';
+import { addDays, cairoDay, timeCairo, dmy } from '@/femini/domain/dates';
 import { useAccountName } from '@/femini/data/account';
 import { Link, useNavigate } from '@/femini/router';
 import { EditCatalogSheet, NewModelSheet } from './CatalogSheets';
@@ -26,8 +28,8 @@ export function OrderSheet({ d, orderRef, onClose, onCancel }: { d: Derived; ord
   const n = need(o); const pk = d.snap.pickups.find((p) => p.id === o.pickupId);
   return (
     <Sheet title={`بوليصة ${o.ref}`} onClose={onClose}>
-      <div className="flex flex-wrap items-center gap-2"><OrderPill o={o} d={d} /><span className="text-muted">{channelName(pk?.channel ?? '')} · {pk?.label} · بيك أب يوم <span className="font-mono">{pk?.date ?? '—'}</span></span></div>
-      <div className="grid grid-cols-2 gap-3"><Kpi label="رقم الأوردر" value={<span className="text-lg">{o.waybill}</span>} /><Kpi label="المحافظة / النوع" value={<span className="font-sans text-lg">{o.gov} · {o.type === 'exchange' ? 'استبدال' : 'جديد'}</span>} /></div>
+      <div className="flex flex-wrap items-center gap-2"><OrderPill o={o} d={d} /><span className="text-muted">{channelName(pk?.channel ?? '')} · {pk?.label} · بيك أب يوم <span className="font-mono">{dmy(pk?.date) || '—'}</span></span></div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3"><Kpi label="رقم الأوردر" value={<span className="text-lg">{o.waybill}</span>} /><Kpi label="عدد القطع" value={<span className="text-lg">{fmt(o.lines.length)}</span>} sub={`${fmt(Object.keys(n).length)} صنف`} /><Kpi label="المحافظة / النوع" value={<span className="font-sans text-lg">{o.gov} · {o.type === 'exchange' ? 'استبدال' : 'جديد'}</span>} /></div>
       <TableWrap>
         <table className="text-sm"><thead><tr><th className={th}>الصنف</th><th className={th}>في الأوردر</th><th className={th}>جاهز حاليًا</th></tr></thead>
           <tbody>{Object.keys(n).map((s) => { const r = qty(d.snap.balances, s, 'READY'); return (
@@ -101,11 +103,11 @@ export function CancelSheet({ d, initial, onClose }: { d: Derived; initial: stri
 
 type Mode = 'scan' | 'pickup';
 export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Derived; mode: Mode; onClose: () => void; manualRefs?: string[]; date?: string }) {
-  const act = useAct(); const fileRef = useRef<HTMLInputElement>(null);
+  const act = useAct();
   // the day the pickup was requested / the orders left: today, or a past day for a forgotten upload
   const [day, setDay] = useState(() => (date && date <= d.today ? date : d.today));
   const closed = dayClosed(d.snap, day);
-  const dayText = day === d.today ? 'تاريخ اليوم' : `بتاريخ ${day}`;
+  const dayText = day === d.today ? 'تاريخ اليوم' : `بتاريخ ${dmy(day)}`;
   const account = useAccountName();
   const [mode, setMode] = useState<Mode>(manualRefs ? 'scan' : m0);
   const [fname, setFname] = useState(''); const [err, setErr] = useState(''); const [emp, setEmp] = useState(() => localStorage.getItem('femini-last-emp') ?? '');
@@ -156,12 +158,7 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
               <button key={v} type="button" aria-pressed={mode === v} onClick={() => { setMode(v); setScan(null); setPickupRows(null); setErr(''); setFname(''); }} className={`px-3.5 py-1.5 text-[13px] font-medium ${i ? 'border-s border-line2' : ''} ${mode === v ? 'bg-accent text-on-accent' : 'hover:bg-lav'}`}>{l}</button>
             ))}
           </div>
-          <button type="button" onClick={() => fileRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
-            className="grid gap-1 rounded-2xl border-2 border-dashed border-line2 bg-surface p-6 text-center hover:border-accent hover:bg-lav">
-            <b>{fname || 'اسحب الملف هنا أو اضغط للاختيار'}</b>
-            <span className="text-muted">{mode === 'scan' ? 'تصدير QRbot (CSV) أو أي ملف فيه عمود البوليصة' : 'ملف Excel من فيندور (كود الاوردر العشوائي، المنتجات المطلوبة...)'}</span>
-          </button>
-          <input ref={fileRef} type="file" hidden accept=".xlsx,.xls,.csv" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
+          <FileDrop accept=".xlsx,.xls,.csv" onFile={onFile} fileName={fname} hint={mode === 'scan' ? 'تصدير QRbot (CSV) أو أي ملف فيه عمود البوليصة' : 'ملف Excel من فيندور (كود الاوردر العشوائي، المنتجات المطلوبة...)'} />
           {mode === 'pickup' && <Field label="القناة"><select value={channel} onChange={(e) => setChannel(e.target.value)}>{CHANNELS.map((c) => <option key={c.id} value={c.id}>{c.name}{c.supported ? '' : ' (التنسيق غير متاح بعد)'}</option>)}</select></Field>}
         </>
       )}
@@ -169,8 +166,8 @@ export function UploadSheet({ d, mode: m0, onClose, manualRefs, date }: { d: Der
       <Field label={mode === 'pickup' ? 'تاريخ البيك أب (اليوم اللي اتطلب فيه)' : 'تاريخ الشحن (اليوم اللي القطع خرجت فيه)'}>
         <input type="date" value={day} max={d.today} onChange={(e) => e.target.value && setDay(e.target.value)} className="w-48" />
       </Field>
-      {day !== d.today && <p className="-mt-2 text-xs text-muted">هيتسجل على يوم {day} زي ما يكون اتعمل فيه. ينفع أي يوم قديم طالما مش مقفول.</p>}
-      {closed && <Alert tone="warn" className="flex flex-wrap items-center justify-between gap-2"><span>يوم {day} مقفول. افتحه الأول عشان تسجّل عليه.</span><Button size="sm" onClick={() => act(() => repo.reopenDay(day), `اتفتح يوم ${day}`)}>افتح اليوم</Button></Alert>}
+      {day !== d.today && <p className="-mt-2 text-xs text-muted">هيتسجل على يوم {dmy(day)} زي ما يكون اتعمل فيه. ينفع أي يوم قديم طالما مش مقفول.</p>}
+      <DayLock d={d} day={day} />
       {err && <Alert tone="crit">{err}</Alert>}
 
       {mode === 'scan' && scan && (

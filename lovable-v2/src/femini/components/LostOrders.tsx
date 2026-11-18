@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { dmy } from '@/femini/domain/dates';
 import { Check } from 'lucide-react';
 import type { Derived } from '@/femini/hooks/data';
 import { lostOrders } from '@/femini/domain/lost';
@@ -41,7 +42,7 @@ export function LostOrders({ d, picked, onToggle }: { d: Derived; picked?: Recor
                 {r.orderNo && <span className="text-xs text-muted">رقم الأوردر <span className="font-mono">{r.orderNo}</span></span>}
                 <span className="rounded-full bg-crit-bg px-2 py-0.5 text-xs font-semibold text-crit">ناقص {nowOpen} من {r.items.length} قطعة{miss > nowOpen ? ` · اتسوّى ${miss - nowOpen}` : ''}</span>
               </span>
-              <span className="text-[11px] text-muted"><span className="font-mono">{r.doc}</span> · {r.date} · {r.by}</span>
+              <span className="text-[11px] text-muted"><span className="font-mono">{r.doc}</span> · {dmy(r.date)} · {r.by}</span>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {r.items.map((i, j) => {

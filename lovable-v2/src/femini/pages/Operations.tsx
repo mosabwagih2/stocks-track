@@ -1,18 +1,22 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, Upload, ChevronDown } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, ClipboardCheck, Download, Factory, FileText, Minus, Plus, Printer, Pencil, Recycle, RotateCcw, ScanLine, Search, Shuffle, ArrowLeftRight, Hand, Store, Trash2, Truck, Undo2, Save, Upload, ChevronDown } from 'lucide-react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { PageHead } from '@/femini/components/PageHead';
 import { Alert, Button, Card, Chip, Empty, Field, Pill, Seg, Sheet, Tabs, TableWrap, th, td } from '@/femini/components/ui';
 import { ErrorBox, Photo, PhotoInput } from '@/femini/components/shared';
 import { VariantPicker } from '@/femini/components/VariantPicker';
+import { FileDrop } from '@/femini/components/FileDrop';
+import { DayLock } from '@/femini/components/DayLock';
 import { Spinner } from '@/femini/components/Spinner';
 import { LOCS, LOC_AR, TYPE_AR } from '@/femini/domain/constants';
 import { qty } from '@/femini/domain/ledger';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
-import { addDays } from '@/femini/domain/dates';
-import { buildOp, effects, GROUP_AR, OPS, returnLines, type OpGroup, type OpHdr, type OpLine, type OpType, type ReturnMarks } from '@/femini/domain/ops';
+import { addDays, dmy } from '@/femini/domain/dates';
+import { dayClosed } from '@/femini/domain/reports';
+import { buildOp, effects, GROUP_AR, OPS, returnLines, type OpGroup, type OpHdr, type OpLine, type OpType, type ReturnExtra, type ReturnExtras, type ReturnMark, type ReturnMarks } from '@/femini/domain/ops';
 import { LostOrders } from '@/femini/components/LostOrders';
 import { returnCodesFromSheet } from '@/femini/domain/returnsSheet';
+import { labelMatches, queryWords } from '@/femini/domain/productSearch';
 import { deliveryNoteExcel, downloadDeliveryNote, printDeliveryNote } from '@/femini/components/DeliveryNote';
 import { Holds } from '@/femini/components/Holds';
 import { CountReport } from '@/femini/components/CountReport';
@@ -172,18 +176,22 @@ function SwapLines({ d, lines, set }: { d: Derived; lines: OpLine[]; set: SetLin
 
 function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; setHdr: (h: OpHdr) => void; lines: OpLine[]; set: SetLines }) {
   const [code, setCode] = useState(''); const [msg, setMsg] = useState<{ tone: 'crit' | 'good'; t: string } | null>(null); const [q, setQ] = useState('');
-  const refs = hdr.refs ?? []; const marks = hdr.marks ?? {};
+  /** the variant picker, open on one order: to change what a line came back as (sku), or to add a piece the order never had */
+  const [pick, setPick] = useState<{ ref: string; sku?: string } | null>(null);
+  const refs = hdr.refs ?? []; const marks = hdr.marks ?? {}; const extras = hdr.extras ?? {}; const sheets = hdr.sheets ?? [];
   // the order of a code: the live orders first, then the orders of archived pickups (a reference for returns only)
   const ordOf = (ref: string) => d.orderMap.get(ref) ?? d.archivedOrders.get(ref);
   const archivedDone = (ref: string) => d.snap.docs.find((x) => x.type === 'RTN' && x.status === 'done' && ((x.hdr.refs as string[] | undefined) ?? []).includes(ref))?.no;
-  const sync = (newRefs: string[], newMarks: ReturnMarks) => {
+  const label = (sku: string) => skuLabel(d.skuMap, sku);
+  // every change goes through here: the lines of the operation are rebuilt from the orders, their marks, exchanges and extra pieces
+  const rebuild = (newRefs: string[], newMarks: ReturnMarks, newExtras: ReturnExtras, newSheets: string[] = sheets) => {
     const orders = newRefs.map(ordOf).filter((o): o is NonNullable<typeof o> => !!o);
-    set(() => returnLines(orders, newMarks));
-    setHdr({ ...hdr, refs: newRefs, marks: newMarks, counted: false });
+    set(() => returnLines(orders, newMarks, newExtras));
+    setHdr({ ...hdr, refs: newRefs, marks: newMarks, extras: newExtras, sheets: newSheets, counted: false });
   };
   const lookup = () => addCodes(code.split(/[\s,،]+/).filter(Boolean));
   // codes typed / pasted, or the orders found in an uploaded returns sheet: each one checked the same way
-  const addCodes = (codes: string[], from?: string, info?: string, problem?: string) => {
+  const addCodes = (codes: string[], from?: string, info?: string, problem?: string, sheet?: string) => {
     const added: string[] = []; const bad: string[] = [];
     const newRefs = [...refs];
     for (const c of codes) {
@@ -195,14 +203,13 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       if (newRefs.includes(o.ref)) continue;
       newRefs.push(o.ref); added.push(o.ref);
     }
-    sync(newRefs, marks); setCode('');
+    rebuild(newRefs, marks, extras, sheet && added.length && !sheets.includes(sheet) ? [...sheets, sheet] : sheets); setCode('');
     const head = from ? `${from}: ` : '';
     // green: just how many orders and pieces were added; red only for a real problem (an order that can't be added, or returns the system doesn't know)
     const bits = [...bad, ...(problem ? [problem] : [])]; const tail = info ? ` ${info}` : '';
     const pieces = added.reduce((a, r) => a + (ordOf(r)?.lines.length ?? 0), 0); const done = `اتضاف ${fmt(added.length)} أوردر · ${fmt(pieces)} قطعة`;
     setMsg(bits.length ? { tone: 'crit', t: `${head}${added.length ? `${done} · ` : ''}${bits.join(' · ')}${tail}` } : added.length ? { tone: 'good', t: done } : from ? { tone: 'crit', t: `${head}كل الأوردرات المرتجعة اللي فيه متضافة قبل كده.${tail}` } : null);
   };
-  const fileRef = useRef<HTMLInputElement>(null);
   const readSheet = async (f: File) => {
     try {
       const X = await import('xlsx'); const wb = X.read(await f.arrayBuffer(), { type: 'array', cellDates: false });
@@ -211,27 +218,40 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
       // the courier's report has «collect» rows too: only its «return» rows are read, and the ones the system doesn't know are said out loud
       // the order codes as the system writes them (ol6550), with the days they were ordered on
       const list = (a: typeof missing) => `${a.slice(0, 30).map((m) => m.ref || m.serial).join('، ')}${a.length > 30 ? ` و${a.length - 30} كمان` : ''}`;
-      const when = (a: typeof missing) => { const d = a.map((m) => m.date).filter(Boolean).sort(); return d.length ? ` من تاريخ ${d[0] === d[d.length - 1] ? d[0] : `${d[0]} لـ ${d[d.length - 1]}`}` : ''; };
+      const when = (a: typeof missing) => { const days = a.map((m) => m.date).filter(Boolean).sort(); return days.length ? ` من تاريخ ${dmy(days[0]) === dmy(days[days.length - 1]) ? dmy(days[0]) : `${dmy(days[0])} لـ ${dmy(days[days.length - 1])}`}` : ''; };
       const problem = missing.length ? `${missing.length} مرتجع مش موجودين في النظام${when(missing)} (${list(missing)}): أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش` : '';
       if (!found.length) { setMsg({ tone: 'crit', t: returnRows ? `${f.name}: فيه ${returnRows} مرتجع، ولا واحد منهم موجود في النظام${when(missing)} (${list(missing)}). غالبًا أوردرات من قبل ما النظام يبدأ أو البيك أب بتاعها ما اترفعش.` : skippedRows ? `${f.name}: الشيت ده كله تحصيل (${skippedRows} صف)، مفيهوش ولا مرتجع.` : `${f.name}: مالقيتش فيه ولا بوليصة أو رقم أوردر من الأوردرات.` }); return; }
-      addCodes(found, `${f.name} (${found.length} أوردر مرتجع في الشيت)`, undefined, problem);
+      addCodes(found, `${f.name} (${found.length} أوردر مرتجع في الشيت)`, undefined, problem, f.name);
     } catch (e) { setMsg({ tone: 'crit', t: `${f.name}: الملف ده مش بيتقري (${(e as Error).message})` }); }
   };
-  const setMark = (ref: string, sku: string, k: 'd' | 'x' | 'l', v: number) => {
-    const cur = marks[ref]?.[sku] ?? {};
-    sync(refs, { ...marks, [ref]: { ...(marks[ref] ?? {}), [sku]: { ...cur, [k]: v } } });
+  const setMark = (ref: string, sku: string, patch: ReturnMark) => {
+    const cur = { ...(marks[ref]?.[sku] ?? {}), ...patch }; if (!cur.as) delete cur.as;
+    rebuild(refs, { ...marks, [ref]: { ...(marks[ref] ?? {}), [sku]: cur } }, extras);
   };
-  const s = q.trim().toLowerCase().replace(/[#\s]/g, '');
-  const shown = refs.filter((r) => { if (!s) return true; const o = ordOf(r); return r.toLowerCase().includes(s) || (o?.waybill ?? '').replace(/\s/g, '').toLowerCase().includes(s); });
-  const fromOrders = lines.filter((l) => l.exp);
-  const tot = fromOrders.reduce((a, l) => ({ n: a.n + (l.exp ?? 0), r: a.r + (l.r ?? 0), d: a.d + (l.d ?? 0), x: a.x + (l.x ?? 0) }), { n: 0, r: 0, d: 0, x: 0 });
+  const setExtras = (ref: string, list: ReturnExtra[]) => rebuild(refs, marks, { ...extras, [ref]: list });
+  const addExtra = (ref: string, sku: string, n: number) => { const cur = extras[ref] ?? []; setExtras(ref, cur.some((e) => e.sku === sku) ? cur.map((e) => (e.sku === sku ? { ...e, n: e.n + n } : e)) : [...cur, { sku, n }]); };
+
+  // search: an order's code or waybill, or a product (model, colour, size in any order: "br2 احمر l") that one of its lines is or came back as
+  const raw = q.trim().toLowerCase(); const tokens = queryWords(raw); const codeQ = raw.replace(/[#\s]/g, '');
+  const lineHit = (ref: string, sku: string) => { if (!tokens.length) return false; const as = marks[ref]?.[sku]?.as; return [sku, as].some((s) => !!s && labelMatches(label(s), raw)); };
+  const extraHit = (_ref: string, e: ReturnExtra) => tokens.length > 0 && labelMatches(label(e.sku), raw);
+  const orderHit = (ref: string) => {
+    if (!tokens.length) return true; const o = ordOf(ref); if (!o) return false;
+    return ref.toLowerCase().includes(codeQ) || o.waybill.replace(/\s/g, '').toLowerCase().includes(codeQ) || [...new Set(o.lines)].some((s) => lineHit(ref, s)) || (extras[ref] ?? []).some((e) => extraHit(ref, e));
+  };
+  const shown = refs.filter(orderHit);
+  const hitPieces = tokens.length ? shown.reduce((a, r) => { const o = ordOf(r); if (!o) return a; const cnt = o.lines.filter((s) => lineHit(r, s)).length; return a + cnt + (extras[r] ?? []).filter((e) => extraHit(r, e)).reduce((b, e) => b + e.n, 0); }, 0) : 0;
+
+  const tot = lines.reduce((a, l) => ({ n: a.n + (l.exp ?? 0), r: a.r + (l.r ?? 0), d: a.d + (l.d ?? 0), x: a.x + (l.x ?? 0) }), { n: 0, r: 0, d: 0, x: 0 });
   const lost = tot.n - tot.r - tot.d - tot.x;
   return (
     <div className="grid gap-3">
       <div className="grid gap-2 rounded-xl border border-line bg-lav p-3">
         <Field label="البوليصة أو رقم الأوردر (تقدر تلصق أكتر من واحد)">
-          <div className="flex flex-wrap gap-2"><input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && lookup()} placeholder="امسح أو اكتب البوليصة" className="min-w-48 flex-1" /><Button variant="primary" onClick={lookup} disabled={!code.trim()}><Search className="size-4" /> لاقي الأوردر</Button><Button onClick={() => fileRef.current?.click()} title="Excel أو CSV فيه البوليصة أو رقم الأوردر في أي عمود"><Upload className="size-4" /> رفع إكسل مرتجعات</Button><input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void readSheet(f); }} /></div>
+          <div className="flex flex-wrap gap-2"><input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && lookup()} placeholder="امسح أو اكتب البوليصة" className="min-w-48 flex-1" /><Button variant="primary" onClick={lookup} disabled={!code.trim()}><Search className="size-4" /> لاقي الأوردر</Button></div>
         </Field>
+        <FileDrop compact accept=".xlsx,.xls,.csv" onFile={(f) => void readSheet(f)} title="اسحب شيت المرتجعات هنا أو اضغط للاختيار" hint="Excel أو CSV فيه البوليصة أو رقم الأوردر في أي عمود" />
+        {sheets.length > 0 && <div className="flex flex-wrap items-center gap-1.5 text-xs"><span className="text-muted">الشيت:</span>{sheets.map((s) => <Pill key={s} tone="info"><span className="inline-flex items-center gap-1"><FileText className="size-3" />{s}</span></Pill>)}</div>}
         {msg && <p className={cn('text-xs', msg.tone === 'crit' ? 'text-crit' : 'text-good')}>{msg.t}</p>}
       </div>
 
@@ -241,40 +261,59 @@ function ReturnLines({ d, hdr, setHdr, lines, set }: { d: Derived; hdr: OpHdr; s
           <Pill tone="good">سليم {fmt(tot.r)}</Pill><Pill tone="warn">نضافة {fmt(tot.d)}</Pill><Pill tone="crit">هالك {fmt(tot.x)}</Pill><Pill tone="info">مفقود {fmt(lost)}</Pill>
           <span className="text-xs text-muted">الطبيعي كله سليم: افتح البوليصة وزوّد النضافة أو الهالك أو المفقود.</span>
         </div>
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث ببوليصة أو رقم أوردر" aria-label="بحث في البوليصات" />
+        <div className="relative"><Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث ببوليصة أو رقم أوردر أو منتج (مثلًا BR2 احمر L)" aria-label="بحث في المرتجعات" className="ps-9" /></div>
+        {tokens.length > 0 && <p className="text-xs text-muted"><b className="num text-ink">{fmt(shown.length)}</b> أوردر{hitPieces ? <> · <b className="num text-ink">{fmt(hitPieces)}</b> قطعة من اللي بتدوّر عليه</> : ''}</p>}
         <div className="grid gap-2">
-          {!shown.length ? <Empty>مفيش بوليصة بالرقم ده في المرتجع.</Empty> : shown.map((ref) => {
+          {!shown.length ? <Empty>مفيش بوليصة أو منتج بالاسم ده في المرتجع.</Empty> : shown.map((ref) => {
             const o = ordOf(ref); if (!o) return null;
             const cnt: Record<string, number> = {}; for (const x of o.lines) cnt[x] = (cnt[x] ?? 0) + 1;
-            const m = marks[ref] ?? {};
-            const sum = (k: 'd' | 'x' | 'l') => Object.keys(cnt).reduce((a, sku) => a + (m[sku]?.[k] ?? 0), 0);
-            const md = sum('d'), mx = sum('x'), ml = sum('l');
+            const m = marks[ref] ?? {}; const ex = extras[ref] ?? [];
+            const sum = (k: 'd' | 'x' | 'l') => Object.keys(cnt).reduce((a, sku) => a + (m[sku]?.as && m[sku]?.as !== sku && k === 'l' ? 0 : (m[sku]?.[k] ?? 0)), 0);
+            const md = sum('d') + ex.reduce((a, e) => a + (e.d ?? 0), 0), mx = sum('x') + ex.reduce((a, e) => a + (e.x ?? 0), 0), ml = sum('l');
+            const swaps = Object.keys(cnt).filter((s) => m[s]?.as && m[s]?.as !== s).length; const nEx = ex.reduce((a, e) => a + e.n, 0);
+            const plain = md + mx + ml + swaps + nEx === 0;
             return (
-              <details key={ref} open={!!s && shown.length <= 3} className="group rounded-xl border border-line bg-surface">
+              <details key={ref} open={tokens.length > 0 && shown.length <= 8} className="group rounded-xl border border-line bg-surface">
                 <summary className="flex cursor-pointer flex-wrap items-center gap-2 p-3 text-sm marker:content-none">
                   <ChevronDown className="size-4 shrink-0 text-muted transition group-open:rotate-180" />
                   <b className="font-mono">{ref}</b><span className="font-mono text-xs text-muted">{o.waybill}</span><span className="text-xs text-muted">· {o.gov} · {fmt(o.lines.length)} قطعة</span>
                   <span className="ms-auto flex flex-wrap items-center gap-1.5">
-                    {md + mx + ml === 0 ? <Pill tone="good">كله سليم</Pill> : <>{md > 0 && <Pill tone="warn">نضافة {md}</Pill>}{mx > 0 && <Pill tone="crit">هالك {mx}</Pill>}{ml > 0 && <Pill tone="info">مفقود {ml}</Pill>}</>}
+                    {plain ? <Pill tone="good">كله سليم</Pill> : <>{swaps > 0 && <Pill tone="info">رجع مختلف {swaps}</Pill>}{nEx > 0 && <Pill tone="info">قطع زيادة {nEx}</Pill>}{md > 0 && <Pill tone="warn">نضافة {md}</Pill>}{mx > 0 && <Pill tone="crit">هالك {mx}</Pill>}{ml > 0 && <Pill tone="info">مفقود {ml}</Pill>}</>}
                   </span>
                 </summary>
-                <div className="border-t border-line p-3">
-                  <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'القطع', 'سليم', 'نضافة', 'هالك', 'مفقود'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                <div className="grid gap-3 border-t border-line p-3">
+                  <TableWrap><table className="text-sm"><thead><tr>{['الصنف', 'القطع', 'سليم', 'نضافة', 'هالك', 'مفقود', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
                     <tbody>{Object.entries(cnt).map(([sku, n]) => {
-                      const c = m[sku] ?? {}; const dd = c.d ?? 0, xx = c.x ?? 0, ll = c.l ?? 0;
-                      return <tr key={sku}><td className={td}>{skuLabel(d.skuMap, sku)}</td><td className={td + ' num'}>{n}</td>
+                      const c = m[sku] ?? {}; const as = c.as && c.as !== sku ? c.as : ''; const dd = c.d ?? 0, xx = c.x ?? 0, ll = as ? 0 : c.l ?? 0;
+                      return <tr key={sku} className={lineHit(ref, sku) ? 'bg-accent/10' : ''}>
+                        <td className={td}>{label(sku)}{as && <div className="text-xs font-medium text-accent">رجع: {label(as)}</div>}</td><td className={td + ' num'}>{n}</td>
                         <td className={td}><b className="num text-good">{n - dd - xx - ll}</b></td>
-                        <td className={td}><Stepper v={dd} max={n - xx - ll} on={(v) => setMark(ref, sku, 'd', v)} label="نضافة" /></td>
-                        <td className={td}><Stepper v={xx} max={n - dd - ll} on={(v) => setMark(ref, sku, 'x', v)} label="هالك" /></td>
-                        <td className={td}><Stepper v={ll} max={n - dd - xx} on={(v) => setMark(ref, sku, 'l', v)} label="مفقود" /></td></tr>;
+                        <td className={td}><Stepper v={dd} max={n - xx - ll} on={(v) => setMark(ref, sku, { d: v })} label="نضافة" /></td>
+                        <td className={td}><Stepper v={xx} max={n - dd - ll} on={(v) => setMark(ref, sku, { x: v })} label="هالك" /></td>
+                        <td className={td}>{as ? <span className="text-muted">—</span> : <Stepper v={ll} max={n - dd - xx} on={(v) => setMark(ref, sku, { l: v })} label="مفقود" />}</td>
+                        <td className={td}>{as
+                          ? <Button size="sm" variant="ghost" onClick={() => setMark(ref, sku, { as: '' })}>رجّعه زي الأصل</Button>
+                          : <Button size="sm" variant="ghost" title="العميل بعت صنف أو مقاس تاني غير اللي في الأوردر" onClick={() => setPick(pick?.ref === ref && pick.sku === sku ? null : { ref, sku })}><ArrowLeftRight className="size-4" /> رجع صنف تاني</Button>}</td></tr>;
                     })}</tbody></table></TableWrap>
+                  {ex.length > 0 && <TableWrap><table className="text-sm"><thead><tr>{['قطعة زيادة رجعت مع الأوردر', 'القطع', 'سليم', 'نضافة', 'هالك', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                    <tbody>{ex.map((e) => { const upd = (patch: Partial<ReturnExtra>) => setExtras(ref, ex.map((y) => (y.sku === e.sku ? { ...y, ...patch } : y))); const dd = e.d ?? 0, xx = e.x ?? 0; return (
+                      <tr key={e.sku} className={extraHit(ref, e) ? 'bg-accent/10' : ''}><td className={td}>{label(e.sku)}</td>
+                        <td className={td}><Stepper v={e.n} min={1} on={(v) => upd({ n: v, d: Math.min(dd, v), x: Math.min(xx, v - Math.min(dd, v)) })} label="القطع" /></td>
+                        <td className={td}><b className="num text-good">{e.n - dd - xx}</b></td>
+                        <td className={td}><Stepper v={dd} max={e.n - xx} on={(v) => upd({ d: v })} label="نضافة" /></td>
+                        <td className={td}><Stepper v={xx} max={e.n - dd} on={(v) => upd({ x: v })} label="هالك" /></td>
+                        <td className={td}><Button size="sm" variant="ghost" aria-label="شيل القطعة" onClick={() => setExtras(ref, ex.filter((y) => y.sku !== e.sku))}><Trash2 className="size-4" /></Button></td></tr>); })}</tbody></table></TableWrap>}
+                  {pick?.ref === ref
+                    ? <div className="grid gap-2"><p className="text-sm font-semibold">{pick.sku ? `الصنف اللي رجع بدل ${label(pick.sku)}` : 'القطعة الزيادة اللي رجعت مع الأوردر'}</p>
+                      <VariantPicker d={d} pick={!!pick.sku} addLabel={pick.sku ? 'رجع ده' : 'أضف'} onAdd={(sku, n) => { if (pick.sku) setMark(ref, pick.sku, { as: sku, l: 0 }); else addExtra(ref, sku, n); setPick(null); }} />
+                      <div><Button size="sm" onClick={() => setPick(null)}>إلغاء</Button></div></div>
+                    : <div><Button size="sm" onClick={() => setPick({ ref })}><Plus className="size-4" /> رجّع معاه قطعة تانية</Button></div>}
                 </div>
               </details>
             );
           })}
         </div>
       </>}
-
       {!lines.length && <Empty>دوّر بالبوليصة أو ارفع شيت المرتجعات عشان تظهر الأوردرات. كل القطع بتتحسب سليمة، وانت تعلّم اللي غير كده.</Empty>}
       {lines.length > 0 && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!hdr.counted} onChange={(e) => setHdr({ ...hdr, counted: e.target.checked })} /> راجعت كل البوليصات وعلّمت النضافة والهالك والمفقود</label>}
     </div>
@@ -354,6 +393,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
         {draftId && <Pill tone="warn">مسودة</Pill>}
         {type === 'CNT' && <Button variant="ghost" className="ms-auto print:hidden" onClick={() => nav('/operations?tab=counts')}><FileText className="size-4" /> تقرير الجرد</Button>}
       </div>
+      {type === 'RTN' && hdr.editOf && <Alert tone="info">بتعدّل المرتجع {hdr.editOf}: اتفتح للتعديل (القطع رجعت زي ما كانت). عدّل اللي محتاجه وأكّد، وبيتسجل مرتجع جديد بداله.</Alert>}
       {!draft && prefill?.length ? <Alert tone="info">{type === 'CNT' ? `جاي من التنبيه: ${fmt(prefill.length)} صنف محتاج جرد، ظاهرين تحت في «أصناف التنبيه». اعدّهم واكشف الفروق قبل التأكيد.` : `جاي من التنبيه: اتملى ${fmt(lines.length)} صنف بكل قطعهم${type === 'LOS' ? '، والكل متعلّم «لقيناه». غيّر اللي اتشطب' : ''}. راجع الكميات قبل التأكيد.`}</Alert> : null}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid content-start gap-4">
@@ -371,6 +411,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
               <Field label="السبب" className="sm:col-span-3"><input value={hdr.reason ?? ''} onChange={(e) => setHdr({ ...hdr, reason: e.target.value })} placeholder="بقعة، خيط، غسيل..." /></Field></>}
             {type === 'FSD' && <div className="sm:col-span-2"><Field label="نوع الإرسال"><Seg value={hdr.kind ?? 'wash'} onChange={(kind) => { setHdr({ ...hdr, kind }); set(() => []); }} options={[['wash', 'غسيل (هيرجع)'], ['scrap', 'تسليم هالك']]} /></Field></div>}
           </div>
+            <DayLock d={d} day={date} className="mt-3" />
             {type === 'RCV' && <div className="mt-3"><PhotoInput file={photo} onChange={setPhoto} label="صورة الورقة الموقّعة من الطرفين" /></div>}
           </Card>
           {type === 'LOS' && <Card title="الأوردرات اللي فيها قطع مفقودة" hint="اضغط على القطعة الناقصة تختارها، ودوس تاني تشيلها">
@@ -397,7 +438,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
             <div className="grid gap-1.5 text-sm">{r.checks.map((c) => <div key={c.t} className="flex items-start gap-2"><span className={c.ok ? 'text-good' : 'text-crit'}>{c.ok ? '✓' : '●'}</span><span>{c.t}</span></div>)}</div>
             {r.err.map((e) => <Alert key={e} tone="crit" className="mt-2">{e}</Alert>)}
             {r.warn.map((w) => <Alert key={w} tone="warn" className="mt-2">{w}</Alert>)}
-            <Button variant="primary" className="mt-4 w-full" disabled={!r.ok || busy} onClick={confirm}>تأكيد وتسجيل {fmt(total)} قطعة</Button>
+            <Button variant="primary" className="mt-4 w-full" disabled={!r.ok || busy || dayClosed(d.snap, date)} onClick={confirm}>تأكيد وتسجيل {fmt(total)} قطعة</Button>
             <Button className="mt-2 w-full" onClick={saveDraft} disabled={busy}><Save className="size-4" /> حفظ كمسودة</Button>
           </Card>
         </div>
@@ -426,6 +467,22 @@ function ShopActions({ d, doc }: { d: Derived; doc: Doc }) {
   );
 }
 
+/** A confirmed customer return can be opened again to correct it (a wrong mark, an exchange, an extra piece): it is undone and comes back as a draft. */
+function ReturnActions({ d, doc, onEdit }: { d: Derived; doc: Doc; onEdit: (draftId: string) => void }) {
+  const act = useAct(); const [ask, setAsk] = useState(false); const [busy, setBusy] = useState(false);
+  if (doc.status !== 'done') return null;
+  const closed = dayClosed(d.snap, doc.date);
+  return (
+    <div className="grid gap-3 rounded-xl border border-line bg-lav p-3">
+      <DayLock d={d} day={doc.date} />
+      {!ask
+        ? <div><Button disabled={closed} onClick={() => setAsk(true)}><Pencil className="size-4" /> تعديل المرتجع</Button></div>
+        : <div className="grid gap-2"><p className="text-sm">هيتفتح {doc.no} للتعديل: القطع اللي دخلت المخزون بترجع زي ما كانت، والأوردرات تبقى متاحة تاني، وتفتح لك الفورم بنفس البيانات تعدّلها وتأكّدها. المستند ده هيتعلّم «معكوس» وبيفضل في السجل.</p>
+          <div className="flex gap-2"><Button variant="primary" disabled={busy} onClick={async () => { setBusy(true); const r = await act(() => repo.reopenReturn(doc.no), 'اتفتح المرتجع للتعديل'); setBusy(false); if (r) onEdit(r.draft); }}>أيوه، افتحه للتعديل</Button><Button onClick={() => setAsk(false)}>لأ</Button></div></div>}
+    </div>
+  );
+}
+
 function Docs({ d, onOpen }: { d: Derived; onOpen: (no: string) => void }) {
   const [t, setT] = useState('all'); const [q, setQ] = useState('');
   const types = [...new Set(d.snap.docs.map((x) => x.type))];
@@ -441,7 +498,7 @@ function Docs({ d, onOpen }: { d: Derived; onOpen: (no: string) => void }) {
           <tbody>{docs.map((x) => { const I = ICON[x.type] ?? FileText; return (
             <tr key={x.no} className="cursor-pointer hover:bg-lav" onClick={() => onOpen(x.no)}>
               <td className={td + ' font-mono font-semibold'}>{x.no}</td><td className={td}><span className="inline-flex items-center gap-1.5"><I className="size-4 text-muted" />{TYPE_AR[x.type] ?? x.type}</span></td>
-              <td className={td}>{x.date}</td><td className={td}>{x.by}</td><td className={td + ' font-mono'}>{fmt(Number(x.hdr.pieces ?? x.lines.reduce((a, l) => a + l.qty, 0)))}</td>
+              <td className={td}>{dmy(x.date)}</td><td className={td}>{x.by}</td><td className={td + ' font-mono'}>{fmt(Number(x.hdr.pieces ?? x.lines.reduce((a, l) => a + l.qty, 0)))}</td>
               <td className={td}>{x.status !== 'done' ? <Pill>معكوس</Pill> : x.type === 'SHP' && !x.hdr.delivered ? <Pill tone="warn">مستني التسليم</Pill> : <Pill tone="good">مؤكد</Pill>}</td></tr>); })}</tbody></table></TableWrap>)}
     </div>
   );
@@ -469,7 +526,7 @@ function Shops({ d, onOpen }: { d: Derived; onOpen: (no: string) => void }) {
       {!rows.length ? <Card><Empty>مفيش توريدات للمحل لسه. ابدأ من «توريد للمحل».</Empty></Card> : (
         <TableWrap><table className="text-sm"><thead><tr><th className={th}>الإذن</th><th className={th}>المحل</th><th className={th}>التاريخ</th><th className={th}>القطع</th><th className={th}>الحالة</th><th className={th} /></tr></thead>
           <tbody>{rows.map((x) => (
-            <tr key={x.no} className="cursor-pointer hover:bg-lav" onClick={() => onOpen(x.no)}><td className={td + ' font-mono font-semibold'}>{x.no}</td><td className={td}>{String(x.hdr.shop)}</td><td className={td}>{x.date}</td><td className={td + ' font-mono'}>{fmt(pcs(x))}</td>
+            <tr key={x.no} className="cursor-pointer hover:bg-lav" onClick={() => onOpen(x.no)}><td className={td + ' font-mono font-semibold'}>{x.no}</td><td className={td}>{String(x.hdr.shop)}</td><td className={td}>{dmy(x.date)}</td><td className={td + ' font-mono'}>{fmt(pcs(x))}</td>
               <td className={td}>{x.type === 'SRT' ? <Pill tone="info">مرتجع من المحل</Pill> : x.hdr.delivered ? <Pill tone="good">اتسلم</Pill> : <Pill tone="warn">مستني التسليم</Pill>}</td>
               <td className={td}><div className="flex gap-1"><Button size="sm" variant="ghost" aria-label="طباعة الإذن" onClick={(e) => { e.stopPropagation(); printDeliveryNote(x, d.skuMap, d.modelMap); }}><Printer className="size-4" /></Button><Button size="sm" onClick={(e) => { e.stopPropagation(); onOpen(x.no); }}>{x.type === 'SRT' || x.hdr.delivered ? 'تفاصيل' : 'تأكيد التسليم'}</Button></div></td></tr>))}</tbody></table></TableWrap>)}
     </div>
@@ -505,7 +562,7 @@ export default function Operations() {
       {tab === 'holds' && <Holds d={d} openNew={sp.get('new') === 'yes'} onOpenNew={(v) => go({ new: v ? 'yes' : null })} />}
       {tab === 'shops' && <Shops d={d} onOpen={(no) => go({ doc: no })} />}
       {openDoc && <DocDetails key={openDoc.no} d={d} doc={openDoc} onClose={() => go({ doc: null })} onOpen={(no) => go({ doc: no })}
-        actions={(openDoc.type === 'SHP' || openDoc.type === 'SRT') && <ShopActions d={d} doc={openDoc} />} />}
+        actions={openDoc.type === 'RTN' ? <ReturnActions d={d} doc={openDoc} onEdit={(id) => go({ doc: null, tab: null, op: 'RTN', draft: id })} /> : (openDoc.type === 'SHP' || openDoc.type === 'SRT') && <ShopActions d={d} doc={openDoc} />} />}
     </>
   );
 }

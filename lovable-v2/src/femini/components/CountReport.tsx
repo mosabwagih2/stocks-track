@@ -3,7 +3,7 @@ import { FileSpreadsheet } from 'lucide-react';
 import type { Derived } from '@/femini/hooks/data';
 import { countReport, type CountDoc } from '@/femini/domain/countReport';
 import { costOf } from '@/femini/domain/shop';
-import { addDays } from '@/femini/domain/dates';
+import { addDays, dmy } from '@/femini/domain/dates';
 import { LOC_AR } from '@/femini/domain/constants';
 import { skuLabel } from '@/femini/domain/orders';
 import { cn, fmt } from '@/femini/cn';
@@ -59,7 +59,7 @@ export function CountReport({ d }: { d: Derived }) {
           <TableWrap><table className="text-sm"><thead><tr>{['الرقم', 'التاريخ', 'سجّلها', 'الحالة', 'اتعدّ', 'مطابق', 'زيادة', 'عجز', 'الصافي'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{r.counts.map((c) => (
               <tr key={c.doc.no} className="cursor-pointer hover:bg-lav" onClick={() => setOpen(c.doc.no)}>
-                <td className={td + ' font-mono text-accent'}>{c.doc.no}</td><td className={td + ' num'}>{c.doc.date}</td><td className={td}>{c.doc.by}</td><td className={td}>{LOC_AR[c.state] ?? c.state}</td>
+                <td className={td + ' font-mono text-accent'}>{c.doc.no}</td><td className={td + ' num'}>{dmy(c.doc.date)}</td><td className={td}>{c.doc.by}</td><td className={td}>{LOC_AR[c.state] ?? c.state}</td>
                 <td className={td + ' num'}>{fmt(c.items)}</td><td className={td + ' num'}>{fmt(c.matched)}</td>
                 <td className={td}>{c.more.pieces ? <Pill tone="warn">+{fmt(c.more.pieces)} · {fmt(c.more.items)} صنف</Pill> : <span className="text-muted">—</span>}</td>
                 <td className={td}>{c.less.pieces ? <Pill tone="crit">−{fmt(c.less.pieces)} · {fmt(c.less.items)} صنف</Pill> : <span className="text-muted">—</span>}</td>

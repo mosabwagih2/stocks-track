@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { dmy } from '@/femini/domain/dates';
 import { ChevronDown, History } from 'lucide-react';
 import type { Derived } from '@/femini/hooks/data';
 import type { Doc } from '@/femini/domain/types';
@@ -36,9 +37,10 @@ export function OpHistory({ d, type, label, onOpen }: { d: Derived; type: string
               <button type="button" onClick={() => onOpen(x.no)} aria-label={`افتح ${x.no}`}
                 className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-start text-sm transition hover:bg-lav">
                 <b className="num whitespace-nowrap">{x.no}</b>
-                <span className="num whitespace-nowrap text-muted max-sm:hidden">{x.date}</span>
+                <span className="num whitespace-nowrap text-muted max-sm:hidden">{dmy(x.date)}</span>
                 <span className="truncate text-muted max-sm:hidden">{x.by}</span>
                 {x.hdr.shop ? <span className="min-w-0 truncate">{String(x.hdr.shop)}</span> : null}
+                {x.type === 'RTN' && Array.isArray(x.hdr.sheets) && x.hdr.sheets.length ? <span className="min-w-0 truncate text-xs text-muted" dir="ltr">{(x.hdr.sheets as string[]).join('، ')}</span> : null}
                 <span className="num ms-auto whitespace-nowrap">{fmt(pieces(x))} قطعة</span>
                 {x.type === 'SHP' && !reversed && !x.hdr.delivered && <span className="whitespace-nowrap rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium text-warn">مستني التسليم</span>}
                 <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium', reversed ? 'bg-crit-bg text-crit' : TONE[x.type] ?? 'bg-lav text-ink')}>{reversed ? `عكس ${label}` : label}</span>

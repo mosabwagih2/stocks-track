@@ -15,7 +15,7 @@ import { channelName } from '@/femini/domain/constants';
 import { fmt } from '@/femini/cn';
 import { qty } from '@/femini/domain/ledger';
 import { skuLabel } from '@/femini/domain/orders';
-import { cairoDay, dayDiff } from '@/femini/domain/dates';
+import { cairoDay, dayDiff, dmy } from '@/femini/domain/dates';
 import type { Order } from '@/femini/domain/types';
 import type { Derived } from '@/femini/hooks/data';
 
@@ -98,7 +98,7 @@ export default function Orders() {
               return (
                 <button key={p.id} type="button" onClick={() => setPkSheet(p.id)}
                   className="grid gap-2 rounded-2xl border border-line bg-surface p-3.5 text-start transition hover:border-accent">
-                  <span className="flex justify-between"><b>{p.label}</b><span className="text-xs text-muted">{p.date}</span></span>
+                  <span className="flex justify-between"><b>{p.label}</b><span className="text-xs text-muted">{dmy(p.date)}</span></span>
                   <span className="text-xs text-muted">{channelName(p.channel)}</span>
                   <span className="h-2 overflow-hidden rounded-full bg-grid"><i className="block h-full bg-ready" style={{ width: `${po.length ? (done / po.length) * 100 : 0}%` }} /></span>
                   <span className="flex justify-between"><span><span className="num">{done}</span> من <span className="num">{po.length}</span> مشحون</span><span className="text-muted">{fmt(po.reduce((a, o) => a + o.lines.length, 0))} قطعة</span></span>
@@ -142,7 +142,7 @@ export default function Orders() {
                   <span className="ms-auto text-sm text-muted">{o.gov} · <span className="num font-semibold text-ink">{o.lines.length}</span> قطعة</span>
                 </div>
                 <div className="mt-2"><StateCell o={o} d={d} /></div>
-                <div className="num mt-2 flex flex-wrap gap-x-4 text-xs text-muted"><span>بيك أب {d.pickupDate.get(o.pickupId) ?? '—'}</span>{d.collected.get(o.ref) && <span>تحصيل {d.collected.get(o.ref)!.date}</span>}</div>
+                <div className="num mt-2 flex flex-wrap gap-x-4 text-xs text-muted"><span>بيك أب {dmy(d.pickupDate.get(o.pickupId)) || '—'}</span>{d.collected.get(o.ref) && <span>تحصيل {dmy(d.collected.get(o.ref)!.date)}</span>}</div>
               </li>
             ))}
             {!list.length && <li><Empty>لا توجد أوردرات مطابقة للفلتر.</Empty></li>}
@@ -153,7 +153,7 @@ export default function Orders() {
                 {list.slice(0, n).map((o) => (
                   <tr key={o.ref} className={`cursor-pointer hover:bg-lav ${rowTint(o, d)}`} onClick={() => setOrderRef(o.ref)}>
                     <td className={td} onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.ref)} disabled={o.status !== 'open' || o.unmapped.length > 0} title={o.unmapped.length ? 'فيه أصناف مش متعرّفة؛ صحّحها الأول' : undefined} onChange={() => toggle(o.ref)} aria-label="تحديد" /></td>
-                    <td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted whitespace-nowrap'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono whitespace-nowrap'} title={d.collected.get(o.ref) ? `التسوية ${d.collected.get(o.ref)!.stl}` : undefined}>{d.collected.get(o.ref)?.date ?? <span className="text-muted">—</span>}</td>
+                    <td className={td + ' font-mono'}>{o.ref}</td><td className={td + ' font-mono text-muted whitespace-nowrap'}>{dmy(d.pickupDate.get(o.pickupId)) || '—'}</td><td className={td + ' font-mono whitespace-nowrap'} title={d.collected.get(o.ref) ? `التسوية ${d.collected.get(o.ref)!.stl}` : undefined}>{dmy(d.collected.get(o.ref)?.date) || <span className="text-muted">—</span>}</td>
                     <td className={td}>{o.type === 'exchange' ? <Pill tone="lost">استبدال</Pill> : 'جديد'}</td><td className={td}>{o.gov}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}><StateCell o={o} d={d} /></td>
                   </tr>
                 ))}
@@ -170,7 +170,7 @@ export default function Orders() {
         rows={pick.filter((x) => x.ready < x.need).sort((x, y) => (y.need - y.ready) - (x.need - x.ready)).map((x) => ({ sku: x.sku, cells: [fmt(x.need), fmt(x.ready), <b key="s" className="text-crit">{fmt(x.need - x.ready)}</b>] }))} onItem={setSkuOrd} onClose={() => setCard(null)} />}
       {card === 'pieces' && <OrdersDetail d={d} title="القطع المطلوبة (لم تُشحن)" hint="كل الأوردرات المفتوحة: المتوقفة والمستنية الشحن." orders={d.open} startTab="items" onClose={() => setCard(null)}
         chips={[{ id: 'wait', label: 'بانتظار الشحن', test: (o) => !d.blocked.has(o.ref) }, { id: 'blocked', label: 'متوقف', test: (o) => d.blocked.has(o.ref) }]}
-        cols={[{ head: 'تاريخ البيك أب', cell: (o) => <span className="num">{d.pickupDate.get(o.pickupId) ?? '—'}</span> }]} />}
+        cols={[{ head: 'تاريخ البيك أب', cell: (o) => <span className="num">{dmy(d.pickupDate.get(o.pickupId)) || '—'}</span> }]} />}
       {skuOrd && <SkuOrders d={d} sku={skuOrd} onClose={() => setSkuOrd(null)} />}
       {settle && <SettleUpload d={d} onClose={() => setSettle(false)} />}
       {pkSheet && !orderRef && <PickupOrders d={d} pickupId={pkSheet} onClose={() => setPkSheet(null)} onOrder={setOrderRef} />}

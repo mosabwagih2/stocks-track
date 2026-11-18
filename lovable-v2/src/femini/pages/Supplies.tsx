@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { dmy } from '@/femini/domain/dates';
 import { Plus, Settings2 } from 'lucide-react';
 import { SupplyFormSheet } from '@/femini/components/SupplyForm';
 import { useAct, useDerived } from '@/femini/hooks/data';
@@ -44,7 +45,7 @@ function SupplySheet({ d, s, start, onClose }: { d: Derived; s: Supply; start: '
         </>
       ) : (
         log.length ? <TableWrap><table className="text-sm"><tbody>{log.map((e) => (
-          <tr key={e.id} className={e.reversed ? 'opacity-55 line-through' : ''}><td className={td + ' font-mono text-muted'}>{e.date}</td><td className={td}><Pill tone={e.kind === 'rcv' ? 'good' : e.kind === 'issue' ? 'warn' : e.kind === 'count' ? 'info' : e.kind === 'rev' ? 'lost' : 'neutral'}>{KIND_AR[e.kind]}</Pill><div className="text-xs text-muted">{e.why}</div></td><td className={td + ' font-mono ' + (e.qty < 0 ? 'text-crit' : 'text-good')}>{e.qty > 0 ? '+' : ''}{e.qty}</td>
+          <tr key={e.id} className={e.reversed ? 'opacity-55 line-through' : ''}><td className={td + ' font-mono text-muted'}>{dmy(e.date)}</td><td className={td}><Pill tone={e.kind === 'rcv' ? 'good' : e.kind === 'issue' ? 'warn' : e.kind === 'count' ? 'info' : e.kind === 'rev' ? 'lost' : 'neutral'}>{KIND_AR[e.kind]}</Pill><div className="text-xs text-muted">{e.why}</div></td><td className={td + ' font-mono ' + (e.qty < 0 ? 'text-crit' : 'text-good')}>{e.qty > 0 ? '+' : ''}{e.qty}</td>
             <td className={td}>{!e.reversed && ['rcv', 'issue', 'count', 'open'].includes(e.kind) && <Button size="sm" variant="ghost" onClick={async () => { await act(() => repo.undoSupplyMove(e.id), 'تم تسجيل التراجع'); }}>تراجع</Button>}</td></tr>))}</tbody></table></TableWrap> : <Empty>لا توجد حركات.</Empty>
       )}
     </Sheet>
@@ -86,7 +87,7 @@ export default function Supplies({ embedded, addSignal = 0, arch: archP, setArch
       </div>
       <h2 className="font-display mt-6 mb-2 text-lg font-semibold">آخر الحركات</h2>
       <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'المستلزم', 'النوع', 'الكمية', 'السبب'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
-        <tbody>{lg.map((e) => <tr key={e.id} className={e.reversed ? 'opacity-55 line-through' : ''}><td className={td + ' font-mono'}>{e.date}</td><td className={td}>{nameOf(e.item)}</td><td className={td}><Pill>{KIND_AR[e.kind]}</Pill></td><td className={td + ' font-mono ' + (e.qty < 0 ? 'text-crit' : 'text-good')}>{e.qty > 0 ? '+' : ''}{e.qty}</td><td className={td + ' text-muted'}>{e.why}</td></tr>)}</tbody></table></TableWrap>
+        <tbody>{lg.map((e) => <tr key={e.id} className={e.reversed ? 'opacity-55 line-through' : ''}><td className={td + ' font-mono'}>{dmy(e.date)}</td><td className={td}>{nameOf(e.item)}</td><td className={td}><Pill>{KIND_AR[e.kind]}</Pill></td><td className={td + ' font-mono ' + (e.qty < 0 ? 'text-crit' : 'text-good')}>{e.qty > 0 ? '+' : ''}{e.qty}</td><td className={td + ' text-muted'}>{e.why}</td></tr>)}</tbody></table></TableWrap>
       {form && <SupplyFormSheet d={d} supply={form.supply} onClose={() => setForm(null)} />}
       {sel && open && <SupplySheet d={d} s={sel} start={open.start} onClose={() => setOpen(null)} />}
     </>

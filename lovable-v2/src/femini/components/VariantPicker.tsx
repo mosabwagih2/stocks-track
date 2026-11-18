@@ -8,7 +8,7 @@ import { LOC_AR } from '@/femini/domain/constants';
 import { Thumb } from './Thumb';
 
 /** model -> color -> size selectors (three separate fields, never a typed code) */
-export function VariantPicker({ d, onAdd, from }: { d: Derived; onAdd: (sku: string, q: number) => void; from?: Loc }) {
+export function VariantPicker({ d, onAdd, from, pick, addLabel }: { d: Derived; onAdd: (sku: string, q: number) => void; from?: Loc; /** choose a variant only: no quantity */ pick?: boolean; addLabel?: string }) {
   const models = d.modelOrder;
   const [model, setModel] = useState(models[0] ?? ''); const [color, setColor] = useState(''); const [size, setSize] = useState(''); const [q, setQ] = useState(1);
   const ms = useMemo(() => d.snap.skus.filter((s) => s.model === model), [d, model]);
@@ -18,12 +18,12 @@ export function VariantPicker({ d, onAdd, from }: { d: Derived; onAdd: (sku: str
   const sku = ms.find((s) => s.color === c && s.size === z);
   return (
     <div className="grid gap-2 rounded-xl border border-line bg-lav p-3">
-      <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
+      <div className={pick ? 'grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]' : 'grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto]'}>
         <Field label="الموديل"><select value={model} onChange={(e) => setModel(e.target.value)}>{models.map((m) => <option key={m} value={m}>{m} · {d.modelMap.get(m)?.name}</option>)}</select></Field>
         <Field label="اللون"><select value={c} onChange={(e) => setColor(e.target.value)}>{colors.map((x) => <option key={x}>{x}</option>)}</select></Field>
         <Field label="المقاس"><select value={z} onChange={(e) => setSize(e.target.value)}>{sizes.map((x) => <option key={x}>{x}</option>)}</select></Field>
-        <Field label="الكمية"><input type="number" min={1} value={q} onChange={(e) => setQ(Math.max(1, Math.floor(+e.target.value || 1)))} className="w-20" /></Field>
-        <Button variant="primary" disabled={!sku} onClick={() => sku && onAdd(sku.id, q)}><Plus className="size-4" /> إضافة</Button>
+        {!pick && <Field label="الكمية"><input type="number" min={1} value={q} onChange={(e) => setQ(Math.max(1, Math.floor(+e.target.value || 1)))} className="w-20" /></Field>}
+        <Button variant="primary" disabled={!sku} onClick={() => sku && onAdd(sku.id, pick ? 1 : q)}><Plus className="size-4" /> {addLabel ?? 'إضافة'}</Button>
       </div>
       {sku && <p className="flex items-center gap-2 text-xs text-muted"><Thumb model={d.modelMap.get(model)} size={52} />{from ? `المتاح في ${LOC_AR[from]}` : 'جاهز حاليًا'}: <b className="font-mono">{qty(d.snap.balances, sku.id, from ?? 'READY')}</b></p>}
     </div>

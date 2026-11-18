@@ -1,5 +1,8 @@
+import { dmyText } from '@/femini/domain/dates';
 // Maps known server error messages to Arabic; memory-mode errors are already Arabic.
-export function friendlyError(e: unknown): string {
+/** every message the user reads shows its dates day-month-year */
+export const friendlyError = (e: unknown): string => dmyText(friendlyErrorRaw(e));
+function friendlyErrorRaw(e: unknown): string {
   const m = String((e as { message?: string })?.message ?? e);
   const map: [RegExp, string][] = [
     [/employee name is required/, 'أدخل اسم الموظف'],

@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
+import { dmy } from '@/femini/domain/dates';
 import { ArrowLeft } from 'lucide-react';
 import type { Derived } from '@/femini/hooks/data';
 import type { Doc } from '@/femini/domain/types';
@@ -25,13 +26,15 @@ function piecesOf(d: Derived, doc: Doc): Piece[] {
 function facts(d: Derived, doc: Doc, pieces: number, varieties: number): [string, ReactNode][] {
   const h = doc.hdr; const s = (k: string) => (h[k] == null || h[k] === '' ? null : String(h[k]));
   const list = (k: string) => (Array.isArray(h[k]) ? (h[k] as unknown[]).length : 0);
-  const out: [string, ReactNode][] = [['التاريخ', <span className="num">{doc.date}</span>], ['سجّلها', doc.by || '—'], ['القطع', <b className="num">{fmt(pieces)}</b>], ['الأصناف', <span className="num">{fmt(varieties)}</span>]];
+  const out: [string, ReactNode][] = [['التاريخ', <span className="num">{dmy(doc.date)}</span>], ['سجّلها', doc.by || '—'], ['القطع', <b className="num">{fmt(pieces)}</b>], ['الأصناف', <span className="num">{fmt(varieties)}</span>]];
   if (s('shop')) out.push(['المحل', s('shop')]);
   if (doc.type === 'SHP') out.push(['التسليم', h.delivered ? <Pill tone="good">اتسلم للمحل</Pill> : <Pill tone="warn">مستني صورة الإذن</Pill>]);
   if (s('ref')) out.push(['رقم الإذن', <span className="num">{s('ref')}</span>]);
   if (h.declared != null && h.declared !== '') out.push(['المكتوب في الورقة', <span className={cn('num', Number(h.declared) !== pieces && 'font-semibold text-warn')}>{fmt(Number(h.declared))}{Number(h.declared) !== pieces ? ` (فرق ${fmt(pieces - Number(h.declared))})` : ''}</span>]);
   if (s('channel')) out.push(['القناة', channelName(s('channel')!)]);
   if (doc.type === 'RTN' && list('refs')) out.push(['البوالص', <span className="num">{fmt(list('refs'))}</span>]);
+  if (doc.type === 'RTN' && Array.isArray(h.sheets) && h.sheets.length) out.push(['الشيت', <span className="break-all text-sm">{(h.sheets as string[]).join('، ')}</span>]);
+  if (doc.type === 'RTN' && s('editOf')) out.push(['تعديل على', <span className="num">{s('editOf')}</span>]);
   if (doc.type === 'SCN' && list('refs')) out.push(['الأوردرات', <span className="num">{fmt(list('refs'))}</span>]);
   if (s('emp')) out.push(['الموظف', s('emp')]);
   if (doc.type === 'FSD') out.push(['نوع الإرسال', h.kind === 'scrap' ? 'تسليم هالك' : 'غسيل (هيرجع)']);

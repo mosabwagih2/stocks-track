@@ -1,4 +1,5 @@
 import Supplies from './Supplies';
+import { dmy } from '@/femini/domain/dates';
 import { Archive, Check, Pencil, Plus, X } from 'lucide-react';
 import { useSearchParams } from '@/femini/router';
 import { useDeferredValue, useMemo, useState } from 'react';
@@ -120,7 +121,7 @@ function SkuSheet({ d, sku, start, onClose }: { d: Derived; sku: Sku; start: Loc
         <div className="mt-3"><Button variant="primary" disabled={q > have || q < 1} onClick={async () => { const r = await act(() => repo.postOp({ type: step.op, date: d.today, hdr: step.hdr(reason.trim()), lines: [step.line(sku.id, q)] }), (x) => `تم تسجيل ${x.doc}`); if (r) onClose(); }}>تأكيد: {step.label}</Button></div>
       </Card>
       <h3 className="font-display font-semibold">آخر الحركات</h3>
-      {moves.length ? <TableWrap><table className="text-sm"><tbody>{moves.map((m) => <tr key={m.id}><td className={td + ' font-mono text-muted'}>{m.date}</td><td className={td}>{m.note || m.type}<div className="text-xs text-muted">من {LOC_AR[m.from]} إلى {LOC_AR[m.to]} · <span className="font-mono">{m.doc}</span></div></td><td className={td + ' text-xs'}>{m.by}</td><td className={td + ' font-mono'}>{m.qty}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا توجد حركات.</Empty>}
+      {moves.length ? <TableWrap><table className="text-sm"><tbody>{moves.map((m) => <tr key={m.id}><td className={td + ' font-mono text-muted'}>{dmy(m.date)}</td><td className={td}>{m.note || m.type}<div className="text-xs text-muted">من {LOC_AR[m.from]} إلى {LOC_AR[m.to]} · <span className="font-mono">{m.doc}</span></div></td><td className={td + ' text-xs'}>{m.by}</td><td className={td + ' font-mono'}>{m.qty}</td></tr>)}</tbody></table></TableWrap> : <Empty>لا توجد حركات.</Empty>}
     </Sheet>
   );
 }

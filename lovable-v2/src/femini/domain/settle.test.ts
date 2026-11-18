@@ -67,6 +67,9 @@ const EXPECT: Record<string, { date: string; rows: number; collect: number; ret:
   '07-11-2026': { date: '2026-11-07', rows: 88, collect: 68, ret: 14, partial: 6, adjust: 0, due: 44480 },
   // the day's due matches the number in the file name and the sum of its rows' supply (both asserted below)
   '11-11-2026': { date: '2026-11-11', rows: 103, collect: 71, ret: 22, partial: 4, adjust: 6, due: 45625 },
+  '14-11-2026': { date: '2026-11-14', rows: 53, collect: 43, ret: 8, partial: 2, adjust: 0, due: 25320 },
+  '15-11-2026': { date: '2026-11-15', rows: 67, collect: 52, ret: 14, partial: 1, adjust: 0, due: 37075 },
+  '16-11-2026': { date: '2026-11-16', rows: 61, collect: 61, ret: 0, partial: 0, adjust: 0, due: 41560 },
 };
 describe.skipIf(!sheets.length)('the real settlement sheets', () => {
   for (const f of sheets) it(f, () => {

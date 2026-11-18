@@ -1,4 +1,4 @@
-import { addDays, dayDiff } from '@/femini/domain/dates';
+import { addDays, dayDiff, dmy, dmyText, plainText } from '@/femini/domain/dates';
 import { lineOf } from '@/femini/domain/lines';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarCheck, ArrowDownRight, ArrowLeft, ArrowUpRight, BarChart3, Bell, FileDown, FileSpreadsheet, PackageX, Sparkles, Store, Truck, Wallet } from 'lucide-react';
@@ -138,9 +138,9 @@ export default function Insights() {
   if (isLoading || !d || !st || !cmp) return <Spinner />;
   const counts: Partial<Record<Sec, number>> = {};
   const secLabel = SECTIONS.find((x) => x.id === sec)?.label ?? 'الملخص';
-  const periodLabel = sec === 'finance' ? `الرسوم من ${cmp.cur.from} لـ ${cmp.cur.to} · جدول القيمة بالأرصدة الحالية حتى ${d.today} والتكلفة المسجلة حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`;
+  const periodLabel = dmyText(sec === 'finance' ? `الرسوم من ${cmp.cur.from} لـ ${cmp.cur.to} · جدول القيمة بالأرصدة الحالية حتى ${d.today} والتكلفة المسجلة حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`);
   const filters = 'بدون فلاتر إضافية';
-  const doExcel = () => exportExcel({ section: secLabel, period: periodLabel, filters, date: d.today }, buildSheets(sec, d, st, cmp, alerts))
+  const doExcel = () => exportExcel({ section: secLabel, period: plainText(periodLabel), filters, date: d.today }, buildSheets(sec, d, st, cmp, alerts))
     .then(() => toast('تم تصدير ملف Excel'), () => toast('تعذّر التصدير', { tone: 'err' }));
   return (
     <>
@@ -153,7 +153,7 @@ export default function Insights() {
       </PageHead>
       <div className="mb-4 hidden rounded-xl border border-line p-3 text-xs print:block">
         <b>Fémini Stock · تقرير التحليلات — {secLabel}</b>
-        <div>الفترة: {periodLabel}</div><div>الفلاتر: {filters}</div><div>تاريخ التصدير: {d.today}</div>
+        <div>الفترة: {periodLabel}</div><div>الفلاتر: {filters}</div><div>تاريخ التصدير: {dmy(d.today)}</div>
       </div>
 
       {/* the tabs and the dates stay in front while scrolling; the dates drive every section of the page */}
@@ -236,7 +236,7 @@ const SHEETS: Kind[] = ['out', 'low', 'neg', 'dead'];
 /** The detail behind a card of the analytics: the orders or the items the number is made of. */
 function InsightSheet({ d, st, kind, range, onClose }: { d: Derived; st: Stats; kind: Kind; range: Range | null; onClose: () => void }) {
   const pd = (o: Order) => d.pickupDate.get(o.pickupId) ?? '';
-  const dateCol = { head: 'تاريخ البيك أب', cell: (o: Order) => <span className="num">{pd(o) || '—'}</span> };
+  const dateCol = { head: 'تاريخ البيك أب', cell: (o: Order) => <span className="num">{dmy(pd(o)) || '—'}</span> };
   const shipCol = { head: 'اتشحن', cell: (o: Order) => <span className="num">{o.shippedAt ? `${cairoDay(o.shippedAt)} · ${timeCairo(o.shippedAt)}` : '—'}</span> };
   const label = range ? `${range.from} → ${range.to}` : '';
   if (kind === 'rate') return <OrdersDetail d={d} title="نسبة الشحن" hint={`أوردرات الفترة ${label}: اتشحن منها ${fmt(st.shipped.length)} من ${fmt(st.live.length)}.`} orders={st.live} onClose={onClose}
@@ -305,7 +305,7 @@ function Blocked({ d }: { d: Derived }) {
   const ks = Object.entries(bv).sort((a, b) => b[1] - a[1]);
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-      <Card title={`الأوردرات المتوقفة (${fmt(bl.length)})`} hint="اضغط على أي أوردر يفتح"><TableWrap maxHeight="17rem"><table className="text-sm"><thead><tr>{['البوليصة', 'تاريخ البيك أب', 'قطع', 'الناقص فيه'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{bl.map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => setOpenRef(o.ref)}><td className={td + ' font-mono text-accent'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{d.pickupDate.get(o.pickupId) ?? '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{(d.blocked.get(o.ref) ?? []).map((x) => <span key={x.sku} className="m-0.5 inline-block"><Pill tone="crit">{skuLabel(d.skuMap, x.sku)} ×{x.short}</Pill></span>)}</td></tr>)}</tbody></table></TableWrap></Card>
+      <Card title={`الأوردرات المتوقفة (${fmt(bl.length)})`} hint="اضغط على أي أوردر يفتح"><TableWrap maxHeight="17rem"><table className="text-sm"><thead><tr>{['البوليصة', 'تاريخ البيك أب', 'قطع', 'الناقص فيه'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead><tbody>{bl.map((o) => <tr key={o.ref} className="cursor-pointer hover:bg-lav" onClick={() => setOpenRef(o.ref)}><td className={td + ' font-mono text-accent'}>{o.ref}</td><td className={td + ' font-mono text-muted'}>{dmy(d.pickupDate.get(o.pickupId)) || '—'}</td><td className={td + ' font-mono'}>{o.lines.length}</td><td className={td}>{(d.blocked.get(o.ref) ?? []).map((x) => <span key={x.sku} className="m-0.5 inline-block"><Pill tone="crit">{skuLabel(d.skuMap, x.sku)} ×{x.short}</Pill></span>)}</td></tr>)}</tbody></table></TableWrap></Card>
       <Card title="الأصناف اللي موقفاهم" hint="توفيرها يحرّك أوردرات أكتر · اضغط على صنف"><HBars maxRows={5} rows={ks.map(([s, n]) => ({ label: skuLabel(d.skuMap, s), value: n }))} color={C.scrap} unit="أوردر متوقف" onPick={(i) => setItem(ks[i][0])} /></Card>
       {openRef && <OrderSheet d={d} orderRef={openRef} onClose={() => setOpenRef(null)} onCancel={(c) => { setOpenRef(null); setCancelRef(c); }} />}
       {cancelRef && <CancelSheet d={d} initial={cancelRef} onClose={() => setCancelRef(null)} />}

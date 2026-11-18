@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { FileDrop } from './FileDrop';
 import { repo } from '@/femini/data';
 import { cn } from '@/femini/cn';
 import { Button, Sheet } from './ui';
@@ -29,7 +30,7 @@ export function ModelImageSheet({ model, onClose }: { model: Model; onClose: () 
   return (
     <Sheet title={`صورة ${model.code} · ${model.name}`} onClose={onClose}>
       {url ? <img src={url} alt={model.code} className="mx-auto block aspect-square w-full max-w-[520px] rounded-xl border border-line bg-surface object-contain" />
-        : <button type="button" onClick={() => ref.current?.click()} className="grid gap-1 rounded-xl border-2 border-dashed border-line2 bg-surface p-8 text-center hover:border-accent"><b>لا توجد صورة لهذا الموديل</b><span className="text-muted">اضغط لاختيار صورة (يُفضَّل أن يظهر المنتج كاملًا على خلفية فاتحة)</span></button>}
+        : <FileDrop accept="image/*" title={<>لا توجد صورة لهذا الموديل<br />اسحب الصورة هنا أو اضغط للاختيار</>} onFile={async (f) => { await act(() => repo.setModelImage(model.code, f), 'تم حفظ الصورة'); onClose(); }} />}
       <input ref={ref} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { await act(() => repo.setModelImage(model.code, f), 'تم حفظ الصورة'); onClose(); } }} />
       <div className="flex gap-2">
         <Button variant="primary" onClick={() => ref.current?.click()}><Camera className="size-4" /> {url ? 'تغيير الصورة' : 'رفع صورة'}</Button>

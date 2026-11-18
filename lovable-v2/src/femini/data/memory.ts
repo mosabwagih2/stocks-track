@@ -5,8 +5,8 @@ import { balancesFromMoves, qty, totalOwned } from '@/femini/domain/ledger';
 import { consumption } from '@/femini/domain/supplies';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
 import { itemMapper } from '@/femini/domain/pickup';
-import { skuPrefix } from '@/femini/domain/constants';
-import { buildOp } from '@/femini/domain/ops';
+import { LOC_AR, skuPrefix } from '@/femini/domain/constants';
+import { buildOp, returnLines, type ReturnExtras, type ReturnMarks } from '@/femini/domain/ops';
 import { buildHoldOut, buildHoldSettle, HOLD_REASON_AR, outstanding, type Hold } from '@/femini/domain/holds';
 import { rowKey, supplyOnly, type Settlement } from '@/femini/domain/settle';
 import { addDays, cairoDay, cairoToday } from '@/femini/domain/dates';
@@ -281,6 +281,36 @@ export function createMemoryRepo(backend?: Backend): Repo {
       if (type === 'RTN') for (const ref of h.refs ?? []) { const o = S.orders.find((x) => x.ref === ref); if (o) o.returned = { doc: no, at: new Date().toISOString() }; }
       S.docs.push({ no, type, date, by: actor(), status: 'done', hdr: { ...keep, pieces, moves: r.moves.map((m) => ({ sku: m.sku, qty: m.qty, from: m.from, to: m.to })) }, lines: r.moves.map((m) => ({ sku: m.sku, qty: m.qty })), attachment });
       save(); return { doc: no, pieces };
+    },
+    /**
+     * Opens a confirmed customer return for editing: its stock moves are undone ("<no> (عكس)", on the return's own day, so
+     * that day nets to zero and no other day changes), its orders can be returned again, and what it held (orders, marks,
+     * exchanges, extra pieces, sheet names) comes back as a draft to correct and confirm again. Needs that day open, and the
+     * pieces still where the return put them (a piece already moved on cannot be taken back).
+     */
+    async reopenReturn(doc) {
+      const d = S.docs.find((x) => x.no === doc); if (!d || d.type !== 'RTN') fail('مستند مرتجع غير معروف');
+      if (d!.status !== 'done') fail('المرتجع ده اتعكس قبل كده');
+      unlocked(d!.date);
+      const rev = `${doc} (عكس)`; if (S.moves.some((m) => m.doc === rev)) fail('تم عكس العملية مسبقًا');
+      const orig = S.moves.filter((m) => m.doc === doc); if (!orig.length) fail('المرتجع ده مالوش حركات');
+      // taking the pieces back out must not leave a state lower than it was before the return (or than zero, when it was already
+      // negative): lower means the pieces moved on after the return (cleaned, shipped…), so the return can no longer be undone
+      const b = bal(); const first = Math.min(...orig.map((m) => m.id)); const was = balancesFromMoves(S.moves.filter((m) => m.id < first)); const need = new Map<string, number>();
+      for (const m of orig) need.set(`${m.sku}|${m.to}`, (need.get(`${m.sku}|${m.to}`) ?? 0) + m.qty);
+      for (const [k, q] of need) {
+        const [sku, loc] = k.split('|'); const have = qty(b, sku, loc as Loc); const floor = Math.min(0, qty(was, sku, loc as Loc));
+        if (have - q < floor) fail(`مقدرش أفتح المرتجع: ${skuLabel(new Map(allSkus().map((x) => [x.id, x])), sku)} موجود ${have} بس في ${LOC_AR[loc as Loc] ?? loc} والمطلوب ${q} (القطع اتحركت بعد المرتجع)`);
+      }
+      post(orig.map((m) => ({ date: d!.date, sku: m.sku, qty: m.qty, from: m.to, to: m.from, type: 'RTN', doc: rev, by: actor(), note: `عكس ${doc}` })));
+      for (const o of S.orders) if (o.returned?.doc === doc) o.returned = null;
+      d!.status = 'reversed';
+      const h = d!.hdr as { refs?: string[]; marks?: ReturnMarks; extras?: ReturnExtras; sheets?: string[] };
+      const refs = h.refs ?? []; const known = new Map([...S.orders, ...(S.archivedPickups ?? []).flatMap((a) => a.orders)].map((o) => [o.ref, o]));
+      const lines = returnLines(refs.map((r) => known.get(r)).filter((o): o is Order => !!o), h.marks ?? {}, h.extras ?? {});
+      S.drafts = S.drafts ?? []; const id = `D${Date.now().toString(36)}`;
+      S.drafts.push({ id, type: 'RTN', date: d!.date, hdr: { refs, marks: h.marks ?? {}, extras: h.extras ?? {}, sheets: h.sheets ?? [], counted: false, editOf: doc } as Record<string, unknown>, lines: lines as unknown as Record<string, unknown>[], updatedAt: new Date().toISOString() });
+      save(); return { draft: id };
     },
     async holdOut({ who, note, reason, reasonText, lines, photo }) {
       const date = cairoToday(); unlocked(date);

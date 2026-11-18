@@ -29,7 +29,7 @@ export interface OpHdr {
   shop?: string; note?: string; // SHP, SRT
   from?: Loc; to?: Loc; reason?: string; // CLN
   kind?: 'wash' | 'scrap'; // FSD
-  refs?: string[]; counted?: boolean; marks?: ReturnMarks; // RTN
+  refs?: string[]; counted?: boolean; marks?: ReturnMarks; extras?: ReturnExtras; sheets?: string[]; editOf?: string; // RTN (editOf: the confirmed return this one corrects) (sheets: the names of the returns sheets it was made from)
   state?: Loc; cnt?: Record<string, number>; snap?: Record<string, number>; reveal?: boolean; ack?: boolean; // CNT
 }
 export interface OpMove { sku: string; qty: number; from: AnyLoc; to: AnyLoc; note: string }
@@ -129,20 +129,38 @@ export function effects(moves: OpMove[], b: Balances): { sku: string; ch: { loc:
 /**
  * RTN marks: per order, per variant, how many of its pieces came back for cleaning (d), scrap (x) or are missing (l).
  * Everything not marked came back sound, so the default is "all sound" and the parts always add up to the pieces.
+ * `as`: the line came back as ANOTHER variant (an exchange: the customer asked for a different size and sent that back);
+ * its pieces are then counted as that variant, and none of it is missing.
  */
-export type ReturnMarks = Record<string, Record<string, { d?: number; x?: number; l?: number }>>;
-/** The return lines (per variant, all orders added up) from the orders and their marks. Sound = pieces − the marked. */
-export function returnLines(orders: { ref: string; lines: string[] }[], marks: ReturnMarks = {}): OpLine[] {
+export interface ReturnMark { d?: number; x?: number; l?: number; as?: string }
+export type ReturnMarks = Record<string, Record<string, ReturnMark>>;
+/** pieces that came back with an order and were never in it (the customer sent other pieces), per order: how many, and of them for cleaning / scrap */
+export interface ReturnExtra { sku: string; n: number; d?: number; x?: number }
+export type ReturnExtras = Record<string, ReturnExtra[]>;
+/**
+ * The return lines (per variant, all orders added up) from the orders, their marks and their extra pieces.
+ * Sound = pieces − the marked. A line that came back as another variant (`as`) and the extra pieces are counted as expected,
+ * so they never show up as missing or as more than expected. Pure.
+ */
+export function returnLines(orders: { ref: string; lines: string[] }[], marks: ReturnMarks = {}, extras: ReturnExtras = {}): OpLine[] {
   const by = new Map<string, OpLine>();
+  const put = (sku: string, n: number, d: number, x: number, l: number) => {
+    const e = by.get(sku) ?? { sku, q: 0, exp: 0, r: 0, d: 0, x: 0 };
+    e.exp = (e.exp ?? 0) + n; e.d = (e.d ?? 0) + d; e.x = (e.x ?? 0) + x; e.r = (e.r ?? 0) + n - d - x - l;
+    by.set(sku, e);
+  };
   for (const o of orders) {
     const cnt: Record<string, number> = {}; for (const s of o.lines) cnt[s] = (cnt[s] ?? 0) + 1;
     for (const [sku, n] of Object.entries(cnt)) {
-      const m = marks[o.ref]?.[sku] ?? {};
-      // never more marked than the order has: cleaning first, then scrap, then missing
-      const d = Math.min(n, Math.max(0, Math.floor(m.d ?? 0))); const x = Math.min(n - d, Math.max(0, Math.floor(m.x ?? 0))); const l = Math.min(n - d - x, Math.max(0, Math.floor(m.l ?? 0)));
-      const e = by.get(sku) ?? { sku, q: 0, exp: 0, r: 0, d: 0, x: 0 };
-      e.exp = (e.exp ?? 0) + n; e.d = (e.d ?? 0) + d; e.x = (e.x ?? 0) + x; e.r = (e.r ?? 0) + n - d - x - l;
-      by.set(sku, e);
+      const m = marks[o.ref]?.[sku] ?? {}; const as = m.as && m.as !== sku ? m.as : '';
+      // never more marked than the order has: cleaning first, then scrap, then missing (nothing is missing when it came back as another variant)
+      const d = Math.min(n, Math.max(0, Math.floor(m.d ?? 0))); const x = Math.min(n - d, Math.max(0, Math.floor(m.x ?? 0))); const l = as ? 0 : Math.min(n - d - x, Math.max(0, Math.floor(m.l ?? 0)));
+      put(as || sku, n, d, x, l);
+    }
+    for (const e of extras[o.ref] ?? []) {
+      const n = Math.max(0, Math.floor(e.n || 0)); if (!n || !e.sku) continue;
+      const d = Math.min(n, Math.max(0, Math.floor(e.d ?? 0))); const x = Math.min(n - d, Math.max(0, Math.floor(e.x ?? 0)));
+      put(e.sku, n, d, x, 0);
     }
   }
   return [...by.values()];
