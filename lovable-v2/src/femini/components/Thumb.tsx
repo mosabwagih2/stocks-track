@@ -10,7 +10,7 @@ import type { Model } from '@/femini/domain/types';
 
 const direct = (v: string) => /^(data:|blob:|https?:)/.test(v);
 /** data URLs show as they are; storage paths are turned into signed URLs once and cached. */
-export function useImageUrl(value?: string | null): string | null {
+function useImageUrl(value?: string | null): string | null {
   const { data } = useQuery({ queryKey: ['img', value], enabled: !!value && !direct(value), staleTime: 50 * 60_000, queryFn: () => repo.photoUrl(value!) });
   if (!value) return null;
   return direct(value) ? value : data ?? null;

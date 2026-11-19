@@ -26,7 +26,7 @@ function useHover() {
  * The values under the cursor (or the period totals when the cursor is away): the first series as one big number,
  * the others as small chips beside it. Fixed minimum height, so hovering never makes the chart jump.
  */
-export function Readout({ title, items }: { title: ReactNode; items: { name: string; value: number; color: string }[] }) {
+function Readout({ title, items }: { title: ReactNode; items: { name: string; value: number; color: string }[] }) {
   const [main, ...rest] = items;
   return (
     <div className="mb-3 flex min-h-12 flex-wrap items-end justify-start gap-x-4 gap-y-2" aria-live="polite">

@@ -34,7 +34,7 @@ export interface WhDay {
   list: WhOrder[];
 }
 
-export function orderMoney(settles: Settlement[]) {
+function orderMoney(settles: Settlement[]) {
   const by = new Map<string, { collect: boolean; ret: boolean; due: number; stl: Set<string>; on: string; retOn: string }>();
   for (const s of [...settles].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) {
     for (const r of s.rows) {

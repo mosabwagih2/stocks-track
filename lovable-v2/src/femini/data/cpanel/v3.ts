@@ -81,7 +81,7 @@ export function mirrorFromBoot(b: Boot): Mirror {
 const iso = (ms: unknown): string => new Date(typeof ms === 'number' ? ms : Date.parse(String(ms))).toISOString();
 const ms = (s: string | null | undefined): number => (s ? Date.parse(s) : Date.now());
 const canon = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, x[k]])) : x));
-export const same = (a: unknown, b: unknown) => canon(a) === canon(b);
+const same = (a: unknown, b: unknown) => canon(a) === canon(b);
 const DRAFTABLE = ['RCV', 'RTN', 'SRT', 'SHP', 'CLN', 'FSD', 'FRC', 'CNT', 'LOS', 'SWP'];
 const isOwnedDoc = (d: Row) => d.status !== 'draft' || DRAFTABLE.includes(String(d.type));
 const isOwnedArchDoc = (a: Row) => DRAFTABLE.includes(String(a.d?.type));
@@ -95,10 +95,10 @@ function patch<L>(orig: Row | undefined, origL: L | undefined, next: L, groups: 
 
 // ------------------------------------------------------------------ entities: server -> app
 
-export const moveL = (m: Row): Move => ({ id: m.id, ts: iso(m.t), date: m.date, sku: m.sku, qty: m.q, from: m.from, to: m.to, type: m.type, doc: m.doc, by: m.by, note: m.note ?? '' });
+const moveL = (m: Row): Move => ({ id: m.id, ts: iso(m.t), date: m.date, sku: m.sku, qty: m.q, from: m.from, to: m.to, type: m.type, doc: m.doc, by: m.by, note: m.note ?? '' });
 const moveV = (m: Move): Row => ({ id: m.id, t: ms(m.ts), date: m.date, sku: m.sku, q: m.qty, from: m.from, to: m.to, type: m.type, doc: m.doc, by: m.by, note: m.note });
 
-export function orderL(o: Row): Order {
+function orderL(o: Row): Order {
   const sc = o.sc, cx = o.cx, rt = o.rt;
   return {
     ref: String(o.ref), waybill: String(o.wb ?? ''), type: String(o.type ?? '').includes('استبدال') ? 'exchange' : 'new', gov: String(o.gov ?? ''), total: Number(o.total) || 0,
@@ -123,27 +123,27 @@ const ORDER_GROUPS: [(keyof Order)[], (row: Row, o: Order) => void][] = [
   [['cancel'], (r, o) => { const c = o.cancel; if (!c) { delete r.cx; return; } r.cx = { at: ms(c.at), date: cairoDay(c.at), by: c.by, reason: c.reason, was: c.was === 'shipped' ? 'done' : 'open', returned: c.returned, doc: c.doc ?? null }; }],
   [['returned'], (r, o) => { const t = o.returned; if (!t) { delete r.rt; return; } if (!(r.rt && r.rt.doc === t.doc)) r.rt = { doc: t.doc, date: cairoDay(t.at), exp: o.lines.length }; }],
 ];
-export function orderV(o: Order, orig?: Row): Row {
+function orderV(o: Order, orig?: Row): Row {
   const row = patch(orig, orig ? orderL(orig) : undefined, o, ORDER_GROUPS);
   if (!orig) { row.sc ??= null; row.bad ??= []; }
   return row;
 }
 
-export const pickupL = (p: Row): Pickup => ({ id: String(p.id), label: String(p.label ?? ''), date: String(p.date), channel: String(p.channel ?? ''), source: String(p.src ?? '') });
-export const pickupV = (p: Pickup, orig?: Row): Row => patch(orig, orig ? pickupL(orig) : undefined, p, [
+const pickupL = (p: Row): Pickup => ({ id: String(p.id), label: String(p.label ?? ''), date: String(p.date), channel: String(p.channel ?? ''), source: String(p.src ?? '') });
+const pickupV = (p: Pickup, orig?: Row): Row => patch(orig, orig ? pickupL(orig) : undefined, p, [
   [['id'], (r, x) => { r.id = x.id; }], [['label'], (r, x) => { r.label = x.label; }], [['date'], (r, x) => { r.date = x.date; }],
   [['channel'], (r, x) => { r.channel = x.channel; }], [['source'], (r, x) => { r.src = x.source; }],
 ]);
 
 /** confirmed (or reversed) document */
-export function docL(d: Row, photoPath?: string): Doc {
+function docL(d: Row, photoPath?: string): Doc {
   const hdr = { ...(d.hdr ?? {}) } as Record<string, unknown>;
   if (d.type === 'SCN') { hdr.employee = hdr.emp ?? d.by; hdr.source = hdr.src ?? ''; hdr.orders ??= Array.isArray(hdr.refs) ? (hdr.refs as unknown[]).length : undefined; }
   const lines = (Array.isArray(d.lines) ? d.lines : []).map((l: Row) => ({ sku: String(l.sku), qty: typeof l.q === 'number' ? l.q : (Number(l.r) || 0) + (Number(l.d) || 0) + (Number(l.x) || 0) }));
   return { no: String(d.no), type: String(d.type), date: String(d.date), by: String(d.by ?? ''), status: d.status === 'reversed' ? 'reversed' : 'done', hdr, lines, attachment: photoPath ?? null };
 }
 /** A confirmed document is frozen on the server: only its status (reversal), the employee name and the delivery proof may change. */
-export function docV(x: Doc, orig: Row | undefined, ctx: { id: string; actor: string; now: number; nMoves: number }): Row {
+function docV(x: Doc, orig: Row | undefined, ctx: { id: string; actor: string; now: number; nMoves: number }): Row {
   if (!orig) {
     const hdr = { ...x.hdr } as Record<string, unknown>;
     if (x.type === 'SCN') { hdr.emp = hdr.employee; hdr.src = hdr.source; }
@@ -159,30 +159,30 @@ export function docV(x: Doc, orig: Row | undefined, ctx: { id: string; actor: st
   return row;
 }
 
-export const draftL = (d: Row): OpDraft => ({ id: String(d.id), type: String(d.type), date: String(d.date), hdr: structuredClone(d.hdr ?? {}), lines: structuredClone(Array.isArray(d.lines) ? d.lines : []), updatedAt: iso(Array.isArray(d.log) && d.log.length ? d.log[d.log.length - 1].t : Date.parse(`${d.date}T10:00:00Z`)) });
-export function draftV(x: OpDraft, orig: Row | undefined, ctx: { actor: string; now: number }): Row {
+const draftL = (d: Row): OpDraft => ({ id: String(d.id), type: String(d.type), date: String(d.date), hdr: structuredClone(d.hdr ?? {}), lines: structuredClone(Array.isArray(d.lines) ? d.lines : []), updatedAt: iso(Array.isArray(d.log) && d.log.length ? d.log[d.log.length - 1].t : Date.parse(`${d.date}T10:00:00Z`)) });
+function draftV(x: OpDraft, orig: Row | undefined, ctx: { actor: string; now: number }): Row {
   if (!orig) return { id: x.id, type: x.type, status: 'draft', no: null, date: x.date, by: ctx.actor, hdr: structuredClone(x.hdr), lines: structuredClone(x.lines), log: [{ t: ctx.now, by: ctx.actor, m: 'اتفتحت مسودة' }] };
   return patch(orig, draftL(orig), x, [[['date'], (r, v) => { r.date = v.date; }], [['hdr'], (r, v) => { r.hdr = structuredClone(v.hdr); }], [['lines'], (r, v) => { r.lines = structuredClone(v.lines); }]]);
 }
 
-export const supplyL = (i: Row): Supply => ({ id: String(i.id), name: String(i.name ?? ''), unit: String(i.unit ?? ''), pack: Number(i.pack) || 1, packName: String(i.packName ?? ''), minAlert: Number(i.min) || 0, note: String(i.note ?? ''), archived: !!i.arch, ...(i.archBy ? { archivedBy: String(i.archBy) } : {}), rule: (i.auto ?? { kind: 'none' }) as Supply['rule'] });
-export const supplyV = (s: Supply, orig?: Row): Row => patch(orig, orig ? supplyL(orig) : undefined, s, [
+const supplyL = (i: Row): Supply => ({ id: String(i.id), name: String(i.name ?? ''), unit: String(i.unit ?? ''), pack: Number(i.pack) || 1, packName: String(i.packName ?? ''), minAlert: Number(i.min) || 0, note: String(i.note ?? ''), archived: !!i.arch, ...(i.archBy ? { archivedBy: String(i.archBy) } : {}), rule: (i.auto ?? { kind: 'none' }) as Supply['rule'] });
+const supplyV = (s: Supply, orig?: Row): Row => patch(orig, orig ? supplyL(orig) : undefined, s, [
   [['id'], (r, v) => { r.id = v.id; }], [['name'], (r, v) => { r.name = v.name; }], [['unit'], (r, v) => { r.unit = v.unit; }], [['pack'], (r, v) => { r.pack = v.pack; }],
   [['packName'], (r, v) => { r.packName = v.packName; }], [['minAlert'], (r, v) => { r.min = v.minAlert; }], [['note'], (r, v) => { r.note = v.note; }],
   [['archived', 'archivedBy'], (r, v) => { r.arch = v.archived; if (v.archivedBy) r.archBy = v.archivedBy; else delete r.archBy; }], [['rule'], (r, v) => { r.auto = v.rule; }],
 ]);
 const kindOf = (e: Row): SupplyEntry['kind'] => (e.kind ?? (e.doc ? (/عكس/.test(String(e.doc)) ? 'rev' : 'auto') : /افتتاحي/.test(String(e.why)) ? 'open' : Number(e.q) > 0 ? 'rcv' : 'count')) as SupplyEntry['kind'];
-export const logL = (e: Row): SupplyEntry => ({ id: Number(e.id), date: String(e.date), item: String(e.item), qty: Number(e.q), kind: kindOf(e), why: String(e.why ?? ''), doc: e.doc ? String(e.doc) : null, by: String(e.by ?? ''), reversed: !!e.rev });
-export const logV = (e: SupplyEntry, orig?: Row): Row => patch(orig, orig ? logL(orig) : undefined, e, [
+const logL = (e: Row): SupplyEntry => ({ id: Number(e.id), date: String(e.date), item: String(e.item), qty: Number(e.q), kind: kindOf(e), why: String(e.why ?? ''), doc: e.doc ? String(e.doc) : null, by: String(e.by ?? ''), reversed: !!e.rev });
+const logV = (e: SupplyEntry, orig?: Row): Row => patch(orig, orig ? logL(orig) : undefined, e, [
   [['id'], (r, v) => { r.id = v.id; }], [['date'], (r, v) => { r.date = v.date; }], [['item'], (r, v) => { r.item = v.item; }], [['qty'], (r, v) => { r.q = v.qty; }],
   [['kind'], (r, v) => { r.kind = v.kind; }], [['why'], (r, v) => { r.why = v.why; }], [['doc'], (r, v) => { r.doc = v.doc; }], [['by'], (r, v) => { r.by = v.by; }], [['reversed'], (r, v) => { r.rev = v.reversed; }],
 ]);
 
-export function closeL(c: Row): DayClose & { id: string } {
+function closeL(c: Row): DayClose & { id: string } {
   const s = c.snap ?? {};
   return { id: String(c.id), date: String(c.date), at: iso(c.at), by: String(c.by ?? ''), auto: !!c.auto, status: c.status === 'reopened' ? 'reopened' : 'closed', summary: { requested: Number(s.pcsIn) || 0, shipped: Number(s.shipP) || 0, returned: Number(s.ret) || 0, received: Number(s.rcv) || 0, ready: Number(s.ready) || 0, damaged: Number(s.bad) || 0 }, ...(c.reopened?.at ? { reopenedAt: iso(c.reopened.at) } : {}) };
 }
-export function closeV(c: DayClose & { id?: string }, orig: Row | undefined, ctx: { id: string; actor: string }): Row {
+function closeV(c: DayClose & { id?: string }, orig: Row | undefined, ctx: { id: string; actor: string }): Row {
   const L = (orig ? closeL(orig) : undefined) as (DayClose & { id?: string }) | undefined;
   return patch(orig, L, c, [
     [['date'], (r, v) => { r.id ??= ctx.id; r.date = v.date; }],
@@ -195,7 +195,7 @@ export function closeV(c: DayClose & { id?: string }, orig: Row | undefined, ctx
 
 // catalog: server {skus:[{id,m,c,s,min,open}], models:[{code,name,colors,sizes}], colors, sizes, arch, names, ext, hex}
 type Cat = State['cat'];
-export function catL(c: Row | undefined): Cat {
+function catL(c: Row | undefined): Cat {
   const x = c ?? {};
   return {
     skus: (x.skus ?? []).map((k: Row): Sku => ({ id: String(k.id), model: String(k.m), color: String(k.c), size: String(k.s), minAlert: Number(k.min) || 0 })),
@@ -203,7 +203,7 @@ export function catL(c: Row | undefined): Cat {
     archived: { ...(x.arch ?? {}) }, names: { ...(x.names ?? {}) }, colors: (x.colors ?? []).map((k: Row) => ({ code: String(k.code), ar: String(k.ar) })), sizes: [...(x.sizes ?? [])],
   };
 }
-export function catV(c: Cat, orig: Row | undefined): Row {
+function catV(c: Cat, orig: Row | undefined): Row {
   const L = orig ? catL(orig) : undefined; const row: Row = orig ? structuredClone(orig) : { skus: [], models: [], colors: [], sizes: [], ext: {}, arch: {}, names: {}, hex: {} };
   if (!L || !same(L.skus, c.skus)) { const old = new Map((orig?.skus ?? []).map((k: Row) => [String(k.id), k])); row.skus = c.skus.map((k) => ({ ...(old.get(k.id) ?? { open: 0 }), id: k.id, m: k.model, c: k.color, s: k.size, min: k.minAlert })); }
   if (!L || !same(L.models, c.models)) { const old = new Map((orig?.models ?? []).map((m: Row) => [String(m.code), m])); row.models = c.models.map((m) => { const o = (old.get(m.code) ?? {}) as Row; const ks = c.skus.filter((k) => k.model === m.code); return { ...o, code: m.code, name: m.name, colors: o.colors ?? [...new Set(ks.map((k) => k.color))], sizes: o.sizes ?? [...new Set(ks.map((k) => k.size))] }; }); }

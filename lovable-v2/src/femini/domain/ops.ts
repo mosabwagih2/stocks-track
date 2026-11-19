@@ -36,7 +36,7 @@ export interface OpResult { moves: OpMove[]; checks: { ok: boolean; t: string }[
 
 const n = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
 /** the states a piece can come back from the shop in */
-export const SRT_TO: Loc[] = ['READY', 'DIRTY', 'SCRAP'];
+const SRT_TO: Loc[] = ['READY', 'DIRTY', 'SCRAP'];
 const INTERNAL = new Set<string>(LOCS);
 
 export function buildOp(type: OpType, hdr: OpHdr, lines: OpLine[], b: Balances, date: string, today: string, name: (sku: string) => string = (s) => s): OpResult {

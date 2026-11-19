@@ -8,7 +8,7 @@ import { FileDown, FileSpreadsheet } from 'lucide-react';
 import { fmt } from '@/femini/cn';
 import { useToast } from './toast';
 
-export const DAY_LABELS: Record<string, string> = { requested: 'قطع مطلوبة', shipped: 'قطع مشحونة (صافي)', returned: 'مرتجعات القنوات', received: 'استلام توريد', ready: 'جاهز نهاية اليوم', damaged: 'رصيد الهالك والمفقود' };
+const DAY_LABELS: Record<string, string> = { requested: 'قطع مطلوبة', shipped: 'قطع مشحونة (صافي)', returned: 'مرتجعات القنوات', received: 'استلام توريد', ready: 'جاهز نهاية اليوم', damaged: 'رصيد الهالك والمفقود' };
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
 export function DayCloseReport({ s, date }: { s: Snapshot; date: string }) {
   const r = dayReport(s, date); const toast = useToast();

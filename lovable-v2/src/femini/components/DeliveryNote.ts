@@ -46,7 +46,7 @@ const columns = (ret: boolean) => ret
   : [{ t: 'م', w: 9 }, { t: 'الموديل', w: 24 }, { t: 'الوصف', w: 54 }, { t: 'اللون', w: 40 }, { t: 'المقاس', w: 30 }, { t: 'الكمية', w: 33, c: true }];
 const cells = (r: Row, n: number, ret: boolean) => (ret ? [String(n), r.model, r.desc, r.color, r.size, r.state, String(r.qty)] : [String(n), r.model, r.desc, r.color, r.size, String(r.qty)]);
 
-export function deliveryNoteHtml(d: Doc, skus: Map<string, Sku>, models?: Map<string, Model>): string {
+function deliveryNoteHtml(d: Doc, skus: Map<string, Sku>, models?: Map<string, Model>): string {
   const rows = rowsOf(d, skus, models); const total = rows.reduce((a, r) => a + r.qty, 0); const pages = paginate(rows); const ret = isReturn(d); const cols = columns(ret);
   const [s1, s2] = signs(d); let n = 0;
   const head = `<header><div class="br"><img src="${FEMINI_LOGO}" alt="Fémini"></div><div class="tt"><h1>${titleOf(d)}</h1></div><div class="no"><b>${esc(d.no)}</b><small>${esc(d.date)}${timeOf(d) ? ' · ' + esc(timeOf(d)) : ''}</small></div></header>`

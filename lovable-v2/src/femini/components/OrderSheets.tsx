@@ -230,7 +230,7 @@ const lineText = (u: unknown) => (Array.isArray(u) ? (u.length === 4 ? `${u[0]} 
  * the type, check the colours, save); a model that exists gets the missing colour x size ticked. Saving links every waiting
  * order by itself.
  */
-export function LinkLines({ d, lines }: { d: Derived; lines: unknown[] }) {
+function LinkLines({ d, lines }: { d: Derived; lines: unknown[] }) {
   type Link = { model: string; add: { color: string; size: string }[] } | { model: null; code: string; exact: boolean; colors: string[]; sizes: string[] };
   const [link, setLink] = useState<Link | null>(null);
   // the pickup writes the model as "BR2", "FC-BR2" or "Women A6": the catalog's own code, when it has one

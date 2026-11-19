@@ -14,13 +14,13 @@ export const SNAP_KEY = ['snapshot'] as const;
 /** The withdrawal rate (سرعة السحب) looks at the pickups of the last 7 days. */
 export const VELOCITY_DAYS = 7;
 
-export function useSnapshot() {
+function useSnapshot() {
   // server edition: other people's work shows up by itself every 15 s (one small pull of what changed)
   return useQuery({ queryKey: SNAP_KEY, queryFn: () => repo.snapshot(), staleTime: 15_000, refetchOnWindowFocus: true, refetchInterval: serverEdition ? 15_000 : false });
 }
 
 /** Today in Cairo. Re-checked every 30 s so the work day rolls over at midnight by itself. */
-export function useToday(): string {
+function useToday(): string {
   const qc = useQueryClient();
   const { data } = useSnapshot();
   const now = cairoToday();
@@ -115,7 +115,7 @@ function stockOf(skus: { id: string; model: string }[], balances: Balances) {
 }
 
 /** The product line of a model code: its letters before the number ("PAN6" → PAN, "BR12" → BR, "A1" → A). */
-export const lineCode = (m: string) => /^[A-Z]+/.exec(lineBase(m))?.[0] ?? m;
+const lineCode = (m: string) => /^[A-Z]+/.exec(lineBase(m))?.[0] ?? m;
 
 /** Models grouped by line, the most pulled line first (then stock); inside a line by the number, so similar models read PAN1, PAN2, PAN3. */
 export function orderModels(codes: string[], pull: Record<string, number>, stock: Record<string, number>) {

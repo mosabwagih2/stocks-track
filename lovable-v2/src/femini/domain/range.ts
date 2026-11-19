@@ -7,7 +7,7 @@ import { addDays } from './dates';
  */
 export interface Range { from: string; to: string }
 
-export const rangeLen = (r: Range) => Math.round((Date.parse(r.to) - Date.parse(r.from)) / 864e5) + 1;
+const rangeLen = (r: Range) => Math.round((Date.parse(r.to) - Date.parse(r.from)) / 864e5) + 1;
 
 const at = (day: string) => new Date(day + 'T12:00:00Z');
 const fmt = (day: string, o: Intl.DateTimeFormatOptions) => at(day).toLocaleDateString('ar-EG-u-nu-latn', { timeZone: 'UTC', ...o });

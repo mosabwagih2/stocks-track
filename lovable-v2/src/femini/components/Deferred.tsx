@@ -17,7 +17,7 @@ export function whenIdle(step: () => void, timeout = 120): () => void {
 }
 
 /** true once the page has painted and the browser had a quiet moment */
-export function useIdle(timeout = 150): boolean {
+function useIdle(timeout = 150): boolean {
   const [ready, setReady] = useState(false);
   useEffect(() => whenIdle(() => setReady(true), timeout), [timeout]);
   return ready;
@@ -27,7 +27,7 @@ export function useIdle(timeout = 150): boolean {
  * How many of `total` items to render right now. The first `chunk` appear immediately,
  * the rest are added a chunk per quiet moment, so opening a long page never blocks the screen.
  */
-export function useProgressive(total: number, chunk = 6): number {
+function useProgressive(total: number, chunk = 6): number {
   const [n, setN] = useState(() => Math.min(chunk, total));
   // a new (filtered) list starts over from the first chunk
   useEffect(() => setN(Math.min(chunk, total)), [total, chunk]);
