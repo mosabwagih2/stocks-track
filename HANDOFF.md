@@ -18,9 +18,11 @@ Last updated: 2026-11-09.
 | Browser app | `lovable-v2/` (React + TypeScript + Tailwind). Its production build is committed into `php-app/public/app/` |
 | Docroot | `/home/whynaqgj/stocks-track/php-app/public` (inside the cPanel Git clone) |
 
-`lovable-v2/NOTES.md` is **outdated**: it says lovable-v2 is not the live app. It is: the PHP server serves the
-lovable-v2 bundle (`php-app/public/app/cpanel.html` + `assets/`) and only does the API, rules, auth, files and sync.
-`apps/`, `variants/`, `web/`, `src/` at the repo root are older editions; do not edit them for the live system.
+The PHP server serves the lovable-v2 bundle (`php-app/public/app/cpanel.html` + `assets/`) and does the API, rules,
+auth, files and sync.
+The early single-file editions that used to sit at the repo root (`apps/`, `variants/`, `web/`, `supabase/`, `src/`, `tests/`,
+`data/`, `docs/`) were removed from the branch; they are all in the git tag `archive/early-editions`. Only
+`apps/edition-3-brand-v2/index.html` stays, because `php-app/tests/import_test.js` builds a backup from it.
 
 ## 2. How the code is organised
 
