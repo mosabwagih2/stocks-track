@@ -17,10 +17,6 @@ const axis = { tick: { fill:C.text, fontSize:11 }, tickLine:false, axisLine:fals
 const numberTick = (n:number) => n >= 1000 ? `${Number((n/1000).toFixed(1))}k` : String(n);
 const shortDay = (v:unknown) => new Date(String(v)+'T12:00:00Z').toLocaleDateString('ar-EG-u-nu-latn',{day:'numeric',month:'short',timeZone:'UTC'});
 function Fade({id,color}:{id:string;color:string}) { return <linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.22}/><stop offset="95%" stopColor={color} stopOpacity={0.015}/></linearGradient>; }
-export function TipBox({active,payload,label,fmtLabel}:{active?:boolean;payload?:{name?:string;value?:number;color?:string;payload?:Record<string,unknown>}[];label?:ReactNode;fmtLabel?:(l:unknown)=>ReactNode}) {
- if(!active||!payload?.length)return null;
- return <div className="chart-tooltip min-w-44 rounded-lg border border-line bg-surface p-3 text-xs" dir="rtl">{label!==undefined&&<div className="mb-2 border-b border-line pb-2 font-semibold text-ink">{fmtLabel?fmtLabel(label):label}</div>}{payload.map((p,i)=><div key={i} className="flex items-center gap-2 py-1"><svg width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill={p.color}/></svg><span className="text-muted">{p.name}</span><b className="num ms-auto text-sm text-ink">{fmt(Number(p.value??0))}</b></div>)}</div>;
-}
 /** Hover position of a chart, reported in a strip ABOVE it instead of a floating box that covers the lines. */
 function useHover() {
   const [i, setI] = useState<number | null>(null);

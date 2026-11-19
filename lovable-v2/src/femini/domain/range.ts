@@ -86,4 +86,3 @@ export function monthGrid(month: string): string[][] {
   const weeks: string[][] = []; for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
 }
-export const monthTitle = (month: string) => fmt(monthStart(month), { month: 'long', year: 'numeric' });

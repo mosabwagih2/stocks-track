@@ -11,7 +11,6 @@
  * (old pickups `oldOrd`, employees `emps`, drafts of other types) are never touched.
  * The guarantee, checked on the live data: toPush(toLovable(m), m) is empty.
  */
-import seed from '../seed.json';
 import type { DayClose, Doc, Move, OpDraft, Order, OriginalFile, Pickup, Sku, Supply, SupplyEntry } from '@/femini/domain/types';
 import type { Hold } from '@/femini/domain/holds';
 import type { Settlement } from '@/femini/domain/settle';
@@ -29,7 +28,6 @@ export const COLLS = {
   settles: (r: Row) => String(r.id),
 } as const;
 export type Coll = keyof typeof COLLS;
-export const META_KEYS = ['mid', 'did', 'seq', 'sup_eid', 'bk', 'st', 'costs', 'alias', 'img', 'cat', 'lock'] as const;
 
 export interface ServerFile { id: number; kind: string; ownerType: string; ownerId: string; name: string; mime: string; size: number; hasThumb: boolean; uploadedAt: string; key?: string }
 export interface Mirror {
@@ -341,8 +339,6 @@ export function applyPush(m: Mirror, p: Push, rev: number, actor: string): Mirro
   m.rev = rev;
   return m;
 }
-
-export const serverSeedSkus = seed.skus.length;
 
 /** The whole server state in the original app's backup shape (state v3), from a full pull (since=0). */
 export function stateFromPull(p: Pulled): Row {

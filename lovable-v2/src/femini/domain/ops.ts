@@ -20,7 +20,6 @@ export const OPS: { type: OpType; ar: string; grp: OpGroup; desc: string }[] = [
   { type: 'LOS', ar: 'معالجة المفقود', grp: 'control', desc: 'لقيناه، اتعوّض، ولا مفقود نهائي' },
 ];
 export const GROUP_AR: Record<OpGroup, string> = { in: 'دخول', out: 'خروج', internal: 'داخلي', control: 'رقابة' };
-export const opName = (t: string) => OPS.find((o) => o.type === t)?.ar;
 
 /** one input line. Fields used depend on the type: q (qty), rej (FRC rejected), r/d/x/exp (RTN), res (LOS) */
 export interface OpLine { sku: string; q: number; rej?: number; r?: number; d?: number; x?: number; exp?: number; res?: 'FOUND' | 'COMP' | 'OFF'; to?: string }

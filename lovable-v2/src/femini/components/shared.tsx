@@ -1,4 +1,3 @@
-import { StateDonut } from './charts';
 import { FileDrop } from './FileDrop';
 import type { Derived } from '@/femini/hooks/data';
 import type { Order } from '@/femini/domain/types';
@@ -19,8 +18,6 @@ export function OrderPill({ o, d }: { o: Order; d: Derived }) {
   if (b) return <Pill tone="crit" title={b.map((x) => `${skuLabel(d.skuMap, x.sku)} ناقص ${x.short}`).join('\n')}>متوقف · ناقص {skuLabel(d.skuMap, b[0].sku, false)}{b.length > 1 ? ` +${b.length - 1}` : ''}</Pill>;
   return <Pill tone="warn">بانتظار الشحن</Pill>;
 }
-
-export function StockByState({ d }: { d: Derived }) { return <StateDonut d={d} />; }
 
 /** Stored photo (signed URL on Supabase, object URL in the demo). */
 export function Photo({ path, className, zoom }: { path?: string | null; className?: string; zoom?: boolean }) {

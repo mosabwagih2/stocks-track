@@ -118,17 +118,6 @@ export function TableWrap({ children, className, maxHeight }: { children: ReactN
 export const th = 'sticky top-0 z-[1] border-b border-line bg-lav/95 px-3 py-2.5 text-start text-xs font-semibold text-muted whitespace-nowrap backdrop-blur';
 export const td = 'border-b border-grid px-3 py-2.5 align-middle';
 
-export function Bar({ label, value, max, right, tone = 'accent' }: { label: ReactNode; value: number; max: number; right: ReactNode; tone?: 'accent' | 'warn' | 'crit' | 'good' | 'info' | 'muted' }) {
-  const bg = { accent: 'bg-accent', warn: 'bg-dirty', crit: 'bg-scrap', good: 'bg-ready', info: 'bg-factory', muted: 'bg-line2' }[tone];
-  return (
-    <div className="grid grid-cols-[minmax(80px,160px)_1fr_auto] items-center gap-3 py-1">
-      <span className="truncate text-sm">{label}</span>
-      <div className="h-2 overflow-hidden rounded-full bg-grid"><i className={cn('block h-full rounded-full transition-all duration-500', bg)} style={{ width: `${max ? Math.max(2, (value / max) * 100) : 0}%` }} /></div>
-      <span className="num min-w-10 text-end text-[13px]">{right}</span>
-    </div>
-  );
-}
-
 /** Side panel. Mounted once per open, so typing, scrolling and focus are never reset by state changes. */
 export function Sheet({ title, onClose, children, wide, footer }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; footer?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
