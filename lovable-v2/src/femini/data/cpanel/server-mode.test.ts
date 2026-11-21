@@ -43,6 +43,18 @@ describe('server edition', () => {
     expect((await r.snapshot()).balances[sku]?.READY).toBe(5);
   });
 
+  it('a receipt recorded by mistake is reversed through the server rules and reloads identically', async () => {
+    const srv = createFakeServer(boot(), ADMIN); setActor(ADMIN.name);
+    const r = createMemoryRepo(createServerBackend(srv.bootNow(), srv.transport));
+    await r.snapshot(); await check(srv, r);
+    const { doc } = await r.postOp({ type: 'RCV', date: T, hdr: { ref: 'غلط', declared: 7 }, lines: [{ sku: skus[0], q: 4 }, { sku: skus[1], q: 3 }], photo: photo() }); await check(srv, r);
+    expect((await r.snapshot()).balances[skus[0]]?.READY).toBe(24);
+    await r.reverseReceive(doc); await check(srv, r);
+    const fresh = toLovable(mirrorFromBoot(srv.bootNow()));
+    expect(fresh.docs.find((d) => d.no === doc)?.status).toBe('reversed');
+    expect((await r.snapshot()).balances[skus[0]]?.READY).toBe(20); expect((await r.snapshot()).balances[skus[1]]?.READY).toBe(20);
+  });
+
   it('a page that boots with the wrong epoch after a restore reloads once, then stops and shows the error (no endless reload)', async () => {
     const srv = createFakeServer(boot(), ADMIN); setActor(ADMIN.name);
     srv.restore(srv.bootNow().state as unknown as Record<string, unknown>);

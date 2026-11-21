@@ -14,6 +14,8 @@ export interface Repo {
   /** opens a confirmed customer return for editing: undoes it and gives back a draft with what it held */
   reopenReturn(doc: string): Promise<{ draft: string }>;
   receiveStock(i: { lines: { sku: string; qty: number }[]; date: string; ref: string; declared: number; photo: File }): Promise<{ doc: string; pieces: number }>;
+  /** undoes a receipt recorded by mistake (reverse moves on its own day); the document stays, marked reversed */
+  reverseReceive(doc: string): Promise<{ pieces: number }>;
   moveState(i: { lines: { sku: string; qty: number }[]; from: Loc; to: Loc; reason: string }): Promise<{ doc: string; pieces: number }>;
   /** any stock operation (RCV, RTN, SHP, CLN, FSD, FRC, CNT, LOS); rules in domain/ops.ts */
   postOp(i: { type: import('@/femini/domain/ops').OpType; date: string; hdr: import('@/femini/domain/ops').OpHdr; lines: import('@/femini/domain/ops').OpLine[]; photo?: File | null; /** the sheets a customer return was made from: kept as the originals */ sheets?: File[] }): Promise<{ doc: string; pieces: number }>;

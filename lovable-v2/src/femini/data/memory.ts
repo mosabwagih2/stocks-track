@@ -252,6 +252,28 @@ export function createMemoryRepo(backend?: Backend): Repo {
       post(lines.filter((l) => l.qty > 0).map((l) => ({ date, sku: l.sku, qty: l.qty, from: 'EXT_FACTORY' as const, to: 'READY' as const, type: 'RCV', doc: no, by: actor(), note: `استلام ${ref}` })));
       S.docs.push({ no, type: 'RCV', date, by: actor(), status: 'done', hdr: { ref, declared }, lines, attachment: path }); save(); return { doc: no, pieces: total };
     },
+    /**
+     * Undoes a receipt recorded by mistake: its pieces go back out ("<no> (عكس)", on the receipt's own day, so that day nets to
+     * zero and no other day changes) and the document is marked reversed; it stays in the ledger. Needs that day open, and the
+     * pieces still in stock (a piece already shipped or moved on cannot be taken back).
+     */
+    async reverseReceive(doc) {
+      const d = S.docs.find((x) => x.no === doc); if (!d || d.type !== 'RCV') fail('مستند استلام غير معروف');
+      if (d!.status !== 'done') fail('الاستلام ده اتعكس قبل كده');
+      unlocked(d!.date);
+      const rev = `${doc} (عكس)`; if (S.moves.some((m) => m.doc === rev)) fail('تم عكس العملية مسبقًا');
+      const orig = S.moves.filter((m) => m.doc === doc && m.type === 'RCV'); if (!orig.length) fail('الاستلام ده مالوش حركات');
+      // taking the pieces back out must not leave READY lower than it was before the receipt (or than zero, when it was already negative)
+      const b = bal(); const first = Math.min(...orig.map((m) => m.id)); const was = balancesFromMoves(S.moves.filter((m) => m.id < first)); const need = new Map<string, number>();
+      for (const m of orig) need.set(`${m.sku}|${m.to}`, (need.get(`${m.sku}|${m.to}`) ?? 0) + m.qty);
+      for (const [k, q] of need) {
+        const [sku, loc] = k.split('|'); const have = qty(b, sku, loc as Loc); const floor = Math.min(0, qty(was, sku, loc as Loc));
+        if (have - q < floor) fail(`مقدرش أعكس الاستلام: ${skuLabel(new Map(allSkus().map((x) => [x.id, x])), sku)} موجود ${have} بس في ${LOC_AR[loc as Loc] ?? loc} والمطلوب ${q} (القطع اتحركت بعد الاستلام)`);
+      }
+      post(orig.map((m) => ({ date: d!.date, sku: m.sku, qty: m.qty, from: m.to, to: m.from, type: 'RCV', doc: rev, by: actor(), note: `عكس ${doc}` })));
+      d!.status = 'reversed';
+      save(); return { pieces: orig.reduce((a, m) => a + m.qty, 0) };
+    },
     async moveState({ lines: raw, from, to, reason }) {
       unlocked();
       if (from === to) fail('الحالتان متطابقتان'); const b = bal();

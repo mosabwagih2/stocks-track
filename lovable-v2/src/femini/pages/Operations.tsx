@@ -485,6 +485,22 @@ function ReturnActions({ d, doc, onEdit }: { d: Derived; doc: Doc; onEdit: (draf
   );
 }
 
+/** A receipt recorded by mistake is undone: its pieces go back out on its own day and it stays in the ledger as «معكوس». */
+function ReceiveActions({ d, doc }: { d: Derived; doc: Doc }) {
+  const act = useAct(); const [ask, setAsk] = useState(false); const [busy, setBusy] = useState(false);
+  if (doc.status !== 'done') return null;
+  const closed = dayClosed(d.snap, doc.date);
+  return (
+    <div className="grid gap-3 rounded-xl border border-line bg-lav p-3">
+      <DayLock d={d} day={doc.date} />
+      {!ask
+        ? <div><Button disabled={closed} onClick={() => setAsk(true)}><Undo2 className="size-4" /> عكس الاستلام</Button></div>
+        : <div className="grid gap-2"><p className="text-sm">هيتعكس {doc.no}: القطع اللي دخلت بيه هتخرج من الجاهز بنفس تاريخه، فرصيد اليوم ده يرجع زي ما كان. المستند هيتعلّم «معكوس» وبيفضل في السجل، ومينفعش يرجع تاني.</p>
+          <div className="flex gap-2"><Button variant="primary" disabled={busy} onClick={async () => { setBusy(true); const r = await act(() => repo.reverseReceive(doc.no), 'اتعكس الاستلام'); setBusy(false); if (r) setAsk(false); }}>أيوه، اعكسه</Button><Button onClick={() => setAsk(false)}>لأ</Button></div></div>}
+    </div>
+  );
+}
+
 function Docs({ d, onOpen }: { d: Derived; onOpen: (no: string) => void }) {
   const [t, setT] = useState('all'); const [q, setQ] = useState('');
   const types = [...new Set(d.snap.docs.map((x) => x.type))];
@@ -564,7 +580,7 @@ export default function Operations() {
       {tab === 'holds' && <Holds d={d} openNew={sp.get('new') === 'yes'} onOpenNew={(v) => go({ new: v ? 'yes' : null })} />}
       {tab === 'shops' && <Shops d={d} onOpen={(no) => go({ doc: no })} />}
       {openDoc && <DocDetails key={openDoc.no} d={d} doc={openDoc} onClose={() => go({ doc: null })} onOpen={(no) => go({ doc: no })}
-        actions={openDoc.type === 'RTN' ? <ReturnActions d={d} doc={openDoc} onEdit={(id) => go({ doc: null, tab: null, op: 'RTN', draft: id })} /> : (openDoc.type === 'SHP' || openDoc.type === 'SRT') && <ShopActions d={d} doc={openDoc} />} />}
+        actions={openDoc.type === 'RCV' ? <ReceiveActions d={d} doc={openDoc} /> : openDoc.type === 'RTN' ? <ReturnActions d={d} doc={openDoc} onEdit={(id) => go({ doc: null, tab: null, op: 'RTN', draft: id })} /> : (openDoc.type === 'SHP' || openDoc.type === 'SRT') && <ShopActions d={d} doc={openDoc} />} />}
     </>
   );
 }
