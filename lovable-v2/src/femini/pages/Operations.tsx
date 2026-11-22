@@ -14,7 +14,7 @@ import { qty } from '@/femini/domain/ledger';
 import { findByCode, skuLabel } from '@/femini/domain/orders';
 import { addDays, dmy } from '@/femini/domain/dates';
 import { dayClosed } from '@/femini/domain/reports';
-import { buildOp, effects, GROUP_AR, OPS, returnLines, type OpGroup, type OpHdr, type OpLine, type OpType, type ReturnExtra, type ReturnExtras, type ReturnMark, type ReturnMarks } from '@/femini/domain/ops';
+import { buildOp, effects, GROUP_AR, MAY_GO_NEGATIVE, OPS, returnLines, type OpGroup, type OpHdr, type OpLine, type OpType, type ReturnExtra, type ReturnExtras, type ReturnMark, type ReturnMarks } from '@/femini/domain/ops';
 import { LostOrders } from '@/femini/components/LostOrders';
 import { returnCodesFromSheet } from '@/femini/domain/returnsSheet';
 import { labelMatches, queryWords } from '@/femini/domain/productSearch';
@@ -121,7 +121,7 @@ function SimpleLines({ d, type, lines, set, from }: { d: Derived; type: OpType; 
           <td className={td}>{skuLabel(d.skuMap, l.sku)}</td>
           {from && <td className={td + ' font-mono'}>{fmt(qty(d.snap.balances, l.sku, from))}</td>}
           {/* never more than the source state holds (for FRC the rejected pieces come out of the same total) */}
-          <td className={td}><Stepper v={l.q} on={(q) => upd(set, i, { q })} min={type === 'FRC' ? 0 : 1} max={from ? Math.max(type === 'FRC' ? 0 : 1, qty(d.snap.balances, l.sku, from) - (type === 'FRC' ? l.rej ?? 0 : 0)) : undefined} label="الكمية" /></td>
+          <td className={td}><Stepper v={l.q} on={(q) => upd(set, i, { q })} min={type === 'FRC' ? 0 : 1} max={from && !MAY_GO_NEGATIVE.has(type) ? Math.max(type === 'FRC' ? 0 : 1, qty(d.snap.balances, l.sku, from) - (type === 'FRC' ? l.rej ?? 0 : 0)) : undefined} label="الكمية" /></td>
           {type === 'FRC' && <td className={td}><Stepper v={l.rej ?? 0} on={(rej) => upd(set, i, { rej })} label="مرفوض" /></td>}
           {type === 'SRT' && <td className={td}><Seg value={(l.to as Loc) ?? 'READY'} onChange={(to) => upd(set, i, { to })} options={[['READY', 'سليم'], ['DIRTY', 'نضافة'], ['SCRAP', 'هالك']]} /></td>}
           {type === 'LOS' && <td className={td}><Seg value={l.res ?? 'FOUND'} onChange={(res) => upd(set, i, { res })} options={[['FOUND', 'لقيناه'], ['COMP', 'اتعوّض'], ['OFF', 'مفقود نهائي']]} /></td>}
@@ -424,7 +424,7 @@ function OpForm({ d, type, draft, prefill, onDone, onBack, onOpen }: { d: Derive
             {type === 'RTN' ? <ReturnLines d={d} hdr={hdr} setHdr={setHdr} lines={lines} set={set} onSheet={(f) => setSheetFiles((x) => [...x, f])} />
               : type === 'CNT' ? <CountSheet d={d} hdr={hdr} setHdr={setHdr} focus={prefill} />
               : type === 'SWP' ? <SwapLines d={d} lines={lines} set={set} />
-              : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : type === 'SRT' ? { to: 'READY' } : {}, from ? qty(d.snap.balances, s, from) : undefined))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}
+              : <div className="grid gap-3"><VariantPicker d={d} from={from} onAdd={(s, q) => set((l) => addLine(l, s, q, type === 'LOS' ? { res: 'FOUND' } : type === 'FRC' ? { rej: 0 } : type === 'SRT' ? { to: 'READY' } : {}, from && !MAY_GO_NEGATIVE.has(type) ? qty(d.snap.balances, s, from) : undefined))} /><SimpleLines d={d} type={type} lines={lines} set={set} from={from} /></div>}
           </Card>
         </div>
         <div className="grid h-fit gap-4 lg:sticky lg:top-4">

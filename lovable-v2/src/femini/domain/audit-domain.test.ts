@@ -59,15 +59,19 @@ describe('buildOp: every operation type', () => {
     expect(r.moves).toEqual([expect.objectContaining({ sku: 'A', qty: 2 })]);
     expect(r.ok).toBe(true);
   });
-  it('SHP needs a shop name and enough READY', () => {
+  it('SHP needs a shop name; more than READY is allowed with a warning (the balance goes negative)', () => {
     expect(run('SHP', { shop: 'محل' }, [{ sku: 'A', q: 10 }]).ok).toBe(true);
     expect(run('SHP', { shop: '  ' }, [{ sku: 'A', q: 1 }]).ok).toBe(false);
-    expect(run('SHP', { shop: 'محل' }, [{ sku: 'A', q: 11 }]).ok).toBe(false);
+    const over = run('SHP', { shop: 'محل' }, [{ sku: 'A', q: 11 }]);
+    expect(over.ok).toBe(true); expect(over.err).toEqual([]); expect(over.warn.join(' ')).toMatch(/هيبقى -1/);
   });
   it('the same SKU on two lines is checked against the balance together', () => {
     const r = run('SHP', { shop: 'محل' }, [{ sku: 'A', q: 6 }, { sku: 'A', q: 6 }]);
-    expect(r.ok).toBe(false);
-    expect(r.err.length).toBeGreaterThan(0);
+    expect(r.ok).toBe(true);
+    expect(r.warn.length).toBe(1);
+    const c = run('CLN', { from: 'READY', to: 'DIRTY' }, [{ sku: 'A', q: 6 }, { sku: 'A', q: 6 }]);
+    expect(c.ok).toBe(false);
+    expect(c.err.length).toBeGreaterThan(0);
   });
   it('CLN refuses same state on both sides and moves only what exists', () => {
     expect(run('CLN', { from: 'READY', to: 'READY' }, [{ sku: 'A', q: 1 }]).ok).toBe(false);

@@ -38,6 +38,8 @@ const n = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
 /** the states a piece can come back from the shop in */
 const SRT_TO: Loc[] = ['READY', 'DIRTY', 'SCRAP'];
 const INTERNAL = new Set<string>(LOCS);
+/** operations that may take more than the system's balance (the balance goes negative, with a warning) */
+export const MAY_GO_NEGATIVE = new Set<OpType>(['SHP']);
 
 export function buildOp(type: OpType, hdr: OpHdr, lines: OpLine[], b: Balances, date: string, today: string, name: (sku: string) => string = (s) => s): OpResult {
   const moves: OpMove[] = []; const checks: OpResult['checks'] = []; const warn: string[] = [];
@@ -99,12 +101,13 @@ export function buildOp(type: OpType, hdr: OpHdr, lines: OpLine[], b: Balances, 
   }
   // any past day (a closed day is refused when posting); never the future. Shown only when it fails.
   if (date > today) chk(false, 'التاريخ في المستقبل');
-  // simulate: an internal state can never go below zero because of this operation
+  // simulate: an internal state can never go below zero because of this operation, except a shop supply (SHP): what
+  // physically left for the shop is recorded even when the system's balance is short (a warning, the balance goes negative)
   const err: string[] = []; const sim: Record<string, number> = {};
   for (const m of moves) {
     if (!INTERNAL.has(m.from)) continue;
     const k = `${m.sku}|${m.from}`; const cur = k in sim ? sim[k] : qty(b, m.sku, m.from as Loc);
-    if (cur < m.qty) err.push(`${name(m.sku)}: المتاح في ${LOC_SHORT[m.from]} هو ${cur} والمطلوب ${m.qty}`);
+    if (cur < m.qty) (MAY_GO_NEGATIVE.has(type) ? warn : err).push(`${name(m.sku)}: المتاح في ${LOC_SHORT[m.from]} هو ${cur} والمطلوب ${m.qty}${MAY_GO_NEGATIVE.has(type) ? ` (الرصيد هيبقى ${cur - m.qty})` : ''}`);
     sim[k] = cur - m.qty;
     if (INTERNAL.has(m.to)) { const k2 = `${m.sku}|${m.to}`; sim[k2] = (k2 in sim ? sim[k2] : qty(b, m.sku, m.to as Loc)) + m.qty; }
   }

@@ -44,9 +44,9 @@ it('runs every stock operation end to end and records ledger entries', async () 
   expect(qty(b, first, 'LOST') - qty(before, first, 'LOST')).toBe(1);
   await expect(r.postOp({ type: 'RTN', date: T, hdr: { refs: [o.ref], counted: true }, lines })).rejects.toThrow();
 
-  // over-draw is refused and changes nothing
+  // over-draw is refused and changes nothing (a shop supply is the one exception: it may go negative)
   const n = (await r.snapshot()).moves.length;
-  await expect(r.postOp({ type: 'SHP', date: T, hdr: { shop: 'x' }, lines: [{ sku, q: 999999 }] })).rejects.toThrow();
+  await expect(r.postOp({ type: 'CLN', date: T, hdr: { from: 'READY', to: 'DIRTY' }, lines: [{ sku, q: 999999 }] })).rejects.toThrow();
   const after = await r.snapshot(); expect(after.moves.length).toBe(n);
   expect(n).toBeGreaterThan(count0);
   expect(new Set(after.docs.map((d) => d.type))).toEqual(expect.objectContaining({}));

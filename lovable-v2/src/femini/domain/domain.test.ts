@@ -127,9 +127,11 @@ describe('operations', () => {
     expect(r.ok).toBe(true);
     expect(r.moves.map((m) => [m.to, m.qty])).toEqual([['READY', 2], ['DIRTY', 1], ['LOST', 1]]);
   });
-  it('shop transfer needs a shop name and enough READY stock', () => {
+  it('shop transfer needs a shop name; short READY stock is a warning, not a block', () => {
     expect(buildOp('SHP', {}, [{ sku: 'A', q: 2 }], b, T, T).ok).toBe(false);
-    expect(buildOp('SHP', { shop: 'المعادي' }, [{ sku: 'A', q: 8 }], b, T, T).err.length).toBe(1);
+    const over = buildOp('SHP', { shop: 'المعادي' }, [{ sku: 'A', q: 8 }], b, T, T);
+    expect(over.err.length).toBe(0); expect(over.warn.length).toBe(1); expect(over.ok).toBe(true);
+    expect(buildOp('CLN', { from: 'READY', to: 'DIRTY' }, [{ sku: 'A', q: 8 }], b, T, T).err.length).toBe(1);
     expect(buildOp('SHP', { shop: 'المعادي' }, [{ sku: 'A', q: 7 }], b, T, T).ok).toBe(true);
   });
   it('count posts the difference against the current balance', () => {
