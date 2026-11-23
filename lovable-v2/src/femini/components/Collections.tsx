@@ -4,7 +4,7 @@ import { ArrowDownRight, ArrowUpRight, Download, Trash2, Upload } from 'lucide-r
 import type { Derived } from '@/femini/hooks/data';
 import { useAct } from '@/femini/hooks/data';
 import { isAdmin, repo } from '@/femini/data';
-import { parseSettlement, previewSettlement, settleSummary, type Settlement } from '@/femini/domain/settle';
+import { parseSettlement, previewSettlement, settleSummary, type Settlement, type SettlePart } from '@/femini/domain/settle';
 import { cairoDay, dayDiff, dmy } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { cn, fmt } from '@/femini/cn';
@@ -13,7 +13,7 @@ import { C, StackedBars, TrendArea } from './charts';
 import { closedBySheet, collectByDay, collectTrendRange, type CollectMetric } from '@/femini/domain/trends';
 import { change } from '@/femini/insights-tools';
 import { OrdersDetail } from './DetailSheets';
-import { CountCell } from './CountCell';
+import { CountCell, MetricSeg, METRIC_UNIT, type Metric } from './CountCell';
 import type { Order } from '@/femini/domain/types';
 
 const money = (n: number) => fmt(n);   // amounts in EGP (the labels say so)
@@ -79,6 +79,9 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
   const fileOf = (id: string) => d.snap.files.filter((f) => f.owner === id).at(-1);
   const byRef = useMemo(() => new Map(d.snap.orders.map((o) => [o.ref, { pieces: o.lines.length, value: Number(o.total) || 0 }])), [d]);
   const orderOf = (ref: string) => byRef.get(ref);
+  // one measure at a time, so a row adds up: اتحصّل + مرتجع + جزئي = الكل
+  const [m, setM] = useState<Metric>('orders');
+  const pick = (p: SettlePart) => (m === 'orders' ? p.n : m === 'pieces' ? p.pieces : p.value);
   const download = (id: string) => act(async () => {
     const f = fileOf(id); const url = f ? await repo.photoUrl(f.path) : null; if (!f || !url) throw new Error('ملف التسوية مش محفوظ.');
     const r = await fetch(url.replace(/[?&]thumb=1$/, ''), { credentials: 'same-origin' }); if (!r.ok) throw new Error('مقدرتش أنزّل الملف.');
@@ -96,16 +99,16 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
         <Kpi label="مشحون ولسه ما اتحصّلش" onClick={() => setCard('wait')} value={fmt(waiting.length)} sub={`${fmt(waiting.reduce((a, x) => a + x.o.lines.length, 0))} قطعة`} tone={waiting.length ? 'warn' : undefined} />
       </div>
       <CollectTrend d={d} from={from} to={to} />
-      <Card title="شيتات التسوية" hint={`${settles.length} شيت · الفلوس: قيمة الأوردرات، وتحت «اتحصّل» التوريد`}>
+      <Card title="شيتات التسوية" hint={`${settles.length} شيت · الأرقام بالـ${METRIC_UNIT[m]}${m === 'value' ? ' (قيمة الأوردرات في السيستم)' : ''}`} action={<MetricSeg value={m} onChange={setM} />}>
         {!settles.length ? <Empty>لسه ما اترفعش شيت تسوية.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل · التوريد', 'مرتجع', 'جزئي / استبدال', 'التوريد', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الكل', 'اتحصّل', 'مرتجع', 'جزئي / استبدال', 'التوريد (جنيه)', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{settles.map((s) => { const x = settleSummary(s, orderOf); return (
               <tr key={s.id}>
                 <td className={td + ' font-mono whitespace-nowrap'} title={s.source}>{dmy(s.date)}</td><td className={td + ' font-mono whitespace-nowrap'}>{s.id}</td>
-                <CountCell n={x.all.n} pieces={x.all.pieces} money={x.all.value} strong />
-                <CountCell n={x.collect.n} pieces={x.collect.pieces} money={x.collect.money} tone="text-good" />
-                <CountCell n={x.return.n} pieces={x.return.pieces} money={x.return.value} />
-                <CountCell n={x.partial.n} pieces={x.partial.pieces} money={x.partial.value} />
+                <CountCell n={pick(x.all)} strong />
+                <CountCell n={pick(x.collect)} tone="text-good" />
+                <CountCell n={pick(x.return)} />
+                <CountCell n={pick(x.partial)} />
                 <td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td}>{s.by}</td>
                 <td className={td}><div className="flex gap-1">
                   {fileOf(s.id) && <Button size="sm" onClick={() => download(s.id)} aria-label={`تنزيل ${s.id}`}><Download className="size-4" /></Button>}
