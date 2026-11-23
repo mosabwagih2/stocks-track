@@ -12,7 +12,7 @@ export function CountCell({ n, pieces, money, tone }: { n: number; pieces: numbe
         <b className={cn('num text-[15px] font-semibold', !n && 'font-normal text-muted', n > 0 && tone)}>{fmt(n)}</b>
         {n > 0 && <span className="text-[11px] text-muted">أوردر · <span className="num text-ink">{fmt(pieces)}</span> قطعة</span>}
       </div>
-      {n > 0 && <div className="mt-0.5 text-xs text-muted"><b className="num font-semibold text-ink">{fmt(Math.round(money))}</b> جنيه</div>}
+      {n > 0 && <div className="mt-0.5 text-[11px] text-muted"><span className="num text-ink">{fmt(Math.round(money))}</span> جنيه</div>}
     </td>
   );
 }
