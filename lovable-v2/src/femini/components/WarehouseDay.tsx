@@ -8,7 +8,9 @@ import { SettleUpload } from './Collections';
 import { Upload } from 'lucide-react';
 import { C, StackedBars } from './charts';
 import { OrderSheet } from './OrderSheets';
-import { CountCell, MetricSeg, METRIC_UNIT, type Metric } from './CountCell';
+import { CountCell } from './CountCell';
+
+type Metric = 'orders' | 'pieces' | 'value';
 
 const money = (n: number) => new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 0 }).format(n);
 const STATE: Record<WhState, [string, 'good' | 'warn' | 'lost']> = { collected: ['اتحصّل', 'good'], returned: ['مرتجع', 'lost'], pending: ['لسه', 'warn'] };
@@ -32,7 +34,7 @@ function StateBar({ x, m = 'orders', label = true }: { x: WhDay; m?: Metric; lab
   const all = measure(x, 'all', m); const w = (s: WhState) => `${all ? (measure(x, s, m) / all) * 100 : 0}%`;
   return (
     <div className="min-w-28">
-      <div className="flex h-2 overflow-hidden rounded-full bg-lav" role="img" aria-label={`اتقفل ${closedPct(x, m)}%: اتحصّل ${fmt(measure(x, 'collected', m))}، مرتجع ${fmt(measure(x, 'returned', m))}، لسه ${fmt(measure(x, 'pending', m))} ${METRIC_UNIT[m]}`}>
+      <div className="flex h-2 overflow-hidden rounded-full bg-lav" role="img" aria-label={`اتقفل ${closedPct(x, m)}%: اتحصّل ${fmt(measure(x, 'collected', m))}، مرتجع ${fmt(measure(x, 'returned', m))}، لسه ${fmt(measure(x, 'pending', m))}`}>
         <i style={{ width: w('collected'), background: FILL.collected }} /><i style={{ width: w('returned'), background: FILL.returned }} /><i style={{ width: w('pending'), background: FILL.pending }} />
       </div>
       {label && <span className="num mt-0.5 block text-[11px] text-muted">اتقفل <bdi dir="ltr">{closedPct(x, m)}%</bdi></span>}
@@ -51,8 +53,6 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
   const closed = useMemo(() => days.filter((x) => !x.pending).sort((a, b) => b.closedOn.localeCompare(a.closedOn) || b.day.localeCompare(a.day)), [days]);
   // which sheet is open: one day, or the whole period ('*'), and the state it starts filtered on
   const [sheet, setSheet] = useState<{ day: string; f: WhState | 'all' } | null>(null);
-  // one measure for both tables: the rows add up in it (اتحصّل + مرتجع + لسه = الكل)
-  const [m, setM] = useState<Metric>('orders');
   const sum = (k: (typeof SUM_KEYS)[number]) => days.reduce((a, x) => a + x[k], 0);
   const chart = useMemo(() => [...days].reverse().map((x) => ({ day: x.day, collected: x.collected, returned: x.returned, pending: x.pending })), [days]);
   const all = useMemo(() => periodTotal(days), [days]);
@@ -80,20 +80,20 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
       <Card title="حالة أوردرات كل يوم خروج" hint="كل عمود = أوردرات اليوم ده: اتحصّل · مرتجع · لسه">
         <StackedBars data={chart} totalName="خرج" onPick={(day) => setSheet({ day, f: 'all' })} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'مرتجع', color: C.scrap }, { key: 'pending', name: 'لسه', color: C.dirty }]} />
       </Card>
-      <Card title={`أيام لسه مفتوحة (${fmt(open.length)})`} hint={`الأقدم الأول · الأحمر عدّى عليه 7 أيام أو أكتر من غير ما يتقفل · الأرقام بالـ${METRIC_UNIT[m]}${m === 'value' ? ' (قيمة الأوردرات)' : ''}`} action={<MetricSeg value={m} onChange={setM} />}>
-        {!open.length ? <Empty>كل الأيام اتقفلت.</Empty> : <DaysTable d={d} days={open} kind="open" m={m} onOpen={(x) => setSheet({ day: x.day, f: 'pending' })} />}
+      <Card title={`أيام لسه مفتوحة (${fmt(open.length)})`} hint="الأقدم الأول · الأحمر عدّى عليه 7 أيام أو أكتر من غير ما يتقفل · الفلوس: قيمة الأوردرات، وتحت «اتحصّل» التوريد">
+        {!open.length ? <Empty>كل الأيام اتقفلت.</Empty> : <DaysTable d={d} days={open} kind="open" onOpen={(x) => setSheet({ day: x.day, f: 'pending' })} />}
       </Card>
-      <Card title={`أيام اتقفلت (${fmt(closed.length)})`} hint={`اتقفلت لما كل أوردراتها اتحصّلت أو رجعت · الأحدث أول · الأرقام بالـ${METRIC_UNIT[m]}`} action={<MetricSeg value={m} onChange={setM} />}>
-        {!closed.length ? <Empty>لسه مفيش يوم اتقفل.</Empty> : <DaysTable d={d} days={closed} kind="closed" m={m} onOpen={(x) => setSheet({ day: x.day, f: 'all' })} />}
+      <Card title={`أيام اتقفلت (${fmt(closed.length)})`} hint="اتقفلت لما كل أوردراتها اتحصّلت أو رجعت · الأحدث أول">
+        {!closed.length ? <Empty>لسه مفيش يوم اتقفل.</Empty> : <DaysTable d={d} days={closed} kind="closed" onOpen={(x) => setSheet({ day: x.day, f: 'all' })} />}
       </Card>
       {day && sheet && <DaySheet key={`${sheet.day}:${sheet.f}`} d={d} x={day} start={sheet.f} period={sheet.day === '*' ? `${days.at(-1)?.day} → ${days[0].day}` : undefined} onClose={() => setSheet(null)} />}
     </div>
   );
 }
 
-/** Days in one measure (orders, pieces or value): all, collected, came back, still out, plus the توريد that came for them. */
-function DaysTable({ d, days, kind, m, onOpen }: { d: Derived; days: WhDay[]; kind: 'open' | 'closed'; m: Metric; onOpen: (x: WhDay) => void }) {
-  const head = ['يوم الخروج', 'الكل', 'اتحصّل', 'مرتجع', ...(kind === 'open' ? ['لسه'] : []), 'التوريد (جنيه)', 'الحالة', kind === 'open' ? 'آخر تسوية' : 'اتقفل يوم'];
+/** Days: in each state the orders and pieces, with the money under them (the orders' value; the توريد for the collected). */
+function DaysTable({ d, days, kind, onOpen }: { d: Derived; days: WhDay[]; kind: 'open' | 'closed'; onOpen: (x: WhDay) => void }) {
+  const head = ['يوم الخروج', 'أوردرات', 'اتحصّل · التوريد', 'مرتجع', ...(kind === 'open' ? ['لسه'] : []), 'الحالة', kind === 'open' ? 'اتحصّل في تسويات' : 'اتقفل يوم'];
   return (
     <TableWrap><table className="text-sm"><thead><tr>{head.map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
       <tbody>{days.map((x) => {
@@ -104,16 +104,13 @@ function DaysTable({ d, days, kind, m, onOpen }: { d: Derived; days: WhDay[]; ki
               <b className="font-mono">{dmy(x.day)}</b>
               {kind === 'open' && <div className="mt-0.5">{lvl ? <Pill tone="crit" title={lvl === 2 ? 'عدّى عليه 10 أيام أو أكتر' : 'عدّى عليه 7 أيام'}>عدّى {age} يوم</Pill> : <span className="num text-[11px] text-muted">من {age} يوم</span>}</div>}
             </td>
-            <CountCell n={measure(x, 'all', m)} strong />
-            <CountCell n={measure(x, 'collected', m)} tone="text-good" />
-            <CountCell n={measure(x, 'returned', m)} />
-            {kind === 'open' && <CountCell n={measure(x, 'pending', m)} tone="text-warn" />}
-            <CountCell n={x.due} tone="text-good" />
-            <td className={td}><StateBar x={x} m={m} /></td>
+            <CountCell n={x.orders} pieces={x.pieces} money={x.value} />
+            <CountCell n={x.collected} pieces={x.collectedPieces} money={x.due} tone="text-good" />
+            <CountCell n={x.returned} pieces={x.returnedPieces} money={x.returnedValue} />
+            {kind === 'open' && <CountCell n={x.pending} pieces={x.pendingPieces} money={x.pendingValue} tone="text-warn" />}
+            <td className={td}><StateBar x={x} /></td>
             {kind === 'open'
-              ? <td className={td + ' whitespace-nowrap'} title={x.paidOn.map((p) => `${dmy(p.date)} (${p.n} أوردر)`).join('، ')}>
-                  {x.paidOn.length ? <><b className="font-mono">{dmy(x.paidOn.at(-1)!.date)}</b><div className="num text-[11px] text-muted">{x.paidOn.length} تسوية</div></> : <span className="text-muted">—</span>}
-                </td>
+              ? <td className={td + ' text-xs text-muted'}>{x.paidOn.length ? x.paidOn.map((p) => `${dmy(p.date)} (${p.n})`).join('، ') : '—'}</td>
               : <td className={td + ' whitespace-nowrap'}><b className="font-mono">{dmy(x.closedOn)}</b><div className="num text-[11px] text-muted">بعد {Math.max(0, dayDiff(x.day, x.closedOn))} يوم</div></td>}
           </tr>
         );
