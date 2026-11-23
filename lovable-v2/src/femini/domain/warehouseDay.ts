@@ -19,12 +19,14 @@ export const LATE_CRIT = 10;
 /** 0 fine, 1 late (7+ days open), 2 very late (10+) */
 export const lateLevel = (age: number): 0 | 1 | 2 => (age >= LATE_CRIT ? 2 : age >= LATE_WARN ? 1 : 0);
 export type WhState = 'collected' | 'returned' | 'pending';
-export interface WhOrder { ref: string; /** the day it left the warehouse */ day: string; waybill: string; pieces: number; state: WhState; /** التوريد */ due: number; stl: string[]; on: string; /** the day it closed (collected / came back), '' while pending */ closedOn: string }
+export interface WhOrder { ref: string; /** the day it left the warehouse */ day: string; waybill: string; pieces: number; /** the order's value (its total on the pickup sheet) */ value: number; state: WhState; /** التوريد */ due: number; stl: string[]; on: string; /** the day it closed (collected / came back), '' while pending */ closedOn: string }
 export interface WhDay {
   day: string; orders: number; pieces: number;
   collected: number; returned: number; pending: number;
   /** pieces in each state */
   collectedPieces: number; returnedPieces: number; pendingPieces: number;
+  /** the orders' value (their totals on the pickup sheet): all of them and in each state */
+  value: number; collectedValue: number; returnedValue: number; pendingValue: number;
   /** the last day anything on this day was collected or came back, once nothing is pending; '' while open */
   closedOn: string;
   /** التوريد of the collected orders */
@@ -58,10 +60,10 @@ export function warehouseDays(s: Pick<Snapshot, 'orders' | 'settles'>, from: str
     const m = money.get(o.ref);
     const state: WhState = m?.collect ? 'collected' : m?.ret || o.returned ? 'returned' : 'pending';
     const closedOn = state === 'collected' ? m!.on : state === 'returned' ? (m?.retOn || (o.returned?.at ? cairoDay(o.returned.at) : '')) : '';
-    const w: WhOrder = { ref: o.ref, day, closedOn, waybill: o.waybill, pieces: o.lines.length, state, due: m?.due ?? 0, stl: m ? [...m.stl] : [], on: m?.on ?? '' };
-    const d = days.get(day) ?? { day, orders: 0, pieces: 0, collected: 0, returned: 0, pending: 0, collectedPieces: 0, returnedPieces: 0, pendingPieces: 0, closedOn: '', due: 0, paidOn: [], list: [] };
-    d.orders++; d.pieces += w.pieces; d[state]++;
-    if (state === 'pending') d.pendingPieces += w.pieces; else if (state === 'returned') d.returnedPieces += w.pieces; else d.collectedPieces += w.pieces;
+    const w: WhOrder = { ref: o.ref, day, closedOn, waybill: o.waybill, pieces: o.lines.length, value: Number(o.total) || 0, state, due: m?.due ?? 0, stl: m ? [...m.stl] : [], on: m?.on ?? '' };
+    const d = days.get(day) ?? { day, orders: 0, pieces: 0, collected: 0, returned: 0, pending: 0, collectedPieces: 0, returnedPieces: 0, pendingPieces: 0, value: 0, collectedValue: 0, returnedValue: 0, pendingValue: 0, closedOn: '', due: 0, paidOn: [], list: [] };
+    d.orders++; d.pieces += w.pieces; d.value += w.value; d[state]++;
+    if (state === 'pending') { d.pendingPieces += w.pieces; d.pendingValue += w.value; } else if (state === 'returned') { d.returnedPieces += w.pieces; d.returnedValue += w.value; } else { d.collectedPieces += w.pieces; d.collectedValue += w.value; }
     d.due += w.due; d.list.push(w);
     days.set(day, d);
   }

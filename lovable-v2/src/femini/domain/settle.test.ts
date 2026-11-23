@@ -88,10 +88,10 @@ describe.skipIf(!sheets.length)('the real settlement sheets', () => {
 describe('settleSummary', () => {
   const row = (ref: string, type: 'collect' | 'return' | 'partial' | 'adjust', supply: number, pieces: number | null) => ({ ref, serial: '', type, status: type === 'return' ? 5 : 3, supply, pieces, date: '2026-11-21', note: '' });
   it('adds orders, pieces and money per kind; missing pieces come from the system; corrections only change the money', () => {
-    const x = settleSummary({ rows: [row('A', 'collect', 500, 2), row('B', 'collect', 300, null), row('C', 'return', 0, 3), row('D', 'partial', 0, 1), row('E', 'adjust', -50, -1)] }, (r) => (r === 'B' ? 4 : undefined));
-    expect(x.collect).toEqual({ n: 2, pieces: 6, money: 800 });
-    expect(x.return).toEqual({ n: 1, pieces: 3, money: 0 });
-    expect(x.partial).toEqual({ n: 1, pieces: 1, money: 0 });
-    expect(x.all).toEqual({ n: 4, pieces: 10, money: 750 });
+    const x = settleSummary({ rows: [row('A', 'collect', 500, 2), row('B', 'collect', 300, null), row('C', 'return', 0, 3), row('D', 'partial', 0, 1), row('E', 'adjust', -50, -1)] }, (r) => (r === 'B' ? { pieces: 4, value: 900 } : r === 'C' ? { pieces: 9, value: 1200 } : undefined));
+    expect(x.collect).toEqual({ n: 2, pieces: 6, money: 800, value: 900 });
+    expect(x.return).toEqual({ n: 1, pieces: 3, money: 0, value: 1200 });
+    expect(x.partial).toEqual({ n: 1, pieces: 1, money: 0, value: 0 });
+    expect(x.all).toEqual({ n: 4, pieces: 10, money: 750, value: 2100 });
   });
 });

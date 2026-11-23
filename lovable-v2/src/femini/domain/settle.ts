@@ -109,23 +109,24 @@ export function previewSettlement(p: Omit<Settlement, 'id' | 'source' | 'at' | '
   return { rows: p.rows.length, collect: n('collect'), ret: n('return'), partial: n('partial'), adjust: n('adjust'), inSystem: inSystem.length, old: old.length, unknown, notShipped, dup: dup.length, allDup: dup.length === p.rows.length };
 }
 
-/** One kind of row in a sheet: how many orders, how many pieces, how much money (التوريد). */
-export interface SettlePart { n: number; pieces: number; money: number }
+/** One kind of row in a sheet: how many orders, how many pieces, how much money: التوريد from the sheet (`money`) and the
+ *  orders' value in the system (`value`, their totals on the pickup sheet; orders not in the system add 0). */
+export interface SettlePart { n: number; pieces: number; money: number; value: number }
 export interface SettleSummary { all: SettlePart; collect: SettlePart; return: SettlePart; partial: SettlePart }
 
 /**
  * A sheet added up by kind of row, for the settlements table. Pieces come from the sheet («عدد القطع»); when a row has
- * none ("-") the order's own pieces in the system are used (`piecesOf`), else it counts 0. A correction row (adjust)
+ * none ("-") the order's own pieces in the system are used (`orderOf`), else it counts 0. A correction row (adjust)
  * only counts in the money of «all», not as an order.
  */
-export function settleSummary(s: Pick<Settlement, 'rows'>, piecesOf: (ref: string) => number | undefined = () => undefined): SettleSummary {
-  const part = (): SettlePart => ({ n: 0, pieces: 0, money: 0 });
+export function settleSummary(s: Pick<Settlement, 'rows'>, orderOf: (ref: string) => { pieces: number; value: number } | undefined = () => undefined): SettleSummary {
+  const part = (): SettlePart => ({ n: 0, pieces: 0, money: 0, value: 0 });
   const out: SettleSummary = { all: part(), collect: part(), return: part(), partial: part() };
   for (const r of s.rows) {
-    const pcs = r.pieces ?? piecesOf(r.ref) ?? 0;
+    const o = orderOf(r.ref); const pcs = Math.max(0, r.pieces ?? o?.pieces ?? 0); const value = o?.value ?? 0;
     if (r.type === 'adjust') { out.all.money += r.supply; continue; }
-    out.all.n++; out.all.pieces += Math.max(0, pcs); out.all.money += r.supply;
-    if (r.type === 'collect' || r.type === 'return' || r.type === 'partial') { const p = out[r.type]; p.n++; p.pieces += Math.max(0, pcs); p.money += r.supply; }
+    out.all.n++; out.all.pieces += pcs; out.all.money += r.supply; out.all.value += value;
+    if (r.type === 'collect' || r.type === 'return' || r.type === 'partial') { const p = out[r.type]; p.n++; p.pieces += pcs; p.money += r.supply; p.value += value; }
   }
   return out;
 }

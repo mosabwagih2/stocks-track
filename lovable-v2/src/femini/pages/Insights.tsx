@@ -452,8 +452,8 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
     const open = days.filter((x) => x.pending > 0).sort((a, b) => a.day.localeCompare(b.day));
     const closed = days.filter((x) => !x.pending).sort((a, b) => b.closedOn.localeCompare(a.closedOn) || b.day.localeCompare(a.day));
     const collectedAt = (x: (typeof days)[number]) => x.paidOn.map((p) => `${p.date} (${p.n})`).join('، ');
-    const head = ['يوم الخروج', 'أوردرات', 'قطع', 'اتحصّل', 'التوريد', 'مرتجع', 'قطع مرتجعة', 'لسه', 'قطع لسه', 'اتحصّل في تسويات'];
-    const cells = (x: (typeof days)[number]) => [x.day, x.orders, x.pieces, x.collected, x.due, x.returned, x.returnedPieces, x.pending, x.pendingPieces, collectedAt(x)];
+    const head = ['يوم الخروج', 'أوردرات', 'قطع', 'قيمة الأوردرات', 'اتحصّل', 'قطع اتحصّلت', 'التوريد', 'مرتجع', 'قطع مرتجعة', 'قيمة المرتجع', 'لسه', 'قطع لسه', 'قيمة اللي لسه', 'اتحصّل في تسويات'];
+    const cells = (x: (typeof days)[number]) => [x.day, x.orders, x.pieces, x.value, x.collected, x.collectedPieces, x.due, x.returned, x.returnedPieces, x.returnedValue, x.pending, x.pendingPieces, x.pendingValue, collectedAt(x)];
     sheets.push({ name: 'أيام لسه مفتوحة', rows: [[...head, 'عدّى كام يوم', 'متأخر'], ...open.map((x) => { const age = dayDiff(x.day, d.today); return [...cells(x), age, lateLevel(age) === 2 ? 'متأخر جدًا (10+)' : lateLevel(age) === 1 ? 'متأخر (7+)' : '']; })] });
     sheets.push({ name: 'أيام اتقفلت', rows: [[...head, 'اتقفل يوم', 'بعد كام يوم'], ...closed.map((x) => [...cells(x), x.closedOn, Math.max(0, dayDiff(x.day, x.closedOn))])] });
     sheets.push({ name: 'أوردرات الأيام', rows: [['يوم الخروج', 'البوليصة', 'رقم الأوردر', 'قطع', 'الحالة', 'اتقفل يوم', 'التوريد', 'التسوية'],
@@ -462,13 +462,14 @@ function buildSheets(sec: Sec, d: Derived, st: Stats, cmp: Cmp, alerts: RiskAler
   if (sec === 'summary' || sec === 'collect') {
     // the settlement sheets of the period, and what is shipped and not collected yet
     const inRange = (d.snap.settles ?? []).filter((s) => s.date >= cur.from && s.date <= cur.to).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-    const pcs = new Map(d.snap.orders.map((o) => [o.ref, o.lines.length]));
-    const sums = inRange.map((s) => settleSummary(s, (r) => pcs.get(r)));
-    const cellsOf = (x: SettleSummary) => [x.all.n, x.all.pieces, x.collect.n, x.collect.pieces, x.collect.money, x.return.n, x.return.pieces, x.partial.n, x.partial.pieces];
+    const ords = new Map(d.snap.orders.map((o) => [o.ref, { pieces: o.lines.length, value: Number(o.total) || 0 }]));
+    const sums = inRange.map((s) => settleSummary(s, (r) => ords.get(r)));
+    const cellsOf = (x: SettleSummary) => [x.all.n, x.all.pieces, x.all.value, x.collect.n, x.collect.pieces, x.collect.money, x.return.n, x.return.pieces, x.return.value, x.partial.n, x.partial.pieces, x.partial.value];
     const tot = (f: (x: SettleSummary) => number) => sums.reduce((a, x) => a + f(x), 0);
-    sheets.push({ name: 'التسويات', rows: [['التاريخ', 'الرقم', 'الأوردرات', 'قطع', 'اتحصّل', 'قطع اتحصّلت', 'توريد المحصّل', 'مرتجع', 'قطع مرتجع', 'جزئي / استبدال', 'قطع جزئي', 'التوريد', 'رفعه'],
+    const add = (k: keyof SettleSummary) => ({ n: tot((x) => x[k].n), pieces: tot((x) => x[k].pieces), money: tot((x) => x[k].money), value: tot((x) => x[k].value) });
+    sheets.push({ name: 'التسويات', rows: [['التاريخ', 'الرقم', 'الأوردرات', 'قطع', 'قيمة الأوردرات', 'اتحصّل', 'قطع اتحصّلت', 'توريد المحصّل', 'مرتجع', 'قطع مرتجع', 'قيمة المرتجع', 'جزئي / استبدال', 'قطع جزئي', 'قيمة الجزئي', 'التوريد', 'رفعه'],
       ...inRange.map((s, i) => [s.date, s.id, ...cellsOf(sums[i]), s.totals.due, s.by]),
-      ['الإجمالي', `${inRange.length} تسوية`, ...cellsOf({ all: { n: tot((x) => x.all.n), pieces: tot((x) => x.all.pieces), money: 0 }, collect: { n: tot((x) => x.collect.n), pieces: tot((x) => x.collect.pieces), money: tot((x) => x.collect.money) }, return: { n: tot((x) => x.return.n), pieces: tot((x) => x.return.pieces), money: 0 }, partial: { n: tot((x) => x.partial.n), pieces: tot((x) => x.partial.pieces), money: 0 } }), inRange.reduce((a, s) => a + s.totals.due, 0), '']] });
+      ['الإجمالي', `${inRange.length} تسوية`, ...cellsOf({ all: add('all'), collect: add('collect'), return: add('return'), partial: add('partial') }), inRange.reduce((a, s) => a + s.totals.due, 0), '']] });
     const waiting = d.snap.orders.filter((o) => o.status === 'shipped' && !o.returned && !d.collected.has(o.ref) && !d.settleReturned.has(o.ref))
       .map((o) => ({ o, day: o.shippedAt ? cairoDay(o.shippedAt) : '' })).sort((a, b) => a.day.localeCompare(b.day));
     sheets.push({ name: 'لسه ما اتحصلش', rows: [['البوليصة', 'رقم الأوردر', 'تاريخ البيك أب', 'اتشحن', 'قطع'], ...waiting.map(({ o, day }) => [o.ref, o.waybill, d.pickupDate.get(o.pickupId) ?? '', day, o.lines.length])] });

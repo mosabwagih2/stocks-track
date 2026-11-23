@@ -8,13 +8,14 @@ import { SettleUpload } from './Collections';
 import { Upload } from 'lucide-react';
 import { C, StackedBars } from './charts';
 import { OrderSheet } from './OrderSheets';
+import { CountCell } from './CountCell';
 
 const money = (n: number) => new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 0 }).format(n);
 const STATE: Record<WhState, [string, 'good' | 'warn' | 'lost']> = { collected: ['اتحصّل', 'good'], returned: ['مرتجع', 'lost'], pending: ['لسه', 'warn'] };
 /** the colour of each state: the chart's own (teal, rose, amber), livelier than the text tones */
 const FILL: Record<WhState, string> = { collected: 'var(--chart-secondary)', returned: 'var(--scrap)', pending: 'var(--dirty)' };
 const F_AR: Record<WhState | 'all', string> = { all: 'كل الأوردرات', collected: 'اتحصّل', returned: 'مرتجع', pending: 'لسه' };
-const SUM_KEYS = ['orders', 'pieces', 'collected', 'returned', 'pending', 'collectedPieces', 'returnedPieces', 'pendingPieces', 'due'] as const;
+const SUM_KEYS = ['orders', 'pieces', 'collected', 'returned', 'pending', 'collectedPieces', 'returnedPieces', 'pendingPieces', 'value', 'collectedValue', 'returnedValue', 'pendingValue', 'due'] as const;
 
 /** how much of a day is closed (collected or came back) */
 const closedPct = (x: Pick<WhDay, 'orders' | 'collected' | 'returned'>) => (x.orders ? Math.round(((x.collected + x.returned) / x.orders) * 100) : 0);
@@ -30,11 +31,6 @@ function StateBar({ x, label = true }: { x: Pick<WhDay, 'orders' | 'collected' |
       {label && <span className="num mt-0.5 block text-[11px] text-muted">اتقفل <bdi dir="ltr">{closedPct(x)}%</bdi></span>}
     </div>
   );
-}
-
-/** a count with what it is worth underneath */
-function Num({ n, sub, tone }: { n: number; sub?: string; tone?: string }) {
-  return <td className={td}><div className={cn('font-mono font-semibold', !n && 'font-normal text-muted', n > 0 && tone)}>{fmt(n)}</div>{n > 0 && sub ? <div className="num whitespace-nowrap text-[11px] text-muted">{sub}</div> : null}</td>;
 }
 
 /**
@@ -75,7 +71,7 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
       <Card title="حالة أوردرات كل يوم خروج" hint="كل عمود = أوردرات اليوم ده: اتحصّل · مرتجع · لسه">
         <StackedBars data={chart} totalName="خرج" onPick={(day) => setSheet({ day, f: 'all' })} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'مرتجع', color: C.scrap }, { key: 'pending', name: 'لسه', color: C.dirty }]} />
       </Card>
-      <Card title={`أيام لسه مفتوحة (${fmt(open.length)})`} hint="الأقدم الأول · الأحمر عدّى عليه 7 أيام أو أكتر من غير ما يتقفل">
+      <Card title={`أيام لسه مفتوحة (${fmt(open.length)})`} hint="الأقدم الأول · الأحمر عدّى عليه 7 أيام أو أكتر من غير ما يتقفل · الفلوس: قيمة الأوردرات، وتحت «اتحصّل» التوريد">
         {!open.length ? <Empty>كل الأيام اتقفلت.</Empty> : <DaysTable d={d} days={open} kind="open" onOpen={(x) => setSheet({ day: x.day, f: 'pending' })} />}
       </Card>
       <Card title={`أيام اتقفلت (${fmt(closed.length)})`} hint="اتقفلت لما كل أوردراتها اتحصّلت أو رجعت · الأحدث أول">
@@ -99,10 +95,10 @@ function DaysTable({ d, days, kind, onOpen }: { d: Derived; days: WhDay[]; kind:
               <b className="font-mono">{dmy(x.day)}</b>
               {kind === 'open' && <div className="mt-0.5">{lvl ? <Pill tone="crit" title={lvl === 2 ? 'عدّى عليه 10 أيام أو أكتر' : 'عدّى عليه 7 أيام'}>عدّى {age} يوم</Pill> : <span className="num text-[11px] text-muted">من {age} يوم</span>}</div>}
             </td>
-            <td className={td}><div className="font-mono font-semibold">{fmt(x.orders)}</div><div className="num whitespace-nowrap text-[11px] text-muted">{fmt(x.pieces)} قطعة</div></td>
-            <Num n={x.collected} sub={`${money(x.due)} جنيه`} tone="text-good" />
-            <Num n={x.returned} sub={`${fmt(x.returnedPieces)} قطعة`} />
-            {kind === 'open' && <Num n={x.pending} sub={`${fmt(x.pendingPieces)} قطعة`} tone="text-warn" />}
+            <CountCell n={x.orders} pieces={x.pieces} money={x.value} strong />
+            <CountCell n={x.collected} pieces={x.collectedPieces} money={x.due} tone="text-good" />
+            <CountCell n={x.returned} pieces={x.returnedPieces} money={x.returnedValue} />
+            {kind === 'open' && <CountCell n={x.pending} pieces={x.pendingPieces} money={x.pendingValue} tone="text-warn" />}
             <td className={td}><StateBar x={x} /></td>
             {kind === 'open'
               ? <td className={td + ' text-xs text-muted'}>{x.paidOn.length ? x.paidOn.map((p) => `${dmy(p.date)} (${p.n})`).join('، ') : '—'}</td>
@@ -115,7 +111,7 @@ function DaysTable({ d, days, kind, onOpen }: { d: Derived; days: WhDay[]; kind:
 
 /** every day of the period added up into one, for the period cards */
 function periodTotal(days: WhDay[]): WhDay {
-  const t: WhDay = { day: '*', orders: 0, pieces: 0, collected: 0, returned: 0, pending: 0, collectedPieces: 0, returnedPieces: 0, pendingPieces: 0, closedOn: '', due: 0, paidOn: [], list: [] };
+  const t: WhDay = { day: '*', orders: 0, pieces: 0, collected: 0, returned: 0, pending: 0, collectedPieces: 0, returnedPieces: 0, pendingPieces: 0, value: 0, collectedValue: 0, returnedValue: 0, pendingValue: 0, closedOn: '', due: 0, paidOn: [], list: [] };
   const on: Record<string, number> = {};
   for (const x of days) {
     for (const k of SUM_KEYS) t[k] += x[k];
