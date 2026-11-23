@@ -109,6 +109,27 @@ export function previewSettlement(p: Omit<Settlement, 'id' | 'source' | 'at' | '
   return { rows: p.rows.length, collect: n('collect'), ret: n('return'), partial: n('partial'), adjust: n('adjust'), inSystem: inSystem.length, old: old.length, unknown, notShipped, dup: dup.length, allDup: dup.length === p.rows.length };
 }
 
+/** One kind of row in a sheet: how many orders, how many pieces, how much money (التوريد). */
+export interface SettlePart { n: number; pieces: number; money: number }
+export interface SettleSummary { all: SettlePart; collect: SettlePart; return: SettlePart; partial: SettlePart }
+
+/**
+ * A sheet added up by kind of row, for the settlements table. Pieces come from the sheet («عدد القطع»); when a row has
+ * none ("-") the order's own pieces in the system are used (`piecesOf`), else it counts 0. A correction row (adjust)
+ * only counts in the money of «all», not as an order.
+ */
+export function settleSummary(s: Pick<Settlement, 'rows'>, piecesOf: (ref: string) => number | undefined = () => undefined): SettleSummary {
+  const part = (): SettlePart => ({ n: 0, pieces: 0, money: 0 });
+  const out: SettleSummary = { all: part(), collect: part(), return: part(), partial: part() };
+  for (const r of s.rows) {
+    const pcs = r.pieces ?? piecesOf(r.ref) ?? 0;
+    if (r.type === 'adjust') { out.all.money += r.supply; continue; }
+    out.all.n++; out.all.pieces += Math.max(0, pcs); out.all.money += r.supply;
+    if (r.type === 'collect' || r.type === 'return' || r.type === 'partial') { const p = out[r.type]; p.n++; p.pieces += Math.max(0, pcs); p.money += r.supply; }
+  }
+  return out;
+}
+
 /** the same row of the same sheet (the sheets uploaded before this change also hold other amounts: not compared) */
 export const rowKey = (r: Pick<SettleRow, 'ref' | 'type' | 'supply'>) => `${r.ref}|${r.type}|${r.supply}`;
 

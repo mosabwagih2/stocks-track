@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import * as XLSX from 'xlsx';
-import { collectedOf, dayOf, parseSettlement, previewSettlement, supplyOnly, type Settlement } from './settle';
+import { collectedOf, dayOf, settleSummary, parseSettlement, previewSettlement, supplyOnly, type Settlement } from './settle';
 import type { Order } from './types';
 
 const H = ['', '', '', '', '', '', 'Company name', 'Serial', 'Order delivery status', 'Statusnote', 'Notes', 'Order date', 'Fullname', 'Code', 'Total amount', 'Phone', 'Address', 'Type', 'Total fees', 'Cod', 'Collect date', 'Return date', '', 'عدد القطع في الاوردر', 'إجمالي التوريد في الأوردر'];
@@ -82,5 +82,16 @@ describe.skipIf(!sheets.length)('the real settlement sheets', () => {
     expect(p.rows.reduce((a, r) => a + r.supply, 0)).toBe(e.due);     // Fémini's due = its share of every order
     expect(!!p.dateNote).toBe(f.includes('31-11'));                 // the wrong name is pointed out
     expect(f).toContain(`( ${e.due.toLocaleString("en-US")} )`);   // the number in the file name
+  });
+});
+
+describe('settleSummary', () => {
+  const row = (ref: string, type: 'collect' | 'return' | 'partial' | 'adjust', supply: number, pieces: number | null) => ({ ref, serial: '', type, status: type === 'return' ? 5 : 3, supply, pieces, date: '2026-11-21', note: '' });
+  it('adds orders, pieces and money per kind; missing pieces come from the system; corrections only change the money', () => {
+    const x = settleSummary({ rows: [row('A', 'collect', 500, 2), row('B', 'collect', 300, null), row('C', 'return', 0, 3), row('D', 'partial', 0, 1), row('E', 'adjust', -50, -1)] }, (r) => (r === 'B' ? 4 : undefined));
+    expect(x.collect).toEqual({ n: 2, pieces: 6, money: 800 });
+    expect(x.return).toEqual({ n: 1, pieces: 3, money: 0 });
+    expect(x.partial).toEqual({ n: 1, pieces: 1, money: 0 });
+    expect(x.all).toEqual({ n: 4, pieces: 10, money: 750 });
   });
 });

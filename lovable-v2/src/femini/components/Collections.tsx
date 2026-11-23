@@ -4,7 +4,7 @@ import { ArrowDownRight, ArrowUpRight, Download, Trash2, Upload } from 'lucide-r
 import type { Derived } from '@/femini/hooks/data';
 import { useAct } from '@/femini/hooks/data';
 import { isAdmin, repo } from '@/femini/data';
-import { parseSettlement, previewSettlement, type Settlement } from '@/femini/domain/settle';
+import { parseSettlement, previewSettlement, settleSummary, type Settlement, type SettlePart } from '@/femini/domain/settle';
 import { cairoDay, dayDiff, dmy } from '@/femini/domain/dates';
 import { downloadBlob } from '@/femini/data/backup';
 import { cn, fmt } from '@/femini/cn';
@@ -16,6 +16,15 @@ import { OrdersDetail } from './DetailSheets';
 import type { Order } from '@/femini/domain/types';
 
 const money = (n: number) => fmt(n);   // amounts in EGP (the labels say so)
+
+/** A settlements-table cell: the orders, with their pieces and their money (التوريد) underneath, like «أيام لسه مفتوحة». */
+function PartCell({ p, tone, strong }: { p: SettlePart; tone?: string; strong?: boolean }) {
+  const sub = [p.pieces ? `${fmt(p.pieces)} قطعة` : '', Math.round(p.money) ? `${money(p.money)} جنيه` : ''].filter(Boolean);
+  return <td className={td}>
+    <div className={cn('font-mono font-semibold', !p.n && !strong && 'font-normal text-muted', p.n > 0 && tone)}>{fmt(p.n)}</div>
+    {p.n > 0 && sub.map((s) => <div key={s} className="num whitespace-nowrap text-[11px] text-muted">{s}</div>)}
+  </td>;
+}
 
 /** Upload the channel's settlement sheet: read it, show what it adds, then save. */
 export function SettleUpload({ d, onClose }: { d: Derived; onClose: () => void }) {
@@ -75,6 +84,8 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
     .map((o) => ({ o, day: o.shippedAt ? cairoDay(o.shippedAt) : '' })).sort((a, b) => a.day.localeCompare(b.day));
   const age = (day: string) => (day ? Math.max(0, Math.round((Date.parse(d.today) - Date.parse(day)) / 864e5)) : 0);
   const fileOf = (id: string) => d.snap.files.filter((f) => f.owner === id).at(-1);
+  const piecesByRef = useMemo(() => new Map(d.snap.orders.map((o) => [o.ref, o.lines.length])), [d]);
+  const piecesOf = (ref: string) => piecesByRef.get(ref);
   const download = (id: string) => act(async () => {
     const f = fileOf(id); const url = f ? await repo.photoUrl(f.path) : null; if (!f || !url) throw new Error('ملف التسوية مش محفوظ.');
     const r = await fetch(url.replace(/[?&]thumb=1$/, ''), { credentials: 'same-origin' }); if (!r.ok) throw new Error('مقدرتش أنزّل الملف.');
@@ -94,11 +105,14 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
       <CollectTrend d={d} from={from} to={to} />
       <Card title="شيتات التسوية" hint={`${settles.length} شيت`}>
         {!settles.length ? <Empty>لسه ما اترفعش شيت تسوية.</Empty> : (
-          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل', 'مرتجع', 'جزئي / استبدال', 'التوريد', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
-            <tbody>{settles.map((s) => (
+          <TableWrap><table className="text-sm"><thead><tr>{['التاريخ', 'الرقم', 'الأوردرات', 'اتحصّل · التوريد', 'مرتجع', 'جزئي / استبدال', 'التوريد', 'رفعه', ''].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+            <tbody>{settles.map((s) => { const x = settleSummary(s, piecesOf); return (
               <tr key={s.id}>
-                <td className={td + ' font-mono'} title={s.source}>{dmy(s.date)}</td><td className={td + ' font-mono'}>{s.id}</td><td className={td + ' font-mono'}>{s.rows.length}</td>
-                <td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'collect').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'return').length}</td><td className={td + ' font-mono'}>{s.rows.filter((r) => r.type === 'partial').length}</td>
+                <td className={td + ' font-mono whitespace-nowrap'} title={s.source}>{dmy(s.date)}</td><td className={td + ' font-mono whitespace-nowrap'}>{s.id}</td>
+                <PartCell p={x.all} strong />
+                <PartCell p={x.collect} tone="text-good" />
+                <PartCell p={x.return} />
+                <PartCell p={x.partial} />
                 <td className={td + ' font-mono font-semibold'}>{fmt(s.totals.due)}</td><td className={td}>{s.by}</td>
                 <td className={td}><div className="flex gap-1">
                   {fileOf(s.id) && <Button size="sm" onClick={() => download(s.id)} aria-label={`تنزيل ${s.id}`}><Download className="size-4" /></Button>}
@@ -106,7 +120,7 @@ export function CollectionsView({ d, from, to }: { d: Derived; from: string; to:
                     ? <><Button size="sm" variant="danger" onClick={() => act(() => repo.deleteSettlement(s.id).then(() => true), `اتشالت ${s.id}`)}>تأكيد الحذف</Button><Button size="sm" onClick={() => setDel(null)}>لأ</Button></>
                     : <Button size="sm" variant="ghost" aria-label={`حذف ${s.id}`} onClick={() => setDel(s.id)}><Trash2 className="size-4" /></Button>)}
                 </div></td>
-              </tr>))}</tbody></table></TableWrap>
+              </tr>); })}</tbody></table></TableWrap>
         )}
       </Card>
       <Card title="مشحون ولسه ما اتحصّلش" hint="الأقدم الأول">
