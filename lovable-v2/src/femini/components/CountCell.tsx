@@ -10,9 +10,9 @@ export function CountCell({ n, pieces, money, tone }: { n: number; pieces: numbe
     <td className={cn(td, 'whitespace-nowrap')}>
       <div className="flex items-baseline gap-1.5">
         <b className={cn('num text-[15px] font-semibold', !n && 'font-normal text-muted', n > 0 && tone)}>{fmt(n)}</b>
-        {n > 0 && <span className="text-[11px] text-muted">أوردر · <span className="num text-ink">{fmt(pieces)}</span> قطعة</span>}
+        {n > 0 && <span className="text-[11px] text-muted">أوردر · <span className="num">{fmt(pieces)}</span> قطعة</span>}
       </div>
-      {n > 0 && <div className="mt-0.5 text-[11px] text-muted"><span className="num text-ink">{fmt(Math.round(money))}</span> جنيه</div>}
+      {n > 0 && <div className="mt-0.5 text-[11px] text-muted"><span className="num">{fmt(Math.round(money))}</span> جنيه</div>}
     </td>
   );
 }

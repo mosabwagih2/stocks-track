@@ -3,7 +3,7 @@ import { DateField } from '@/femini/components/DateField';
 import { dayClosed } from '@/femini/domain/reports';
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@/femini/router';
-import { AlertTriangle, Info, Upload, ArrowDownToLine, Shuffle, ChevronRight, ChevronLeft, LockKeyhole } from 'lucide-react';
+import { AlertTriangle, Info, Upload, ArrowDownToLine, Shuffle, ChevronRight, ChevronLeft, LockKeyhole, XCircle } from 'lucide-react';
 import { useAct, useDerived } from '@/femini/hooks/data';
 import { repo } from '@/femini/data';
 import { EventDetails } from '@/femini/components/EventDetails';
@@ -141,11 +141,13 @@ export default function Today() {
           <Button className="h-10" onClick={()=>setClosing(true)}><LockKeyhole className="size-4" />{dayClosed(d.snap,selected) ? 'تقرير اليوم المقفول' : 'قفل اليوم'}</Button>
         </div>
         {historical && <p className="mb-3 text-xs text-muted">{dayLabel(selected)} · تقدر ترفع بيك أب أو ملف إسكان على اليوم ده لو كنت نسيته (طالما اليوم مش مقفول)</p>}
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
           <Button variant="primary" className="h-11 w-full" onClick={() => setUpload('pickup')}><Upload className="size-4 shrink-0" />رفع بيك أب</Button>
           <Button className="h-11 w-full" onClick={() => setUpload('scan')}><Upload className="size-4 shrink-0" />رفع ملف الإسكان</Button>
           <Button className="h-11 w-full" disabled={historical} onClick={()=>nav('/operations?op=RCV')}><ArrowDownToLine className="size-4 shrink-0" />استلام توريد</Button>
           <Button className="h-11 w-full" disabled={historical} onClick={()=>nav('/operations?op=CLN')}><Shuffle className="size-4 shrink-0" />تصنيف الهالك</Button>
+          {/* the same cancel as on الأوردرات (code + crossed-out waybill photo); it lands on today, so not on a past day */}
+          <Button className="col-span-2 h-11 w-full text-crit lg:col-span-1" disabled={historical} onClick={() => setCancel('')}><XCircle className="size-4 shrink-0" />إلغاء أوردر</Button>
         </div>
       </section>
       <div className="grid gap-4">

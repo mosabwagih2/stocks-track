@@ -26,7 +26,7 @@ export const NEXT: Record<Loc, Step[]> = {
   ],
   LOST: [
     { to: 'READY', label: 'لقيناه (جاهز للبيع)', op: 'LOS', hdr: () => ({}), line: (sku, q) => ({ sku, q, res: 'FOUND' }) },
-    { to: 'EXT_COMP', label: 'تمت تسويته (اتعوّض بالتكلفة)', op: 'LOS', hdr: () => ({}), line: (sku, q) => ({ sku, q, res: 'COMP' }) },
+    { to: 'EXT_COMP', label: 'تمت تسويته (اتعوّض بسعر التوريد)', op: 'LOS', hdr: () => ({}), line: (sku, q) => ({ sku, q, res: 'COMP' }) },
     { to: 'EXT_OFF', label: 'مفقود نهائي', op: 'LOS', hdr: () => ({}), line: (sku, q) => ({ sku, q, res: 'OFF' }) },
   ],
 };

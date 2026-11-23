@@ -44,9 +44,9 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
         <Kpi label="مرتجع من المحل" value={<Egp v={r.back.value} />} sub={`${fmt(r.back.n)} مرتجع · ${fmt(r.back.pieces)} قطعة${r.out.pieces ? ` · ${Math.round((r.back.pieces / r.out.pieces) * 100)}% من المورّد` : ''}`} tone={r.back.pieces ? 'warn' : undefined} onClick={() => setKpi('back')}><Delta cur={r.back.pieces} prev={p.back.pieces} unit="قطعة" upIsGood={false} /></Kpi>
         <Kpi label="صافي اللي راح" value={<Egp v={net} />} sub={`${fmt(r.out.pieces - r.back.pieces)} قطعة في الفترة`} tone="good" onClick={() => setKpi('all')} />
       </div>
-      {noCost > 0 && <Alert tone="warn">{fmt(noCost)} قطعة من موديلات مالهاش تكلفة متسجّلة: محسوبة في القطع، ومش في الفلوس. سجّل التكلفة من الإعدادات ← «تكلفة القطعة وسعر البيع».</Alert>}
+      {noCost > 0 && <Alert tone="warn">{fmt(noCost)} قطعة من موديلات مالهاش سعر توريد متسجّل: محسوبة في القطع، ومش في الفلوس. سجّل سعر التوريد من الإعدادات ← «سعر التوريد».</Alert>}
 
-      <Card title="التوريد والمرتجع كل يوم" hint={`${unit === 'value' ? 'جنيه بالتكلفة' : 'قطع'} · بتاريخ الورقة · اضغط على أي يوم لتفاصيله`} action={<span className="print:hidden"><Seg value={unit} onChange={setUnit} options={[['value', 'جنيه'], ['pieces', 'قطع']]} /></span>}>
+      <Card title="التوريد والمرتجع كل يوم" hint={`${unit === 'value' ? 'جنيه بسعر التوريد' : 'قطع'} · بتاريخ الورقة · اضغط على أي يوم لتفاصيله`} action={<span className="print:hidden"><Seg value={unit} onChange={setUnit} options={[['value', 'جنيه'], ['pieces', 'قطع']]} /></span>}>
         <TrendArea bars money={unit === 'value'} onPick={(k) => { const xs = r.docs.filter((x) => x.doc.date === k); if (xs.length === 1) setOpen(xs[0].doc.no); else setDay(k); }} data={r.days} series={unit === 'value'
           ? [{ key: 'outValue', name: 'توريد', color: C.accent }, { key: 'backValue', name: 'مرتجع', color: C.scrap }]
           : [{ key: 'out', name: 'توريد', color: C.accent }, { key: 'back', name: 'مرتجع', color: C.scrap }]} />
@@ -64,7 +64,7 @@ export function ShopSupplyView({ d, from, to }: { d: Derived; from: string; to: 
       </Card>
 
       {shops.length > 1 && <Card title="حسب المحل" hint="كل الوقت">
-        <TableWrap><table className="text-sm"><thead><tr>{['المحل', 'اتورّد', 'مرتجع', 'الصافي', 'الصافي بالتكلفة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+        <TableWrap><table className="text-sm"><thead><tr>{['المحل', 'اتورّد', 'مرتجع', 'الصافي', 'الصافي بسعر التوريد'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
           <tbody>{shops.map(([s, v]) => <tr key={s}><td className={td}>{s}</td><td className={td + ' num'}>{fmt(v.out)}</td><td className={td + ' num'}>{fmt(v.back)}</td><td className={td + ' num font-semibold'}>{fmt(v.out - v.back)}</td><td className={td + ' num'}>{money(v.outValue - v.backValue)}</td></tr>)}</tbody></table></TableWrap>
       </Card>}
 
@@ -91,7 +91,7 @@ function DocCard({ x, onOpen }: { x: ShopDoc; onOpen: () => void }) {
         <span className="num ms-auto text-xs text-muted">{dmy(x.doc.date)}</span>
       </span>
       <span className="flex items-baseline gap-1.5"><b className="num text-2xl leading-none font-semibold">{money(x.value)}</b><span className="text-xs text-muted">جنيه</span></span>
-      <span className="text-xs text-muted"><b className="num text-ink">{fmt(x.pieces)}</b> قطعة · {x.shop}{x.noCost ? ` · ${fmt(x.noCost)} قطعة من غير تكلفة` : ''}</span>
+      <span className="text-xs text-muted"><b className="num text-ink">{fmt(x.pieces)}</b> قطعة · {x.shop}{x.noCost ? ` · ${fmt(x.noCost)} قطعة من غير سعر توريد` : ''}</span>
       {out
         ? <span className="text-xs">{delivered ? <Pill tone="good">اتسلّم</Pill> : <Pill tone="warn">لسه ما اتسلّمش</Pill>}</span>
         : <span className="flex flex-wrap gap-1.5 text-xs">{Object.entries(x.states).map(([loc, n]) => <span key={loc} className="rounded-full border border-line px-2 py-0.5">{LOC_AR[loc] ?? loc} <b className="num">{fmt(n)}</b></span>)}</span>}
@@ -104,7 +104,7 @@ export function shopSheets(d: Derived, from: string, to: string): ExportSheet[] 
   const r = shopFlow(d.snap, from, to); const mix = shopMix(d.snap, from, to);
   const items = [...mix.bySku].sort((a, b) => b[1].out - a[1].out).map(([sku, e]) => [skuLabel(d.skuMap, sku), lineOf(d.skuMap.get(sku)?.model ?? ''), e.out, e.back, e.out ? Math.round((e.back / e.out) * 100) : '', qty(d.snap.balances, sku, 'READY')]);
   return [{ name: 'حسب الصنف', rows: [['الصنف', 'الخط', 'اتورّد', 'مرتجع', 'نسبة المرتجع %', 'جاهز دلوقتي'], ...items] },
-    { name: 'توريد المحل', rows: [['النوع', 'الرقم', 'التاريخ', 'المحل', 'قطع', 'القيمة بالتكلفة', 'قطع من غير تكلفة', 'الحالة'],
+    { name: 'توريد المحل', rows: [['النوع', 'الرقم', 'التاريخ', 'المحل', 'قطع', 'القيمة بسعر التوريد', 'قطع من غير سعر توريد', 'الحالة'],
       ...r.docs.map((x) => [x.kind === 'out' ? 'توريد' : 'مرتجع', x.doc.no, x.doc.date, x.shop, x.pieces, Math.round(x.value), x.noCost, x.kind === 'out' ? (x.doc.hdr.delivered ? 'اتسلّم' : 'لسه') : Object.entries(x.states).map(([l, n]) => `${LOC_AR[l] ?? l} ${n}`).join('، ')]),
       ['الإجمالي', '', '', '', '', '', '', ''],
       ['توريد', `${r.out.n} توريدة`, '', '', r.out.pieces, Math.round(r.out.value), r.out.noCost, ''],

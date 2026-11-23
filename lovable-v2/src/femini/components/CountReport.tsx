@@ -33,15 +33,15 @@ export function CountReport({ d }: { d: Derived }) {
   const excel = () => exportExcel({ section: 'تقرير الجرد', period: span === 'all' ? 'من أول جرد' : `آخر ${span} يوم`, filters: 'بدون', date: d.today }, [
     { name: 'مرات الجرد', rows: [['الرقم', 'التاريخ', 'سجّلها', 'الحالة', 'اتعدّ', 'مطابق', 'أصناف زادت', 'قطع زيادة', 'قيمة الزيادة', 'أصناف نقصت', 'قطع عجز', 'قيمة العجز', 'الصافي'],
       ...r.counts.map((c) => [c.doc.no, c.doc.date, c.doc.by, LOC_AR[c.state] ?? c.state, c.items, c.matched, c.more.items, c.more.pieces, Math.round(c.more.value), c.less.items, c.less.pieces, Math.round(c.less.value), Math.round(c.more.value - c.less.value)])] },
-    { name: 'كل الأصناف', rows: [['الرقم', 'التاريخ', 'الصنف', 'على السيستم', 'اتعدّ', 'الفرق', 'القيمة بالتكلفة'],
+    { name: 'كل الأصناف', rows: [['الرقم', 'التاريخ', 'الصنف', 'على السيستم', 'اتعدّ', 'الفرق', 'القيمة بسعر التوريد'],
       ...r.counts.flatMap((c) => c.lines.map((l) => [c.doc.no, c.doc.date, name(l.sku), l.system ?? '', l.counted ?? '', l.diff, Math.round(l.diff * cost(l.sku))]))] },
-    { name: 'حسب الموديل', rows: [['الموديل', 'أصناف', 'زيادة', 'عجز', 'الصافي بالتكلفة'], ...models.map(([m, x]) => [m, x.items, x.more, x.less, Math.round(x.value)])] },
+    { name: 'حسب الموديل', rows: [['الموديل', 'أصناف', 'زيادة', 'عجز', 'الصافي بسعر التوريد'], ...models.map(([m, x]) => [m, x.items, x.more, x.less, Math.round(x.value)])] },
   ]).then(() => toast('تم تصدير ملف Excel'), () => toast('تعذّر التصدير', { tone: 'err' }));
 
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">كل مرة جرد: اللي زاد واللي نقص واللي طابق، بالتكلفة المسجلة حاليًا.</p>
+        <p className="text-sm text-muted">كل مرة جرد: اللي زاد واللي نقص واللي طابق، بسعر التوريد المسجل حاليًا.</p>
         <span className="flex flex-wrap items-center gap-2 print:hidden">
           <Seg<Span> label="الفترة" value={span} onChange={setSpan} options={[['30', '30 يوم'], ['90', '90 يوم'], ['all', 'من أول جرد']]} />
           <Button onClick={excel} disabled={!r.counts.length}><FileSpreadsheet className="size-4" /> Excel</Button>
@@ -73,7 +73,7 @@ export function CountReport({ d }: { d: Derived }) {
         </div>
 
         {models.length > 0 && <Card title="حسب الموديل" hint="الموديلات اللي فيها فرق، الأكتر عجزًا أول">
-          <TableWrap><table className="text-sm"><thead><tr>{['الموديل', 'أصناف اتعدّت', 'زيادة', 'عجز', 'الصافي بالتكلفة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+          <TableWrap><table className="text-sm"><thead><tr>{['الموديل', 'أصناف اتعدّت', 'زيادة', 'عجز', 'الصافي بسعر التوريد'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
             <tbody>{models.map(([m, x]) => <tr key={m}><td className={td + ' font-mono font-semibold'}>{m}</td><td className={td + ' num'}>{fmt(x.items)}</td><td className={td + ' num'}>{x.more ? `+${fmt(x.more)}` : '—'}</td><td className={td + ' num'}>{x.less ? `−${fmt(x.less)}` : '—'}</td><td className={cn(td, 'num font-semibold', x.value < 0 ? 'text-crit' : '')}>{money(x.value)}</td></tr>)}</tbody></table></TableWrap>
         </Card>}
       </>}
@@ -95,7 +95,7 @@ function CountSheet({ d, c, cost, onClose }: { d: Derived; c: CountDoc; cost: (s
         <Chip pressed={f === 'all'} onClick={() => setF('all')}>الكل · {fmt(c.items)}</Chip>
       </div>
       {!rows.length ? <Empty>مفيش أصناف هنا.</Empty> : (
-        <TableWrap className="max-h-[60vh]"><table className="text-sm"><thead><tr>{['الصنف', 'على السيستم', 'اتعدّ', 'الفرق', 'القيمة بالتكلفة'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+        <TableWrap className="max-h-[60vh]"><table className="text-sm"><thead><tr>{['الصنف', 'على السيستم', 'اتعدّ', 'الفرق', 'القيمة بسعر التوريد'].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
           <tbody>{rows.map((l) => <tr key={l.sku}>
             <td className={td}>{skuLabel(d.skuMap, l.sku)}</td><td className={td + ' num'}>{l.system ?? '—'}</td><td className={td + ' num'}>{l.counted ?? '—'}</td>
             <td className={td}>{l.diff === 0 ? <Pill tone="good">مطابق</Pill> : <Pill tone={l.diff < 0 ? 'crit' : 'warn'}>{signed(l.diff)}</Pill>}</td>

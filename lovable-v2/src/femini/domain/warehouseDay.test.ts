@@ -35,3 +35,16 @@ describe('warehouse day close', () => {
     expect(lateDays({ orders: [], settles: [] }, '2026-11-09')).toEqual({ level: 0, late: 0, veryLate: 0, oldest: 0 });
   });
 });
+
+describe('warehouse day money', () => {
+  it('pending orders are worth their pieces × سعر التوريد; collected and returned keep the order total', () => {
+    const orders = [o('p1', '2026-11-05T08:00:00Z', { lines: ['A-S', 'A-S', 'B-M'] }), o('c1', '2026-11-05T09:00:00Z'), o('r1', '2026-11-05T10:00:00Z')];
+    const settles = [st('S1', '2026-11-07', [['c1', 'collect', 500, 300], ['r1', 'return', 0, 0]])];
+    const skus = [{ id: 'A-S', model: 'A' }, { id: 'B-M', model: 'B' }] as never;
+    const costs = { A: { cost: 140, price: 140 }, B: { cost: 0, price: 90 } };
+    const [d] = warehouseDays({ orders, settles, skus, archivedSkus: [], costs }, '2026-11-01', '2026-11-09');
+    expect(d.pendingValue).toBe(140 * 2 + 90);
+    expect(d.collectedValue).toBe(500); expect(d.returnedValue).toBe(500);
+    expect(d.value).toBe(370 + 1000);
+  });
+});

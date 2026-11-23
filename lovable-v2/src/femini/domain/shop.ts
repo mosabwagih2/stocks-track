@@ -1,14 +1,15 @@
 import type { Doc, Snapshot } from './types';
 import { addDays } from './dates';
+import { supplyPrice } from './price';
 
 /**
- * Money and pieces of things that left the stock in a period, valued at the cost recorded NOW for each model (there is
+ * Money and pieces of things that left the stock in a period, valued at the سعر التوريد recorded NOW for each model (there is
  * no cost history). A model with no cost counts its pieces, not its value (`noCost` says how many such pieces). Pure.
  */
 type S = Pick<Snapshot, 'skus' | 'archivedSkus' | 'costs'>;
 export function costOf(s: S) {
   const model = new Map([...s.skus, ...(s.archivedSkus ?? [])].map((k) => [k.id, k.model]));
-  return (sku: string) => { const c = s.costs?.[model.get(sku) ?? '']?.cost; return c && Number.isFinite(c) && c > 0 ? c : 0; };
+  return (sku: string) => supplyPrice(s.costs?.[model.get(sku) ?? '']);
 }
 export interface Valued { pieces: number; value: number; noCost: number }
 const zero = (): Valued => ({ pieces: 0, value: 0, noCost: 0 });

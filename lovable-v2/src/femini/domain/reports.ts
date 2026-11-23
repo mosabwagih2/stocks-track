@@ -3,12 +3,13 @@ import { LOCS } from './constants';
 import { allocate } from './orders';
 import { cairoDay } from './dates';
 import type { Snapshot, Loc } from './types';
+import { supplyPrice } from './price';
 
 export function backupDue(last: string | null, now = Date.now()): boolean {
   return !last || !Number.isFinite(Date.parse(last)) || now - Date.parse(last) > 7 * 864e5;
 }
 
-/** Current recorded unit costs, not historical acquisition costs or realized profit. */
+/** Valued at the سعر التوريد recorded now (one price per model), not historical prices or realized profit. */
 export function financialReport(s: Snapshot) {
   const balances = balancesFromMoves(s.moves);
   const catalog = new Map([...s.skus, ...s.archivedSkus].map((k) => [k.id, k]));
@@ -18,7 +19,7 @@ export function financialReport(s: Snapshot) {
     const sku = catalog.get(id);
     if (!sku) { unknown.push(id); continue; }
     const c = s.costs[sku.model];
-    const row = models.get(sku.model) ?? { code: sku.model, name: s.models.find((m) => m.code === sku.model)?.name ?? sku.model, units: { READY: 0, DIRTY: 0, FACTORY: 0, SCRAP: 0, LOST: 0 }, cost: c && Number.isFinite(c.cost) && c.cost > 0 ? c.cost : null, price: c && Number.isFinite(c.price) && c.price > 0 ? c.price : null };
+    const row = models.get(sku.model) ?? { code: sku.model, name: s.models.find((m) => m.code === sku.model)?.name ?? sku.model, units: { READY: 0, DIRTY: 0, FACTORY: 0, SCRAP: 0, LOST: 0 }, cost: supplyPrice(c) || null, price: supplyPrice(c) || null };
     for (const loc of LOCS) row.units[loc] += qty(balances, id, loc);
     models.set(sku.model, row);
   }

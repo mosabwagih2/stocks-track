@@ -25,7 +25,7 @@ export default function Settings() {
   const run = async (fn: () => Promise<void>) => { setBusy(true); setError(''); try { await fn(); await qc.invalidateQueries({ queryKey: SNAP_KEY }); } catch(e) { setError(friendlyError(e)); } finally { setBusy(false); } };
   if (serverEdition) return (
     <>
-      <PageHead title="الإعدادات" sub="الحساب والمستخدمين وتكلفة الموديلات." />
+      <PageHead title="الإعدادات" sub="الحساب والمستخدمين وسعر التوريد." />
       <div className="grid gap-4 md:grid-cols-2"><ServerAccount /><ModelCosts /></div>
     </>
   );

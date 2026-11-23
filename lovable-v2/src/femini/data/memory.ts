@@ -607,7 +607,7 @@ export function createMemoryRepo(backend?: Backend): Repo {
       }
       guard(); const at = new Date().toISOString(); for (const c of S.closes ?? []) if (c.date === date && c.status === 'closed') { c.status = 'reopened'; c.reopenedAt = at; } save(); },
     async setAutoClose(on) { guard(); S.autoClose = on; save(); },
-    async setModelCosts(model,cost,price) { guard();if(!baseModels.concat(S.cat.models).some((m)=>m.code===model))fail('موديل غير معروف');if(!Number.isFinite(cost)||!Number.isFinite(price)||cost<0||price<0)fail('التكلفة والسعر يجب أن يكونا رقمين غير سالبين');S.costs??={};S.costs[model]={cost,price};save(); },
+    async setModelCosts(model,cost,price) { guard();if(!baseModels.concat(S.cat.models).some((m)=>m.code===model))fail('موديل غير معروف');if(!Number.isFinite(cost)||!Number.isFinite(price)||cost<0||price<0)fail('سعر التوريد لازم يكون رقم مش سالب');S.costs??={};S.costs[model]={cost,price};save(); },
     async resetDemo() { fail('استبدال البيانات التجريبية متوقف لحماية شغلك؛ استخدم النسخ الاحتياطي.'); },
   };
   // One action at a time. Actions await photo storage half way; if a second action ran meanwhile and failed, its rollback replaced

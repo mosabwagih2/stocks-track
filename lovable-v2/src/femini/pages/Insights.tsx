@@ -139,7 +139,7 @@ export default function Insights() {
   if (isLoading || !d || !st || !cmp) return <Spinner />;
   const counts: Partial<Record<Sec, number>> = {};
   const secLabel = SECTIONS.find((x) => x.id === sec)?.label ?? 'الملخص';
-  const periodLabel = dmyText(sec === 'finance' ? `الرسوم من ${cmp.cur.from} لـ ${cmp.cur.to} · جدول القيمة بالأرصدة الحالية حتى ${d.today} والتكلفة المسجلة حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`);
+  const periodLabel = dmyText(sec === 'finance' ? `الرسوم من ${cmp.cur.from} لـ ${cmp.cur.to} · جدول القيمة بالأرصدة الحالية حتى ${d.today} وسعر التوريد المسجل حاليًا` : `${custom ? 'من' : `آخر ${period} يوم`} (${cmp.cur.from} → ${cmp.cur.to}) مقارنةً بـ ${cmp.prev.from} → ${cmp.prev.to}`);
   const filters = 'بدون فلاتر إضافية';
   const doExcel = () => exportExcel({ section: secLabel, period: plainText(periodLabel), filters, date: d.today }, buildSheets(sec, d, st, cmp, alerts))
     .then(() => toast('تم تصدير ملف Excel'), () => toast('تعذّر التصدير', { tone: 'err' }));

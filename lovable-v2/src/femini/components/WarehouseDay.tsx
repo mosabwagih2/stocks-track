@@ -80,7 +80,7 @@ export function WarehouseDayView({ d, from, to }: { d: Derived; from: string; to
       <Card title="حالة أوردرات كل يوم خروج" hint="كل عمود = أوردرات اليوم ده: اتحصّل · مرتجع · لسه">
         <StackedBars data={chart} totalName="خرج" onPick={(day) => setSheet({ day, f: 'all' })} series={[{ key: 'collected', name: 'اتحصّل', color: C.ready }, { key: 'returned', name: 'مرتجع', color: C.scrap }, { key: 'pending', name: 'لسه', color: C.dirty }]} />
       </Card>
-      <Card title={`أيام لسه مفتوحة (${fmt(open.length)})`} hint="الأقدم الأول · الأحمر عدّى عليه 7 أيام أو أكتر من غير ما يتقفل · الفلوس: قيمة الأوردرات، وتحت «اتحصّل» التوريد">
+      <Card title={`أيام لسه مفتوحة (${fmt(open.length)})`} hint="الأقدم الأول · الأحمر عدّى عليه 7 أيام أو أكتر من غير ما يتقفل · الفلوس: قيمة الأوردرات، وتحت «اتحصّل» التوريد، وتحت «لسه» القطع بسعر التوريد">
         {!open.length ? <Empty>كل الأيام اتقفلت.</Empty> : <DaysTable d={d} days={open} kind="open" onOpen={(x) => setSheet({ day: x.day, f: 'pending' })} />}
       </Card>
       <Card title={`أيام اتقفلت (${fmt(closed.length)})`} hint="اتقفلت لما كل أوردراتها اتحصّلت أو رجعت · الأحدث أول">
@@ -144,7 +144,7 @@ function StateCard({ state, x, on, onClick }: { state: WhState; x: WhDay; on: bo
       <span className="flex items-center gap-2 text-[13px] font-medium text-muted"><i className="h-3.5 w-1 rounded-full" style={{ background: FILL[state] }} />{F_AR[state]}</span>
       <span className="flex items-baseline gap-1.5"><b className={cn('num text-[28px] leading-none font-semibold', tone)}>{fmt(n)}</b><span className="text-sm font-medium text-muted">أوردر</span></span>
       {line('قطع', fmt(measure(x, state, 'pieces')), 'قطعة')}
-      {line('قيمة الأوردرات', money(measure(x, state, 'value')), 'جنيه')}
+      {line(state === 'pending' ? 'بسعر التوريد' : 'قيمة الأوردرات', money(measure(x, state, 'value')), 'جنيه')}
       {state === 'collected' && line('التوريد', money(x.due), 'جنيه', true)}
     </button>
   );

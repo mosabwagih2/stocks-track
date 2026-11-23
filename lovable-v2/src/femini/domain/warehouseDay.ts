@@ -1,6 +1,7 @@
 import type { Order, Snapshot } from './types';
 import { cairoDay, dayDiff } from './dates';
 import type { Settlement } from './settle';
+import { costOf } from './shop';
 
 /**
  * «تقفيل يوم المخزن»: every order counted on the day it LEFT the warehouse (the scan day), whatever day its money
@@ -19,13 +20,13 @@ export const LATE_CRIT = 10;
 /** 0 fine, 1 late (7+ days open), 2 very late (10+) */
 export const lateLevel = (age: number): 0 | 1 | 2 => (age >= LATE_CRIT ? 2 : age >= LATE_WARN ? 1 : 0);
 export type WhState = 'collected' | 'returned' | 'pending';
-export interface WhOrder { ref: string; /** the day it left the warehouse */ day: string; waybill: string; pieces: number; /** the order's value (its total on the pickup sheet) */ value: number; state: WhState; /** التوريد */ due: number; stl: string[]; on: string; /** the day it closed (collected / came back), '' while pending */ closedOn: string }
+export interface WhOrder { ref: string; /** the day it left the warehouse */ day: string; waybill: string; pieces: number; /** money: the order's total on the pickup sheet; while pending, its pieces × سعر التوريد */ value: number; state: WhState; /** التوريد */ due: number; stl: string[]; on: string; /** the day it closed (collected / came back), '' while pending */ closedOn: string }
 export interface WhDay {
   day: string; orders: number; pieces: number;
   collected: number; returned: number; pending: number;
   /** pieces in each state */
   collectedPieces: number; returnedPieces: number; pendingPieces: number;
-  /** the orders' value (their totals on the pickup sheet): all of them and in each state */
+  /** money in each state and all together: the orders' totals on the pickup sheet, but pending = pieces × سعر التوريد */
   value: number; collectedValue: number; returnedValue: number; pendingValue: number;
   /** the last day anything on this day was collected or came back, once nothing is pending; '' while open */
   closedOn: string;
@@ -50,8 +51,10 @@ function orderMoney(settles: Settlement[]) {
   return by;
 }
 
-export function warehouseDays(s: Pick<Snapshot, 'orders' | 'settles'>, from: string, to: string): WhDay[] {
+export function warehouseDays(s: Pick<Snapshot, 'orders' | 'settles'> & Partial<Pick<Snapshot, 'skus' | 'archivedSkus' | 'costs'>>, from: string, to: string): WhDay[] {
   const money = orderMoney(s.settles ?? []);
+  // pieces still out are worth their سعر التوريد (not the order's selling total)
+  const price = s.skus ? costOf({ skus: s.skus, archivedSkus: s.archivedSkus ?? [], costs: s.costs ?? {} }) : () => 0;
   const days = new Map<string, WhDay>();
   for (const o of s.orders as Order[]) {
     if (!o.shippedAt || (o.status !== 'shipped' && !o.returned)) continue;   // left the warehouse (a later cancel keeps it out)
@@ -60,7 +63,7 @@ export function warehouseDays(s: Pick<Snapshot, 'orders' | 'settles'>, from: str
     const m = money.get(o.ref);
     const state: WhState = m?.collect ? 'collected' : m?.ret || o.returned ? 'returned' : 'pending';
     const closedOn = state === 'collected' ? m!.on : state === 'returned' ? (m?.retOn || (o.returned?.at ? cairoDay(o.returned.at) : '')) : '';
-    const w: WhOrder = { ref: o.ref, day, closedOn, waybill: o.waybill, pieces: o.lines.length, value: Number(o.total) || 0, state, due: m?.due ?? 0, stl: m ? [...m.stl] : [], on: m?.on ?? '' };
+    const w: WhOrder = { ref: o.ref, day, closedOn, waybill: o.waybill, pieces: o.lines.length, value: state === 'pending' ? o.lines.reduce((a, sku) => a + price(sku), 0) : Number(o.total) || 0, state, due: m?.due ?? 0, stl: m ? [...m.stl] : [], on: m?.on ?? '' };
     const d = days.get(day) ?? { day, orders: 0, pieces: 0, collected: 0, returned: 0, pending: 0, collectedPieces: 0, returnedPieces: 0, pendingPieces: 0, value: 0, collectedValue: 0, returnedValue: 0, pendingValue: 0, closedOn: '', due: 0, paidOn: [], list: [] };
     d.orders++; d.pieces += w.pieces; d.value += w.value; d[state]++;
     if (state === 'pending') { d.pendingPieces += w.pieces; d.pendingValue += w.value; } else if (state === 'returned') { d.returnedPieces += w.pieces; d.returnedValue += w.value; } else { d.collectedPieces += w.pieces; d.collectedValue += w.value; }

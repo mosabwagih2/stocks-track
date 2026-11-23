@@ -1,4 +1,5 @@
 import type { Snapshot } from './types';
+import { supplyPrice } from './price';
 import { addDays, cairoDay, dayDiff } from './dates';
 import { collectedOf, type Settlement } from './settle';
 
@@ -11,7 +12,7 @@ import { collectedOf, type Settlement } from './settle';
 export interface StockDay { day: string; ready: number; clean: number; scrap: number; lost: number; owned: number; value: number; readyValue: number }
 export function stockByDay(s: Pick<Snapshot, 'moves' | 'skus' | 'archivedSkus' | 'costs'>, from: string, to: string): StockDay[] {
   const model = new Map([...s.skus, ...(s.archivedSkus ?? [])].map((k) => [k.id, k.model]));
-  const cost = (sku: string) => { const c = s.costs?.[model.get(sku) ?? '']?.cost; return c && Number.isFinite(c) && c > 0 ? c : 0; };
+  const cost = (sku: string) => supplyPrice(s.costs?.[model.get(sku) ?? '']);
   type Acc = { ready: number; clean: number; scrap: number; lost: number; readyValue: number; value: number };
   const zero = (): Acc => ({ ready: 0, clean: 0, scrap: 0, lost: 0, readyValue: 0, value: 0 });
   const slot = (loc: string): keyof Acc | null => (loc === 'READY' ? 'ready' : loc === 'DIRTY' || loc === 'FACTORY' ? 'clean' : loc === 'SCRAP' ? 'scrap' : loc === 'LOST' ? 'lost' : null);
